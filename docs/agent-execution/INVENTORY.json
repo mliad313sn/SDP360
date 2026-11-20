@@ -15,7 +15,7 @@
   "jobs": 33,
   "jobs_without_test_reference": 0,
   "migrations": 110,
-  "test_files": 907
+  "test_files": 910
  },
  "pages": [
   {
@@ -4273,7 +4273,7 @@
    "method": "PUT",
    "path": "/api/field/outbox/:uuid",
    "file": "routes/field.js",
-   "line": 269,
+   "line": 277,
    "tests": [
     "tests/field-actions-dialog-browser.test.js",
     "tests/field-inspection-action-status.smoke.test.js",
@@ -4307,7 +4307,7 @@
    "method": "PUT",
    "path": "/api/field/uploads/:id/chunks/:idx",
    "file": "routes/field.js",
-   "line": 347,
+   "line": 355,
    "tests": [
     "tests/emergency-access.smoke.test.js",
     "tests/field-routes.smoke.test.js",
@@ -4319,7 +4319,7 @@
    "method": "POST",
    "path": "/api/field/uploads/:id/complete",
    "file": "routes/field.js",
-   "line": 356,
+   "line": 364,
    "tests": [
     "tests/emergency-access.smoke.test.js",
     "tests/field-routes.smoke.test.js",
@@ -4331,7 +4331,7 @@
    "method": "GET",
    "path": "/api/field/uploads/:id",
    "file": "routes/field.js",
-   "line": 344,
+   "line": 352,
    "tests": [
     "tests/emergency-access.smoke.test.js",
     "tests/field-routes.smoke.test.js",
@@ -4343,7 +4343,7 @@
    "method": "POST",
    "path": "/api/field/uploads",
    "file": "routes/field.js",
-   "line": 326,
+   "line": 334,
    "tests": [
     "tests/emergency-access.smoke.test.js",
     "tests/field-routes.smoke.test.js",
@@ -4976,6 +4976,7 @@
     "tests/finance-certification.smoke.test.js",
     "tests/governance-routes.smoke.test.js",
     "tests/hostile-input-r4.smoke.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
@@ -5026,6 +5027,7 @@
     "tests/finance-certification.smoke.test.js",
     "tests/governance-routes.smoke.test.js",
     "tests/hostile-input-r4.smoke.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
@@ -5076,6 +5078,7 @@
     "tests/finance-certification.smoke.test.js",
     "tests/governance-routes.smoke.test.js",
     "tests/hostile-input-r4.smoke.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
@@ -5205,6 +5208,7 @@
    "line": 836,
    "tests": [
     "tests/governance-routes.smoke.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
@@ -5245,6 +5249,7 @@
    "line": 59,
    "tests": [
     "tests/governance-routes.smoke.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
@@ -5285,6 +5290,7 @@
    "line": 911,
    "tests": [
     "tests/governance-routes.smoke.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
@@ -5325,6 +5331,7 @@
    "line": 845,
    "tests": [
     "tests/governance-routes.smoke.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
@@ -5365,6 +5372,7 @@
    "line": 115,
    "tests": [
     "tests/governance-routes.smoke.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
@@ -5405,6 +5413,7 @@
    "line": 54,
    "tests": [
     "tests/governance-routes.smoke.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
@@ -5445,6 +5454,7 @@
    "line": 71,
    "tests": [
     "tests/governance-routes.smoke.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
@@ -5485,6 +5495,7 @@
    "line": 83,
    "tests": [
     "tests/governance-routes.smoke.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
@@ -5525,6 +5536,7 @@
    "line": 98,
    "tests": [
     "tests/governance-routes.smoke.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
@@ -5565,6 +5577,7 @@
    "line": 43,
    "tests": [
     "tests/governance-routes.smoke.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
@@ -5605,6 +5618,7 @@
    "line": 617,
    "tests": [
     "tests/governance-routes.smoke.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
@@ -5645,6 +5659,7 @@
    "line": 682,
    "tests": [
     "tests/governance-routes.smoke.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
@@ -5685,6 +5700,7 @@
    "line": 733,
    "tests": [
     "tests/governance-routes.smoke.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
@@ -5725,6 +5741,7 @@
    "line": 750,
    "tests": [
     "tests/governance-routes.smoke.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
@@ -5847,6 +5864,7 @@
     "tests/finance-certification.smoke.test.js",
     "tests/governance-routes.smoke.test.js",
     "tests/hostile-input-r4.smoke.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
@@ -8939,7 +8957,7 @@
    "method": "POST",
    "path": "/api/integrations/analytics/test",
    "file": "routes/adminConfig.js",
-   "line": 169,
+   "line": 167,
    "tests": [
     "tests/e2e-outbound-guard.test.js",
     "tests/teams-sla-admin-card.test.js"
@@ -8950,7 +8968,7 @@
    "method": "GET",
    "path": "/api/integrations/analytics",
    "file": "routes/adminConfig.js",
-   "line": 140,
+   "line": 138,
    "tests": [
     "tests/analytics-integration-routes.smoke.test.js",
     "tests/e2e-outbound-guard.test.js",
@@ -8963,7 +8981,7 @@
    "method": "PUT",
    "path": "/api/integrations/analytics",
    "file": "routes/adminConfig.js",
-   "line": 153,
+   "line": 151,
    "tests": [
     "tests/analytics-integration-routes.smoke.test.js",
     "tests/e2e-outbound-guard.test.js",
@@ -9882,6 +9900,7 @@
    "line": 99,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
    ]
@@ -9914,6 +9933,7 @@
    "file": "routes/policyCenter.js",
    "line": 191,
    "tests": [
+    "tests/p11-r5-security.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
    ]
@@ -9925,6 +9945,7 @@
    "file": "routes/policyCenter.js",
    "line": 193,
    "tests": [
+    "tests/p11-r5-security.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
    ]
@@ -9936,6 +9957,7 @@
    "file": "routes/policyCenter.js",
    "line": 192,
    "tests": [
+    "tests/p11-r5-security.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
    ]
@@ -9947,6 +9969,7 @@
    "file": "routes/policyCenter.js",
    "line": 144,
    "tests": [
+    "tests/p11-r5-security.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
    ]
@@ -9958,6 +9981,7 @@
    "file": "routes/policyCenter.js",
    "line": 118,
    "tests": [
+    "tests/p11-r5-security.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
    ]
@@ -9969,6 +9993,7 @@
    "file": "routes/policyCenter.js",
    "line": 135,
    "tests": [
+    "tests/p11-r5-security.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
    ]
@@ -10223,6 +10248,7 @@
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
+    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -10255,6 +10281,7 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -10324,6 +10351,7 @@
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
+    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -10356,6 +10384,7 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -10425,6 +10454,7 @@
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
+    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -10457,6 +10487,7 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -10526,6 +10557,7 @@
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
+    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -10558,6 +10590,7 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -10627,6 +10660,7 @@
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
+    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -10659,6 +10693,7 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -10728,6 +10763,7 @@
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
+    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -10760,6 +10796,7 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -10829,6 +10866,7 @@
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
+    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -10861,6 +10899,7 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -10930,6 +10969,7 @@
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
+    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -10962,6 +11002,7 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -11031,6 +11072,7 @@
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
+    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -11063,6 +11105,7 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -11132,6 +11175,7 @@
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
+    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -11164,6 +11208,7 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -11233,6 +11278,7 @@
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
+    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -11265,6 +11311,7 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -11334,6 +11381,7 @@
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
+    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -11366,6 +11414,7 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -11435,6 +11484,7 @@
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
+    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -11467,6 +11517,7 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -11536,6 +11587,7 @@
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
+    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -11568,6 +11620,7 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -11637,6 +11690,7 @@
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
+    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -11669,6 +11723,7 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -11738,6 +11793,7 @@
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
+    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -11770,6 +11826,7 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -11839,6 +11896,7 @@
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
+    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -11871,6 +11929,7 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -11940,6 +11999,7 @@
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
+    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -11972,6 +12032,7 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -12041,6 +12102,7 @@
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
+    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -12073,6 +12135,7 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -12142,6 +12205,7 @@
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
+    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -12174,6 +12238,7 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -12243,6 +12308,7 @@
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
+    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -12275,6 +12341,7 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -12344,6 +12411,7 @@
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
+    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -12376,6 +12444,7 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -12445,6 +12514,7 @@
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
+    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -12477,6 +12547,7 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -12546,6 +12617,7 @@
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
+    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -12578,6 +12650,7 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -12758,6 +12831,7 @@
     "tests/api-key-injection.smoke.test.js",
     "tests/auth-cookie.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
+    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/e2e-outbound-guard.test.js",
     "tests/multi-site-editor.smoke.test.js",
     "tests/session-security.smoke.test.js",
@@ -13138,7 +13212,7 @@
    "method": "DELETE",
    "path": "/api/reports/sessions/:token",
    "file": "routes/adminUsers.js",
-   "line": 209,
+   "line": 222,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/route-matrix-probe-order.test.js",
@@ -13150,7 +13224,7 @@
    "method": "GET",
    "path": "/api/reports/sessions/active",
    "file": "routes/adminUsers.js",
-   "line": 176,
+   "line": 189,
    "tests": [
     "tests/session-security.smoke.test.js"
    ]
@@ -13346,7 +13420,7 @@
    "method": "POST",
    "path": "/api/reports/test-smtp",
    "file": "routes/adminConfig.js",
-   "line": 187,
+   "line": 185,
    "tests": []
   },
   {
@@ -13354,7 +13428,7 @@
    "method": "DELETE",
    "path": "/api/reports/users/:id",
    "file": "routes/adminUsers.js",
-   "line": 155,
+   "line": 168,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -13367,6 +13441,7 @@
     "tests/identity-log.smoke.test.js",
     "tests/inventory-strict.test.js",
     "tests/multi-site-editor.smoke.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/uat-amdec-org-models.smoke.test.js",
@@ -13378,7 +13453,7 @@
    "method": "PUT",
    "path": "/api/reports/users/:id",
    "file": "routes/adminUsers.js",
-   "line": 134,
+   "line": 140,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -13391,6 +13466,7 @@
     "tests/identity-log.smoke.test.js",
     "tests/inventory-strict.test.js",
     "tests/multi-site-editor.smoke.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/uat-amdec-org-models.smoke.test.js",
@@ -13425,6 +13501,7 @@
     "tests/identity-log.smoke.test.js",
     "tests/inventory-strict.test.js",
     "tests/multi-site-editor.smoke.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/uat-amdec-org-models.smoke.test.js",
@@ -13449,6 +13526,7 @@
     "tests/identity-log.smoke.test.js",
     "tests/inventory-strict.test.js",
     "tests/multi-site-editor.smoke.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/uat-amdec-org-models.smoke.test.js",
@@ -13514,6 +13592,7 @@
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
+    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -13546,6 +13625,7 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
+    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -14275,6 +14355,7 @@
    "file": "routes/teamsSla.js",
    "line": 28,
    "tests": [
+    "tests/p11-r5-security.smoke.test.js",
     "tests/teams-sla-admin-card.test.js",
     "tests/teams-sla-routes.smoke.test.js"
    ]
@@ -14286,6 +14367,7 @@
    "file": "routes/teamsSla.js",
    "line": 46,
    "tests": [
+    "tests/p11-r5-security.smoke.test.js",
     "tests/teams-sla-admin-card.test.js",
     "tests/teams-sla-routes.smoke.test.js"
    ]

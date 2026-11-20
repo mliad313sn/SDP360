@@ -151,3 +151,46 @@ authz-outcomes 5/5. `npx eslint .` clean. Full suite not run (orchestrator).
 Not solved here (recorded): `tools/ops/activate-switches.js` and direct DB writes bypass four-eyes (operator with DB
 credentials); the strict side of each key is an engineering classification for Information Security to review;
 R1-F2/F3/F4/F5 untouched (human decisions); R2-N3 residual unchanged.
+
+---
+
+## Fix 21 — P11 round 5 security findings (N-R5-1, N-R5-2, N-R5-5, R2-N3 residual, lots-on authz probe) (AI evidence)
+
+**AI evidence, not an independent human review.** Branch `fix/p11-r5-security`, worktree `/home/user/w/fix21`. No push,
+merge, tag, live system or human decision field touched. Each new repro test was run against the unfixed code first
+(`git stash` of `routes/ services/ reports-db.js`: 4 FAIL) and after the fix (PASS).
+
+| Finding | Fix | Test (fails before, passes after) |
+|---|---|---|
+| N-R5-1 (P2) `PUT /api/teams-sla/settings {enabled:true}` armed the four-eyes switch `teams_sla_enabled` alone while the center is on | Fix 14's rule is now ONE helper, `services/fourEyesGuard.js` (`blockedKeys` / `guardedSetConfig`): while `policy_center_enabled='1'`, a four-eyes `report_config` key whose change needs a second person (`policyCatalogue.needsSecondPerson` — a move towards the strict side stays immediate) is a typed 409 `CONFLICT` pointing to the Policy Center. Every route writer goes through it: `teamsSla`, `adminConfig` (generic PUT keeps "any change refused", analytics PUT), `policies`, `trackers`, `opmanager`, `assets`, `governanceWorkbench`. Only `routes/policyCenter.js` (the request flow) writes directly. | `tests/p11-r5-security.smoke.test.js` test 1; `tests/four-eyes-guard.test.js` (4: enumerates every `setConfig(` caller under `routes/`, `services/`, `server.js` — a new direct writer fails the test; operator CLIs under `tools/` are a known list) |
+| N-R5-2 (P2) independent-approver bypass by password reset (Policy Center request, Lot 5 review decision) | `services/approverProvenance.js` rule 5: the requester resetting the approver's credentials — `password_reset`, a `user_updated` touching password / e-mail / active, or `user_email_changed` (new journal row from the bulk SSO e-mail mapping) — **ever**, directly or through the chain, makes the approver not independent (fail closed). The admin reset now writes its `password_reset` row awaited (risk 1, with the actor) so the check cannot race it. Applies to every caller of the provenance check (Policy Center approvals, Lot 5 review workflow). | p11-r5 smoke tests 2 (reviewer's `r5-takeover` repro: approve as the reset super2 → 403, value unchanged; an independent third super_admin still approves) and 3 (Lot 5: decider whose password the requester reset → `APPROVER_NOT_INDEPENDENT`; independent committee member decides) |
+| N-R5-5 (P3) an admin password reset left the target's sessions alive | `reports-db.revokeUserSessions(userId, {exceptToken})`; `PUT /api/reports/users/:id` with a password revokes every session of the target (a self-reset keeps the caller's current session) and answers `sessions_revoked` | p11-r5 smoke test 2 (old super2 token → 401 after the reset) |
+| R2-N3 residual (P3) field inspection id: foreign existing → 409, unused → 200 | The field path creates an inspection only for a field-app id (`EM-IT-<date>-F` + 12 hex, 48 random bits — `public/field/app.js fieldInspectionId`). A foreign existing id and an unused non-field id get ONE identical refusal (`409 inspection_exists`, generic text, no detail); the phone's existing "copy as a new inspection" action re-keys a legacy queued id (nothing lost). Own replay and own-scope ids unchanged. Field tests map their readable ids through `tests/_field-id.js`. | `tests/field-inspection-action-status.smoke.test.js` "R2-N3 r5" (identical status + body; nothing created; field id applies) |
+| Authz probe caveat (lots off) | `tests/authz-outcomes-lots-on.smoke.test.js` + snapshot `docs/ops/authz-outcomes-lots-on.json` (regenerate with `AUTHZ_OUTCOMES_UPDATE=1`): every switch of lots L14/L15/L16 on (20 keys incl. `ppm_alert_actions_enabled`, `ppm_dq_gate_enforced`, the `ui_*` adoption switches, `ext_api_portfolio_enabled`; outbound / kill-switch keys stay off), 290 governance / `/api/v1` / `/odata` / `auth/me` routes × 23 personas: invariants, money sentinels, "no baseline 401/403 lifted", snapshot. | 5/5 |
+
+Lots-on review (AI reading of the snapshot, not a decision): the reviewer's premise was partly wrong — `bootWorld`
+already arms every `*_enabled` switch, so most Lot 2–6 routes were probed; their all-persona `N` cells were missing
+objects (`:docId` / `:lineId` = 1 does not exist), not closed switches. Compared with the baseline snapshot, exactly
+ONE row changes with the lots on: `GET /api/governance/portfolio/alerts` `N…N` → `A` for every signed-in persona except
+business-only (`F`) — the same audience as `GET /api/governance/portfolio` itself (reads the reader's scoped portfolio,
+amounts gated, money scan clean). No 401/403 lifted, no invariant or money violation. Left as **PROPOSED** for
+Information Security / PMO: whether management alerts should be committee-only rather than "any portfolio reader";
+seeding Lot 6 objects (a document, a demand line, a dependency) in the probe world so their per-object routes are
+measured beyond 404.
+
+Changed authz rows: none in `docs/ops/authz-outcomes.json` (re-run 5/5 unchanged — the probe sends empty bodies, which
+never change a four-eyes key or a password) or the route matrices (no route added or re-gated). New snapshot
+`docs/ops/authz-outcomes-lots-on.json`.
+
+Runs: new / affected batch 363/363 (policy-center-*, approver-provenance, teams-sla*, report-config*, user*/session*,
+field-*, authz-* except outcomes, rbac-*, csp-*, error-shape, readme-truth, agent-inventory, inventory-*, four-eyes,
+p11-r5) + 258/258 (system-log, identity-log, await-precedence, teams-sla, policies, tracker*, governance-workbench,
+roadmap-migration, opm-routes, wan-sla, assets-depreciation, site-code, retention, dashkey); `authz-outcomes` 5/5,
+`authz-outcomes-lots-on` 5/5. `npx eslint .` clean. Full suite not run (orchestrator).
+
+Not solved here (recorded, PROPOSED): the operator CLIs `tools/ops/activate-switches.js`, `tools/governance/apply-values.js`,
+`tools/reports/set-ui-policy.js` still write `report_config` without the guard (shell + DB credentials; listed in
+`four-eyes-guard.test.js` so a new one is noticed); a password reset by a THIRD super_admin acting for the requester is
+not detectable from the journal (collusion is out of scope for a two-person rule); N-R5-3 / N-R5-4 belong to fix 20.
+Human decision still open: **HD-S04** (rely on the center's double control) — these fixes close the two R5 doors but do
+not decide it.
