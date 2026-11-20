@@ -15,7 +15,7 @@
   "jobs": 33,
   "jobs_without_test_reference": 0,
   "migrations": 110,
-  "test_files": 907
+  "test_files": 908
  },
  "pages": [
   {
@@ -1917,13 +1917,14 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 73416,
+   "bytes": 73718,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/adoption-lotb-landing.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
     "tests/landing.test.js",
+    "tests/p11-r5-data-fixes.test.js",
     "tests/shell-navigation.test.js",
     "tests/site-awareness-sla-parity.test.js",
     "tests/ui-design-ratchet.test.js"
@@ -13961,7 +13962,7 @@
    "method": "GET",
    "path": "/api/site-awareness/actions",
    "file": "routes/siteAwareness.js",
-   "line": 297,
+   "line": 293,
    "tests": [
     "tests/site-awareness-routes.smoke.test.js"
    ]
@@ -13971,7 +13972,7 @@
    "method": "GET",
    "path": "/api/site-awareness/audit",
    "file": "routes/siteAwareness.js",
-   "line": 530,
+   "line": 528,
    "tests": [
     "tests/site-awareness-routes.smoke.test.js"
    ]
@@ -13981,7 +13982,7 @@
    "method": "GET",
    "path": "/api/site-awareness/fleet",
    "file": "routes/siteAwareness.js",
-   "line": 414,
+   "line": 410,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/site-awareness-routes.smoke.test.js"
@@ -13992,7 +13993,7 @@
    "method": "GET",
    "path": "/api/site-awareness/helpdesk",
    "file": "routes/siteAwareness.js",
-   "line": 141,
+   "line": 137,
    "tests": [
     "tests/site-awareness-routes.smoke.test.js"
    ]
@@ -14002,7 +14003,7 @@
    "method": "GET",
    "path": "/api/site-awareness/inspections",
    "file": "routes/siteAwareness.js",
-   "line": 199,
+   "line": 195,
    "tests": [
     "tests/site-awareness-routes.smoke.test.js"
    ]
@@ -14012,7 +14013,7 @@
    "method": "GET",
    "path": "/api/site-awareness/meetings",
    "file": "routes/siteAwareness.js",
-   "line": 253,
+   "line": 249,
    "tests": [
     "tests/site-awareness-routes.smoke.test.js"
    ]
@@ -14022,7 +14023,7 @@
    "method": "GET",
    "path": "/api/site-awareness/summary",
    "file": "routes/siteAwareness.js",
-   "line": 126,
+   "line": 122,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/business-only-boundary.smoke.test.js",
@@ -14035,7 +14036,7 @@
    "method": "GET",
    "path": "/api/site-awareness/tracker",
    "file": "routes/siteAwareness.js",
-   "line": 358,
+   "line": 354,
    "tests": [
     "tests/site-awareness-routes.smoke.test.js"
    ]

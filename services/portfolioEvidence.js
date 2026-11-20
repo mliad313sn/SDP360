@@ -52,8 +52,15 @@ function ganttRows(projects, milestones = [], { now = new Date() } = {}) {
   });
 }
 
-/** Risk exposure = probability × impact (1..3 each → 1..9); open only. */
-function riskView(r) { return { ...r, exposure: Number(r.probability) * Number(r.impact), severity: Number(r.probability) * Number(r.impact) >= 6 ? 'high' : Number(r.probability) * Number(r.impact) >= 3 ? 'medium' : 'low' }; }
+/** Risk exposure = probability × impact (1..3 each → 1..9, inherent; null when unknown). P11 F-23: severity follows the
+ *  ONE portfolio rule (services/ppm/riskExposure.js): the effective level, residual first — high | critical → 'high',
+ *  medium, low, or null when the score is unknown (never 'low'). */
+function riskView(r) {
+  const RE = require('./ppm/riskExposure');
+  const inh = RE.level(r.probability, r.impact);
+  const eff = RE.effective(r);
+  return { ...r, exposure: inh ? Number(r.probability) * Number(r.impact) : null, level: eff, severity: eff == null ? null : (eff === 'critical' ? 'high' : eff) };
+}
 
 /** Monthly roll-up per programme: weighted evidence, objectives with auto evidence (the ≥ 50 % acceptance), late projects, high risks, budget. */
 function portfolioSummary({ programmes, objectiveViews, gantt, risks }) {
@@ -63,9 +70,10 @@ function portfolioSummary({ programmes, objectiveViews, gantt, risks }) {
     const scored = objs.filter(o => o.evidence_pct != null);
     const weighted = scored.length ? Math.round(scored.reduce((a, o) => a + o.evidence_pct * (Number(o.weight) || 1), 0) / scored.reduce((a, o) => a + (Number(o.weight) || 1), 0)) : null;
     const projs = gantt.filter(g => objs.some(o => o.id === g.objective_id));
-    const open = risks.filter(r => r.status === 'open' && projs.some(p => p.id === r.project_id)).map(riskView);
+    const RE = require('./ppm/riskExposure');
+    const mine = risks.filter(r => projs.some(p => p.id === r.project_id));
     return { programme: pr.key, name: pr.name, objectives: objs.length, auto_evidence: objs.filter(o => o.evidence_source === 'metric').length, auto_evidence_pct: objs.length ? Math.round(objs.filter(o => o.evidence_source === 'metric').length / objs.length * 100) : null,
-      weighted_evidence_pct: weighted, weight_total: w, projects: projs.length, late_projects: projs.filter(p => p.late || p.slip_days > 0).length, high_risks: open.filter(r => r.severity === 'high').length,
+      weighted_evidence_pct: weighted, weight_total: w, projects: projs.length, late_projects: projs.filter(p => p.late || p.slip_days > 0).length, high_risks: mine.filter(RE.isHigh).length,
       ...moneyRollup(projs) };
   });
 }

@@ -25,4 +25,18 @@ function tally(out, r, m) {
 }
 function pct(out) { return out.res_sla_den ? Math.round(((out.res_sla_den - out.res_sla_missed) / out.res_sla_den) * 1000) / 10 : null; }
 
-module.exports = { judged, mode, tally, pct };
+
+/** P11 F-24 — the Vue Groupe helpdesk cell, on the SAME closed-only doctrine (no second formula): the window reader's
+ *  res_sla_den / res_sla_missed (cancelled, open and no-rule tickets out of the base). Nothing closed → 'na' (never
+ *  green). Bands kept from the former cell, now on the missed share of CLOSED tickets: < 5 % green, < 15 % amber, else
+ *  red (display only, PROPOSED — G06). value = "missed/closed". */
+function fleetCell(hw) {
+  const h = hw || {};
+  const den = h.res_sla_den == null ? null : Number(h.res_sla_den);
+  const missed = h.res_sla_missed == null ? null : Number(h.res_sla_missed);
+  if (!Number.isFinite(den) || den <= 0 || !Number.isFinite(missed) || h.res_sla_pct == null) return { rag: 'na', value: null };   // unknown, never green
+  const rate = missed / den;
+  return { rag: rate < 0.05 ? 'green' : rate < 0.15 ? 'amber' : 'red', value: missed + '/' + den };
+}
+
+module.exports = { judged, mode, tally, pct, fleetCell };

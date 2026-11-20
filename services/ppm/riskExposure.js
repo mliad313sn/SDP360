@@ -6,6 +6,11 @@
 // PROPOSED (a PMO decision, not approved): the score → level mapping below (score = probability × impact, 1..9):
 //   1–2 low · 3–4 medium · 6 high · 9 critical. Unknown probability or impact → level null (never "low").
 // Project exposure = the highest level among its OPEN risks (kind risk / issue), residual when given, else inherent.
+// P11 F-23 — this file is the ONE "high risk" rule of the portfolio: isHigh(r) (open, kind risk | issue, effective level
+// residual-first high | critical; unknown score → not high, never "low") is used by the Lot 3 register
+// (portfolioRegister), the Lot 4 alerts (ppmAlerts high_risk) and portfolioEvidence.riskView (step-8 summary, deck).
+// P11 F-22 — a rollup with unknown-score risks does not claim a low / medium level: level null, level_at_least = the
+// highest known level, partial = true. A known high / critical is never hidden by an unknown sibling.
 const LEVELS = Object.freeze(['low', 'medium', 'high', 'critical']);
 const RANK = { low: 1, medium: 2, high: 3, critical: 4 };
 const MAPPING = Object.freeze({ status: 'PROPOSED', rule: 'score = probability × impact (1..3 each): 1–2 low, 3–4 medium, 6 high, 9 critical', source: 'services/ppm/riskExposure.js — IT portfolio spec §13 (PROPOSED, not approved)' });
@@ -28,6 +33,11 @@ function normaliseResidual(body) {
   return { residual_probability: one('residual_probability'), residual_impact: one('residual_impact'), due_date: due };
 }
 const isOpen = (r) => String(r.status || 'open') !== 'closed' && r.deleted_at == null;
+const inScope = (r) => r.kind !== 'assumption';
+/** Effective level of one risk: residual when both residual scores are known, else inherent; null when unknown. */
+const effective = (r) => level(r.residual_probability, r.residual_impact) || level(r.probability, r.impact);
+/** P11 F-23 — the shared high-risk predicate: open, kind risk | issue, effective level high | critical. */
+const isHigh = (r) => !!r && isOpen(r) && inScope(r) && ['high', 'critical'].includes(effective(r));
 /** One risk row as served (no amount: the RAID amounts stay behind their own rule in raid.js). */
 function view(r, { today } = {}) {
   const inherent = level(r.probability, r.impact), residual = level(r.residual_probability, r.residual_impact);
@@ -38,19 +48,21 @@ function view(r, { today } = {}) {
 }
 /** Project rollup over its risks (assumptions ignored). level null when no open risk carries a known level. */
 function rollup(risks, { today } = {}) {
-  const vs = (risks || []).filter((r) => r.kind !== 'assumption').map((r) => view(r, { today }));
+  const vs = (risks || []).filter(inScope).map((r) => view(r, { today }));
   const open = vs.filter((v) => v.status !== 'closed');
   const counts = { low: 0, medium: 0, high: 0, critical: 0, unknown: 0 };
   let top = null;
   for (const v of open) { const l = v.effective_exposure; if (!l) { counts.unknown += 1; continue; } counts[l] += 1; if (!top || RANK[l] > RANK[top]) top = l; }
-  return { level: top, open: open.length, counts, overdue: open.filter((v) => v.overdue).length, items: vs };
+  const partial = counts.unknown > 0;
+  const lvl = !partial || top === 'high' || top === 'critical' ? top : null;
+  return { level: lvl, level_at_least: top, partial, unknown: counts.unknown, open: open.length, counts, overdue: open.filter((v) => v.overdue).length, items: vs };
 }
 /** Portfolio rollup: per readable project + totals per level. */
 function portfolio(projects, risks, { today } = {}) {
   const by = new Map(); for (const r of risks || []) { const k = Number(r.project_id); if (!by.has(k)) by.set(k, []); by.get(k).push(r); }
-  const rows = (projects || []).map((p) => { const ru = rollup(by.get(Number(p.id)) || [], { today }); return { project_id: Number(p.id), key: p.key, name: p.name, site_id: p.site_id == null ? null : Number(p.site_id), level: ru.level, open: ru.open, overdue: ru.overdue, counts: ru.counts, declared: p.risk_exposure || null }; });
+  const rows = (projects || []).map((p) => { const ru = rollup(by.get(Number(p.id)) || [], { today }); return { project_id: Number(p.id), key: p.key, name: p.name, site_id: p.site_id == null ? null : Number(p.site_id), level: ru.level, level_at_least: ru.level_at_least, partial: ru.partial, unknown: ru.unknown, open: ru.open, overdue: ru.overdue, counts: ru.counts, declared: p.risk_exposure || null }; });
   const totals = { low: 0, medium: 0, high: 0, critical: 0, unknown: 0 };
   for (const r of rows) totals[r.level || 'unknown'] += 1;
   return { rows, totals, mapping: MAPPING };
 }
-module.exports = { LEVELS, MAPPING, level, normaliseResidual, view, rollup, portfolio };
+module.exports = { LEVELS, MAPPING, level, effective, isOpen, isHigh, normaliseResidual, view, rollup, portfolio };

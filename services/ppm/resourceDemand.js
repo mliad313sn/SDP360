@@ -5,7 +5,9 @@
 // a resource window (YYYY-MM … YYYY-MM), internal / external, a resource owner. This is DEMAND planning at portfolio
 // level; the task-level resource levelling engine (services/ppm/resources.js) is not touched and not called.
 //
-// Monthly load per skill = Σ average FTE of the lines active that month (peak shown alongside as Σ peak FTE).
+// Monthly load per skill = Σ average FTE of the lines active that month (peak shown alongside as Σ peak FTE). A dated
+// line without an average FTE is counted per cell (unknown_lines, partial) and makes the cell's RAG 'NA' unless the
+// known lines alone are already over capacity (RED is then certain) — P11 F-22.
 // Capacity = report_config ppm_capacity_fte (JSON {skill: fte, "*": fte for any other skill}); '' = UNKNOWN capacity →
 // utilisation null and RAG 'NA' (never green). PROPOSED thresholds (public/lib/kpiRag.js policy 'ppm-capacity', on
 // capacity ÷ demand): green ≥ 1.18 (≤ ~85 % utilised), amber ≥ 1.0 (85–100 %), red below (over capacity).
@@ -74,13 +76,25 @@ function monthlyLoad(lines, { capacity = {}, shifts = {}, exclude = null } = {})
   for (const l of lines || []) {
     if (exclude && exclude.has(Number(l.project_id))) continue;
     const ms = monthsOf(l, Number(shifts[Number(l.project_id)]) || 0);
-    if (!ms.length || l.avg_fte == null) { unplaced.push({ id: l.id == null ? null : Number(l.id), project_id: Number(l.project_id), skill: l.skill, reason: !ms.length ? 'no_window' : 'no_avg_fte' }); continue; }
+    if (!ms.length || l.avg_fte == null) unplaced.push({ id: l.id == null ? null : Number(l.id), project_id: Number(l.project_id), skill: l.skill, reason: !ms.length ? 'no_window' : 'no_avg_fte' });
+    if (!ms.length) continue;
+    // P11 F-22: a dated line with no average FTE still occupies its months — as an UNKNOWN line of the cell, so the
+    // cell's sum is a partial (lower-bound) figure and its RAG cannot be green or amber.
     const sk = skillKey(l.skill);
-    for (const m of ms) { months.add(m); const k = sk + '|' + m; const c = cells.get(k) || { skill: sk, month: m, avg_fte: 0, peak_fte: 0, peak_unknown: 0, projects: new Set() }; c.avg_fte += Number(l.avg_fte); if (l.peak_fte == null) c.peak_unknown += 1; else c.peak_fte += Number(l.peak_fte); c.projects.add(Number(l.project_id)); cells.set(k, c); }
+    for (const m of ms) {
+      months.add(m); const k = sk + '|' + m;
+      const c = cells.get(k) || { skill: sk, month: m, avg_fte: 0, peak_fte: 0, peak_unknown: 0, unknown_lines: 0, projects: new Set() };
+      if (l.avg_fte == null) c.unknown_lines += 1; else c.avg_fte += Number(l.avg_fte);
+      if (l.peak_fte == null) c.peak_unknown += 1; else c.peak_fte += Number(l.peak_fte);
+      c.projects.add(Number(l.project_id)); cells.set(k, c);
+    }
   }
   const out = [...cells.values()].sort((a, b) => (a.skill < b.skill ? -1 : a.skill > b.skill ? 1 : a.month < b.month ? -1 : 1)).map((c) => {
-    const cap = capOf(capacity, c.skill); const ev = evaluate(Math.round(c.avg_fte * 100) / 100, cap);
-    return { skill: c.skill, month: c.month, avg_fte: Math.round(c.avg_fte * 100) / 100, peak_fte: c.peak_unknown ? null : Math.round(c.peak_fte * 100) / 100, capacity_fte: cap, ...ev, projects: [...c.projects].sort((a, b) => a - b) };
+    const cap = capOf(capacity, c.skill); let ev = evaluate(Math.round(c.avg_fte * 100) / 100, cap);
+    // Known demand alone already over capacity → red whatever the unknown lines hold; otherwise a partial cell is unknown.
+    if (c.unknown_lines && ev.rag !== 'RED') ev = { utilisation_pct: null, rag: 'NA' };
+    return { skill: c.skill, month: c.month, avg_fte: Math.round(c.avg_fte * 100) / 100, peak_fte: c.peak_unknown ? null : Math.round(c.peak_fte * 100) / 100, capacity_fte: cap, ...ev,
+      unknown_lines: c.unknown_lines, partial: c.unknown_lines > 0, projects: [...c.projects].sort((a, b) => a - b) };
   });
   return { months: [...months].sort(), cells: out, unplaced, over: out.filter((c) => c.rag === 'RED').length, policy: { name: RAG_POLICY, ...KpiRag.POLICIES[RAG_POLICY] } };
 }

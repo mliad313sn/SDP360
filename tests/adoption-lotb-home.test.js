@@ -42,7 +42,7 @@ test('worst sites: red before amber, green / na never listed, null when nothing 
   const w = HG.worstSites(fleet, 3);
   assert.strictEqual(w.total, 4);
   assert.deepStrictEqual(w.items.map((s) => s.name), ['Ity', 'Houndé', 'Mana']);
-  assert.deepStrictEqual(HG.worstSites({ sites: [{ site_id: 4, overall_rag: 'green', cells: {} }] }), { total: 0, items: [] });
+  assert.deepStrictEqual(HG.worstSites({ sites: [{ site_id: 4, overall_rag: 'green', cells: {} }] }), { total: 0, measured: 1, unmeasured: 0, items: [] });
 });
 
 test('late projects and decisions use the server flags; a missing answer is not measured', () => {

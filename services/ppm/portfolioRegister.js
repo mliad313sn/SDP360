@@ -8,8 +8,16 @@
 // columns (budget, currency, budget status) only for an amount reader — the engine is the whitelist, so nothing else
 // of the project row can leave through this view.
 //
-// No second formula: data quality = services/ppm/dataQuality.js (evaluate, siteScores, ragOf); risk severity =
-// services/portfolioEvidence.riskView; the planned duration = the Lot 1 rule (end − start + 1).
+// No second formula: data quality = services/ppm/dataQuality.js (evaluate, siteScores, ragOf); high risk =
+// services/ppm/riskExposure.isHigh (P11 F-23: residual first, unknown score never "low"); the planned duration = the
+// Lot 1 rule (end − start + 1).
+//
+// P11 F-21 — drill-through rule: every KPI card and standard report carries `drill`, the exact filter patch its link
+// merges into the current address (Object.assign(filters, drill), lib/portfolioRegisterPage.merge), and its count is
+// computed on THAT merged state, so count == rows of the opened list, always. A list key the card narrows (priority,
+// decision_required) is INTERSECTED with the active selection; an empty intersection = no link and a count of 0. The
+// report slot is a single choice: a report link selects its report in place of the active one (the other filters
+// stay), and its count is computed with that choice.
 //
 // RULES BELOW ARE PROPOSED (a PMO decision, not approved policy):
 //   unfunded            budget status not_budgeted | requested | tbc (no approved funding); unknown status is NOT unfunded
@@ -23,7 +31,7 @@
 // stage-entry date. Currencies are never added together (per-currency maps only).
 
 const DQ = require('./dataQuality');
-const PE = require('../portfolioEvidence');
+const RX = require('./riskExposure');
 const UI = require('../../public/lib/portfolioRegister');
 
 const STALLED_DAYS = 90;
@@ -49,7 +57,7 @@ function stageAge(p, entries, now) {
 /** One register row per project (whitelist). */
 function rowOf(p, ctx) {
   const { siteName, risks, entries, now, money, intake, dqOn } = ctx;
-  const open = (risks || []).filter((r) => Number(r.project_id) === Number(p.id) && r.status === 'open').map(PE.riskView);
+  const highRisks = (risks || []).filter((r) => Number(r.project_id) === Number(p.id) && RX.isHigh(r)).length;
   const states = parse(p.value_states, {}) || {};
   const iv = (k) => (intake ? (p[k] === undefined ? null : p[k]) : null);
   const dur = isDay(p.start_date) && isDay(p.end_date) && p.end_date >= p.start_date
@@ -59,7 +67,7 @@ function rowOf(p, ctx) {
     id: p.id, ref: !blank(p.project_ref) ? p.project_ref : p.key, key: p.key, name: p.name, site_id: p.site_id == null ? null : Number(p.site_id),
     site: p.site_id == null ? null : (siteName.get(Number(p.site_id)) || null),
     project_type: iv('project_type'), priority: iv('priority'), status: p.status || null, stage: p.stage || null, stage_age_days: stageAge(p, entries, now),
-    risk_exposure: iv('risk_exposure'), high_risks: open.filter((r) => r.severity === 'high').length,
+    risk_exposure: iv('risk_exposure'), high_risks: highRisks,
     owner: p.owner || null, sponsor: p.sponsor || null, delivery_lead: iv('delivery_lead'), decision_required: iv('decision_required'),
     avg_fte: intake ? numOrNull(p.avg_fte) : null, delivery_effort: iv('delivery_effort'),
     start_date: p.start_date || null, end_date: p.end_date || null, duration_days: dur, actual_start: p.actual_start || null,
@@ -148,19 +156,35 @@ function dqOf(rows) {
   return s ? s.score : null;
 }
 
-function kpis(rows, { money, intake, dqOn }) {
-  const count = (f) => applyFilters(rows, f, { money }).length;
-  const dqRows = rows.filter((r) => r.dq_score != null);
-  const dqScore = dqOn ? dqOf(rows) : null;
+/** P11 F-21 — the link's filter patch: list keys intersected with the active selection (null = empty intersection). */
+function linkPatch(f, patch) {
+  const out = {};
+  for (const [k, v] of Object.entries(patch)) {
+    if (Array.isArray(v)) {
+      const cur = Array.isArray(f[k]) && f[k].length ? f[k] : null;
+      const vals = cur ? v.filter((x) => cur.includes(x)) : v;
+      if (!vals.length) return null;
+      out[k] = vals;
+    } else out[k] = v;
+  }
+  return out;
+}
+
+function kpis(all, f, filtered, { money, intake, dqOn }) {
+  const drilled = (patch) => { const d = linkPatch(f, patch); return d ? { drill: d, count: applyFilters(all, Object.assign({}, f, d), { money }).length } : { drill: null, count: 0 }; };
+  const dqScore = dqOn ? dqOf(filtered) : null;
+  const dq = dqOn ? drilled({ dq: 'scored' }) : { drill: null, count: null };
+  const card = (key, patch, extra) => { const d = drilled(patch); return { key, unit: 'count', value: d.count, count: d.count, drill: d.drill, reason: null, ...(extra || {}) }; };
   return [
-    { key: 'total_projects', unit: 'count', value: rows.length, count: rows.length, drill: {}, reason: null },
-    { key: 'data_quality', unit: '%', value: dqScore, count: dqOn ? dqRows.length : null, drill: dqOn ? { dq: 'scored' } : null,
-      reason: !dqOn ? 'DQ_DISABLED' : dqScore == null ? 'NO_SCORE' : null, rag: dqScore == null ? 'NA' : DQ.ragOf(dqScore, false), proposed: true },
-    intake ? { key: 'critical_high', unit: 'count', value: count({ priority: ['critical', 'high'] }), count: count({ priority: ['critical', 'high'] }), drill: { priority: ['critical', 'high'] }, reason: null }
+    { key: 'total_projects', unit: 'count', value: filtered.length, count: filtered.length, drill: {}, reason: null },
+    { key: 'data_quality', unit: '%', value: dqScore, count: dq.count, drill: dq.drill,
+      reason: !dqOn ? 'DQ_DISABLED' : dqScore == null ? 'NO_SCORE' : null, rag: dqScore == null ? 'NA' : DQ.ragOf(dqScore, false), proposed: true,
+      scope: money ? 'with_budget_checks' : 'without_budget_checks' },
+    intake ? card('critical_high', { priority: ['critical', 'high'] })
       : { key: 'critical_high', unit: 'count', value: null, count: null, drill: null, reason: 'INTAKE_DISABLED' },
-    money ? { key: 'budget_identified', unit: 'money', value: perCurrency(rows, (r) => r.budget > 0), count: count({ budget: 'identified' }), drill: { budget: 'identified' }, reason: null }
+    money ? (() => { const d = drilled({ budget: 'identified' }); return { key: 'budget_identified', unit: 'money', value: perCurrency(filtered, (r) => r.budget > 0), count: d.count, drill: d.drill, reason: null }; })()
       : { key: 'budget_identified', unit: 'money', value: null, count: null, drill: null, reason: 'MONEY_HIDDEN' },
-    intake ? { key: 'decisions_required', unit: 'count', value: count({ decision_required: ['yes'] }), count: count({ decision_required: ['yes'] }), drill: { decision_required: ['yes'] }, reason: null }
+    intake ? card('decisions_required', { decision_required: ['yes'] })
       : { key: 'decisions_required', unit: 'count', value: null, count: null, drill: null, reason: 'INTAKE_DISABLED' },
   ];
 }
@@ -246,9 +270,13 @@ function build(projects, opts = {}) {
   const filtered = applyFilters(all, opts.filters || {}, { money: ctx.money });
   const rows = sortRows(filtered, opts.sort, opts.dir);
   const year = Number.isInteger(opts.year) ? opts.year : now.getUTCFullYear();
-  const reports = UI.REPORTS.map((r) => ({ key: r.key, count: REPORT_RULES[r.key].money && !ctx.money ? null : filtered.filter(REPORT_RULES[r.key].test).length,
-    ...(REPORT_RULES[r.key].money && !ctx.money ? { reason: 'MONEY_HIDDEN' } : {}), ...(r.key === 'data_quality' && !ctx.dqOn ? { count: null, reason: 'DQ_DISABLED' } : {}) }));
-  return { rows: rows.map(publicRow), total: all.length, options: optionsOf(all, ctx), kpis: kpis(filtered.map((r) => r), ctx), analyses: analyses(filtered, ctx), load: monthlyLoad(filtered, year, ctx), reports, stalled_days: STALLED_DAYS, proposed: true };
+  const reports = UI.REPORTS.map((r) => {
+    if (REPORT_RULES[r.key].money && !ctx.money) return { key: r.key, count: null, drill: null, reason: 'MONEY_HIDDEN' };
+    if (r.key === 'data_quality' && !ctx.dqOn) return { key: r.key, count: null, drill: null, reason: 'DQ_DISABLED' };
+    const drill = { report: r.key };   // P11 F-21: the count of exactly the list the link opens
+    return { key: r.key, count: applyFilters(all, Object.assign({}, opts.filters || {}, drill), { money: ctx.money }).length, drill };
+  });
+  return { rows: rows.map(publicRow), total: all.length, options: optionsOf(all, ctx), kpis: kpis(all, opts.filters || {}, filtered, ctx), analyses: analyses(filtered, ctx), load: monthlyLoad(filtered, year, ctx), reports, stalled_days: STALLED_DAYS, proposed: true };
 }
 /** Filter choices from the readable rows (before filtering): distinct known values; money fields only for an amount reader. */
 function optionsOf(rows, { money, intake }) {

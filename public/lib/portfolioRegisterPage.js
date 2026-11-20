@@ -88,7 +88,8 @@
       $('prMeta').textContent = `${j.rows.length} ${T.rows} ${T.of} ${j.total} · ${String(j.as_of || '').slice(0, 16).replace('T', ' ')}${j.money_hidden ? ' · ' + T.MONEY_HIDDEN : ''} · ${T.proposed}`;
       if (!drawn) { drawFilters(j); drawn = true; }   // drawn once: a re-render would move the keyboard focus
       $('prKpis').innerHTML = PR.kpiHtml(j.kpis, { esc, T, merge });
-      $('prReports').innerHTML = (j.reports || []).map((r) => { const d = PR.REPORTS.find((x) => x.key === r.key); return `<a href="${esc(merge({ report: r.key }))}">${esc(d[lang === 'fr' ? 'fr' : 'en'])} (${r.count == null ? '—' : esc(r.count)})</a>`; }).join(' · ');
+      // P11 F-21: each report link opens exactly r.drill; its count is computed on that same state.
+      $('prReports').innerHTML = (j.reports || []).map((r) => { const d = PR.REPORTS.find((x) => x.key === r.key); const lab = `${esc(d[lang === 'fr' ? 'fr' : 'en'])} (${r.count == null ? '—' : esc(r.count)})`; return r.drill ? `<a href="${esc(merge(r.drill))}">${lab}</a>` : `<span>${lab}</span>`; }).join(' · ');
       $('prRowsH').textContent = `${T.title} (${j.rows.length})`;
       $('prTable').innerHTML = PR.tableHtml(j.rows, { cols: j.cols, esc, T, lang, sort: state.sort, dir: state.dir, merge });
       $('prAnalyses').innerHTML = analysesHtml(j.analyses, j);
