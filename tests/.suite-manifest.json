@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 5887,
+ "total": 5906,
  "files": {
   "a11y-legacy-ratchet.test.js": 3,
   "a11y-static.test.js": 18,
@@ -836,7 +836,7 @@
   "ppm-p04-kits.test.js": 3,
   "ppm-p04-reconcile.smoke.test.js": 1,
   "ppm-p04-rollups.test.js": 4,
-  "perf-budget-check.test.js": 4,
+  "perf-budget-check.test.js": 6,
   "perf-calendar-helpdesk-scan.test.js": 1,
   "sli-readings.test.js": 9,
   "authz-handler-checks.test.js": 3,
@@ -875,7 +875,7 @@
   "adoption-lota-nav-authz.test.js": 5,
   "adoption-lota-truth.test.js": 7,
   "adoption-lota-labels.test.js": 6,
-  "activate-switches.test.js": 8,
+  "activate-switches.test.js": 11,
   "ppm-data-quality-pure.test.js": 10,
   "ppm-data-quality.smoke.test.js": 3,
   "ppm-data-quality-ui.test.js": 3,
@@ -899,7 +899,7 @@
   "portfolio-register.smoke.test.js": 4,
   "adoption-lotb-home.test.js": 9,
   "adoption-lotb-landing.test.js": 5,
-  "business-readiness.test.js": 8,
+  "business-readiness.test.js": 9,
   "portfolio-lot5-pure.test.js": 13,
   "portfolio-lot5-page.test.js": 4,
   "portfolio-lot5.smoke.test.js": 8,
@@ -913,6 +913,9 @@
   "portfolio-r5-ppm.smoke.test.js": 4,
   "four-eyes-guard.test.js": 4,
   "p11-r5-security.smoke.test.js": 3,
-  "authz-outcomes-lots-on.smoke.test.js": 5
+  "authz-outcomes-lots-on.smoke.test.js": 5,
+  "auth-db-busy.smoke.test.js": 4,
+  "rollback-scripts-transactional.test.js": 2,
+  "blob-backup.test.js": 7
  }
 }

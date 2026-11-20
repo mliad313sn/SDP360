@@ -37,7 +37,7 @@ function middleware({ getRdb }) {
     if (!tokens.length || !rdb) return next();
     for (const token of tokens) {
       let user = null;
-      try { user = await rdb.validateSession(token); } catch (e) { user = null; }
+      try { user = await rdb.validateSession(token); } catch (e) { if (e && e.code === 'DB_BUSY') return require('./httpError').fail(res, e); user = null; }
       if (user && isBusinessOnly(user.roles || [])) {
         return res.status(403).json({ error: 'Your account gives access to the site view only.' });
       }

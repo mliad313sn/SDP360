@@ -3,7 +3,7 @@
 //
 //   node tools/pg/restore-drill.js [--dump <file>] [--backup-first] [--dir <backupDir>]
 //                                  [--report-dir <dir>] [--keep-target] [--no-log]
-//                                  [--full] [--blob-backup <dir>]
+//                                  [--full] [--blob-backup <dir>] [--blob-archive <file>]
 //
 //   1. picks the newest dump in SDP_BACKUP_DIR (or --dump), opens it (gunzip + AES-256-GCM with
 //      SDP_BACKUP_KEY when the file is .enc) and checks pg_dump's trailer;
@@ -16,6 +16,11 @@
 //   4. counts the same tables on the copy, drops the target, writes docs/ops/restore-drills/<date>.md
 //      and a `restore_drill` system_log row (category 'ops');
 //   5. exits 1 when any compared table differs by one row or more.
+//   P11 r5 N-14 — EVERY drill also checks the file store (<DATA_DIR>/blobs: photos, signatures, field uploads, project
+//   documents): the archive of the same backup run (sdp_blobs_<stamp>.blobs[.enc], or --blob-archive <file>) is read
+//   back record by record (decrypted, hashed), compared with its manifest (count + SHA-256) and with the live store.
+//   A live file missing from the archive, a different hash, an unreadable archive, or files on disk with no archive
+//   at all → FAIL (exit 1). Restore the files for real with tools/pg/restore-blobs.js.
 //
 // F-ARCH-05 — `--full` (or report_config.restore_drill_full = '1' for the monthly job; default '0')
 // adds the full-service steps: the backup key opened the dump, the config key opens the encrypted
@@ -140,7 +145,7 @@ async function readConfigValue(client, key) {
 }
 
 /** Full-service steps run while the restored copy still exists. Never logs or returns a secret value. */
-async function fullSteps({ env, tc, schema, encrypted, opened, blobRoot, blobBackup, sampleMax }) {
+async function fullSteps({ env, tc, schema, encrypted, opened, blobRoot, blobBackup, blobCopy = null, sampleMax }) {
   const secrets = require('../../services/configSecrets');
   const steps = [];
   steps.push(drill.backupKeyStep({ keySet: !!backup.deriveKey(env.SDP_BACKUP_KEY), encrypted, opened }));
@@ -158,14 +163,16 @@ async function fullSteps({ env, tc, schema, encrypted, opened, blobRoot, blobBac
   steps.push(drill.configKeyStep({ keySet: !!cfgKey, boxes, opened: openedBoxes }));
 
   const liveRefs = listFiles(blobRoot);
-  const copyOk = !!blobBackup && fs.existsSync(blobBackup);
+  // P11 r5 N-14 — the verified file-store archive of the backup run is a backup copy (ref → size + SHA-256 read back)
+  const copyOk = !!blobCopy || (!!blobBackup && fs.existsSync(blobBackup));
+  const copyOf = (refs) => (blobCopy ? Object.fromEntries((refs || []).filter((r) => blobCopy[r]).map((r) => [r, blobCopy[r]])) : hashRefs(blobBackup, refs || []));
   let blobStep;
   if (!copyOk) blobStep = drill.compareBlobs(null, null);
   else if (liveRefs == null) blobStep = drill.compareBlobs([], {});   // no live store yet = nothing to restore
   else {
     const sample = drill.sampleEvenly(liveRefs, sampleMax);
     const liveHashes = hashRefs(blobRoot, sample);
-    blobStep = drill.compareBlobs(sample.map((ref) => ({ ref, ...liveHashes[ref] })), hashRefs(blobBackup, sample), { total: liveRefs.length });
+    blobStep = drill.compareBlobs(sample.map((ref) => ({ ref, ...liveHashes[ref] })), copyOf(sample), { total: liveRefs.length });
   }
   steps.push(blobStep);
 
@@ -174,7 +181,7 @@ async function fullSteps({ env, tc, schema, encrypted, opened, blobRoot, blobBac
     const reg = await tc.query('SELECT to_regclass($1) AS r', [`${schema}.field_uploads`]);
     if (reg.rows[0] && reg.rows[0].r != null) refs = (await tc.query(`SELECT ref FROM ${schema}.field_uploads WHERE status = 'done' AND ref IS NOT NULL`)).rows.map((r) => String(r.ref));
   } catch (_) { refs = null; }
-  steps.push(drill.compareUploadRefs(refs, copyOk ? hashRefs(blobBackup, refs || []) : null));
+  steps.push(drill.compareUploadRefs(refs, copyOk ? copyOf(refs) : null));
   return steps;
 }
 
@@ -213,7 +220,7 @@ async function run(o = {}) {
   const notes = [];
 
   if (o.backupFirst) {
-    const b = await backup.runBackup({ dir, env, offsitePath: o.offsitePath || '', log: (m) => { notes.push(m.replace(/^\[backup\]\s*/, '')); log(m); } });
+    const b = await backup.runBackup({ dir, env, offsitePath: o.offsitePath || '', blobRoot: o.blobRoot, log: (m) => { notes.push(m.replace(/^\[backup\]\s*/, '')); log(m); } });
     if (b.skipped) throw new Error('restore-drill: backup skipped — ' + b.reason);
     log(`[restore-drill] fresh dump ${b.file} (${drill.fmtBytes(b.bytes)} plain, ${b.encrypted ? 'encrypted' : 'PLAINTEXT gzip'})`);
   }
@@ -226,6 +233,15 @@ async function run(o = {}) {
   if (!backup.hasDumpTrailer(sql)) throw new Error(`restore-drill: ${path.basename(dumpFile)} has no pg_dump trailer — incomplete dump, nothing to restore`);
   const storedBytes = fs.statSync(dumpFile).size;
   log(`[restore-drill] dump ${path.basename(dumpFile)}: ${drill.fmtBytes(sql.length)} plain SQL, trailer present${encrypted ? ', decrypted' : ''}`);
+
+  // P11 r5 N-14 — the file store: read the run's archive back, verify it against its manifest and the live store.
+  const BB = require('../../services/blobBackup');
+  const blobRoot = o.blobRoot || defaultBlobRoot(env);
+  const blobArchive = o.blobArchive || BB.archiveFor(dir, dumpFile);
+  const liveRefs = listFiles(blobRoot);
+  const verify = blobArchive ? BB.verifyArchive(blobArchive, { key }) : null;
+  const files = drill.fileStoreStep({ liveRefs, liveHashes: liveRefs ? hashRefs(blobRoot, liveRefs) : {}, archiveName: blobArchive, verify });
+  log(`[restore-drill] file store: ${files.status === 'ok' ? 'ok' : 'FAILED'} — ${files.detail}`);
 
   // live counts first (closest to the dump in time)
   const live = new Client({ connectionString: liveUrl });
@@ -257,7 +273,7 @@ async function run(o = {}) {
       restored = await countTables(tc, drill.MAIN_TABLES, { schema: target.schema });
       if (full) {
         const steps = await fullSteps({ env, tc, schema: target.schema, encrypted, opened: true,
-          blobRoot: o.blobRoot || defaultBlobRoot(env), blobBackup: o.blobBackup || env.SDP_BLOB_BACKUP_DIR || '', sampleMax: o.sampleMax });
+          blobRoot, blobBackup: o.blobBackup || env.SDP_BLOB_BACKUP_DIR || '', blobCopy: !(o.blobBackup || env.SDP_BLOB_BACKUP_DIR) && verify && verify.ok ? verify.files : null, sampleMax: o.sampleMax });
         fullResult = { steps };
       }
     } finally { await tc.end(); }
@@ -276,23 +292,24 @@ async function run(o = {}) {
   const reportDir = o.reportDir || defaultReportDir(env);
   fs.mkdirSync(reportDir, { recursive: true });
   const reportFile = path.join(reportDir, `${date}.md`);
-  const d = { date, dumpFile, dumpBytes: sql.length, storedBytes, encrypted, target: { kind: target.kind, name: target.name }, comparison, durationMs, psql, notes, actor: o.actor, reportFile, full: fullResult };
+  const d = { date, dumpFile, dumpBytes: sql.length, storedBytes, encrypted, target: { kind: target.kind, name: target.name }, comparison, durationMs, psql, notes, actor: o.actor, reportFile, files, full: fullResult };
   fs.writeFileSync(reportFile, drill.renderReport(d));
   const details = drill.logDetails(d);
   if (!o.noLog) {
     try {
-      if (typeof o.logEvent === 'function') o.logEvent({ category: 'ops', action: 'restore_drill', actor: 'restore-drill', target: date, details, risk: comparison.ok ? 0 : 1 });
+      if (typeof o.logEvent === 'function') o.logEvent({ category: 'ops', action: 'restore_drill', actor: 'restore-drill', target: date, details, risk: details.ok ? 0 : 1 });
       else await logDirect(liveUrl, details, Client);
     } catch (e) { log('[restore-drill] WARNING system_log row not written: ' + e.message); }
   }
   for (const r of comparison.rows) log(`[restore-drill]   ${r.table.padEnd(18)} live=${r.live == null ? '—' : r.live}  restored=${r.restored == null ? '—' : r.restored}  ${r.status}`);
   const fv = fullResult ? drill.fullVerdict(fullResult.steps) : null;
   if (fullResult) for (const s of fullResult.steps) log(`[restore-drill]   ${s.id.padEnd(18)} ${s.status === 'ok' ? 'ok' : s.status === 'failed' ? 'FAILED' : 'UNKNOWN'}  ${s.detail}`);
-  const allOk = comparison.ok && (!fv || fv.ok);
-  log(`[restore-drill] ${allOk ? (fv && !fv.complete ? 'PASS (database) — full service NOT PROVEN' : 'PASS') : 'FAIL'} — report ${reportFile}`);
+  const allOk = comparison.ok && files.status !== 'failed' && (!fv || fv.ok);
+  log(`[restore-drill] ${allOk ? (fv && !fv.complete ? 'PASS (database + file store) — full service NOT PROVEN' : 'PASS (database + file store)') : 'FAIL'} — report ${reportFile}`);
+  if (comparison.ok && files.status === 'failed') { const e = new Error(`restore drill FAILED: the file store does not restore — ${files.detail} (see ${reportFile})`); e.transient = false; e.result = { ok: false, comparison, files, reportFile, dumpFile, target: d.target }; throw e; }
   if (comparison.ok && fv && !fv.ok) { const e = new Error(`restore drill FAILED: full-service step(s) ${fv.failed.join(', ')} failed (see ${reportFile})`); e.transient = false; e.result = { ok: false, comparison, reportFile, dumpFile, target: d.target, full: { ...fv, steps: fullResult.steps } }; throw e; }
   if (!comparison.ok) { const e = new Error(`restore drill FAILED: ${comparison.mismatches} table(s) differ (see ${reportFile})`); e.transient = false; e.result = { ok: false, comparison, reportFile, dumpFile, target: d.target }; throw e; }
-  return { ok: true, comparison, reportFile, dumpFile, target: d.target, rows: 1, ...(fullResult ? { full: { ...fv, steps: fullResult.steps } } : {}) };
+  return { ok: true, comparison, files, reportFile, dumpFile, target: d.target, rows: 1, ...(fullResult ? { full: { ...fv, steps: fullResult.steps } } : {}) };
 }
 
 function argOf(name) { const i = process.argv.indexOf(name); return i >= 0 ? process.argv[i + 1] : undefined; }
@@ -301,7 +318,7 @@ if (require.main === module) {
   run({
     dumpFile: argOf('--dump'), dir: argOf('--dir'), reportDir: argOf('--report-dir'),
     backupFirst: process.argv.includes('--backup-first'), keepTarget: process.argv.includes('--keep-target'),
-    noLog: process.argv.includes('--no-log'), full: process.argv.includes('--full') ? true : undefined, blobBackup: argOf('--blob-backup'), actor: 'manual run (tools/pg/restore-drill.js)',
+    noLog: process.argv.includes('--no-log'), full: process.argv.includes('--full') ? true : undefined, blobBackup: argOf('--blob-backup'), blobArchive: argOf('--blob-archive'), actor: 'manual run (tools/pg/restore-drill.js)',
   }).then(() => process.exit(0))
     .catch((e) => { console.error('[restore-drill] ' + e.message); process.exit(1); });
 }

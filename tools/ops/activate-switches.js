@@ -7,7 +7,7 @@ if (require.main === module) require('dotenv').config({ quiet: true, path: requi
 //
 //   node tools/ops/activate-switches.js --plan [--lots=L01,L02|all] [--db-url=URL] [--json]
 //   node tools/ops/activate-switches.js --apply --db-url=URL --lots=L01[,L02…] --reason="…" [--operator=NAME]
-//        [--include-outbound] [--rollback-dir=DIR] [--dry-run] [--i-am-the-operator]
+//        [--second-operator=NAME] [--include-outbound] [--rollback-dir=DIR] [--dry-run] [--i-am-the-operator]
 //   node tools/ops/activate-switches.js --rollback=FILE --db-url=URL [--operator=NAME] [--reason="…"] [--force] [--i-am-the-operator]
 //
 // --db-url=env reads PG_URL (or DATABASE_URL) from the environment / the app's .env, so the password never sits on a
@@ -38,6 +38,14 @@ if (require.main === module) require('dotenv').config({ quiet: true, path: requi
 //    refused keep group or a retired key, an entry whose `to` is not the switch's ON value, and a non-flag `from`.
 //    --force overrides only the "changed since" conflict check, never this validation.
 //  - Never reads or writes docs/ops/flag-decisions.json: owner, canary site and dates are human fields.
+//  - P11 r5 N-15 — FOUR-EYES: a step whose change docs/ops/policy-catalogue.json marks as needing a second super_admin
+//    (policyCatalogue.needsSecondPerson — the same rule as the Policy Center) is tagged 4EYES in the plan. --apply
+//    refuses such a step unless (a) --second-operator=NAME names a DIFFERENT person (look-alike spellings fold; both are
+//    recorded on every journal row of those keys, in the switch_rollback_file event and in the signed rollback file),
+//    or (b) report_config policy_center_enabled = '1': the tool then writes NOTHING for those keys and files one Policy
+//    Center request per key instead (requested by the --operator account, which must be an active super_admin); a
+//    second super_admin decides in the center. Rolling back a four-eyes key towards its weaker side needs
+//    --second-operator too. Lots without four-eyes steps behave exactly as before.
 // The classification below (outbound / access / money) is an AI reading of the register text and the code, written
 // to help the operator decide; it decides nothing.
 const fs = require('fs');
@@ -241,12 +249,12 @@ function buildActivation({ plan, register, lots, cfg, includeOutbound = false, p
 function renderPlan(act, { source }) {
   const L = [];
   L.push(`Activation plan — current values from ${source}. AI classification; nothing here is a decision or an approval.`);
-  L.push('Legend: OUT=outbound (send|external_call), ACC=access (widens|narrows), $=money, dep=prerequisite switches.');
+  L.push('Legend: 4EYES=a second super_admin is required (--second-operator, or a Policy Center request), OUT=outbound (send|external_call), ACC=access (widens|narrows), $=money, dep=prerequisite switches.');
   for (const lot of act.lots) {
     L.push('');
     L.push(`== ${lot.id} ${lot.title}${lot.status === 'refused' ? `  [REFUSED: ${lot.refused_reason}]` : ''}`);
     for (const s of lot.switches) {
-      const tags = [s.outbound ? `OUT:${s.outbound}` : '', s.access ? `ACC:${s.access}` : '', s.money ? '$' : ''].filter(Boolean).join(' ');
+      const tags = [s.four_eyes ? '4EYES' : '', s.outbound ? `OUT:${s.outbound}` : '', s.access ? `ACC:${s.access}` : '', s.money ? '$' : ''].filter(Boolean).join(' ');
       const cur = s.action === 'apply' ? `${JSON.stringify(s.from)} -> ${JSON.stringify(s.on_value)}` : s.action;
       L.push(`  ${s.key.padEnd(40)} ${String(cur).padEnd(22)} ${tags.padEnd(22)}${s.depends_on.length ? ' dep=' + s.depends_on.join(',') : ''}`);
       if (s.access_note) L.push(`      access: ${s.access_note}`);
@@ -256,8 +264,40 @@ function renderPlan(act, { source }) {
   L.push('');
   L.push(`Write order (${act.steps.length} switch(es)): ${act.steps.map((s) => s.key).join(' → ') || '(none)'}`);
   if (act.skipped_outbound.length) L.push(`Outbound, skipped without --include-outbound: ${act.skipped_outbound.join(', ')}`);
+  const fe = act.steps.filter((x) => x.four_eyes).map((x) => x.key);
+  if (fe.length) L.push(`Four-eyes (second super_admin required): ${fe.join(', ')}`);
   return L.join('\n') + '\n';
 }
+
+// ---------------------------------------------------------------------------------------------------- four-eyes (N-15)
+/** Raw report_config value of the key a switch writes (the base key for a nested switch), after a hypothetical write. */
+function _baseValues(cfg, key, value) {
+  const base = isNested(key) ? key.split('.')[0] : key;
+  const cur = cfg ? cfg[base] : undefined;
+  const next = patchFor(cfg || {}, key, value)[base];
+  return { base, cur: cur == null ? '' : String(cur), next: next == null ? '' : String(next) };
+}
+/** Pure: does writing `value` to switch `key` need a second super_admin (Policy Center rule)? */
+function needsFourEyes(cfg, key, value, catalogue) {
+  const PC = require(path.join(ROOT, 'services', 'policyCatalogue'));
+  const cat = catalogue || PC.build();
+  const { base, cur, next } = _baseValues(cfg, key, value);
+  return PC.needsSecondPerson(cat.by.get(base), cur, next);
+}
+/** Mark every apply step whose change needs a second person (mutates the step rows, shared with the lot rows). */
+function markFourEyes(act, cfg, catalogue) {
+  for (const s of act.steps) s.four_eyes = needsFourEyes(cfg, s.key, s.on_value, catalogue);
+  return act;
+}
+/** Pure: the second operator is a real, different person, or a reason to refuse. */
+function secondOperatorRefusal(operator, second) {
+  const sk = require(path.join(ROOT, 'services', 'commitmentLifecycle')).skeletonKey;
+  if (!second || !String(second).trim()) return 'missing';
+  if (!operator || !String(operator).trim()) return 'the first operator is unknown (pass --operator=NAME)';
+  if (sk(operator) && sk(operator) === sk(second)) return `--second-operator "${second}" is the same person as --operator "${operator}"`;
+  return null;
+}
+const _withSecond = (reason, second) => `${reason} [four-eyes, second operator: ${String(second).replace(/[^\w.@ -]/g, '_').slice(0, 64)}]`;
 
 // ---------------------------------------------------------------------------------------------------- args + IO
 function parseArgs(argv) {
@@ -276,6 +316,7 @@ function parseArgs(argv) {
     else if (a.startsWith('--rollback-dir=')) o.rollbackDir = a.slice(15);
     else if (a.startsWith('--reason=')) o.reason = a.slice(9);
     else if (a.startsWith('--operator=')) o.operatorName = a.slice(11);
+    else if (a.startsWith('--second-operator=')) o.secondOperator = a.slice(18);
     else throw new Error(`unknown argument ${a}`);
   }
   return o;
@@ -297,7 +338,8 @@ function applyRefusal(args) {
 }
 
 // ---------------------------------------------------------------------------------------------------- rollback files
-function _canon(rb) { return JSON.stringify({ created_at: rb.created_at, actor: rb.actor, operator: rb.operator || null, lots: rb.lots, entries: rb.entries }); }
+// The second operator joins the signed content only when present, so files written before N-15 keep their hash.
+function _canon(rb) { return JSON.stringify({ created_at: rb.created_at, actor: rb.actor, operator: rb.operator || null, ...(rb.second_operator ? { second_operator: rb.second_operator } : {}), lots: rb.lots, entries: rb.entries }); }
 function rollbackHash(rb) { return crypto.createHash('sha256').update(_canon(rb)).digest('hex'); }
 const FLAG_VALUE = (v) => v === null || typeof v === 'boolean' || (typeof v === 'string' && /^[\w.:-]{0,40}$/.test(v));
 
@@ -349,6 +391,14 @@ function storedDeps(rdb) {
     unsetConfig: async (key) => { await rdb.pgHandle().prepare('DELETE FROM report_config WHERE key = ?').run(key); },
     rollbackKnown: async (sha) => !!(await rdb.pgHandle().prepare(
       "SELECT 1 AS ok FROM system_log WHERE category = 'config' AND action = 'switch_rollback_file' AND target = ? LIMIT 1").get(sha)),
+    // N-15 — Policy Center mode: the --operator account (an active super_admin) files one request per four-eyes key.
+    operatorAccount: async (name) => {
+      const u = await rdb.pgHandle().prepare('SELECT id, username, full_name, active FROM users WHERE lower(username) = lower(?)').get(String(name || ''));
+      if (!u || Number(u.active) === 0) return null;
+      const roles = await rdb.getUserRoles(u.id);
+      return roles.includes('super_admin') ? { id: Number(u.id), username: u.username, name: u.full_name } : null;
+    },
+    createPolicyRequest: async (req) => require(path.join(ROOT, 'services', 'policyChangeStore')).makePolicyChangeStore(() => rdb.pgHandle()).create(req),
   };
 }
 
@@ -405,12 +455,23 @@ async function main(argv, deps) {
       else if (!(await d.rollbackKnown(rb.sha256))) problems.push('this file\'s sha256 was never recorded in system_log by --apply — refused');
     }
     if (problems.length) throw new Error(`rollback file refused: ${problems.join('; ')}`);
-    const res = { restored: [], conflicts: [] };
+    // N-15 — restoring a four-eyes key towards its weaker side needs a second person too.
+    const cfg0 = await d.getConfig();
+    const feBack = (rb.entries || []).filter((e) => {
+      const target = (e.absent === true || e.from == null) ? (isNested(e.key) ? null : require(path.join(ROOT, 'services', 'reportConfig')).DEFAULTS[e.key]) : e.from;
+      return target != null && needsFourEyes(cfg0, e.key, target);
+    }).map((e) => e.key);
+    if (feBack.length) {
+      const r2 = secondOperatorRefusal(operator, args.secondOperator);
+      if (r2) throw new Error(`rollback of four-eyes key(s) ${feBack.join(', ')} needs a second person: ${r2 === 'missing' ? 'add --second-operator=NAME (a different super_admin who reviewed this rollback)' : r2}`);
+    }
+    const res = { restored: [], conflicts: [], second_operator: feBack.length ? args.secondOperator : null };
     for (const e of [...(rb.entries || [])].reverse()) {
       const cfg = await d.getConfig();
       const cur = currentValue(cfg, e.key);
       if (String(cur) !== String(e.to) && !args.force) { res.conflicts.push({ key: e.key, expected: e.to, found: cur == null ? null : cur }); continue; }
-      const why = `rollback ${path.basename(args.rollback)}${args.reason ? ` — ${args.reason}` : ''}`;
+      const why0 = `rollback ${path.basename(args.rollback)}${args.reason ? ` — ${args.reason}` : ''}`;
+      const why = feBack.includes(e.key) ? _withSecond(why0, args.secondOperator) : why0;
       // P11 r4 — a key that was ABSENT before the activation returns to absent (it follows future defaults) instead of
       // being pinned to a literal '0'/false row. `absent` is recorded at apply time; an older rollback file without it
       // treats from == null the same way (it means: no value was known).
@@ -431,44 +492,71 @@ async function main(argv, deps) {
     const operator = args.operatorName || osOperator();
     const d = { ...(deps || await defaultDeps(args.dbUrl, operator)), operator };
     const cfg = await d.getConfig();
-    const act = buildActivation({ plan, register, lots, cfg, includeOutbound: args.includeOutbound, prereqText });
+    const act = markFourEyes(buildActivation({ plan, register, lots, cfg, includeOutbound: args.includeOutbound, prereqText }), cfg);
     d.log(renderPlan(act, { source: redactUrl(args.dbUrl) }).trimEnd());
     for (const l of act.lots.filter((x) => x.status === 'refused')) d.log(`REFUSED ${l.id}: ${l.refused_reason}`);
-    if (args.dryRun) { d.log('DRY RUN — nothing written.'); return { ...act, applied: [], rollback_file: null }; }
-    if (!act.steps.length) { d.log('Nothing to apply.'); return { ...act, applied: [], rollback_file: null }; }
+    // N-15 — four-eyes steps: a named second operator, or Policy Center requests instead of writes. Decided BEFORE
+    // anything is written, so a refusal leaves the database untouched.
+    const feSteps = act.steps.filter((x) => x.four_eyes);
+    const viaCenter = feSteps.length > 0 && String(cfg.policy_center_enabled) === '1';
+    let requester = null;
+    if (feSteps.length && !viaCenter) {
+      const r2 = secondOperatorRefusal(operator, args.secondOperator);
+      if (r2) throw new Error(`four-eyes switch(es) ${feSteps.map((x) => x.key).join(', ')} need a second super_admin: ${r2 === 'missing' ? 'add --second-operator=NAME (a different person who reviewed this activation), or turn the Policy Center on (policy_center_enabled) so the tool files requests instead' : r2} — nothing written`);
+    }
+    if (viaCenter) {
+      if (typeof d.operatorAccount !== 'function' || typeof d.createPolicyRequest !== 'function') throw new Error('Policy Center is on but this run cannot file requests — nothing written');
+      requester = await d.operatorAccount(operator);
+      if (!requester) throw new Error(`Policy Center is on: --operator "${operator}" must be the username of an active super_admin account (the requester of record) — nothing written`);
+    }
+    if (args.dryRun) { d.log('DRY RUN — nothing written.'); return { ...act, applied: [], requested: [], rollback_file: null }; }
+    const toWrite = viaCenter ? act.steps.filter((x) => !x.four_eyes) : act.steps;
+    const requested = [];
+    if (viaCenter) {
+      for (const st of feSteps) {
+        const { base, cur, next } = _baseValues(cfg, st.key, st.on_value);
+        const req = await d.createPolicyRequest({ key: base, oldValue: cur, newValue: next, reason: `${args.reason} (activate-switches ${st.lot})`, actor: requester });
+        requested.push({ key: base, request_id: req && req.id != null ? req.id : null });
+      }
+      d.log(`Policy Center: ${requested.length} four-eyes request(s) filed by ${requester.username} — a second super_admin decides in /policy-center.html: ${requested.map((r) => `${r.key}#${r.request_id}`).join(', ')}`);
+    }
+    if (!toWrite.length) { d.log('Nothing to apply.'); return { ...act, applied: [], requested, rollback_file: null }; }
     const dir = args.rollbackDir || path.join(ROOT, 'data', 'switch-rollbacks');
     fs.mkdirSync(dir, { recursive: true });
     const file = path.join(dir, `rollback-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
     const stored = typeof d.storedKeys === 'function' ? await d.storedKeys() : null;
-    const entries = act.steps.map((s) => {
+    const second = feSteps.length && !viaCenter ? String(args.secondOperator) : null;
+    const entries = toWrite.map((s) => {
       const e = { key: s.key, lot: s.lot, from: s.from == null ? null : s.from, to: s.on_value };
       // flat key with no report_config row = it followed its default; nested = the sub-key was missing
       if (isNested(s.key) ? s.from == null : (stored ? !stored.has(s.key) : false)) e.absent = true;
+      if (s.four_eyes) e.four_eyes = true;
       return e;
     });
-    const rb = { created_at: new Date().toISOString(), actor: ACTOR, operator: operator || null, reason: args.reason, db: redactUrl(args.dbUrl), lots: lots.map((l) => l.id), entries };
+    const rb = { created_at: new Date().toISOString(), actor: ACTOR, operator: operator || null, ...(second ? { second_operator: second } : {}), reason: args.reason, db: redactUrl(args.dbUrl), lots: lots.map((l) => l.id), entries };
     rb.sha256 = rollbackHash(rb);
     fs.writeFileSync(file, JSON.stringify(rb, null, 1) + '\n');
     // R4-A3: the hash is the tool's signature on the file — only a recorded hash can be rolled back.
     if (d.logEvent) await Promise.resolve(d.logEvent({ category: 'config', action: 'switch_rollback_file', actor: actorOf(operator), target: rb.sha256,
-      details: { file: path.basename(file), lots: rb.lots, keys: entries.map((e) => e.key), reason: args.reason } })).catch(() => {});
+      details: { file: path.basename(file), lots: rb.lots, keys: entries.map((e) => e.key), reason: args.reason,
+        ...(second ? { second_operator: second, four_eyes_keys: entries.filter((e) => e.four_eyes).map((e) => e.key) } : {}) } })).catch(() => {});
     const applied = [];
-    for (const s of act.steps) { await writeOne(d, s.key, s.on_value, args.reason); applied.push(s.key); }
-    d.log(`Applied ${applied.length} switch(es). Rollback file: ${file}`);
-    return { ...act, applied, rollback_file: file };
+    for (const s of toWrite) { await writeOne(d, s.key, s.on_value, s.four_eyes && second ? _withSecond(args.reason, second) : args.reason); applied.push(s.key); }
+    d.log(`Applied ${applied.length} switch(es)${second ? ` (four-eyes, second operator: ${second})` : ''}. Rollback file: ${file}`);
+    return { ...act, applied, requested, second_operator: second, rollback_file: file };
   }
 
   // --plan (default)
   let cfg; let source;
   if (args.dbUrl) { const d = deps || await defaultDeps(args.dbUrl); cfg = await d.getConfig(); source = redactUrl(args.dbUrl); }
   else { cfg = { ...require(path.join(ROOT, 'services', 'reportConfig')).DEFAULTS }; source = 'the code defaults (no database read; pass --db-url to read one)'; }
-  const act = buildActivation({ plan, register, lots, cfg, includeOutbound: args.includeOutbound, prereqText });
+  const act = markFourEyes(buildActivation({ plan, register, lots, cfg, includeOutbound: args.includeOutbound, prereqText }), cfg);
   const log = (deps && deps.log) || ((s) => process.stdout.write(s));
   log(args.json ? JSON.stringify(act, null, 1) + '\n' : renderPlan(act, { source }));
   return act;
 }
 
-module.exports = { applyRefusal, validateRollback, rollbackHash, storedDeps, actorOf, OUTBOUND, ACCESS, MONEY, ON_VALUE, REFUSED_GROUPS, selectLots, graph, order, classify, buildActivation, renderPlan, parseArgs, writeRefusal, patchFor, currentValue, isOn, main };
+module.exports = { needsFourEyes, markFourEyes, secondOperatorRefusal, applyRefusal, validateRollback, rollbackHash, storedDeps, actorOf, OUTBOUND, ACCESS, MONEY, ON_VALUE, REFUSED_GROUPS, selectLots, graph, order, classify, buildActivation, renderPlan, parseArgs, writeRefusal, patchFor, currentValue, isOn, main };
 
 if (require.main === module) {
   main(process.argv.slice(2))

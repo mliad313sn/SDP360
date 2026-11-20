@@ -22,9 +22,10 @@ What data loss (RPO) and restore time (RTO) do you accept, and is the restore dr
 | Evidence | What it shows | Regenerate / re-run | Last changed (commit, date) | Content hash |
 |---|---|---|---|---|
 | `docs/ops/restore-drills/2026-10-21.md` | Restore drill: row counts equal on the restored copy (synthetic database) | `node tools/pg/restore-drill.js` | de418131, 2026-10-21 | `c6515dbb34f803de` |
-| `tools/pg/restore-drill.js` | Drill tool | `node tools/pg/restore-drill.js` | 98cbb877, 2026-11-12 | `e482dcbae50733c2` |
+| `tools/pg/restore-drill.js` | Drill tool | `node tools/pg/restore-drill.js` | 98cbb877, 2026-11-12 | `6fc2735a9b555642` |
 | `tests/restore-drill.test.js` | Drill tool behaviour | `node --test --test-force-exit tests/restore-drill.test.js` | f001ec01, 2026-11-12 | `5df8903f7cc56426` |
 | `tests/backup-encrypt.test.js` | Encrypted backup behaviour | `node --test --test-force-exit tests/backup-encrypt.test.js` | 756c1fa0, 2026-11-20 | `f170d86f6e1322dc` |
+| `tests/blob-backup.test.js` | File store (photos, signatures, uploads, documents) archived with the dump and checked by the drill (count + SHA-256) | `node --test --test-force-exit tests/blob-backup.test.js` | uncommitted, uncommitted | `28e0285a89518d4c` |
 | `docs/ops/REPLICA-RESTORE.md` | Replica and restore procedure | `manual` | de418131, 2026-10-21 | `7c73dcacf7dbb71c` |
 | `docs/ops/rehearsals/2026-10-29-local-pg16-g04.md` | Local rehearsal with timings | `node tools/pg/restore-rehearsal.js` | 95a84168, 2026-10-29 | `83405a53694f863a` |
 | `docs/ops/SLO-PROPOSAL.md` | Proposed indicators; every target UNKNOWN | `manual` | 4f225458, 2026-11-19 | `332e1e07cb05be84` |
@@ -49,6 +50,7 @@ What data loss (RPO) and restore time (RTO) do you accept, and is the restore dr
 
 - RPO and RTO values.
 - Backup storage location and its owner.
+- Retention of the file-store archives (same count as the dumps by default).
 - Date of the TEST drill.
 
 ---

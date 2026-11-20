@@ -2,7 +2,7 @@
 'use strict';
 // P05 — compares measured latencies with the PROPOSED performance budgets of docs/ops/perf-budgets.json.
 //
-//   node tools/test/perf-budget-check.js --load=<load.js --json output>     API route classes
+//   node tools/test/perf-budget-check.js --load=<load.js --json output>     API route classes (a bare path = --load)
 //   node tools/test/perf-budget-check.js --e2e=<e2e-artifacts dir>          browser pages (first usable p95)
 //
 // WARN MODE by default: every "over" row is printed and the exit code stays 0. The budgets are a proposal
@@ -41,14 +41,16 @@ function pageClass(dir) {
 }
 
 function main(argv = process.argv.slice(2), env = process.env, out = (s) => process.stdout.write(s + '\n')) {
-  const get = (k) => { const a = argv.find((x) => x.startsWith('--' + k + '=')); return a ? a.slice(k.length + 3) : null; };
+  // P11 r5 F-07b — a bare path (no --load=) is the load file: in blocking mode it used to print "nothing to check" and pass.
+  const positional = argv.filter((x) => !x.startsWith('--'));
+  const get = (k) => { const a = argv.find((x) => x.startsWith('--' + k + '=')); if (a) return a.slice(k.length + 3); return k === 'load' && positional.length ? positional[0] : null; };
   const file = JSON.parse(fs.readFileSync(get('budgets') || BUDGETS, 'utf8'));
   const blocking = String(env.PERF_BUDGETS_BLOCKING || '') === '1';
   out(`[perf-budgets] ${blocking ? 'BLOCKING' : 'WARN'} mode · status: ${file.status} · approved_by: ${file.approved_by || 'nobody yet'}`);
   let rows = [];
   if (get('load')) { const l = JSON.parse(fs.readFileSync(get('load'), 'utf8')); rows = rows.concat(check(l.classes || {}, file.api_route_classes)); }
   if (get('e2e')) rows = rows.concat(check(pageClass(get('e2e')), file.page_classes));
-  if (!get('load') && !get('e2e')) { out('[perf-budgets] nothing to check (pass --load=<json> and/or --e2e=<dir>)'); return 0; }
+  if (!get('load') && !get('e2e')) { out('[perf-budgets] nothing to check (pass --load=<json> and/or --e2e=<dir>)'); return blocking ? 1 : 0; }
   for (const r of rows) out(`[perf-budgets] ${r.status === 'over' ? 'OVER  ' : r.status === 'within' ? 'within' : 'no sample'} ${r.class}${r.detail ? ' — ' + r.detail : ''}${r.observed_p95_ms != null ? ` (p95 ${r.observed_p95_ms} ms, budget ${r.budget_p95_ms} ms)` : ''}`);
   const over = rows.filter((r) => r.status === 'over').length;
   if (over && !blocking) out(`[perf-budgets] ${over} class(es) over budget — warning only (PERF_BUDGETS_BLOCKING is not 1)`);

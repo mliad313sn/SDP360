@@ -15,7 +15,7 @@
   "jobs": 33,
   "jobs_without_test_reference": 0,
   "migrations": 110,
-  "test_files": 912
+  "test_files": 910
  },
  "pages": [
   {
@@ -1917,14 +1917,13 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 73718,
+   "bytes": 73416,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/adoption-lotb-landing.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
     "tests/landing.test.js",
-    "tests/p11-r5-data-fixes.test.js",
     "tests/shell-navigation.test.js",
     "tests/site-awareness-sla-parity.test.js",
     "tests/ui-design-ratchet.test.js"
@@ -2194,7 +2193,7 @@
    "method": "GET",
    "path": "/activity-tracker.html",
    "file": "server.js",
-   "line": 1426,
+   "line": 1428,
    "tests": [
     "tests/csp-headers.smoke.test.js",
     "tests/csp-report.smoke.test.js"
@@ -2205,7 +2204,7 @@
    "method": "GET",
    "path": "/analytics.html",
    "file": "server.js",
-   "line": 1361,
+   "line": 1363,
    "tests": [
     "tests/analytics-logic.test.js",
     "tests/analytics-metrics-authz.smoke.test.js",
@@ -2503,7 +2502,7 @@
    "method": "POST",
    "path": "/api/admin/refresh-major-incident-udfs",
    "file": "server.js",
-   "line": 1969,
+   "line": 1971,
    "tests": []
   },
   {
@@ -2521,7 +2520,7 @@
    "method": "POST",
    "path": "/api/ai/analyze",
    "file": "server.js",
-   "line": 3169,
+   "line": 3171,
    "tests": [
     "tests/ai-analyze-guard.test.js",
     "tests/ai-proxy-sanitize.smoke.test.js"
@@ -3252,7 +3251,7 @@
    "method": "GET",
    "path": "/api/auth/config",
    "file": "server.js",
-   "line": 3839,
+   "line": 3844,
    "tests": [
     "tests/sdp-manager-probe.test.js",
     "tests/session-security.smoke.test.js",
@@ -3264,7 +3263,7 @@
    "method": "GET",
    "path": "/api/auth/sso/callback",
    "file": "server.js",
-   "line": 3865,
+   "line": 3870,
    "tests": [
     "tests/sso-entra.test.js",
     "tests/sso-routes.smoke.test.js",
@@ -3276,7 +3275,7 @@
    "method": "GET",
    "path": "/api/auth/sso/login",
    "file": "server.js",
-   "line": 3850,
+   "line": 3855,
    "tests": [
     "tests/sso-routes.smoke.test.js"
    ]
@@ -3286,7 +3285,7 @@
    "method": "GET",
    "path": "/api/cab",
    "file": "server.js",
-   "line": 1719,
+   "line": 1721,
    "tests": []
   },
   {
@@ -3294,7 +3293,7 @@
    "method": "POST",
    "path": "/api/cache/clear",
    "file": "server.js",
-   "line": 1941,
+   "line": 1943,
    "tests": [
     "tests/critical-routes.smoke.test.js"
    ]
@@ -3304,7 +3303,7 @@
    "method": "GET",
    "path": "/api/cache/status",
    "file": "server.js",
-   "line": 2074,
+   "line": 2076,
    "tests": [
     "tests/api-key-injection.smoke.test.js",
     "tests/critical-routes.smoke.test.js"
@@ -3315,7 +3314,7 @@
    "method": "GET",
    "path": "/api/change",
    "file": "server.js",
-   "line": 1697,
+   "line": 1699,
    "tests": []
   },
   {
@@ -3374,7 +3373,7 @@
    "method": "GET",
    "path": "/api/dashboard/groups/discovered",
    "file": "server.js",
-   "line": 5356,
+   "line": 5361,
    "tests": [
     "tests/deck-builder-gate.smoke.test.js"
    ]
@@ -3384,7 +3383,7 @@
    "method": "GET",
    "path": "/api/dashboard/presets",
    "file": "server.js",
-   "line": 5311,
+   "line": 5316,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/server-routes-smoke.test.js"
@@ -3395,7 +3394,7 @@
    "method": "PUT",
    "path": "/api/dashboard/presets",
    "file": "server.js",
-   "line": 5333,
+   "line": 5338,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/server-routes-smoke.test.js"
@@ -3686,7 +3685,7 @@
    "method": "GET",
    "path": "/api/data/ageing-by-group",
    "file": "server.js",
-   "line": 2879,
+   "line": 2881,
    "tests": []
   },
   {
@@ -3694,7 +3693,7 @@
    "method": "GET",
    "path": "/api/data/ageing-by-site",
    "file": "server.js",
-   "line": 2829,
+   "line": 2831,
    "tests": []
   },
   {
@@ -3702,7 +3701,7 @@
    "method": "GET",
    "path": "/api/data/ageing",
    "file": "server.js",
-   "line": 2357,
+   "line": 2359,
    "tests": [
     "tests/inventory-strict.test.js"
    ]
@@ -3712,7 +3711,7 @@
    "method": "GET",
    "path": "/api/data/cab-approvals",
    "file": "server.js",
-   "line": 2401,
+   "line": 2403,
    "tests": []
   },
   {
@@ -3720,7 +3719,7 @@
    "method": "GET",
    "path": "/api/data/cab-recommendations",
    "file": "server.js",
-   "line": 2423,
+   "line": 2425,
    "tests": []
   },
   {
@@ -3728,7 +3727,7 @@
    "method": "GET",
    "path": "/api/data/change-table",
    "file": "server.js",
-   "line": 2167,
+   "line": 2169,
    "tests": []
   },
   {
@@ -3736,7 +3735,7 @@
    "method": "GET",
    "path": "/api/data/emergency-changes",
    "file": "server.js",
-   "line": 2335,
+   "line": 2337,
    "tests": []
   },
   {
@@ -3744,7 +3743,7 @@
    "method": "GET",
    "path": "/api/data/first-response",
    "file": "server.js",
-   "line": 2200,
+   "line": 2202,
    "tests": []
   },
   {
@@ -3752,7 +3751,7 @@
    "method": "GET",
    "path": "/api/data/group-requests",
    "file": "server.js",
-   "line": 2313,
+   "line": 2315,
    "tests": []
   },
   {
@@ -3760,7 +3759,7 @@
    "method": "GET",
    "path": "/api/data/incident-vs-sr",
    "file": "server.js",
-   "line": 2379,
+   "line": 2381,
    "tests": []
   },
   {
@@ -3768,7 +3767,7 @@
    "method": "GET",
    "path": "/api/data/major-incidents",
    "file": "server.js",
-   "line": 2140,
+   "line": 2142,
    "tests": []
   },
   {
@@ -3776,7 +3775,7 @@
    "method": "GET",
    "path": "/api/data/monthly-summary",
    "file": "server.js",
-   "line": 2784,
+   "line": 2786,
    "tests": []
   },
   {
@@ -3784,7 +3783,7 @@
    "method": "GET",
    "path": "/api/data/requests-raw",
    "file": "server.js",
-   "line": 2761,
+   "line": 2763,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/server-routes-smoke.test.js"
@@ -3795,7 +3794,7 @@
    "method": "GET",
    "path": "/api/data/sla-by-category",
    "file": "server.js",
-   "line": 2270,
+   "line": 2272,
    "tests": []
   },
   {
@@ -3803,7 +3802,7 @@
    "method": "GET",
    "path": "/api/data/sla-trend",
    "file": "server.js",
-   "line": 2240,
+   "line": 2242,
    "tests": [
     "tests/server-routes-smoke.test.js"
    ]
@@ -3813,7 +3812,7 @@
    "method": "GET",
    "path": "/api/data/submission-channels",
    "file": "server.js",
-   "line": 2719,
+   "line": 2721,
    "tests": [
     "tests/server-routes-smoke.test.js"
    ]
@@ -3823,7 +3822,7 @@
    "method": "GET",
    "path": "/api/debug/raw-test",
    "file": "server.js",
-   "line": 1899,
+   "line": 1901,
    "tests": [
     "tests/sec01-route-roles.smoke.test.js"
    ]
@@ -4157,7 +4156,7 @@
    "method": "GET",
    "path": "/api/exec/editorial",
    "file": "server.js",
-   "line": 1177,
+   "line": 1179,
    "tests": [
     "tests/exec-routes.smoke.test.js"
    ]
@@ -4167,7 +4166,7 @@
    "method": "PUT",
    "path": "/api/exec/editorial",
    "file": "server.js",
-   "line": 1186,
+   "line": 1188,
    "tests": [
     "tests/exec-routes.smoke.test.js"
    ]
@@ -4177,7 +4176,7 @@
    "method": "GET",
    "path": "/api/exec/summary",
    "file": "server.js",
-   "line": 1150,
+   "line": 1152,
    "tests": [
     "tests/exec-routes.smoke.test.js"
    ]
@@ -4187,7 +4186,7 @@
    "method": "POST",
    "path": "/api/executive-new-pptx",
    "file": "server.js",
-   "line": 5171,
+   "line": 5176,
    "tests": [
     "tests/boot-integrity.test.js"
    ]
@@ -4274,7 +4273,7 @@
    "method": "PUT",
    "path": "/api/field/outbox/:uuid",
    "file": "routes/field.js",
-   "line": 277,
+   "line": 269,
    "tests": [
     "tests/field-actions-dialog-browser.test.js",
     "tests/field-inspection-action-status.smoke.test.js",
@@ -4308,7 +4307,7 @@
    "method": "PUT",
    "path": "/api/field/uploads/:id/chunks/:idx",
    "file": "routes/field.js",
-   "line": 355,
+   "line": 347,
    "tests": [
     "tests/emergency-access.smoke.test.js",
     "tests/field-routes.smoke.test.js",
@@ -4320,7 +4319,7 @@
    "method": "POST",
    "path": "/api/field/uploads/:id/complete",
    "file": "routes/field.js",
-   "line": 364,
+   "line": 356,
    "tests": [
     "tests/emergency-access.smoke.test.js",
     "tests/field-routes.smoke.test.js",
@@ -4332,7 +4331,7 @@
    "method": "GET",
    "path": "/api/field/uploads/:id",
    "file": "routes/field.js",
-   "line": 352,
+   "line": 344,
    "tests": [
     "tests/emergency-access.smoke.test.js",
     "tests/field-routes.smoke.test.js",
@@ -4344,7 +4343,7 @@
    "method": "POST",
    "path": "/api/field/uploads",
    "file": "routes/field.js",
-   "line": 334,
+   "line": 326,
    "tests": [
     "tests/emergency-access.smoke.test.js",
     "tests/field-routes.smoke.test.js",
@@ -4977,7 +4976,6 @@
     "tests/finance-certification.smoke.test.js",
     "tests/governance-routes.smoke.test.js",
     "tests/hostile-input-r4.smoke.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
@@ -4987,7 +4985,6 @@
     "tests/portfolio-lot4.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/portfolio-register.smoke.test.js",
     "tests/portfolio-sensitive.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
@@ -5029,7 +5026,6 @@
     "tests/finance-certification.smoke.test.js",
     "tests/governance-routes.smoke.test.js",
     "tests/hostile-input-r4.smoke.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
@@ -5039,7 +5035,6 @@
     "tests/portfolio-lot4.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/portfolio-register.smoke.test.js",
     "tests/portfolio-sensitive.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
@@ -5081,7 +5076,6 @@
     "tests/finance-certification.smoke.test.js",
     "tests/governance-routes.smoke.test.js",
     "tests/hostile-input-r4.smoke.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
@@ -5091,7 +5085,6 @@
     "tests/portfolio-lot4.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/portfolio-register.smoke.test.js",
     "tests/portfolio-sensitive.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
@@ -5212,14 +5205,12 @@
    "line": 836,
    "tests": [
     "tests/governance-routes.smoke.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-finance-currency.smoke.test.js",
     "tests/portfolio-lot4.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/portfolio-register.smoke.test.js",
     "tests/portfolio-sensitive.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
@@ -5254,14 +5245,12 @@
    "line": 59,
    "tests": [
     "tests/governance-routes.smoke.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-finance-currency.smoke.test.js",
     "tests/portfolio-lot4.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/portfolio-register.smoke.test.js",
     "tests/portfolio-sensitive.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
@@ -5296,14 +5285,12 @@
    "line": 911,
    "tests": [
     "tests/governance-routes.smoke.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-finance-currency.smoke.test.js",
     "tests/portfolio-lot4.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/portfolio-register.smoke.test.js",
     "tests/portfolio-sensitive.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
@@ -5338,14 +5325,12 @@
    "line": 845,
    "tests": [
     "tests/governance-routes.smoke.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-finance-currency.smoke.test.js",
     "tests/portfolio-lot4.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/portfolio-register.smoke.test.js",
     "tests/portfolio-sensitive.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
@@ -5380,14 +5365,12 @@
    "line": 115,
    "tests": [
     "tests/governance-routes.smoke.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-finance-currency.smoke.test.js",
     "tests/portfolio-lot4.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/portfolio-register.smoke.test.js",
     "tests/portfolio-sensitive.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
@@ -5422,14 +5405,12 @@
    "line": 54,
    "tests": [
     "tests/governance-routes.smoke.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-finance-currency.smoke.test.js",
     "tests/portfolio-lot4.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/portfolio-register.smoke.test.js",
     "tests/portfolio-sensitive.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
@@ -5464,14 +5445,12 @@
    "line": 71,
    "tests": [
     "tests/governance-routes.smoke.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-finance-currency.smoke.test.js",
     "tests/portfolio-lot4.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/portfolio-register.smoke.test.js",
     "tests/portfolio-sensitive.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
@@ -5506,14 +5485,12 @@
    "line": 83,
    "tests": [
     "tests/governance-routes.smoke.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-finance-currency.smoke.test.js",
     "tests/portfolio-lot4.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/portfolio-register.smoke.test.js",
     "tests/portfolio-sensitive.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
@@ -5548,14 +5525,12 @@
    "line": 98,
    "tests": [
     "tests/governance-routes.smoke.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-finance-currency.smoke.test.js",
     "tests/portfolio-lot4.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/portfolio-register.smoke.test.js",
     "tests/portfolio-sensitive.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
@@ -5590,14 +5565,12 @@
    "line": 43,
    "tests": [
     "tests/governance-routes.smoke.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-finance-currency.smoke.test.js",
     "tests/portfolio-lot4.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/portfolio-register.smoke.test.js",
     "tests/portfolio-sensitive.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
@@ -5632,14 +5605,12 @@
    "line": 617,
    "tests": [
     "tests/governance-routes.smoke.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-finance-currency.smoke.test.js",
     "tests/portfolio-lot4.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/portfolio-register.smoke.test.js",
     "tests/portfolio-sensitive.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
@@ -5674,14 +5645,12 @@
    "line": 682,
    "tests": [
     "tests/governance-routes.smoke.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-finance-currency.smoke.test.js",
     "tests/portfolio-lot4.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/portfolio-register.smoke.test.js",
     "tests/portfolio-sensitive.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
@@ -5716,14 +5685,12 @@
    "line": 733,
    "tests": [
     "tests/governance-routes.smoke.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-finance-currency.smoke.test.js",
     "tests/portfolio-lot4.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/portfolio-register.smoke.test.js",
     "tests/portfolio-sensitive.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
@@ -5758,14 +5725,12 @@
    "line": 750,
    "tests": [
     "tests/governance-routes.smoke.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-finance-currency.smoke.test.js",
     "tests/portfolio-lot4.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/portfolio-register.smoke.test.js",
     "tests/portfolio-sensitive.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
@@ -5882,7 +5847,6 @@
     "tests/finance-certification.smoke.test.js",
     "tests/governance-routes.smoke.test.js",
     "tests/hostile-input-r4.smoke.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
@@ -5892,7 +5856,6 @@
     "tests/portfolio-lot4.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/portfolio-register.smoke.test.js",
     "tests/portfolio-sensitive.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
@@ -6037,10 +6000,9 @@
    "method": "GET",
    "path": "/api/governance/ppm/portfolio/capacity",
    "file": "routes/governancePortfolioPhase2.js",
-   "line": 153,
+   "line": 145,
    "tests": [
-    "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js"
+    "tests/portfolio-phase2.smoke.test.js"
    ]
   },
   {
@@ -6050,8 +6012,7 @@
    "file": "routes/governancePortfolioPhase2.js",
    "line": 90,
    "tests": [
-    "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js"
+    "tests/portfolio-phase2.smoke.test.js"
    ]
   },
   {
@@ -6059,7 +6020,7 @@
    "method": "GET",
    "path": "/api/governance/ppm/portfolio/effort",
    "file": "routes/governancePortfolioPhase2.js",
-   "line": 176,
+   "line": 167,
    "tests": [
     "tests/portfolio-phase2.smoke.test.js"
    ]
@@ -6079,10 +6040,9 @@
    "method": "POST",
    "path": "/api/governance/ppm/portfolio/scenario",
    "file": "routes/governancePortfolioPhase2.js",
-   "line": 222,
+   "line": 213,
    "tests": [
-    "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js"
+    "tests/portfolio-phase2.smoke.test.js"
    ]
   },
   {
@@ -6095,7 +6055,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6121,7 +6080,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6147,7 +6105,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6173,7 +6130,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6199,7 +6155,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6225,7 +6180,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6251,7 +6205,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6277,7 +6230,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6303,7 +6255,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6329,7 +6280,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6355,7 +6305,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6381,7 +6330,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6407,7 +6355,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6433,7 +6380,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6459,7 +6405,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6485,7 +6430,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6511,7 +6455,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6537,7 +6480,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6563,7 +6505,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6589,7 +6530,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6615,7 +6555,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6641,7 +6580,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6662,12 +6600,11 @@
    "method": "GET",
    "path": "/api/governance/ppm/project/:id/documents/:docId/download",
    "file": "routes/governancePortfolioPhase2.js",
-   "line": 198,
+   "line": 189,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6688,12 +6625,11 @@
    "method": "DELETE",
    "path": "/api/governance/ppm/project/:id/documents/:docId",
    "file": "routes/governancePortfolioPhase2.js",
-   "line": 211,
+   "line": 202,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6714,12 +6650,11 @@
    "method": "GET",
    "path": "/api/governance/ppm/project/:id/documents",
    "file": "routes/governancePortfolioPhase2.js",
-   "line": 185,
+   "line": 176,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6740,12 +6675,11 @@
    "method": "POST",
    "path": "/api/governance/ppm/project/:id/documents",
    "file": "routes/governancePortfolioPhase2.js",
-   "line": 188,
+   "line": 179,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6766,12 +6700,11 @@
    "method": "GET",
    "path": "/api/governance/ppm/project/:id/effort",
    "file": "routes/governancePortfolioPhase2.js",
-   "line": 162,
+   "line": 153,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6792,12 +6725,11 @@
    "method": "PUT",
    "path": "/api/governance/ppm/project/:id/effort",
    "file": "routes/governancePortfolioPhase2.js",
-   "line": 169,
+   "line": 160,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6823,7 +6755,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6849,7 +6780,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6875,7 +6805,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6901,7 +6830,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6927,7 +6855,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6953,7 +6880,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6979,7 +6905,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -7005,7 +6930,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -7031,7 +6955,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -7057,7 +6980,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -7083,7 +7005,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -7109,7 +7030,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -7135,7 +7055,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -7161,7 +7080,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -7187,7 +7105,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -7213,7 +7130,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -7239,7 +7155,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -7265,7 +7180,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -7291,7 +7205,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -7317,7 +7230,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -7343,7 +7255,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -7369,7 +7280,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -7395,7 +7305,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -7421,7 +7330,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -7447,7 +7355,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -7473,7 +7380,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -7499,7 +7405,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -7525,7 +7430,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -7551,7 +7455,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -7577,7 +7480,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -7603,7 +7505,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -7629,7 +7530,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -7655,7 +7555,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -7681,7 +7580,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -7707,7 +7605,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -7733,7 +7630,6 @@
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
-    "tests/portfolio-r5-ppm.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -9043,7 +8939,7 @@
    "method": "POST",
    "path": "/api/integrations/analytics/test",
    "file": "routes/adminConfig.js",
-   "line": 167,
+   "line": 169,
    "tests": [
     "tests/e2e-outbound-guard.test.js",
     "tests/teams-sla-admin-card.test.js"
@@ -9054,7 +8950,7 @@
    "method": "GET",
    "path": "/api/integrations/analytics",
    "file": "routes/adminConfig.js",
-   "line": 138,
+   "line": 140,
    "tests": [
     "tests/analytics-integration-routes.smoke.test.js",
     "tests/e2e-outbound-guard.test.js",
@@ -9067,7 +8963,7 @@
    "method": "PUT",
    "path": "/api/integrations/analytics",
    "file": "routes/adminConfig.js",
-   "line": 151,
+   "line": 153,
    "tests": [
     "tests/analytics-integration-routes.smoke.test.js",
     "tests/e2e-outbound-guard.test.js",
@@ -9773,7 +9669,7 @@
    "method": "POST",
    "path": "/api/meridian/sync",
    "file": "server.js",
-   "line": 3389,
+   "line": 3394,
    "tests": [
     "tests/meridian-retired.test.js"
    ]
@@ -9825,7 +9721,7 @@
    "method": "GET",
    "path": "/api/metrics/cab",
    "file": "server.js",
-   "line": 1776,
+   "line": 1778,
    "tests": [
     "tests/analytics-charts.test.js",
     "tests/analytics-logic.test.js",
@@ -9837,7 +9733,7 @@
    "method": "GET",
    "path": "/api/metrics/change",
    "file": "server.js",
-   "line": 1755,
+   "line": 1757,
    "tests": [
     "tests/analytics-charts.test.js",
     "tests/analytics-logic.test.js",
@@ -9859,7 +9755,7 @@
    "method": "GET",
    "path": "/api/metrics/request-filter-options",
    "file": "server.js",
-   "line": 1849,
+   "line": 1851,
    "tests": [
     "tests/analytics-metrics-authz.smoke.test.js"
    ]
@@ -9869,7 +9765,7 @@
    "method": "GET",
    "path": "/api/metrics/requests",
    "file": "server.js",
-   "line": 1824,
+   "line": 1826,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/analytics-charts.test.js",
@@ -9885,7 +9781,7 @@
    "method": "GET",
    "path": "/api/metrics/survey",
    "file": "server.js",
-   "line": 1797,
+   "line": 1799,
    "tests": [
     "tests/analytics-charts.test.js",
     "tests/analytics-logic.test.js",
@@ -9927,7 +9823,7 @@
    "method": "GET",
    "path": "/api/notes",
    "file": "server.js",
-   "line": 5217,
+   "line": 5222,
    "tests": [
     "tests/sec01-route-roles.smoke.test.js"
    ]
@@ -9937,7 +9833,7 @@
    "method": "POST",
    "path": "/api/notes",
    "file": "server.js",
-   "line": 5228,
+   "line": 5233,
    "tests": [
     "tests/sec01-route-roles.smoke.test.js"
    ]
@@ -9960,7 +9856,7 @@
    "method": "GET",
    "path": "/api/orgs",
    "file": "server.js",
-   "line": 1890,
+   "line": 1892,
    "tests": [
     "tests/api-key-injection.smoke.test.js",
     "tests/sec01-route-roles.smoke.test.js"
@@ -9971,10 +9867,11 @@
    "method": "GET",
    "path": "/api/ping",
    "file": "server.js",
-   "line": 1582,
+   "line": 1584,
    "tests": [
     "tests/api-key-injection.smoke.test.js",
     "tests/auth-cookie.smoke.test.js",
+    "tests/auth-db-busy.smoke.test.js",
     "tests/dashkey-only-routes.smoke.test.js"
    ]
   },
@@ -9986,7 +9883,6 @@
    "line": 99,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
    ]
@@ -10019,7 +9915,6 @@
    "file": "routes/policyCenter.js",
    "line": 191,
    "tests": [
-    "tests/p11-r5-security.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
    ]
@@ -10031,7 +9926,6 @@
    "file": "routes/policyCenter.js",
    "line": 193,
    "tests": [
-    "tests/p11-r5-security.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
    ]
@@ -10043,7 +9937,6 @@
    "file": "routes/policyCenter.js",
    "line": 192,
    "tests": [
-    "tests/p11-r5-security.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
    ]
@@ -10055,7 +9948,6 @@
    "file": "routes/policyCenter.js",
    "line": 144,
    "tests": [
-    "tests/p11-r5-security.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
    ]
@@ -10067,7 +9959,6 @@
    "file": "routes/policyCenter.js",
    "line": 118,
    "tests": [
-    "tests/p11-r5-security.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
    ]
@@ -10079,7 +9970,6 @@
    "file": "routes/policyCenter.js",
    "line": 135,
    "tests": [
-    "tests/p11-r5-security.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
    ]
@@ -10311,7 +10201,7 @@
    "method": "GET",
    "path": "/api/reports/:id/action-weeks",
    "file": "server.js",
-   "line": 4068,
+   "line": 4073,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -10331,10 +10221,10 @@
     "tests/asset-review-status.smoke.test.js",
     "tests/audit-report-write-auth.smoke.test.js",
     "tests/auth-cookie.smoke.test.js",
+    "tests/auth-db-busy.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
-    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -10367,7 +10257,6 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -10414,7 +10303,7 @@
    "method": "GET",
    "path": "/api/reports/:id/actions-from/:source_report_id",
    "file": "server.js",
-   "line": 4083,
+   "line": 4088,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -10434,10 +10323,10 @@
     "tests/asset-review-status.smoke.test.js",
     "tests/audit-report-write-auth.smoke.test.js",
     "tests/auth-cookie.smoke.test.js",
+    "tests/auth-db-busy.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
-    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -10470,7 +10359,6 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -10517,7 +10405,7 @@
    "method": "PUT",
    "path": "/api/reports/:id/actions",
    "file": "server.js",
-   "line": 4786,
+   "line": 4791,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -10537,10 +10425,10 @@
     "tests/asset-review-status.smoke.test.js",
     "tests/audit-report-write-auth.smoke.test.js",
     "tests/auth-cookie.smoke.test.js",
+    "tests/auth-db-busy.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
-    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -10573,7 +10461,6 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -10620,7 +10507,7 @@
    "method": "GET",
    "path": "/api/reports/:id/active-incidents",
    "file": "server.js",
-   "line": 4660,
+   "line": 4665,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -10640,10 +10527,10 @@
     "tests/asset-review-status.smoke.test.js",
     "tests/audit-report-write-auth.smoke.test.js",
     "tests/auth-cookie.smoke.test.js",
+    "tests/auth-db-busy.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
-    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -10676,7 +10563,6 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -10723,7 +10609,7 @@
    "method": "GET",
    "path": "/api/reports/:id/asset-followups",
    "file": "server.js",
-   "line": 4172,
+   "line": 4177,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -10743,10 +10629,10 @@
     "tests/asset-review-status.smoke.test.js",
     "tests/audit-report-write-auth.smoke.test.js",
     "tests/auth-cookie.smoke.test.js",
+    "tests/auth-db-busy.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
-    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -10779,7 +10665,6 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -10826,7 +10711,7 @@
    "method": "PUT",
    "path": "/api/reports/:id/asset-review",
    "file": "server.js",
-   "line": 4203,
+   "line": 4208,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -10846,10 +10731,10 @@
     "tests/asset-review-status.smoke.test.js",
     "tests/audit-report-write-auth.smoke.test.js",
     "tests/auth-cookie.smoke.test.js",
+    "tests/auth-db-busy.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
-    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -10882,7 +10767,6 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -10929,7 +10813,7 @@
    "method": "GET",
    "path": "/api/reports/:id/audit",
    "file": "server.js",
-   "line": 4294,
+   "line": 4299,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -10949,10 +10833,10 @@
     "tests/asset-review-status.smoke.test.js",
     "tests/audit-report-write-auth.smoke.test.js",
     "tests/auth-cookie.smoke.test.js",
+    "tests/auth-db-busy.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
-    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -10985,7 +10869,6 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -11032,7 +10915,7 @@
    "method": "GET",
    "path": "/api/reports/:id/carry-over-actions",
    "file": "server.js",
-   "line": 4058,
+   "line": 4063,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -11052,10 +10935,10 @@
     "tests/asset-review-status.smoke.test.js",
     "tests/audit-report-write-auth.smoke.test.js",
     "tests/auth-cookie.smoke.test.js",
+    "tests/auth-db-busy.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
-    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -11088,7 +10971,6 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -11135,7 +11017,7 @@
    "method": "GET",
    "path": "/api/reports/:id/carry-over-infra",
    "file": "server.js",
-   "line": 4281,
+   "line": 4286,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -11155,10 +11037,10 @@
     "tests/asset-review-status.smoke.test.js",
     "tests/audit-report-write-auth.smoke.test.js",
     "tests/auth-cookie.smoke.test.js",
+    "tests/auth-db-busy.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
-    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -11191,7 +11073,6 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -11238,7 +11119,7 @@
    "method": "PUT",
    "path": "/api/reports/:id/helpdesk",
    "file": "server.js",
-   "line": 4722,
+   "line": 4727,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -11258,10 +11139,10 @@
     "tests/asset-review-status.smoke.test.js",
     "tests/audit-report-write-auth.smoke.test.js",
     "tests/auth-cookie.smoke.test.js",
+    "tests/auth-db-busy.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
-    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -11294,7 +11175,6 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -11341,7 +11221,7 @@
    "method": "GET",
    "path": "/api/reports/:id/importable-actions",
    "file": "server.js",
-   "line": 3615,
+   "line": 3620,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -11361,10 +11241,10 @@
     "tests/asset-review-status.smoke.test.js",
     "tests/audit-report-write-auth.smoke.test.js",
     "tests/auth-cookie.smoke.test.js",
+    "tests/auth-db-busy.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
-    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -11397,7 +11277,6 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -11464,10 +11343,10 @@
     "tests/asset-review-status.smoke.test.js",
     "tests/audit-report-write-auth.smoke.test.js",
     "tests/auth-cookie.smoke.test.js",
+    "tests/auth-db-busy.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
-    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -11500,7 +11379,6 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -11547,7 +11425,7 @@
    "method": "PUT",
    "path": "/api/reports/:id/infra",
    "file": "server.js",
-   "line": 4707,
+   "line": 4712,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -11567,10 +11445,10 @@
     "tests/asset-review-status.smoke.test.js",
     "tests/audit-report-write-auth.smoke.test.js",
     "tests/auth-cookie.smoke.test.js",
+    "tests/auth-db-busy.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
-    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -11603,7 +11481,6 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -11670,10 +11547,10 @@
     "tests/asset-review-status.smoke.test.js",
     "tests/audit-report-write-auth.smoke.test.js",
     "tests/auth-cookie.smoke.test.js",
+    "tests/auth-db-busy.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
-    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -11706,7 +11583,6 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -11753,7 +11629,7 @@
    "method": "GET",
    "path": "/api/reports/:id/light-weeks",
    "file": "server.js",
-   "line": 4256,
+   "line": 4261,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -11773,10 +11649,10 @@
     "tests/asset-review-status.smoke.test.js",
     "tests/audit-report-write-auth.smoke.test.js",
     "tests/auth-cookie.smoke.test.js",
+    "tests/auth-db-busy.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
-    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -11809,7 +11685,6 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -11856,7 +11731,7 @@
    "method": "GET",
    "path": "/api/reports/:id/lights-from/:source_report_id",
    "file": "server.js",
-   "line": 4266,
+   "line": 4271,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -11876,10 +11751,10 @@
     "tests/asset-review-status.smoke.test.js",
     "tests/audit-report-write-auth.smoke.test.js",
     "tests/auth-cookie.smoke.test.js",
+    "tests/auth-db-busy.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
-    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -11912,7 +11787,6 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -11959,7 +11833,7 @@
    "method": "PUT",
    "path": "/api/reports/:id/lights",
    "file": "server.js",
-   "line": 4735,
+   "line": 4740,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -11979,10 +11853,10 @@
     "tests/asset-review-status.smoke.test.js",
     "tests/audit-report-write-auth.smoke.test.js",
     "tests/auth-cookie.smoke.test.js",
+    "tests/auth-db-busy.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
-    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -12015,7 +11889,6 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -12062,7 +11935,7 @@
    "method": "GET",
    "path": "/api/reports/:id/open-changes",
    "file": "server.js",
-   "line": 4636,
+   "line": 4641,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -12082,10 +11955,10 @@
     "tests/asset-review-status.smoke.test.js",
     "tests/audit-report-write-auth.smoke.test.js",
     "tests/auth-cookie.smoke.test.js",
+    "tests/auth-db-busy.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
-    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -12118,7 +11991,6 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -12165,7 +12037,7 @@
    "method": "GET",
    "path": "/api/reports/:id/pptx",
    "file": "server.js",
-   "line": 4907,
+   "line": 4912,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -12185,10 +12057,10 @@
     "tests/asset-review-status.smoke.test.js",
     "tests/audit-report-write-auth.smoke.test.js",
     "tests/auth-cookie.smoke.test.js",
+    "tests/auth-db-busy.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
-    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -12221,7 +12093,6 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -12268,7 +12139,7 @@
    "method": "PUT",
    "path": "/api/reports/:id/reassign-week",
    "file": "server.js",
-   "line": 4857,
+   "line": 4862,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -12288,10 +12159,10 @@
     "tests/asset-review-status.smoke.test.js",
     "tests/audit-report-write-auth.smoke.test.js",
     "tests/auth-cookie.smoke.test.js",
+    "tests/auth-db-busy.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
-    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -12324,7 +12195,6 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -12371,7 +12241,7 @@
    "method": "GET",
    "path": "/api/reports/:id/site-open-actions",
    "file": "server.js",
-   "line": 4238,
+   "line": 4243,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -12391,10 +12261,10 @@
     "tests/asset-review-status.smoke.test.js",
     "tests/audit-report-write-auth.smoke.test.js",
     "tests/auth-cookie.smoke.test.js",
+    "tests/auth-db-busy.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
-    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -12427,7 +12297,6 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -12474,7 +12343,7 @@
    "method": "PUT",
    "path": "/api/reports/:id/status",
    "file": "server.js",
-   "line": 4814,
+   "line": 4819,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -12494,10 +12363,10 @@
     "tests/asset-review-status.smoke.test.js",
     "tests/audit-report-write-auth.smoke.test.js",
     "tests/auth-cookie.smoke.test.js",
+    "tests/auth-db-busy.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
-    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -12530,7 +12399,6 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -12577,7 +12445,7 @@
    "method": "DELETE",
    "path": "/api/reports/:id",
    "file": "server.js",
-   "line": 4687,
+   "line": 4692,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -12597,10 +12465,10 @@
     "tests/asset-review-status.smoke.test.js",
     "tests/audit-report-write-auth.smoke.test.js",
     "tests/auth-cookie.smoke.test.js",
+    "tests/auth-db-busy.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
-    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -12633,7 +12501,6 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -12680,7 +12547,7 @@
    "method": "GET",
    "path": "/api/reports/:id",
    "file": "server.js",
-   "line": 4626,
+   "line": 4631,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -12700,10 +12567,10 @@
     "tests/asset-review-status.smoke.test.js",
     "tests/audit-report-write-auth.smoke.test.js",
     "tests/auth-cookie.smoke.test.js",
+    "tests/auth-db-busy.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
-    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -12736,7 +12603,6 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -12783,7 +12649,7 @@
    "method": "POST",
    "path": "/api/reports/action/:uid/merge",
    "file": "server.js",
-   "line": 3546,
+   "line": 3551,
    "tests": [
     "tests/action-relineage.smoke.test.js",
     "tests/audit-report-write-auth.smoke.test.js",
@@ -12799,7 +12665,7 @@
    "method": "POST",
    "path": "/api/reports/action/:uid/relineage",
    "file": "server.js",
-   "line": 3591,
+   "line": 3596,
    "tests": [
     "tests/action-relineage.smoke.test.js",
     "tests/audit-report-write-auth.smoke.test.js",
@@ -12815,7 +12681,7 @@
    "method": "POST",
    "path": "/api/reports/action/:uid/status",
    "file": "server.js",
-   "line": 3571,
+   "line": 3576,
    "tests": [
     "tests/action-relineage.smoke.test.js",
     "tests/audit-report-write-auth.smoke.test.js",
@@ -12831,7 +12697,7 @@
    "method": "POST",
    "path": "/api/reports/action/:uid/unmerge",
    "file": "server.js",
-   "line": 3560,
+   "line": 3565,
    "tests": [
     "tests/action-relineage.smoke.test.js",
     "tests/audit-report-write-auth.smoke.test.js",
@@ -12870,7 +12736,7 @@
    "method": "POST",
    "path": "/api/reports/auth/change-password",
    "file": "server.js",
-   "line": 3926,
+   "line": 3931,
    "tests": [
     "tests/critical-routes.smoke.test.js"
    ]
@@ -12880,9 +12746,10 @@
    "method": "POST",
    "path": "/api/reports/auth/login",
    "file": "server.js",
-   "line": 3746,
+   "line": 3751,
    "tests": [
     "tests/auth-cookie.smoke.test.js",
+    "tests/auth-db-busy.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/login-account-throttle.smoke.test.js",
     "tests/login-limit-failures-only.smoke.test.js",
@@ -12899,7 +12766,7 @@
    "method": "POST",
    "path": "/api/reports/auth/logout",
    "file": "server.js",
-   "line": 3796,
+   "line": 3801,
    "tests": [
     "tests/auth-cookie.smoke.test.js",
     "tests/route-matrix-probe-order.test.js",
@@ -12911,13 +12778,13 @@
    "method": "GET",
    "path": "/api/reports/auth/me",
    "file": "server.js",
-   "line": 3803,
+   "line": 3808,
    "tests": [
     "tests/access-revocation.smoke.test.js",
     "tests/api-key-injection.smoke.test.js",
     "tests/auth-cookie.smoke.test.js",
+    "tests/auth-db-busy.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
-    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/e2e-outbound-guard.test.js",
     "tests/multi-site-editor.smoke.test.js",
     "tests/session-security.smoke.test.js",
@@ -12974,7 +12841,7 @@
    "method": "GET",
    "path": "/api/reports/current-week",
    "file": "server.js",
-   "line": 4002,
+   "line": 4007,
    "tests": [
     "tests/adoption-lota-week.test.js",
     "tests/critical-routes.smoke.test.js"
@@ -12985,7 +12852,7 @@
    "method": "DELETE",
    "path": "/api/reports/departments/:id",
    "file": "server.js",
-   "line": 3986,
+   "line": 3991,
    "tests": [
     "tests/departments-routes.smoke.test.js",
     "tests/inventory-strict.test.js",
@@ -12997,7 +12864,7 @@
    "method": "PUT",
    "path": "/api/reports/departments/:id",
    "file": "server.js",
-   "line": 3968,
+   "line": 3973,
    "tests": [
     "tests/departments-routes.smoke.test.js",
     "tests/inventory-strict.test.js",
@@ -13009,7 +12876,7 @@
    "method": "GET",
    "path": "/api/reports/departments",
    "file": "server.js",
-   "line": 3945,
+   "line": 3950,
    "tests": [
     "tests/departments-routes.smoke.test.js",
     "tests/inventory-strict.test.js",
@@ -13021,7 +12888,7 @@
    "method": "POST",
    "path": "/api/reports/departments",
    "file": "server.js",
-   "line": 3955,
+   "line": 3960,
    "tests": [
     "tests/departments-routes.smoke.test.js",
     "tests/inventory-strict.test.js",
@@ -13033,7 +12900,7 @@
    "method": "POST",
    "path": "/api/reports/ensure",
    "file": "server.js",
-   "line": 4035,
+   "line": 4040,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/multi-site-editor.smoke.test.js",
@@ -13047,7 +12914,7 @@
    "method": "GET",
    "path": "/api/reports/exec-editorial",
    "file": "server.js",
-   "line": 3449,
+   "line": 3454,
    "tests": [
     "tests/deck-builder-gate.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js"
@@ -13058,7 +12925,7 @@
    "method": "PUT",
    "path": "/api/reports/exec-editorial",
    "file": "server.js",
-   "line": 3461,
+   "line": 3466,
    "tests": [
     "tests/deck-builder-gate.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js"
@@ -13069,7 +12936,7 @@
    "method": "POST",
    "path": "/api/reports/exec-pptx",
    "file": "server.js",
-   "line": 5370,
+   "line": 5375,
    "tests": [
     "tests/deck-builder-gate.smoke.test.js"
    ]
@@ -13079,7 +12946,7 @@
    "method": "GET",
    "path": "/api/reports/helpdesk-charts",
    "file": "server.js",
-   "line": 4373,
+   "line": 4378,
    "tests": [
     "tests/report-read-scope.smoke.test.js"
    ]
@@ -13089,7 +12956,7 @@
    "method": "GET",
    "path": "/api/reports/helpdesk-live",
    "file": "server.js",
-   "line": 4314,
+   "line": 4319,
    "tests": []
   },
   {
@@ -13097,7 +12964,7 @@
    "method": "GET",
    "path": "/api/reports/monthly/:site_id/:year/:month/edits",
    "file": "server.js",
-   "line": 5050,
+   "line": 5055,
    "tests": [
     "tests/boot-integrity.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
@@ -13110,7 +12977,7 @@
    "method": "POST",
    "path": "/api/reports/monthly/:site_id/:year/:month/edits",
    "file": "server.js",
-   "line": 5062,
+   "line": 5067,
    "tests": [
     "tests/boot-integrity.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
@@ -13123,7 +12990,7 @@
    "method": "GET",
    "path": "/api/reports/monthly/:site_id/:year/:month/pptx-v2",
    "file": "server.js",
-   "line": 5117,
+   "line": 5122,
    "tests": [
     "tests/boot-integrity.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
@@ -13136,7 +13003,7 @@
    "method": "GET",
    "path": "/api/reports/monthly/:site_id/:year/:month/pptx",
    "file": "server.js",
-   "line": 4970,
+   "line": 4975,
    "tests": [
     "tests/boot-integrity.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
@@ -13149,7 +13016,7 @@
    "method": "GET",
    "path": "/api/reports/monthly/:site_id/:year/:month/site-template/pptx",
    "file": "server.js",
-   "line": 5146,
+   "line": 5151,
    "tests": [
     "tests/boot-integrity.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
@@ -13162,7 +13029,7 @@
    "method": "GET",
    "path": "/api/reports/monthly/:site_id/:year/:month",
    "file": "server.js",
-   "line": 5039,
+   "line": 5044,
    "tests": [
     "tests/boot-integrity.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
@@ -13175,7 +13042,7 @@
    "method": "GET",
    "path": "/api/reports/monthly/all-sites/:year/:month/pptx",
    "file": "server.js",
-   "line": 4938,
+   "line": 4943,
    "tests": [
     "tests/report-read-scope.smoke.test.js"
    ]
@@ -13185,7 +13052,7 @@
    "method": "GET",
    "path": "/api/reports/objectives/:site_id/:year",
    "file": "server.js",
-   "line": 5095,
+   "line": 5100,
    "tests": [
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js"
@@ -13196,7 +13063,7 @@
    "method": "POST",
    "path": "/api/reports/objectives/:site_id/:year",
    "file": "server.js",
-   "line": 5105,
+   "line": 5110,
    "tests": [
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js"
@@ -13207,7 +13074,7 @@
    "method": "PUT",
    "path": "/api/reports/recipients/:site",
    "file": "server.js",
-   "line": 3400,
+   "line": 3405,
    "tests": [
     "tests/reporting-routes.smoke.test.js"
    ]
@@ -13217,7 +13084,7 @@
    "method": "POST",
    "path": "/api/reports/recipients/suggest",
    "file": "server.js",
-   "line": 3406,
+   "line": 3411,
    "tests": [
     "tests/reporting-routes.smoke.test.js"
    ]
@@ -13227,7 +13094,7 @@
    "method": "GET",
    "path": "/api/reports/recipients",
    "file": "server.js",
-   "line": 3396,
+   "line": 3401,
    "tests": [
     "tests/reporting-routes.smoke.test.js"
    ]
@@ -13237,7 +13104,7 @@
    "method": "GET",
    "path": "/api/reports/review-data",
    "file": "server.js",
-   "line": 3644,
+   "line": 3649,
    "tests": [
     "tests/access-why.smoke.test.js",
     "tests/adoption-lota-nav-authz.test.js",
@@ -13251,7 +13118,7 @@
    "method": "GET",
    "path": "/api/reports/schedule",
    "file": "server.js",
-   "line": 3415,
+   "line": 3420,
    "tests": [
     "tests/hostile-input-r4.smoke.test.js",
     "tests/reporting-routes.smoke.test.js"
@@ -13262,7 +13129,7 @@
    "method": "PUT",
    "path": "/api/reports/schedule",
    "file": "server.js",
-   "line": 3419,
+   "line": 3424,
    "tests": [
     "tests/hostile-input-r4.smoke.test.js",
     "tests/reporting-routes.smoke.test.js"
@@ -13285,7 +13152,7 @@
    "method": "POST",
    "path": "/api/reports/send",
    "file": "server.js",
-   "line": 3698,
+   "line": 3703,
    "tests": [
     "tests/asset-group-route.smoke.test.js",
     "tests/report-send-route.smoke.test.js",
@@ -13298,7 +13165,7 @@
    "method": "DELETE",
    "path": "/api/reports/sessions/:token",
    "file": "routes/adminUsers.js",
-   "line": 222,
+   "line": 209,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/route-matrix-probe-order.test.js",
@@ -13310,7 +13177,7 @@
    "method": "GET",
    "path": "/api/reports/sessions/active",
    "file": "routes/adminUsers.js",
-   "line": 189,
+   "line": 176,
    "tests": [
     "tests/session-security.smoke.test.js"
    ]
@@ -13370,7 +13237,7 @@
    "method": "GET",
    "path": "/api/reports/site-data",
    "file": "server.js",
-   "line": 3476,
+   "line": 3481,
    "tests": [
     "tests/agent-inventory.test.js",
     "tests/reporting-routes.smoke.test.js",
@@ -13449,7 +13316,7 @@
    "method": "GET",
    "path": "/api/reports/system-log/analytics",
    "file": "server.js",
-   "line": 4601,
+   "line": 4606,
    "tests": [
     "tests/system-log-routes.smoke.test.js"
    ]
@@ -13459,7 +13326,7 @@
    "method": "GET",
    "path": "/api/reports/system-log/export.csv",
    "file": "server.js",
-   "line": 4613,
+   "line": 4618,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/inventory-strict.test.js",
@@ -13471,7 +13338,7 @@
    "method": "GET",
    "path": "/api/reports/system-log/export.json",
    "file": "server.js",
-   "line": 4605,
+   "line": 4610,
    "tests": [
     "tests/system-log-routes.smoke.test.js"
    ]
@@ -13481,7 +13348,7 @@
    "method": "GET",
    "path": "/api/reports/system-log",
    "file": "server.js",
-   "line": 4595,
+   "line": 4600,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/authz-matrix-json.test.js",
@@ -13498,7 +13365,7 @@
    "method": "GET",
    "path": "/api/reports/technicians",
    "file": "server.js",
-   "line": 4571,
+   "line": 4576,
    "tests": []
   },
   {
@@ -13506,7 +13373,7 @@
    "method": "POST",
    "path": "/api/reports/test-smtp",
    "file": "routes/adminConfig.js",
-   "line": 185,
+   "line": 187,
    "tests": []
   },
   {
@@ -13514,7 +13381,7 @@
    "method": "DELETE",
    "path": "/api/reports/users/:id",
    "file": "routes/adminUsers.js",
-   "line": 168,
+   "line": 155,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -13527,7 +13394,6 @@
     "tests/identity-log.smoke.test.js",
     "tests/inventory-strict.test.js",
     "tests/multi-site-editor.smoke.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/uat-amdec-org-models.smoke.test.js",
@@ -13539,7 +13405,7 @@
    "method": "PUT",
    "path": "/api/reports/users/:id",
    "file": "routes/adminUsers.js",
-   "line": 140,
+   "line": 134,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -13552,7 +13418,6 @@
     "tests/identity-log.smoke.test.js",
     "tests/inventory-strict.test.js",
     "tests/multi-site-editor.smoke.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/uat-amdec-org-models.smoke.test.js",
@@ -13587,7 +13452,6 @@
     "tests/identity-log.smoke.test.js",
     "tests/inventory-strict.test.js",
     "tests/multi-site-editor.smoke.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/uat-amdec-org-models.smoke.test.js",
@@ -13612,7 +13476,6 @@
     "tests/identity-log.smoke.test.js",
     "tests/inventory-strict.test.js",
     "tests/multi-site-editor.smoke.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/uat-amdec-org-models.smoke.test.js",
@@ -13624,7 +13487,7 @@
    "method": "GET",
    "path": "/api/reports/weekly-summary/:year/:week/pptx",
    "file": "server.js",
-   "line": 5002,
+   "line": 5007,
    "tests": [
     "tests/report-read-scope.smoke.test.js"
    ]
@@ -13645,7 +13508,7 @@
    "method": "GET",
    "path": "/api/reports/yearly/:site_id/:year",
    "file": "server.js",
-   "line": 5085,
+   "line": 5090,
    "tests": [
     "tests/access-revocation.smoke.test.js"
    ]
@@ -13655,7 +13518,7 @@
    "method": "GET",
    "path": "/api/reports",
    "file": "server.js",
-   "line": 4014,
+   "line": 4019,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -13675,10 +13538,10 @@
     "tests/asset-review-status.smoke.test.js",
     "tests/audit-report-write-auth.smoke.test.js",
     "tests/auth-cookie.smoke.test.js",
+    "tests/auth-db-busy.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
     "tests/authz-matrix-json.test.js",
-    "tests/authz-outcomes-lots-on.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/boot-integrity.test.js",
@@ -13711,7 +13574,6 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
-    "tests/p11-r5-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -13758,7 +13620,7 @@
    "method": "GET",
    "path": "/api/requests",
    "file": "server.js",
-   "line": 1869,
+   "line": 1871,
    "tests": [
     "tests/server-routes-smoke.test.js"
    ]
@@ -14057,7 +13919,7 @@
    "method": "GET",
    "path": "/api/sample/:viewId",
    "file": "server.js",
-   "line": 3199,
+   "line": 3201,
    "tests": [
     "tests/api-sample-guard.smoke.test.js",
     "tests/server-size-budget.test.js"
@@ -14068,7 +13930,7 @@
    "method": "POST",
    "path": "/api/save-charts",
    "file": "server.js",
-   "line": 5242,
+   "line": 5247,
    "tests": [
     "tests/sec01-route-roles.smoke.test.js"
    ]
@@ -14078,7 +13940,7 @@
    "method": "POST",
    "path": "/api/save-pptx",
    "file": "server.js",
-   "line": 5251,
+   "line": 5256,
    "tests": []
   },
   {
@@ -14127,7 +13989,7 @@
    "method": "GET",
    "path": "/api/site-awareness/actions",
    "file": "routes/siteAwareness.js",
-   "line": 293,
+   "line": 297,
    "tests": [
     "tests/site-awareness-routes.smoke.test.js"
    ]
@@ -14137,7 +13999,7 @@
    "method": "GET",
    "path": "/api/site-awareness/audit",
    "file": "routes/siteAwareness.js",
-   "line": 528,
+   "line": 530,
    "tests": [
     "tests/site-awareness-routes.smoke.test.js"
    ]
@@ -14147,7 +14009,7 @@
    "method": "GET",
    "path": "/api/site-awareness/fleet",
    "file": "routes/siteAwareness.js",
-   "line": 410,
+   "line": 414,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/site-awareness-routes.smoke.test.js"
@@ -14158,7 +14020,7 @@
    "method": "GET",
    "path": "/api/site-awareness/helpdesk",
    "file": "routes/siteAwareness.js",
-   "line": 137,
+   "line": 141,
    "tests": [
     "tests/site-awareness-routes.smoke.test.js"
    ]
@@ -14168,7 +14030,7 @@
    "method": "GET",
    "path": "/api/site-awareness/inspections",
    "file": "routes/siteAwareness.js",
-   "line": 195,
+   "line": 199,
    "tests": [
     "tests/site-awareness-routes.smoke.test.js"
    ]
@@ -14178,7 +14040,7 @@
    "method": "GET",
    "path": "/api/site-awareness/meetings",
    "file": "routes/siteAwareness.js",
-   "line": 249,
+   "line": 253,
    "tests": [
     "tests/site-awareness-routes.smoke.test.js"
    ]
@@ -14188,7 +14050,7 @@
    "method": "GET",
    "path": "/api/site-awareness/summary",
    "file": "routes/siteAwareness.js",
-   "line": 122,
+   "line": 126,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/business-only-boundary.smoke.test.js",
@@ -14201,7 +14063,7 @@
    "method": "GET",
    "path": "/api/site-awareness/tracker",
    "file": "routes/siteAwareness.js",
-   "line": 354,
+   "line": 358,
    "tests": [
     "tests/site-awareness-routes.smoke.test.js"
    ]
@@ -14211,7 +14073,7 @@
    "method": "GET",
    "path": "/api/sites/:siteId/active-incidents",
    "file": "server.js",
-   "line": 4677,
+   "line": 4682,
    "tests": [
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js"
@@ -14222,7 +14084,7 @@
    "method": "GET",
    "path": "/api/sites/:siteId/open-changes",
    "file": "server.js",
-   "line": 4647,
+   "line": 4652,
    "tests": [
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js"
@@ -14385,7 +14247,7 @@
    "method": "GET",
    "path": "/api/sync/status",
    "file": "server.js",
-   "line": 1591,
+   "line": 1593,
    "tests": [
     "tests/server-routes-smoke.test.js"
    ]
@@ -14395,7 +14257,7 @@
    "method": "POST",
    "path": "/api/sync/trigger/:job",
    "file": "server.js",
-   "line": 1640,
+   "line": 1642,
    "tests": [
     "tests/admin-superadmin-gate.smoke.test.js",
     "tests/assets-routes.smoke.test.js",
@@ -14407,7 +14269,7 @@
    "method": "POST",
    "path": "/api/sync/trigger/assets",
    "file": "server.js",
-   "line": 1634,
+   "line": 1636,
    "tests": [
     "tests/admin-superadmin-gate.smoke.test.js",
     "tests/assets-routes.smoke.test.js"
@@ -14441,7 +14303,6 @@
    "file": "routes/teamsSla.js",
    "line": 28,
    "tests": [
-    "tests/p11-r5-security.smoke.test.js",
     "tests/teams-sla-admin-card.test.js",
     "tests/teams-sla-routes.smoke.test.js"
    ]
@@ -14453,7 +14314,6 @@
    "file": "routes/teamsSla.js",
    "line": 46,
    "tests": [
-    "tests/p11-r5-security.smoke.test.js",
     "tests/teams-sla-admin-card.test.js",
     "tests/teams-sla-routes.smoke.test.js"
    ]
@@ -14553,7 +14413,7 @@
    "method": "POST",
    "path": "/api/tracker/save",
    "file": "server.js",
-   "line": 3346,
+   "line": 3351,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/tracker-routes.smoke.test.js",
@@ -14938,7 +14798,7 @@
    "method": "GET",
    "path": "/api/views",
    "file": "server.js",
-   "line": 1933,
+   "line": 1935,
    "tests": [
     "tests/sec01-route-roles.smoke.test.js"
    ]
@@ -14986,7 +14846,7 @@
    "method": "GET",
    "path": "/api/workspaces",
    "file": "server.js",
-   "line": 1925,
+   "line": 1927,
    "tests": [
     "tests/api-key-injection.smoke.test.js",
     "tests/sec01-route-roles.smoke.test.js"
@@ -14997,7 +14857,7 @@
    "method": "GET",
    "path": "/assets-finance.html",
    "file": "server.js",
-   "line": 1413,
+   "line": 1415,
    "tests": [
     "tests/agent-inventory.test.js"
    ]
@@ -15007,7 +14867,7 @@
    "method": "GET",
    "path": "/assets-hygiene.html",
    "file": "server.js",
-   "line": 1410,
+   "line": 1412,
    "tests": [
     "tests/agent-inventory.test.js",
     "tests/asset-hygiene-report.test.js"
@@ -15018,7 +14878,7 @@
    "method": "GET",
    "path": "/assets.html",
    "file": "server.js",
-   "line": 1388,
+   "line": 1390,
    "tests": [
     "tests/adoption-lota-truth.test.js",
     "tests/asset-reminder-report.test.js",
@@ -15064,7 +14924,7 @@
    "method": "GET",
    "path": "/exec-view.html",
    "file": "server.js",
-   "line": 1322,
+   "line": 1324,
    "tests": [
     "tests/csp-headers.smoke.test.js",
     "tests/csp-report.smoke.test.js",
@@ -15078,7 +14938,7 @@
    "method": "GET",
    "path": "/executive-report.html",
    "file": "server.js",
-   "line": 1371,
+   "line": 1373,
    "tests": [
     "tests/api-key-injection.smoke.test.js",
     "tests/csp-headers.smoke.test.js",
@@ -15095,7 +14955,7 @@
    "method": "GET",
    "path": "/executive.html",
    "file": "server.js",
-   "line": 1315,
+   "line": 1317,
    "tests": [
     "tests/api-key-injection.smoke.test.js",
     "tests/csp-journey-report.test.js",
@@ -15259,7 +15119,7 @@
    "method": "GET",
    "path": "/",
    "file": "server.js",
-   "line": 1356,
+   "line": 1358,
    "tests": []
   },
   {
@@ -15301,7 +15161,7 @@
    "method": "GET",
    "path": "/help.html",
    "file": "server.js",
-   "line": 1432,
+   "line": 1434,
    "tests": [
     "tests/csp-strict-pages-config.test.js",
     "tests/ppm-visuals.test.js",
@@ -15329,7 +15189,7 @@
    "method": "GET",
    "path": "/index.html",
    "file": "server.js",
-   "line": 1356,
+   "line": 1358,
    "tests": [
     "tests/a11y-legacy-ratchet.test.js",
     "tests/a11y-static.test.js",
@@ -15364,7 +15224,7 @@
    "method": "GET",
    "path": "/infra-health.html",
    "file": "server.js",
-   "line": 1398,
+   "line": 1400,
    "tests": [
     "tests/csp-journey-report.test.js",
     "tests/infra-health-page-errors.test.js",
@@ -15376,7 +15236,7 @@
    "method": "GET",
    "path": "/inspection-actions.html",
    "file": "server.js",
-   "line": 1383,
+   "line": 1385,
    "tests": [
     "tests/review-dashboard.test.js",
     "tests/ui-design-ratchet.test.js"
@@ -15387,7 +15247,7 @@
    "method": "GET",
    "path": "/inspection.html",
    "file": "server.js",
-   "line": 1378,
+   "line": 1380,
    "tests": [
     "tests/csp-journey-report.test.js",
     "tests/ui-design-ratchet.test.js"
@@ -15398,7 +15258,7 @@
    "method": "GET",
    "path": "/inspections.html",
    "file": "server.js",
-   "line": 1417,
+   "line": 1419,
    "tests": [
     "tests/adoption-lota-truth.test.js",
     "tests/ui-design-ratchet.test.js"
@@ -15409,7 +15269,7 @@
    "method": "GET",
    "path": "/it-review.html",
    "file": "server.js",
-   "line": 1344,
+   "line": 1346,
    "tests": [
     "tests/it-review-tokens.test.js",
     "tests/review-page.smoke.test.js",
@@ -15421,7 +15281,7 @@
    "method": "GET",
    "path": "/itsm-integrations-plan.html",
    "file": "server.js",
-   "line": 1437,
+   "line": 1439,
    "tests": [
     "tests/agent-inventory.test.js",
     "tests/integrations-plan-gate.smoke.test.js",
@@ -15433,7 +15293,7 @@
    "method": "GET",
    "path": "/itsm-roadmap.html",
    "file": "server.js",
-   "line": 1406,
+   "line": 1408,
    "tests": [
     "tests/csv-safe.test.js",
     "tests/ui-design-ratchet.test.js"
@@ -15444,7 +15304,7 @@
    "method": "GET",
    "path": "/login.html",
    "file": "server.js",
-   "line": 1351,
+   "line": 1353,
    "tests": [
     "tests/csp-candidate-pages.smoke.test.js",
     "tests/csp-headers.smoke.test.js",
@@ -15461,7 +15321,7 @@
    "method": "GET",
    "path": "/meeting.html",
    "file": "server.js",
-   "line": 1456,
+   "line": 1458,
    "tests": [
     "tests/incubation-editor-client.test.js",
     "tests/meeting-status-options.test.js",
@@ -15473,7 +15333,7 @@
    "method": "GET",
    "path": "/meetings-actions.html",
    "file": "server.js",
-   "line": 1458,
+   "line": 1460,
    "tests": [
     "tests/meeting-status-options.test.js",
     "tests/ui-design-ratchet.test.js"
@@ -15484,7 +15344,7 @@
    "method": "GET",
    "path": "/meetings-compliance.html",
    "file": "server.js",
-   "line": 1464,
+   "line": 1466,
    "tests": [
     "tests/ui-design-ratchet.test.js"
    ]
@@ -15494,7 +15354,7 @@
    "method": "GET",
    "path": "/meetings-council.html",
    "file": "server.js",
-   "line": 1463,
+   "line": 1465,
    "tests": [
     "tests/ui-design-ratchet.test.js"
    ]
@@ -15504,7 +15364,7 @@
    "method": "GET",
    "path": "/meetings-import.html",
    "file": "server.js",
-   "line": 1465,
+   "line": 1467,
    "tests": [
     "tests/ui-design-ratchet.test.js"
    ]
@@ -15514,7 +15374,7 @@
    "method": "GET",
    "path": "/meetings-insights.html",
    "file": "server.js",
-   "line": 1467,
+   "line": 1469,
    "tests": [
     "tests/i18n-inline-glossary.test.js",
     "tests/ui-design-ratchet.test.js"
@@ -15525,7 +15385,7 @@
    "method": "GET",
    "path": "/meetings-issues.html",
    "file": "server.js",
-   "line": 1457,
+   "line": 1459,
    "tests": [
     "tests/meeting-status-options.test.js",
     "tests/ui-design-ratchet.test.js"
@@ -15536,7 +15396,7 @@
    "method": "GET",
    "path": "/meetings-progress.html",
    "file": "server.js",
-   "line": 1466,
+   "line": 1468,
    "tests": [
     "tests/ui-design-ratchet.test.js"
    ]
@@ -15546,7 +15406,7 @@
    "method": "GET",
    "path": "/meetings-setup.html",
    "file": "server.js",
-   "line": 1468,
+   "line": 1470,
    "tests": [
     "tests/ui-design-ratchet.test.js"
    ]
@@ -15556,7 +15416,7 @@
    "method": "GET",
    "path": "/meetings-unsigned.html",
    "file": "server.js",
-   "line": 1462,
+   "line": 1464,
    "tests": [
     "tests/ui-design-ratchet.test.js"
    ]
@@ -15566,7 +15426,7 @@
    "method": "GET",
    "path": "/meetings.html",
    "file": "server.js",
-   "line": 1455,
+   "line": 1457,
    "tests": [
     "tests/adoption-lota-truth.test.js",
     "tests/inventory-strict.test.js",
@@ -15578,7 +15438,7 @@
    "method": "GET",
    "path": "/no-access.html",
    "file": "server.js",
-   "line": 1334,
+   "line": 1336,
    "tests": [
     "tests/access-routes.smoke.test.js",
     "tests/access-why.smoke.test.js"
@@ -15635,7 +15495,7 @@
    "method": "GET",
    "path": "/reports.html",
    "file": "server.js",
-   "line": 1366,
+   "line": 1368,
    "tests": [
     "tests/adoption-lota-week.test.js",
     "tests/api-key-injection.smoke.test.js",
@@ -15683,7 +15543,7 @@
    "method": "GET",
    "path": "/site-actions.html",
    "file": "server.js",
-   "line": 1460,
+   "line": 1462,
    "tests": [
     "tests/csp-journey-report.test.js",
     "tests/csp-strict-pages-config.test.js",
@@ -15699,7 +15559,7 @@
    "method": "GET",
    "path": "/site-awareness.html",
    "file": "server.js",
-   "line": 1337,
+   "line": 1339,
    "tests": [
     "tests/ui-design-ratchet.test.js"
    ]
@@ -15709,7 +15569,7 @@
    "method": "GET",
    "path": "/site-report.html",
    "file": "server.js",
-   "line": 1329,
+   "line": 1331,
    "tests": [
     "tests/agent-inventory.test.js",
     "tests/trust-label.test.js",
@@ -15721,7 +15581,7 @@
    "method": "GET",
    "path": "/system-logs.html",
    "file": "server.js",
-   "line": 1461,
+   "line": 1463,
    "tests": [
     "tests/ui-design-ratchet.test.js"
    ]
@@ -15741,7 +15601,7 @@
    "method": "GET",
    "path": "/wan-health.html",
    "file": "server.js",
-   "line": 1395,
+   "line": 1397,
    "tests": [
     "tests/agent-inventory.test.js",
     "tests/ui-design-ratchet.test.js"
@@ -15752,7 +15612,7 @@
    "method": "GET",
    "path": "/wan-sla.html",
    "file": "server.js",
-   "line": 1401,
+   "line": 1403,
    "tests": [
     "tests/agent-inventory.test.js",
     "tests/ui-design-ratchet.test.js"
@@ -15763,7 +15623,7 @@
    "method": "GET",
    "path": "/wan.html",
    "file": "server.js",
-   "line": 1391,
+   "line": 1393,
    "tests": [
     "tests/csp-headers.smoke.test.js",
     "tests/csp-journey-report.test.js",

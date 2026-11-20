@@ -4,7 +4,11 @@
 -- 'finance_certification_events' from services/auditChain.js TABLES (or the nightly verify reports it missing).
 -- Afterwards:
 --   DELETE FROM schema_migrations WHERE id = 'reports/094_finance_certifications.sql';
+-- One transaction (P11 r5 N-13): a failing statement rolls the whole script back; psql -f turns the final
+-- COMMIT of an aborted transaction into ROLLBACK, so a failure changes nothing.
+BEGIN;
 DROP TRIGGER IF EXISTS finance_certification_events_append_only ON finance_certification_events;
 DROP TRIGGER IF EXISTS finance_certification_events_hash_chain ON finance_certification_events;
 DROP TABLE IF EXISTS finance_certification_events;
 DROP TABLE IF EXISTS finance_certifications;
+COMMIT;

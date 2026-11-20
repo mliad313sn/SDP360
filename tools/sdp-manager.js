@@ -397,7 +397,7 @@ async function main() {
       const { runBackup } = require('../services/backup');
       const r = await runBackup({ dir: arg('--out', backupDirOf(dir, env)), env: { ...process.env, ...env } });
       if (json) return emit(r.skipped ? { ok: false, reason: r.reason } : { ok: true, file: r.file, encrypted: r.encrypted });
-      return log(r.skipped ? `[backup] skipped: ${r.reason}` : `[backup] ${r.file}`);
+      return log(r.skipped ? `[backup] skipped: ${r.reason}` : `[backup] ${r.file}${r.file_store ? (r.file_store.present ? `\n[backup] file store: ${r.file_store.file} (${r.file_store.count} file(s), verified)` : '\n[backup] file store: none on this server') : ''}`);
     }
     case 'backups': {
       const env = readEnv(dir);

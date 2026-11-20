@@ -64,3 +64,14 @@ test('the register counts every decision once, under a known decider, with no de
   // every RELEASE-GATES row has its own decision line
   for (let n = 1; n <= 21; n++) assert.ok(ids.includes(`HD-G${String(n).padStart(2, '0')}`), `no line for gate ${n}`);
 });
+
+// P11 r5 N-15 — a real apply of a lot carrying a four-eyes switch must name the second operator in the pack.
+test('an --apply of a four-eyes lot without --second-operator is refused; dry run and L01 are not', () => {
+  assert.ok(known.fourEyesLots.has('L12') && known.fourEyesLots.has('L03') && !known.fourEyesLots.has('L01'));
+  const cmd = 'node tools/ops/activate-switches.js --apply --lots=L12 --db-url=env --reason="vague 3 — réf. comité X" --operator=<op>';
+  const bad = br.scanText(`${LABEL}\n${cmd}`, known, 'x.md');
+  assert.ok(bad.some((s) => /four-eyes switch\) without --second-operator/.test(s)), bad.join('\n'));
+  assert.deepStrictEqual(br.scanText(`${LABEL}\n${cmd} --second-operator=<second>`, known, 'x.md'), []);
+  assert.deepStrictEqual(br.scanText(`${LABEL}\n${cmd.replace('--apply', '--apply --dry-run')}`, known, 'x.md'), []);
+  assert.deepStrictEqual(br.scanText(`${LABEL}\n${cmd.replace('L12', 'L01')}`, known, 'x.md'), []);
+});

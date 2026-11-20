@@ -131,10 +131,12 @@ test('PG: --full proves files + both keys; a tampered copy, a wrong config key o
     assert.deepEqual([viaSwitch.full.ok, viaSwitch.full.complete], [true, true], 'all six steps exercised with a target set');
     assert.match(fs.readFileSync(viaSwitch.reportFile, 'utf8'), /Full-service result: PASS/);
 
-    // no backup copy → UNKNOWN, not a failure and not a pass
+    // P11 r5 N-14 — no --blob-backup: the verified file-store archive of the backup run IS the copy (it used to be
+    // UNKNOWN because nothing backed the files up)
     const noCopy = await drill.run({ ...base, reportDir: path.join(tmp, 'r3'), full: true });
-    assert.deepEqual([noCopy.full.ok, noCopy.full.complete], [true, false]);
-    assert.ok(noCopy.full.unknown.includes('blobs') && noCopy.full.unknown.includes('field_uploads'));
+    assert.deepEqual([noCopy.full.ok, noCopy.full.complete], [true, true]);
+    assert.equal(noCopy.files.status, 'ok');
+    assert.deepEqual(Object.fromEntries(noCopy.full.steps.map((x) => [x.id, x.status])).blobs, 'ok');
 
     // tampered copy → FAIL (rejects → CLI exit 1)
     fs.writeFileSync(path.join(copy, 'inspection', 'EM-1', 'net-04-0.jpg'), 'tampered!!!');

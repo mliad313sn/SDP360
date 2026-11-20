@@ -1103,7 +1103,9 @@ app.use('/api/', async (req, res, next) => {
   if (!browserContext && _safeEqual(key, DASH_API_KEY)) return _dashKeyScope.handle(req, res, next);   // server-to-server key (constant-time)
   const token = sessionAuth.sessionToken(req);
   if (rdb && token) {
-    let user; try { user = await rdb.validateSession(token); } catch (e) { user = null; }
+    let user;
+    try { user = await rdb.validateSession(token); }
+    catch (e) { if (e && e.code === 'DB_BUSY') return fail(res, e); user = null; }   // P11 r5 N-12: a DB stall is 503 busy, never "unauthorised"
     if (user) return next();
   }
   return res.status(401).json({ error: 'Unauthorized' });
@@ -3255,7 +3257,10 @@ async function requireReportSession(req, res, next) {
   const token = sessionAuth.sessionToken(req);
   let user;
   try { user = await rdb.validateSession(token); }
-  catch (e) { console.error('[auth] validateSession failed:', e.message); return res.status(500).json({ error: 'Auth check failed' }); }
+  catch (e) {
+    if (e && e.code === 'DB_BUSY') return fail(res, e);   // P11 r5 N-12: 503 database_busy + Retry-After — the browser must not log out
+    console.error('[auth] validateSession failed:', e.message); return res.status(500).json({ error: 'Auth check failed' });
+  }
   if (!user) return res.status(401).json({ error: 'Not authenticated' });
   req.reportUser = user;
   next();

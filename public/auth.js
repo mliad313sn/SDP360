@@ -167,6 +167,7 @@
     .slice().sort().join(',');
   fetch('/api/reports/auth/me', { credentials: 'same-origin' })
     .then(async r => {
+      if (r.status === 503) return;   // P11 r5 N-12: database busy — keep the session, the page retries; never log out
       if (r.status === 401) {
         clearSession();
         redirectLogin();

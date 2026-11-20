@@ -16,6 +16,9 @@
 //                  gzip with a loud warning on every run;
 //   • off-site   — copied to `backup_offsite_path` (report_config, UNC or local path) when set.
 //                  S3 / object storage is out of scope here (DECISIONS-EN-ATTENTE).
+//   • file store — P11 r5 N-14: <DATA_DIR>/blobs (inspection photos / signatures, field uploads, project documents)
+//                  is archived by the same run (services/blobBackup.js): `sdp_blobs_<stamp>.blobs[.enc]`, same key,
+//                  same retention, verified (count + SHA-256 against its manifest) before the run succeeds.
 // File layout of an encrypted dump: MAGIC(8) | iv(12) | tag(16) | ciphertext(gzip bytes).
 
 const fs = require('fs');
@@ -159,7 +162,7 @@ function copyOffsite(file, offsitePath, { fsx = fs } = {}) {
  * @param {string} [o.offsitePath]  report_config.backup_offsite_path ('' = no copy)
  * @param {function} [o.log]    warning sink (default console.warn)
  */
-async function runBackup({ dir, keep = 14, spawn, env = process.env, fsx = fs, offsitePath = '', log = console.warn } = {}) {
+async function runBackup({ dir, keep = 14, spawn, env = process.env, fsx = fs, offsitePath = '', log = console.warn, blobRoot, blobs = true } = {}) {
   if (!env.PG_URL && !env.DATABASE_URL) return { skipped: true, reason: 'no PG_URL' };
   // P11 F-05 — a dump carries password hashes and the (config-key-encrypted) secrets table: never write one in
   // plaintext by default. Missing / short SDP_BACKUP_KEY → refused BEFORE pg_dump runs (nothing lands on disk), as a
@@ -212,8 +215,16 @@ async function runBackup({ dir, keep = 14, spawn, env = process.env, fsx = fs, o
     try { offsite = copyOffsite(packed.file, String(offsitePath).trim(), { fsx }); }
     catch (e2) { const e = new Error(`off-site copy failed (${String(offsitePath).trim()}): ${e2.message}`); e.transient = true; e.file = packed.file; throw e; }
   }
-  const pruned = prune(dir, { keep, fsx });
-  return { file: packed.file, bytes, stored_bytes: packed.stored_bytes, encrypted: packed.encrypted, plaintext_override: plaintextOverride, compressed: true, trailer_ok: true, offsite, pruned, rows: 1 };
+  // P11 r5 N-14 — the file store (photos, signatures, field uploads, project documents) is archived next to the dump,
+  // same stamp, same key, same retention, verified before it counts (services/blobBackup.js).
+  let fileStore = null;
+  if (blobs !== false) {
+    const BB = require('./blobBackup');
+    const root = blobRoot || BB.defaultBlobRoot(env);
+    fileStore = BB.backupStore({ root, dir, stamp: BB.stampOf(packed.file), key, offsitePath, fsx });
+  }
+  const pruned = prune(dir, { keep, fsx }).concat(blobs !== false ? require('./blobBackup').pruneArchives(dir, { keep, fsx }) : []);
+  return { file: packed.file, bytes, stored_bytes: packed.stored_bytes, encrypted: packed.encrypted, plaintext_override: plaintextOverride, compressed: true, trailer_ok: true, offsite, pruned, file_store: fileStore, rows: 1 };
 }
 
 module.exports = {

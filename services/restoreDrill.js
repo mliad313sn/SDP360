@@ -71,11 +71,12 @@ function fmtBytes(n) {
 function renderReport(d) {
   const c = d.comparison || compareCounts({}, {});
   const fullFailed = !!d.full && !fullVerdict(d.full.steps).ok;
-  const verdict = c.ok && !fullFailed ? 'PASS' : 'FAIL';
+  const filesFailed = !!d.files && d.files.status === 'failed';
+  const verdict = c.ok && !fullFailed && !filesFailed ? 'PASS' : 'FAIL';
   const L = [];
   L.push(`# Restore drill — ${d.date}`);
   L.push('');
-  L.push(`**Result: ${verdict}** — ${!c.ok ? `${c.mismatches} table(s) differ between the restored copy and the live database.` : fullFailed ? 'the database matches, but a full-service step failed (see below).' : 'every compared table has the same row count on the restored copy and on the live database.'}`);
+  L.push(`**Result: ${verdict}** — ${!c.ok ? `${c.mismatches} table(s) differ between the restored copy and the live database.` : filesFailed ? 'the database matches, but the file store does NOT restore from its archive (see below).' : fullFailed ? 'the database matches, but a full-service step failed (see below).' : 'every compared table has the same row count on the restored copy and on the live database.'}`);
   L.push('');
   L.push('| Item | Value |');
   L.push('|---|---|');
@@ -93,6 +94,20 @@ function renderReport(d) {
   L.push('|---|---:|---:|---:|---|');
   for (const r of c.rows) L.push(`| ${r.table} | ${r.live == null ? '—' : r.live} | ${r.restored == null ? '—' : r.restored} | ${r.diff == null ? '—' : (r.diff > 0 ? '+' : '') + r.diff} | ${r.status} |`);
   L.push('');
+  if (d.files) {
+    const f = d.files;
+    L.push('## File store (photos, signatures, field uploads, project documents)');
+    L.push('');
+    L.push('| Item | Value |');
+    L.push('|---|---|');
+    L.push(`| Status | ${f.status === 'ok' ? 'ok' : 'FAILED'} |`);
+    L.push(`| Archive | ${f.archive ? '`' + require('path').basename(f.archive) + '`' : '—'} |`);
+    L.push(`| Files in the archive / on the live server | ${f.archive_count == null ? '—' : f.archive_count} / ${f.live_count == null ? '—' : f.live_count} |`);
+    L.push(`| Detail | ${String(f.detail || '').replace(/\|/g, '/')} |`);
+    L.push('');
+    for (const k of ['missing', 'different']) if (f[k] && f[k].length) L.push(`- ${k}: ${f[k].slice(0, 10).map((r) => '`' + r + '`').join(', ')}${f[k].length > 10 ? ` … (+${f[k].length - 10})` : ''}`);
+    if ((f.missing && f.missing.length) || (f.different && f.different.length)) L.push('');
+  }
   if (d.psql && d.psql.sample && d.psql.sample.length) {
     L.push('## psql errors (sample)');
     L.push('');
@@ -244,11 +259,42 @@ function renderFullSection(full) {
   return L.join('\n');
 }
 
+// ── P11 r5 N-14 — the file store is part of EVERY drill (not only --full) ─────────────────────────────
+// The backup run archives <DATA_DIR>/blobs next to the dump (services/blobBackup.js). The drill reads that archive
+// back (every record decrypted, gunzipped, hashed) and checks it against its own manifest AND against the live
+// store: a live file missing from the archive, or with a different SHA-256, fails the drill. Files on disk with no
+// archive at all fail too. Only a store that does not exist / is empty passes without an archive.
+/**
+ * @param {object} o
+ * @param {string[]|null} o.liveRefs           live store refs (null = no store)
+ * @param {Record<string,{size,sha256}>} o.liveHashes  hashes of the live files
+ * @param {string|null} o.archiveName
+ * @param {{ok:boolean,count:number|null,problems:string[],files:object|null}|null} o.verify  blobBackup.verifyArchive
+ */
+function fileStoreStep({ liveRefs, liveHashes = {}, archiveName = null, verify = null }) {
+  const live = Array.isArray(liveRefs) ? liveRefs : [];
+  const base = { id: 'files', label: 'File store restorable from its archive (count + SHA-256)', archive: archiveName, live_count: liveRefs == null ? null : live.length, archive_count: verify && verify.count != null ? verify.count : null, missing: [], different: [] };
+  if (!verify) {
+    if (!live.length) return { ...base, status: 'ok', detail: liveRefs == null ? 'no file store on this server — nothing to restore' : 'the file store is empty — nothing to restore' };
+    return { ...base, status: 'failed', detail: `${live.length} file(s) on disk and NO file-store archive in the backup directory — photos, signatures and documents are not backed up` };
+  }
+  if (!verify.ok) return { ...base, status: 'failed', detail: `the file-store archive ${archiveName || ''} does not restore: ${(verify.problems || []).slice(0, 3).join('; ')}` };
+  for (const ref of live) {
+    const a = verify.files[ref]; const l = liveHashes[ref];
+    if (!a) base.missing.push(ref);
+    else if (l && (a.sha256 !== l.sha256 || Number(a.size) !== Number(l.size))) base.different.push(ref);
+  }
+  if (base.missing.length || base.different.length) {
+    return { ...base, status: 'failed', detail: `${base.missing.length} live file(s) missing from the archive and ${base.different.length} different, out of ${live.length}` };
+  }
+  return { ...base, status: 'ok', detail: `${verify.count} file(s) read back from the archive, all matching the manifest; the ${live.length} live file(s) are all in it with the same SHA-256` };
+}
+
 /** The `details` object of the `restore_drill` system_log row (counts + result, no paths with secrets). */
 function logDetails(d) {
   const c = d.comparison || compareCounts({}, {});
   return {
-    ok: c.ok && (!d.full || fullVerdict(d.full.steps).ok), mismatches: c.mismatches, date: d.date,
+    ok: c.ok && (!d.files || d.files.status !== 'failed') && (!d.full || fullVerdict(d.full.steps).ok), mismatches: c.mismatches, date: d.date,
     dump: d.dumpFile ? require('path').basename(d.dumpFile) : null,
     dump_bytes: d.dumpBytes != null ? d.dumpBytes : null, encrypted: !!d.encrypted,
     target: d.target ? `${d.target.kind}:${d.target.name}` : null,
@@ -256,9 +302,10 @@ function logDetails(d) {
     psql_errors: d.psql ? d.psql.count : null,
     counts: Object.fromEntries(c.rows.map((r) => [r.table, { live: r.live, restored: r.restored, status: r.status }])),
     report: d.reportFile ? require('path').basename(d.reportFile) : null,
+    ...(d.files ? { files: { status: d.files.status, live: d.files.live_count, archive: d.files.archive_count, missing: d.files.missing.length, different: d.files.different.length } } : {}),
     ...(d.full ? { full: { ...fullVerdict(d.full.steps), steps: Object.fromEntries(d.full.steps.map((x) => [x.id, x.status])) } } : {}),
   };
 }
 
 module.exports = { MAIN_TABLES, compareCounts, rewriteSchema, summarizePsqlErrors, renderReport, logDetails, fmtBytes,
-  STEP_LABELS, sampleEvenly, backupKeyStep, configKeyStep, compareBlobs, compareUploadRefs, rtoStep, fullVerdict, renderFullSection };
+  STEP_LABELS, fileStoreStep, sampleEvenly, backupKeyStep, configKeyStep, compareBlobs, compareUploadRefs, rtoStep, fullVerdict, renderFullSection };
