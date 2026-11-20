@@ -10,7 +10,7 @@
 | Decision cell in RELEASE-GATES.md | empty — this gate is **NO-GO** until the approver fills it. This dossier fills nothing. |
 | What this gate blocks | blocks the pilot only if its feature is in the pilot scope |
 | Decide after | [G07](G07-closure-policy-commitments.md) Closure policy for commitments |
-| Target SHA | `7b6b0abb` |
+| Target SHA | `cbbd4863` |
 | Generated | 2026-11-20 |
 
 ## 1. Question to decide
