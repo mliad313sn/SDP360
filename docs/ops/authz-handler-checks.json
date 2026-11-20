@@ -128,6 +128,7 @@
   "GET /api/governance/department-crosswalk": {"checks":["role","switch"],"note":"static signals: role, switch","reviewed":false},
   "GET /api/governance/department-rollup": {"checks":["role"],"note":"static signals: role","reviewed":false},
   "GET /api/governance/engagement-delays": {"checks":["site","ownership"],"note":"static signals: site, ownership","reviewed":false},
+  "GET /api/governance/intake/catalogue": {"checks":["role","switch"],"note":"static signals: role, switch","reviewed":false},
   "GET /api/governance/overview": {"checks":["role","site"],"note":"static signals: role, site","reviewed":false},
   "GET /api/governance/people": {"checks":["role","site"],"note":"static signals: role, site","reviewed":false},
   "GET /api/governance/policies/effective": {"checks":["role","site"],"note":"static signals: role, site","reviewed":false},

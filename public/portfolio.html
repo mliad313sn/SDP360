@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="brand/icons.css">
 <link rel="stylesheet" href="brand/components.css">
 <link rel="stylesheet" href="_shell.css">
+<link rel="stylesheet" href="lib/ppmIntake.css"><!-- PORTFOLIO LOT 1 -->
 <script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
 <script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
 <script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
@@ -113,7 +114,9 @@
     </div><div class="bar"><button class="btn primary" id="e-save" type="button">Save</button><button class="btn danger" id="e-del" type="button">Delete</button></div>
     <!-- B3 (P7a) — sensitive flag, committee / admin tier, only while portfolio_sensitive_projects = '1' -->
     <div class="bar" id="sens-bar" hidden><label>Project id (sensitivity) <input id="sens-id" type="number" min="1"></label><label>Sensitive project <input id="sens-on" type="checkbox"></label><button class="btn" id="sens-save" type="button">Save sensitivity</button></div></details>
+  <!-- PORTFOLIO LOT 1 — reference lists (admin tier, ppm_intake_register_enabled; lib/ppmIntakeAdmin.js) --><section id="intake-admin" hidden></section>
 </main>
+<script nonce="%%CSP_NONCE%%" src="lib/ppmIntakeAdmin.js" data-mount="intake-admin"></script>
 <script nonce="%%CSP_NONCE%%">
 (function () {
   "use strict";

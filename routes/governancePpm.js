@@ -39,7 +39,7 @@ module.exports = function governancePpmRoutes(router, h) {
         calendars: on(c, 'ppm_calendars_enabled'), resources: on(c, 'ppm_resources_enabled'), leveling: on(c, 'ppm_leveling_enabled') && on(c, 'ppm_resources_enabled'), baseline_slots: on(c, 'ppm_baseline_slots_enabled'), mspdi: on(c, 'ppm_mspdi_enabled'),   // W2-ENGINE
 
         xer: on(c, 'ppm_xer_enabled'), mpp_import: on(c, 'ppm_mpp_import_enabled'), jira_sync: on(c, 'ppm_jira_sync_enabled'), azdo_sync: on(c, 'ppm_azdo_sync_enabled'),   // W4-CONNECTORS (optional)
-        simplified_view: on(c, 'ppm_simplified_view_enabled'), project_rag: on(c, 'ppm_project_rag_enabled'), dcma: on(c, 'ppm_dcma_enabled'), gate_checklist: on(c, 'ppm_gate_checklist_enabled'), raid: on(c, 'ppm_raid_enabled'), project_report: on(c, 'ppm_project_report_enabled') });
+        simplified_view: on(c, 'ppm_simplified_view_enabled'), project_rag: on(c, 'ppm_project_rag_enabled'), dcma: on(c, 'ppm_dcma_enabled'), gate_checklist: on(c, 'ppm_gate_checklist_enabled'), raid: on(c, 'ppm_raid_enabled'), project_report: on(c, 'ppm_project_report_enabled'), intake_register: on(c, 'ppm_intake_register_enabled') });   // PORTFOLIO LOT 1
     } catch (e) { fail(res, e); }
   });
 

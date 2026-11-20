@@ -12,7 +12,7 @@ or the plan breaks a rule (`tests/switch-lots.test.js`).
 
 | Dark switches in the register | In a lot | Keep dark | Retire (proposal) | Lots | Proposed count after decisions |
 |---|---|---|---|---|---|
-| 152 | 111 | 44 (of which 5 are not switches) | 3 | 13 | 144 dark entries if the 3 retirements and the 5 reclassifications are accepted (activations then lower it further, lot by lot) |
+| 153 | 112 | 38 (of which 5 are not switches) | 3 | 14 | 145 dark entries if the 3 retirements and the 5 reclassifications are accepted (activations then lower it further, lot by lot) |
 
 Plan checks: **clean** · dependency cycles: **0** · orphans (no code reads the key): **0**.
 
@@ -33,6 +33,7 @@ Plan checks: **clean** · dependency cycles: **0** · orphans (no code reads the
 | L11 | Site operations evidence — inspections, field, assets, WAN | 7 | PROPOSED |
 | L12 | Access security hardening | 10 | PROPOSED |
 | L13 | Operations resilience — sync drift, delivery failures, restore, identity | 5 | PROPOSED |
+| L14 | PMO journey — portfolio intake register (portfolio spec Lot 1) | 1 | PROPOSED — New lot (portfolio reconstruction spec, Lot 1). Prerequisite of the data-quality lot (spec Lot 2). |
 
 Run a lot's targeted tests with its switches forced on (throwaway database only):
 
@@ -100,7 +101,7 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 
 | Switch | Who decides (register) | Human prerequisite (register text) | Depends on | Roles named | Tables touched | Job | Consumer files | Tests naming it |
 |---|---|---|---|---|---|---|---|---|
-| `ppm_baseline_versions` | Committee | — | — | — | decisions, meeting_cadences, meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits +17 | — | 7 | 3 |
+| `ppm_baseline_versions` | Committee | — | — | — | decisions, meeting_cadences, meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits +18 | — | 7 | 3 |
 | `ppm_rebaseline_enabled` | Committee | — | — | — | portfolio_deliverables, portfolio_objectives, portfolio_programmes, portfolio_projects, portfolio_tasks, ppm_change_requests +4 | — | 7 | 5 |
 | `ppm_change_requests_enabled` | PMO | once the PMO adopts a change-control step on projects  | `ppm_rebaseline_enabled` | — | dashboard_definition_versions, dashboard_definitions, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_objectives +9 | — | 7 | 2 |
 | `ppm_cr_simulation_enabled` | PMO | once the PMO wants change requests decided on simulated numbers: a request may list task changes  | `ppm_change_requests_enabled`, `ppm_rebaseline_enabled` | — | portfolio_deliverables, portfolio_objectives, portfolio_programmes, portfolio_projects | — | 4 | 2 |
@@ -127,7 +128,7 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 | `ppm_calendars_enabled` | PMO | once the PMO wants schedules on real working time: project / task / resource calendars  | — | — | — | — | 5 | 2 |
 | `ppm_resources_enabled` | PMO + Finance | once the PMO maintains an enterprise resource pool: work / material / cost resources  | — | — | — | — | 5 | 1 |
 | `ppm_leveling_enabled` | PMO | once the PMO wants levelling proposals: delay-only, priority-based  | `ppm_resources_enabled` | — | — | — | 5 | 1 |
-| `ppm_capacity_view` | PMO + capacity owner (to be named) | once the PMO accepts the team-load reading  | — | — | decisions, meeting_cadences, meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits +17 | — | 5 | 1 |
+| `ppm_capacity_view` | PMO + capacity owner (to be named) | once the PMO accepts the team-load reading  | — | — | decisions, meeting_cadences, meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits +18 | — | 5 | 1 |
 | `ppm_agile_board_enabled` | PMO | once the PMO wants a board view: a Board tab on the project page with the work packages  | — | — | — | — | 1 | 0 |
 | `ppm_roadmap_nnl_enabled` | PMO | once the PMO wants a Now / Next / Later roadmap on the portfolio  | — | — | — | — | 2 | 0 |
 | `ppm_comments_enabled` | PMO | once the PMO wants discussion on projects and tasks: append-only comments  | — | — | — | — | 4 | 1 |
@@ -149,7 +150,7 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 | `ppm_evm_enabled` | PMO + Finance | once the PMO and Finance agree to read earned value  | `ppm_baseline_versions` | — | — | — | 6 | 4 |
 | `ppm_budget_periods_enabled` | Finance + PMO | once Finance agrees the period grid  | — | — | — | — | 5 | 2 |
 | `actuals_import_enabled` | Finance controller + PMO | once Finance supplies the Pronto export layout and the rate source: dated FX rates  | `ppm_budget_periods_enabled` | admin | portfolio_projects, ppm_budget_periods | — | 5 | 3 |
-| `finance_currency_required` | Finance controller | once Finance requires a stated currency on every amount  | — | — | decisions, meeting_cadences, meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits +17 | — | 2 | 2 |
+| `finance_currency_required` | Finance controller | once Finance requires a stated currency on every amount  | — | — | decisions, meeting_cadences, meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits +18 | — | 2 | 2 |
 | `finance_certification_enabled` | Finance controller (names the verifier) + Owner | once Finance names the verifier  | — | super_admin, admin, editor, finance-viewer | portfolio_projects, ppm_budget_periods | — | 9 | 4 |
 | `benefit_value_class_enabled` | Finance + executive sponsor | once Finance and the sponsor agree the classes used at a benefits review  | — | — | — | — | 5 | 2 |
 | `benefit_owner_link_enabled` | PMO | once the PMO wants benefit owners named as users  | — | — | portfolio_benefits, portfolio_milestones, portfolio_objectives, portfolio_programmes, portfolio_projects, portfolio_tasks +2 | — | 7 | 2 |
@@ -186,7 +187,7 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 
 | Switch | Who decides (register) | Human prerequisite (register text) | Depends on | Roles named | Tables touched | Job | Consumer files | Tests naming it |
 |---|---|---|---|---|---|---|---|---|
-| `soft_delete_enabled` | Owner (retention policy) | — | — | — | decisions, meeting_cadences, meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits +17 | — | 13 | 9 |
+| `soft_delete_enabled` | Owner (retention policy) | — | — | — | decisions, meeting_cadences, meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits +18 | — | 13 | 9 |
 | `soft_delete_two_person` | Owner (retention policy) | once the retention owner wants deletions of portfolio nodes and cadences to need a reason  | `soft_delete_enabled` | admin | — | — | 4 | 3 |
 | `roadmap_publication_enabled` | Service & Support Manager | once the Service & Support Manager wants to publish the Roadmap Manager into the portfolio from the page  | `soft_delete_enabled` | — | portfolio_deliverables, portfolio_objectives, portfolio_programmes, portfolio_projects, roadmap_publications | — | 6 | 2 |
 | `roadmap_audience_publication_enabled` | PMO (publication owner) | once the PMO names the publication owner and the audiences to use: frozen roadmap snapshots per audience  | `roadmap_publication_enabled` | admin, finance-viewer | roadmap_publications | — | 6 | 2 |
@@ -207,7 +208,7 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 | Switch | Who decides (register) | Human prerequisite (register text) | Depends on | Roles named | Tables touched | Job | Consumer files | Tests naming it |
 |---|---|---|---|---|---|---|---|---|
 | `decision_lifecycle_enforced` | Governance committee chair | once the governance committee chair accepts the rule  | — | — | — | — | 3 | 2 |
-| `decision_motive_required` | Governance committee chair | once the governance committee chair wants a written motive on EVERY decision status change  | `decision_lifecycle_enforced` | — | decisions, meeting_cadences, meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits +17 | — | 3 | 3 |
+| `decision_motive_required` | Governance committee chair | once the governance committee chair wants a written motive on EVERY decision status change  | `decision_lifecycle_enforced` | — | decisions, meeting_cadences, meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits +18 | — | 3 | 3 |
 | `obligations_include_decisions` | Committee + Owner | — | — | — | — | — | 2 | 1 |
 | `agenda_cron_enabled` | Committee | — | — | — | — | yes | 5 | 2 |
 | `controls_register_enabled` | GRC owner + Security owner | once GRC names who adopts controls  | — | — | gov_control_tests, gov_controls, site_module_codes, sites | — | 4 | 1 |
@@ -322,6 +323,20 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 | `entra_deprovision_enabled` | Information Security + tenant administrator | only after the tenant administrator decides on the Graph `User | — | — | users | yes | 2 | 2 |
 | `site_code_shared_block` | Data owner + Owner | Decide who owns each shared site code (e.g. TND) and correct the data first; then test the controlled 409 and the editors' rights. | — | editor | — | — | 4 | 3 |
 
+## Dossier L14 — PMO journey — portfolio intake register (portfolio spec Lot 1)
+
+- **Status**: PROPOSED. **Owner**: _(empty — human)_. **Canary site**: _(empty — human)_. **Decision date / expiry**: _(empty — human)_.
+- **Who sees a change**: PMO, committee members (who maintain projects), admin tier (reference lists), every project reader.
+- **What changes**: Projects carry the intake fields (type, tags, priority, structured business need, expected value, delivery lead, indicative quarter + schedule confidence, budget status / approval date / reference, decision required, delivery effort, risk exposure, FTE, skills, workload notes, explicit TBC / not applicable / none-known states); new projects get an immutable PRJ-YYYY-NNN id; the admin tier maintains the reference lists; Intake tab with field guidance on the project page. Existing projects get ids only through tools/ppm/backfill-project-ids.js (dry run first).
+- **Risk**: low-medium (AI estimate): additive columns, writes stay committee-only; the priority meanings, risk levels and effort bands are PROPOSED reference data the PMO must review before arming; the id backfill is permanent (ids are never reused).
+- **Metric that would show it worked** (candidate, no threshold): share of live projects with type, priority, business need, sponsor, IT owner and budget status filled; projects without an id after the backfill (should be zero).
+- **Rollback**: set every switch of the lot back to its default `0` (Admin or `setConfig`). Data written while on stays in place and is no longer shown or acted on; the rehearsal is `tests/switch-lots-rollback.test.js`. **Rollback trigger**: _(observable and threshold left to the owner)_.
+- **Needs earlier lots**: none.
+
+| Switch | Who decides (register) | Human prerequisite (register text) | Depends on | Roles named | Tables touched | Job | Consumer files | Tests naming it |
+|---|---|---|---|---|---|---|---|---|
+| `ppm_intake_register_enabled` | to be named | once the PMO has reviewed the PROPOSED reference lists  | — | admin | decisions, meeting_cadences, meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits +19 | — | 13 | 1 |
+
 ## Keep dark (with the reason)
 
 ### armed in production (4)
@@ -402,22 +417,6 @@ Waits for a fact that does not exist yet (privacy notice, HSE evidence, non-UTC 
 - `field_outbox_resolve_enabled` — decides: PO + site IT
 - `frozen:installer_safety_parity` — decides: Owner (deployment)
 
-### live by default (5)
-
-Shipped ON: the default '1' is today's behaviour (a safety guard, an operator alert, a policy that predates the switch, or a compatibility mode awaiting its own decision). Listed so that no switch ships ON without a recorded classification (P11 R3-A2). Turning one OFF is a decision of its owner (FLAG-REGISTER owner column), not of this plan.
-
-- `meridian_enabled` — decides: to be named
-- `never_send_unconfirmed` — decides: to be named
-- `report_reassign_submitted` — decides: to be named
-- `sync_alert_enabled` — decides: to be named
-- `ui_inject_dash_key` — decides: to be named
-
-### live setting not a switch (1)
-
-A numeric setting whose value happens to be 1 (OpManager REST concurrency), not a behaviour switch. Kept so the live-switch check (P11 R3-A2) does not flag it; changing it is a tuning decision of the platform owner.
-
-- `opm_rest_concurrency` — decides: to be named
-
 ## Retire list (proposals — no code was deleted)
 
 | Switch | Why it looks dead or superseded | What removal would delete |
@@ -467,7 +466,7 @@ Orphans (dark keys no code file reads, outside `services/reportConfig.js`): none
 
 Pairs of switches in different lots that share a consumer file or a table named in that file's SQL. Hub files read by more
 than 6 lot switches (and the two monoliths) are excluded: sharing them says nothing. File-level approximation.
-Hub files excluded: `public/portfolio.html`, `public/project.html`, `routes/governance.js`, `routes/governancePpm.js`, `routes/governanceW3.js`, `routes/governanceWorkbench.js`, `routes/myWork.js`, `server.js`, `services/reportCatalogue.js`, `services/sync/jobs.js`, `services/uiPolicy.js`. Hub tables excluded: decisions, meeting_cadences, portfolio_projects, portfolio_tasks, ppm_budget_periods, ppm_events, ppm_project_members, ppm_time_entries, sites.
+Hub files excluded: `public/portfolio.html`, `public/project.html`, `routes/governance.js`, `routes/governancePpm.js`, `routes/governanceW3.js`, `routes/governanceWorkbench.js`, `routes/myWork.js`, `server.js`, `services/reportCatalogue.js`, `services/sync/jobs.js`, `services/uiPolicy.js`. Hub tables excluded: decisions, meeting_cadences, portfolio_objectives, portfolio_programmes, portfolio_projects, portfolio_tasks, ppm_budget_periods, ppm_events, ppm_project_members, ppm_time_entries, rfi_requests, sites.
 
 | Lot pair | Overlapping switch pairs |
 |---|---|
@@ -484,31 +483,36 @@ Hub files excluded: `public/portfolio.html`, `public/project.html`, `routes/gove
 | L02 × L05 | 3 |
 | L02 × L07 | 3 |
 | L02 × L12 | 2 |
-| L03 × L04 | 6 |
-| L03 × L05 | 9 |
+| L03 × L04 | 5 |
+| L03 × L05 | 8 |
 | L03 × L06 | 1 |
-| L03 × L07 | 3 |
-| L03 × L08 | 4 |
+| L03 × L07 | 2 |
+| L03 × L08 | 3 |
 | L03 × L11 | 2 |
 | L03 × L12 | 2 |
 | L03 × L13 | 2 |
+| L03 × L14 | 1 |
 | L04 × L05 | 1 |
 | L04 × L06 | 4 |
 | L04 × L07 | 1 |
 | L04 × L08 | 1 |
+| L04 × L14 | 1 |
 | L05 × L07 | 1 |
 | L05 × L08 | 1 |
 | L05 × L09 | 1 |
 | L05 × L11 | 2 |
 | L05 × L13 | 1 |
+| L05 × L14 | 1 |
 | L07 × L08 | 2 |
 | L07 × L09 | 2 |
 | L07 × L10 | 3 |
 | L07 × L11 | 3 |
 | L07 × L12 | 2 |
 | L07 × L13 | 1 |
+| L07 × L14 | 1 |
 | L08 × L09 | 2 |
 | L08 × L11 | 1 |
+| L08 × L14 | 1 |
 | L09 × L10 | 1 |
 | L09 × L11 | 3 |
 | L10 × L11 | 8 |
@@ -566,10 +570,8 @@ Hub files excluded: `public/portfolio.html`, `public/project.html`, `routes/gove
 | L03 × L04 | `ppm_baseline_slots_enabled` | `ppm_leveling_enabled` | `db/postgres/reports/105_ppm_engine_w2.sql`, `db/postgres_rollback/105_ppm_engine_w2_drop.sql`, `routes/ppmEngine.js` | — |
 | L03 × L04 | `ppm_baseline_slots_enabled` | `ppm_resources_enabled` | `db/postgres/reports/105_ppm_engine_w2.sql`, `db/postgres_rollback/105_ppm_engine_w2_drop.sql`, `routes/ppmEngine.js` | — |
 | L03 × L04 | `ppm_baseline_slots_enabled` | `ppm_schedule_engine_v2_ui` | `routes/ppmEngine.js` | — |
-| L03 × L04 | `ppm_baseline_versions` | `ppm_capacity_view` | `services/governanceStore.js` | meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_objectives, portfolio_programmes, portfolio_project_sites, portfolio_risks, ppm_alert_state, ppm_raci, ppm_templates, rfi_requests, session_actions |
-| L03 × L04 | `ppm_capacity_view` | `ppm_change_requests_enabled` | — | portfolio_objectives, portfolio_programmes, rfi_requests |
-| L03 × L05 | `finance_currency_required` | `ppm_baseline_versions` | `services/governanceStore.js` | meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_objectives, portfolio_programmes, portfolio_project_sites, portfolio_risks, ppm_alert_state, ppm_raci, ppm_templates, rfi_requests, session_actions |
-| L03 × L05 | `finance_currency_required` | `ppm_change_requests_enabled` | — | portfolio_objectives, portfolio_programmes, rfi_requests |
+| L03 × L04 | `ppm_baseline_versions` | `ppm_capacity_view` | `services/governanceStore.js` | meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_project_sites, portfolio_risks, ppm_alert_state, ppm_project_ref_seq, ppm_raci, ppm_templates, session_actions |
+| L03 × L05 | `finance_currency_required` | `ppm_baseline_versions` | `services/governanceStore.js` | meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_project_sites, portfolio_risks, ppm_alert_state, ppm_project_ref_seq, ppm_raci, ppm_templates, session_actions |
 | L03 × L05 | `ppm_budget_periods_enabled` | `ppm_change_requests_enabled` | `services/portfolioDeck.js` | — |
 | L03 × L05 | `ppm_change_requests_enabled` | `ppm_time_entries_enabled` | `db/postgres/reports/085_ppm_workbench.sql` | — |
 | L03 × L05 | `ppm_change_requests_enabled` | `ppm_timesheet_approval_enabled` | — | users |
@@ -579,10 +581,8 @@ Hub files excluded: `public/portfolio.html`, `public/project.html`, `routes/gove
 | L03 × L05 | `ppm_rebaseline_enabled` | `ppm_timesheet_approval_enabled` | `services/ppmWorkbenchStore.js` | ppm_change_requests, ppm_timesheet_weeks, users |
 | L03 × L06 | `ppm_baseline_slots_enabled` | `ppm_mspdi_enabled` | `db/postgres_rollback/105_ppm_engine_w2_drop.sql`, `routes/ppmEngine.js` | — |
 | L03 × L07 | `portfolio_editor_plan_writes` | `portfolio_sensitive_projects` | `services/portfolioAccess.js` | — |
-| L03 × L07 | `ppm_baseline_versions` | `soft_delete_enabled` | `services/governanceStore.js` | meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_objectives, portfolio_programmes, portfolio_project_sites, portfolio_risks, ppm_alert_state, ppm_raci, ppm_templates, rfi_requests, session_actions |
-| L03 × L07 | `ppm_change_requests_enabled` | `soft_delete_enabled` | — | portfolio_objectives, portfolio_programmes, rfi_requests |
-| L03 × L08 | `decision_motive_required` | `ppm_baseline_versions` | `services/governanceStore.js` | meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_objectives, portfolio_programmes, portfolio_project_sites, portfolio_risks, ppm_alert_state, ppm_raci, ppm_templates, rfi_requests, session_actions |
-| L03 × L08 | `decision_motive_required` | `ppm_change_requests_enabled` | — | portfolio_objectives, portfolio_programmes, rfi_requests |
+| L03 × L07 | `ppm_baseline_versions` | `soft_delete_enabled` | `services/governanceStore.js` | meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_project_sites, portfolio_risks, ppm_alert_state, ppm_project_ref_seq, ppm_raci, ppm_templates, session_actions |
+| L03 × L08 | `decision_motive_required` | `ppm_baseline_versions` | `services/governanceStore.js` | meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_project_sites, portfolio_risks, ppm_alert_state, ppm_project_ref_seq, ppm_raci, ppm_templates, session_actions |
 | L03 × L08 | `handoffs_enabled` | `ppm_baseline_versions` | `public/help.html` | — |
 | L03 × L08 | `handoffs_enabled` | `ppm_rebaseline_enabled` | `public/help.html` | — |
 | L03 × L11 | `field_task_timing` | `ppm_change_requests_enabled` | — | users |
@@ -591,21 +591,24 @@ Hub files excluded: `public/portfolio.html`, `public/project.html`, `routes/gove
 | L03 × L12 | `breakglass_timebox_enabled` | `ppm_change_requests_enabled` | — | sessions |
 | L03 × L13 | `entra_deprovision_enabled` | `ppm_change_requests_enabled` | — | users |
 | L03 × L13 | `entra_deprovision_enabled` | `ppm_rebaseline_enabled` | — | users |
-| L04 × L05 | `finance_currency_required` | `ppm_capacity_view` | `services/governanceStore.js` | meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_objectives, portfolio_programmes, portfolio_project_sites, portfolio_risks, ppm_alert_state, ppm_raci, ppm_templates, rfi_requests, session_actions |
+| L03 × L14 | `ppm_baseline_versions` | `ppm_intake_register_enabled` | `services/governanceStore.js` | meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_project_sites, portfolio_risks, ppm_alert_state, ppm_project_ref_seq, ppm_raci, ppm_templates, session_actions |
+| L04 × L05 | `finance_currency_required` | `ppm_capacity_view` | `services/governanceStore.js` | meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_project_sites, portfolio_risks, ppm_alert_state, ppm_project_ref_seq, ppm_raci, ppm_templates, session_actions |
 | L04 × L06 | `ppm_calendars_enabled` | `ppm_mspdi_enabled` | `db/postgres_rollback/105_ppm_engine_w2_drop.sql`, `routes/ppmEngine.js` | — |
 | L04 × L06 | `ppm_leveling_enabled` | `ppm_mspdi_enabled` | `db/postgres_rollback/105_ppm_engine_w2_drop.sql`, `routes/ppmEngine.js` | — |
 | L04 × L06 | `ppm_mspdi_enabled` | `ppm_resources_enabled` | `db/postgres_rollback/105_ppm_engine_w2_drop.sql`, `routes/ppmEngine.js` | — |
 | L04 × L06 | `ppm_mspdi_enabled` | `ppm_schedule_engine_v2_ui` | `routes/ppmEngine.js` | — |
-| L04 × L07 | `ppm_capacity_view` | `soft_delete_enabled` | `services/governanceStore.js` | meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_objectives, portfolio_programmes, portfolio_project_sites, portfolio_risks, ppm_alert_state, ppm_raci, ppm_templates, rfi_requests, session_actions |
-| L04 × L08 | `decision_motive_required` | `ppm_capacity_view` | `services/governanceStore.js` | meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_objectives, portfolio_programmes, portfolio_project_sites, portfolio_risks, ppm_alert_state, ppm_raci, ppm_templates, rfi_requests, session_actions |
-| L05 × L07 | `finance_currency_required` | `soft_delete_enabled` | `services/governanceStore.js` | meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_objectives, portfolio_programmes, portfolio_project_sites, portfolio_risks, ppm_alert_state, ppm_raci, ppm_templates, rfi_requests, session_actions |
-| L05 × L08 | `decision_motive_required` | `finance_currency_required` | `services/governanceStore.js` | meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_objectives, portfolio_programmes, portfolio_project_sites, portfolio_risks, ppm_alert_state, ppm_raci, ppm_templates, rfi_requests, session_actions |
+| L04 × L07 | `ppm_capacity_view` | `soft_delete_enabled` | `services/governanceStore.js` | meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_project_sites, portfolio_risks, ppm_alert_state, ppm_project_ref_seq, ppm_raci, ppm_templates, session_actions |
+| L04 × L08 | `decision_motive_required` | `ppm_capacity_view` | `services/governanceStore.js` | meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_project_sites, portfolio_risks, ppm_alert_state, ppm_project_ref_seq, ppm_raci, ppm_templates, session_actions |
+| L04 × L14 | `ppm_capacity_view` | `ppm_intake_register_enabled` | `services/governanceStore.js` | meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_project_sites, portfolio_risks, ppm_alert_state, ppm_project_ref_seq, ppm_raci, ppm_templates, session_actions |
+| L05 × L07 | `finance_currency_required` | `soft_delete_enabled` | `services/governanceStore.js` | meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_project_sites, portfolio_risks, ppm_alert_state, ppm_project_ref_seq, ppm_raci, ppm_templates, session_actions |
+| L05 × L08 | `decision_motive_required` | `finance_currency_required` | `services/governanceStore.js` | meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_project_sites, portfolio_risks, ppm_alert_state, ppm_project_ref_seq, ppm_raci, ppm_templates, session_actions |
 | L05 × L09 | `finance_certification_enabled` | `ui_i18n_pages` | `public/assets.html` | — |
 | L05 × L11 | `asset_money_certify_display` | `finance_certification_enabled` | `public/assets.html` | — |
 | L05 × L11 | `field_task_timing` | `ppm_timesheet_approval_enabled` | — | users |
 | L05 × L13 | `entra_deprovision_enabled` | `ppm_timesheet_approval_enabled` | — | users |
+| L05 × L14 | `finance_currency_required` | `ppm_intake_register_enabled` | `services/governanceStore.js` | meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_project_sites, portfolio_risks, ppm_alert_state, ppm_project_ref_seq, ppm_raci, ppm_templates, session_actions |
 | L07 × L08 | `decision_lifecycle_enforced` | `soft_delete_two_person` | `public/cockpit.html` | — |
-| L07 × L08 | `decision_motive_required` | `soft_delete_enabled` | `services/governanceStore.js` | meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_objectives, portfolio_programmes, portfolio_project_sites, portfolio_risks, ppm_alert_state, ppm_raci, ppm_templates, rfi_requests, session_actions |
+| L07 × L08 | `decision_motive_required` | `soft_delete_enabled` | `services/governanceStore.js` | meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_project_sites, portfolio_risks, ppm_alert_state, ppm_project_ref_seq, ppm_raci, ppm_templates, session_actions |
 | L07 × L09 | `incubation_rfi_link_enabled` | `ui_i18n_pages` | `public/meeting.html` | — |
 | L07 × L09 | `soft_delete_enabled` | `ui_i18n_pages` | `public/reports.html` | — |
 | L07 × L10 | `alert_group_by_rule` | `roadmap_audience_publication_enabled` | `routes/engagement.js` | — |
@@ -617,9 +620,11 @@ Hub files excluded: `public/portfolio.html`, `public/project.html`, `routes/gove
 | L07 × L12 | `access_grant_expiry_job` | `soft_delete_enabled` | `tools/security/retention-inventory.js` | — |
 | L07 × L12 | `access_recert_enabled` | `soft_delete_enabled` | `tools/security/retention-inventory.js` | — |
 | L07 × L13 | `site_code_shared_block` | `soft_delete_enabled` | `routes/inspection.js`, `routes/meetings.js` | — |
+| L07 × L14 | `ppm_intake_register_enabled` | `soft_delete_enabled` | `services/governanceStore.js` | meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_project_sites, portfolio_risks, ppm_alert_state, ppm_project_ref_seq, ppm_raci, ppm_templates, session_actions |
 | L08 × L09 | `dashboard_red_action_links` | `pir_reviews_enabled` | `routes/commitments.js` | — |
 | L08 × L09 | `dashboard_red_action_links` | `problem_candidates_enabled` | `routes/commitments.js` | — |
 | L08 × L11 | `controls_register_enabled` | `field_task_timing` | — | site_module_codes |
+| L08 × L14 | `decision_motive_required` | `ppm_intake_register_enabled` | `services/governanceStore.js` | meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_project_sites, portfolio_risks, ppm_alert_state, ppm_project_ref_seq, ppm_raci, ppm_templates, session_actions |
 | L09 × L10 | `report_drift_banner` | `ui_i18n_pages` | `public/reports.html` | — |
 | L09 × L11 | `asset_money_certify_display` | `ui_i18n_pages` | `public/assets.html` | — |
 | L09 × L11 | `ui_i18n_pages` | `wan_sla_claims_enabled` | `public/wan.html` | — |
