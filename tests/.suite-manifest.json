@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 5525,
+ "total": 5526,
  "files": {
   "a11y-legacy-ratchet.test.js": 3,
   "a11y-static.test.js": 18,
@@ -845,7 +845,7 @@
   "switch-lots-rollback.test.js": 13,
   "switch-lots.test.js": 7,
   "exec-pptx-csat-null.test.js": 5,
-  "report-run-group-share.smoke.test.js": 5,
+  "report-run-group-share.smoke.test.js": 6,
   "zoho-sync-survey-truncation.test.js": 3,
   "sdp-manager-probe.test.js": 3,
   "ppm-evm-actuals.test.js": 4,

@@ -93,13 +93,17 @@ function makeEngagementStore(db, { isPg = false, now = () => new Date().toISOStr
   async function digestSubscribers(digest) { return (await P(`SELECT DISTINCT user_id FROM subscriptions WHERE digest=?`).all(digest)).map(r => Number(r.user_id)); }
 
   // ── share links ───────────────────────────────────────────────────────────────────
-  async function createShareLink({ targetKind, targetKey, siteId = null, label = null, embed = false, ttlHours = 72, maxViews = null, user }) {
+  // P11 round 3 R2-N2 — the creator's admin tier is recorded WHEN the link is minted (the view requires it AND the
+  // creator's current tier). creatorAdmin from the route (rdb.userHasRole); otherwise read from user.roles.
+  const ADMIN_TIER = ['admin', 'executive', 'super_admin'];
+  async function createShareLink({ targetKind, targetKey, siteId = null, label = null, embed = false, ttlHours = 72, maxViews = null, user, creatorAdmin }) {
+    const ca = creatorAdmin != null ? !!creatorAdmin : !!(user && (Array.isArray(user.roles) ? user.roles : [user.role]).some((r) => ADMIN_TIER.includes(r)));
     if (!SHARE_KINDS.includes(targetKind) || !targetKey) throw Object.assign(new Error(`target_kind must be one of ${SHARE_KINDS.join(', ')}`), { code: 'INVALID' });
     const ttl = Math.min(24 * 90, Math.max(1, Number(ttlHours) || 72)); const tok = token(); const expires = new Date(Date.parse(now()) + ttl * 3600 * 1000).toISOString();
-    const id = await insert('share_links', ['token_hash', 'target_kind', 'target_key', 'site_id', 'label', 'embed', 'expires_at', 'max_views', 'created_by', 'created_at'], [hash(tok), targetKind, String(targetKey).slice(0, 80), siteId == null ? null : Number(siteId), label == null ? null : String(label).slice(0, 200), embed ? 1 : 0, expires, maxViews == null ? null : Number(maxViews), user ? user.id : null, now()]);
+    const id = await insert('share_links', ['token_hash', 'target_kind', 'target_key', 'site_id', 'label', 'embed', 'expires_at', 'max_views', 'created_by', 'created_at', 'creator_admin'], [hash(tok), targetKind, String(targetKey).slice(0, 80), siteId == null ? null : Number(siteId), label == null ? null : String(label).slice(0, 200), embed ? 1 : 0, expires, maxViews == null ? null : Number(maxViews), user ? user.id : null, now(), ca ? 1 : 0]);
     return { id, token: tok, expires_at: expires };
   }
-  const linkRow = (r) => r && ({ ...r, id: Number(r.id), site_id: r.site_id == null ? null : Number(r.site_id), embed: Number(r.embed) === 1, views: Number(r.views) || 0, max_views: r.max_views == null ? null : Number(r.max_views), token_hash: undefined });
+  const linkRow = (r) => r && ({ ...r, id: Number(r.id), creator_admin: r.creator_admin == null ? null : Number(r.creator_admin) === 1, site_id: r.site_id == null ? null : Number(r.site_id), embed: Number(r.embed) === 1, views: Number(r.views) || 0, max_views: r.max_views == null ? null : Number(r.max_views), token_hash: undefined });
   async function listShareLinks({ userId = null } = {}) { return (await P(`SELECT * FROM share_links${userId != null ? ' WHERE created_by=?' : ''} ORDER BY created_at DESC LIMIT 500`).all(...(userId != null ? [Number(userId)] : []))).map(linkRow); }
   async function revokeShareLink(id) { await P(`UPDATE share_links SET revoked_at=? WHERE id=?`).run(now(), Number(id)); }
   /** Resolve a presented token: null when unknown / expired / revoked / exhausted. Records the receipt when ok. */
