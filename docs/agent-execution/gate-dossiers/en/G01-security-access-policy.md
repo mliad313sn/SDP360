@@ -10,7 +10,7 @@
 | Decision cell in RELEASE-GATES.md | empty — this gate is **NO-GO** until the approver fills it. This dossier fills nothing. |
 | What this gate blocks | blocks the two-site pilot on the TEST instance |
 | Decide after | [G19](G19-qa-ci-green.md) QA: CI green and skipped tests reviewed |
-| Target SHA | `19172165` |
+| Target SHA | `a7565f27` |
 | Generated | 2026-11-20 |
 
 ## 1. Question to decide
@@ -22,7 +22,7 @@ Do the access rules (site perimeter for business accounts CG-01, no fleet-wide r
 | Evidence | What it shows | Regenerate / re-run | Last changed (commit, date) | Content hash |
 |---|---|---|---|---|
 | `docs/ops/authz-matrix.json` | Machine-readable route × guard × capability matrix, regenerated from the code | `AUTHZ_MATRIX_UPDATE=1 node --test --test-force-exit tests/authz-matrix-json.test.js` | f8ecd313, 2026-11-19 | `49839b3bbc68e9df` |
-| `docs/ops/AUTHZ-MATRIX.md` | Human-readable matrix of every API route and the role it requires | `AUTHZ_MATRIX_UPDATE=1 node --test --test-force-exit tests/authz-route-matrix.test.js` | d234f386, 2026-11-19 | `8f4d10b7f7a96864` |
+| `docs/ops/AUTHZ-MATRIX.md` | Human-readable matrix of every API route and the role it requires | `AUTHZ_MATRIX_UPDATE=1 node --test --test-force-exit tests/authz-route-matrix.test.js` | a7565f27, 2026-11-20 | `7babb9014cdbd323` |
 | `tests/authz-route-matrix.test.js` | Fails when a route is added or its guard changes without regenerating the matrix | `node --test --test-force-exit tests/authz-route-matrix.test.js` | 4c7cde73, 2026-11-12 | `5af87df254c4a16d` |
 | `tests/authz-enforce.test.js` | Capability enforcement behaviour | `node --test --test-force-exit tests/authz-enforce.test.js` | 30243287, 2026-11-12 | `9298b189390ba23a` |
 | `docs/sdp360/completion/AUTHZ-OBJECT-MATRIX.csv` | Object-level access matrix (who may read or write which object) | `manual (object-level review)` | 040c228f, 2026-10-28 | `ed72b52d09da051b` |

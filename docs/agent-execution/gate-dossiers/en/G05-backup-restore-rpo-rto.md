@@ -10,7 +10,7 @@
 | Decision cell in RELEASE-GATES.md | empty — this gate is **NO-GO** until the approver fills it. This dossier fills nothing. |
 | What this gate blocks | blocks the two-site pilot on the TEST instance |
 | Decide after | [G03](G03-cab-dependencies-postgres-only.md) CAB: dependency upgrade and PostgreSQL-only cutover |
-| Target SHA | `19172165` |
+| Target SHA | `a7565f27` |
 | Generated | 2026-11-20 |
 
 ## 1. Question to decide
@@ -24,7 +24,7 @@ What data loss (RPO) and restore time (RTO) do you accept, and is the restore dr
 | `docs/ops/restore-drills/2026-10-21.md` | Restore drill: row counts equal on the restored copy (synthetic database) | `node tools/pg/restore-drill.js` | de418131, 2026-10-21 | `c6515dbb34f803de` |
 | `tools/pg/restore-drill.js` | Drill tool | `node tools/pg/restore-drill.js` | 98cbb877, 2026-11-12 | `e482dcbae50733c2` |
 | `tests/restore-drill.test.js` | Drill tool behaviour | `node --test --test-force-exit tests/restore-drill.test.js` | f001ec01, 2026-11-12 | `5df8903f7cc56426` |
-| `tests/backup-encrypt.test.js` | Encrypted backup behaviour | `node --test --test-force-exit tests/backup-encrypt.test.js` | f44591ae, 2026-10-28 | `7013fc06ff3c0b19` |
+| `tests/backup-encrypt.test.js` | Encrypted backup behaviour | `node --test --test-force-exit tests/backup-encrypt.test.js` | 6ba34945, 2026-11-20 | `048142648322741a` |
 | `docs/ops/REPLICA-RESTORE.md` | Replica and restore procedure | `manual` | de418131, 2026-10-21 | `7c73dcacf7dbb71c` |
 | `docs/ops/rehearsals/2026-10-29-local-pg16-g04.md` | Local rehearsal with timings | `node tools/pg/restore-rehearsal.js` | 95a84168, 2026-10-29 | `83405a53694f863a` |
 | `docs/ops/SLO-PROPOSAL.md` | Proposed indicators; every target UNKNOWN | `manual` | 4f225458, 2026-11-19 | `332e1e07cb05be84` |
