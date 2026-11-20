@@ -236,3 +236,11 @@ test('E-R02: with notifications_stop = 1 no A03 notice is written', async () => 
     assert.equal((await _notes('cm_reviewer')).length, before);
   } finally { await require('../services/reportConfig').setConfig(rdb.db, { notifications_stop: '0' }, 'test'); }
 });
+// ACTIVATE-ALL qualification — with commitments on, a non-numeric ?site= (a site CODE such as the read sweep sends)
+// reached SQL as NaN and answered 500. A site filter is a site id: anything else is a 400, never a 500.
+test('?site= must be a site id: a site code answers 400 on the list and the metrics, not 500', async () => {
+  for (const p of ['/api/commitments?site=SGO', '/api/commitments/metrics?site=SGO']) {
+    const r = await get(p, superT); assert.equal(r.status, 400, p);
+    assert.equal((await get(p.replace('SGO', String(hounde)), superT)).status, 200, p + ' with an id');
+  }
+});
