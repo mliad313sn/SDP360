@@ -16,6 +16,7 @@
 <link rel="stylesheet" href="module-tabs.css">
 <script nonce="%%CSP_NONCE%%" src="module-tabs.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/pageHead.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/siteScope.js"></script>
 <script nonce="%%CSP_NONCE%%" src="vendor/chart.js/4.4.1/chart.umd.js" defer></script>
 <script nonce="%%CSP_NONCE%%" src="lib/chartTheme.js" defer></script>
 
@@ -522,7 +523,14 @@
     return '';
   }
 
+  // Adoption Lot A (items 1 + 5): no site in scope, or the call failed → "—", never a measured 0.
+  const SCOPE = window.SiteScope ? window.SiteScope.of(window.__authUser, window.__userHasRole) : { none: false, canWrite: true };
   function renderKpis(agg) {
+    if (SCOPE.none || agg == null) {
+      const why = SCOPE.none ? 'No site in your scope' : 'Not measured — the data could not be read';
+      document.getElementById('kpiGrid').innerHTML = `<div class="kpi-tile"><div class="l">${escapeHtml(why)}</div><div class="v">—</div><div class="sub">${escapeHtml(SCOPE.none ? 'Your account reads no site. Ask an administrator to add your site.' : 'Retry with Refresh.')}</div></div>`;
+      return;
+    }
     const counts = agg.counts || {};
     const tiles = [
       { l: 'Total inspections',  v: counts.total          || 0, sub: 'in current filter',     cls: ''         },
@@ -558,6 +566,7 @@
   }
 
   // ── Table ───────────────────────────────────────────────────────
+  if (!SCOPE.canWrite) { const nb = document.getElementById('newInspBtn'); if (nb) nb.hidden = true; }   // Adoption Lot A (item 5)
   function renderTable(rows) {
     const body  = document.getElementById('listBody');
     const empty = document.getElementById('emptyMsg');
@@ -746,7 +755,7 @@
         fetch(INSP_API + '/list'      + qs(f), { credentials: 'same-origin', headers: authHeaders() }),
       ]);
       if (!aggRes.ok || !listRes.ok) {
-        renderKpis({});
+        renderKpis(null);
         renderTrend([]);
         renderTable([]);
         return;
@@ -760,7 +769,7 @@
       loadRepeats(f);
     } catch (e) {
       console.warn('inspections refresh failed:', e);
-      renderKpis({});
+      renderKpis(null);
       renderTrend([]);
       renderCharts({}, []);
       renderTable([]);

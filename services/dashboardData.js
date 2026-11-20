@@ -86,15 +86,20 @@ async function trackerFor({ w, sites, window, dd, reg, now }) {
   const hasInput = mapped.some((r) => (yIn[r.code] || []).some((arr) => Array.isArray(arr) && arr.slice(0, month).some((v) => v != null && Number(v) !== 0)));
   if (!mapped.length || !hasInput) return { ...base, state: 'NO_DATA', rows: [], untracked };
   const mScore = reg && reg.get && reg.get('tracker.site_score_pct');
+  const TMS = require('./trackerMonthState');
   const rows = mapped.map((r) => {
+    // Adoption Lot A (item 2): a site with nothing entered for the month reads "not entered" (no score, rag NA) and
+    // stays out of the totals — never a RED computed from earlier months.
+    if (TMS.notEntered(D, r.code, year, month)) return { ...r, g: 0, a: 0, r: 0, active: 0, score_pct: null, rag: 'NA', not_entered: true };
     const st = dd.trackerScore.ss(Dy, r.code, year, month);
     const score = st.active ? Math.round(st.avg * 100) : null;
     return { ...r, g: st.g, a: st.a, r: st.r, active: st.active, score_pct: score, rag: mScore ? MR.ragFor(mScore, score) : 'NA' };
   });
-  const f = dd.trackerScore.fleetStats(Dy, mapped.map((r) => r.code), year, month);
+  const entered = rows.filter((r) => !r.not_entered).map((r) => r.code);
+  const f = entered.length ? dd.trackerScore.fleetStats(Dy, entered, year, month) : null;
   const totals = rows.reduce((t, r) => ({ g: t.g + r.g, a: t.a + r.a, r: t.r + r.r }), { g: 0, a: 0, r: 0 });
   return { ...base, state: 'OK', rows, untracked, totals,
-    fleet: { avg_pct: f && Number.isFinite(f.avg) ? Math.round(f.avg * 100) : null, attainment_pct: f && Number.isFinite(f.attainment) ? Math.round(f.attainment * 100) : null, sites: rows.length } };
+    fleet: { avg_pct: f && Number.isFinite(f.avg) ? Math.round(f.avg * 100) : null, attainment_pct: f && Number.isFinite(f.attainment) ? Math.round(f.attainment * 100) : null, sites: entered.length, not_entered: rows.length - entered.length } };
 }
 
 /** F22/G29 — sites and windows are resolved with at most this many reader calls in flight per widget. */

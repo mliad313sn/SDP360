@@ -386,8 +386,11 @@
     var f = d.fleet || {}, t = d.totals || { g: 0, a: 0, r: 0 };
     var head = '<div class="edv-kpi-sub">' + t.g + ' green · ' + t.a + ' amber · ' + t.r + ' red activities' + (f.avg_pct != null ? ' · score ' + formatValue(f.avg_pct, '%') + (f.sites > 1 ? ' (mean of ' + f.sites + ' sites)' : '') : '') + '</div>';
     var body = (d.rows || []).map(function (r) {
+      // Adoption Lot A (item 2): nothing entered for the month → "not entered", neutral, never a red score
+      if (r.not_entered) return '<tr><th scope="row">' + ragDot('NA') + escapeHtml(r.site) + '</th><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num edv-quiet">not entered</td></tr>';
       return '<tr><th scope="row">' + ragDot(r.rag) + escapeHtml(r.site) + '</th><td class="num">' + r.g + '</td><td class="num">' + r.a + '</td><td class="num">' + r.r + '</td><td class="num">' + formatValue(r.score_pct, '%') + '</td></tr>';
     }).join('');
+    if (f.not_entered) head += '<div class="edv-asof">' + f.not_entered + ' site(s) with nothing entered for ' + escapeHtml(d.period || 'this month') + ' — not scored</div>';
     return head + '<div class="edv-table-wrap"><table class="edv-data-table"><caption class="edv-sr">Activity tracker per site, year to ' + escapeHtml(d.period || '') + '</caption><thead><tr><th scope="col">Site</th><th scope="col">Green</th><th scope="col">Amber</th><th scope="col">Red</th><th scope="col">Score</th></tr></thead><tbody>' + body + '</tbody></table></div>' +
       '<div class="edv-asof">Year to ' + escapeHtml(d.period || '') + (d.untracked && d.untracked.length ? ' · not in the tracker: ' + escapeHtml(d.untracked.join(', ')) : '') + '</div>';
   }
