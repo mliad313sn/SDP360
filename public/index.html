@@ -511,18 +511,10 @@ function _zFirstSun(yr){
   d.setDate(1+(d.getDay()===0?0:7-d.getDay()));
   return d;
 }
-function isoWk(d){
-  const t=new Date(d.getTime());t.setHours(0,0,0,0);
-  let yr=t.getFullYear();
-  let fs=_zFirstSun(yr);
-  if(t<fs){yr--;fs=_zFirstSun(yr);}
-  return Math.floor((t-fs)/(7*86400000))+1;
-}
-function isoWkYr(d){
-  const t=new Date(d.getTime());t.setHours(0,0,0,0);
-  const yr=t.getFullYear();
-  return t<_zFirstSun(yr)?yr-1:yr;
-}
+// P11 F-19: bucketing goes through the shared ReportingWeek (UTC calendar-day math). The local-midnight subtraction it
+// replaces lost an hour across DST, so in a London (BST) browser every summer Sunday landed in the previous week.
+function isoWk(d){ return window.ReportingWeek.weekOf(d).week; }
+function isoWkYr(d){ return window.ReportingWeek.weekOf(d).year; }
 function wkStart(yr,wk){
   const fs=_zFirstSun(yr);
   const s=new Date(fs);s.setDate(fs.getDate()+(wk-1)*7);s.setHours(0,0,0,0);return s;
@@ -531,8 +523,8 @@ function wkEnd(yr,wk){
   const s=wkStart(yr,wk),e=new Date(s);e.setDate(s.getDate()+6);e.setHours(23,59,59,999);return e;
 }
 function prevWk(yr,wk){
-  if(wk===1){const d=new Date(yr-1,11,28);return{yr:yr-1,wk:isoWk(d)};}
-  return{yr,wk:wk-1};
+  // P11 F-19: the week before W01 is the previous year's LAST week — W53 in a 53-week year (28 Dec missed it).
+  const p=window.ReportingWeek.previous(yr,wk);return{yr:p.year,wk:p.week};
 }
 function lastCompleteWk(){
   const now=new Date(),cw=isoWk(now),cy=isoWkYr(now);

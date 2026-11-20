@@ -10,7 +10,7 @@
 | Decision cell in RELEASE-GATES.md | empty — this gate is **NO-GO** until the approver fills it. This dossier fills nothing. |
 | What this gate blocks | blocks the two-site pilot on the TEST instance |
 | Decide after | [G19](G19-qa-ci-green.md) QA: CI green and skipped tests reviewed |
-| Target SHA | `24a2f966` |
+| Target SHA | `098d2f1e` |
 | Generated | 2026-11-20 |
 
 ## 1. Question to decide
@@ -21,8 +21,8 @@ Do the access rules (site perimeter for business accounts CG-01, no fleet-wide r
 
 | Evidence | What it shows | Regenerate / re-run | Last changed (commit, date) | Content hash |
 |---|---|---|---|---|
-| `docs/ops/authz-matrix.json` | Machine-readable route × guard × capability matrix, regenerated from the code | `AUTHZ_MATRIX_UPDATE=1 node --test --test-force-exit tests/authz-matrix-json.test.js` | 95780319, 2026-11-20 | `941b8a55c595bf88` |
-| `docs/ops/AUTHZ-MATRIX.md` | Human-readable matrix of every API route and the role it requires | `AUTHZ_MATRIX_UPDATE=1 node --test --test-force-exit tests/authz-route-matrix.test.js` | 95780319, 2026-11-20 | `f5d428793c554501` |
+| `docs/ops/authz-matrix.json` | Machine-readable route × guard × capability matrix, regenerated from the code | `AUTHZ_MATRIX_UPDATE=1 node --test --test-force-exit tests/authz-matrix-json.test.js` | 4d4edc58, 2026-11-20 | `7196eecd24cbe2ec` |
+| `docs/ops/AUTHZ-MATRIX.md` | Human-readable matrix of every API route and the role it requires | `AUTHZ_MATRIX_UPDATE=1 node --test --test-force-exit tests/authz-route-matrix.test.js` | 7ab38b13, 2026-11-20 | `bc2482b65fbfa152` |
 | `tests/authz-route-matrix.test.js` | Fails when a route is added or its guard changes without regenerating the matrix | `node --test --test-force-exit tests/authz-route-matrix.test.js` | 4c7cde73, 2026-11-12 | `5af87df254c4a16d` |
 | `tests/authz-enforce.test.js` | Capability enforcement behaviour | `node --test --test-force-exit tests/authz-enforce.test.js` | 30243287, 2026-11-12 | `9298b189390ba23a` |
 | `docs/sdp360/completion/AUTHZ-OBJECT-MATRIX.csv` | Object-level access matrix (who may read or write which object) | `manual (object-level review)` | 040c228f, 2026-10-28 | `ed72b52d09da051b` |
@@ -34,7 +34,7 @@ Do the access rules (site perimeter for business accounts CG-01, no fleet-wide r
 | From lot | Expected evidence | Status |
 |---|---|---|
 | P02 | Authorization outcome probe report (every route × persona, observed status codes) | delivered: `docs/agent-execution/P02-authz-outcomes.md` (9007a5c4, `1b3c7c2278a4e5d1`) |
-| P02 | Outcome snapshot used by the probe test | delivered: `docs/ops/authz-outcomes.json` (95780319, `f2fda2038ca670ae`) |
+| P02 | Outcome snapshot used by the probe test | delivered: `docs/ops/authz-outcomes.json` (4d4edc58, `0a6f0783887b0bbe`) |
 
 ## 3. Not evidenced, and why
 

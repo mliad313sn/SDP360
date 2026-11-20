@@ -8,7 +8,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const rp = require('../services/reportPayload');
 
-const ACTS = [{ name: 'A1', pillar: 'P1' }, { name: 'A2', pillar: 'P2' }];
+const ACTS = [{ name: 'A1', pillar: 'P1', weight: 1, kpi: 'COUNT', start: 1, end: 12 }, { name: 'A2', pillar: 'P2', weight: 1, kpi: 'COUNT', start: 1, end: 12 }];
 function D(inputs) {
   return {
     activities: ACTS, activeSites: ['HGO', 'MGO'], siteNames: { HGO: 'Hounde', MGO: 'Mana' }, pillarWeights: { P1: 0.5, P2: 0.5 },
@@ -70,4 +70,30 @@ test('render.py: a fallback tracker block with unmeasured months renders "—", 
     assert.ok(!/None%|Nonepp|NaN%/.test(all), 'no Python None / NaN printed');
     assert.ok(all.includes('— pp'), 'the site card says the previous month was not measured');
   } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+});
+
+// P11 F-02 round 4 — the fallback uses the engine formula (cumulative vs PRO-RATED target), not one month vs the
+// annual target. Reviewer repro (f02.js): COUNT, annual target 12, inputs 1/1/1 Jan–Mar → engine GREEN, 100 %.
+test('F-02 r4: fallback == tracker engine on a pro-rated COUNT activity (was red / 0 %)', async () => {
+  const Dx = { sites: ['HGO'], activeSites: ['HGO'], pillarWeights: { P1: 1 }, siteNames: {},
+    activities: [{ name: 'Monthly backups test', pillar: 'P1', weight: 1, kpi: 'COUNT', start: 1, end: 12 }],
+    targets: { HGO: [{ active: true, target: '12' }] }, inputs: { 2026: { HGO: [[1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0]] } } };
+  const t = await rp.serverTracker({ year: 2026, month: 3 }, { trackerDb: asyncDb(Dx) });
+  const { ss, score } = require('../tracker-pptx');
+  const e = ss(Dx, 'HGO', 2026, 3);
+  assert.strictEqual(score(Dx, 'HGO', 2026, 3)[0].rg, 'GREEN');
+  assert.deepEqual([t.green, t.amber, t.red], [e.g, e.a, e.r]);
+  assert.deepEqual([t.green, t.red], [1, 0]);
+  assert.strictEqual(t.sites[0].score, Math.round(e.avg * 100));
+  assert.strictEqual(t.sites[0].score, 100);
+  assert.strictEqual(t.avg_score, 100);
+  assert.strictEqual(t.pillars.P1.score, 100);
+  assert.strictEqual(t.trends.sites.HGO[5], 100);
+  assert.strictEqual(t.trends.sites.HGO[4], 100, 'Feb: 2 of a pro-rated 2 → on track');
+});
+
+test('F-02 r4: the fallback carries no second scoring formula (reuses tracker-pptx score / ss)', () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'services', 'reportPayload.js'), 'utf8');
+  assert.ok(!/_ragOf/.test(src), 'the month-vs-annual-target rule is gone');
+  assert.match(src, /Engine\.ss\(D, siteCode, year, month\)/);
 });

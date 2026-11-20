@@ -154,14 +154,21 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
       const wl = require('../services/weekLabels');
       const wMode = await wl.weekLabelMode(require('../services/reportConfig'), rdb.db);   // D-03
       // _lastIsoWeeks expects a BARE 'YYYY-MM-DD' — a full ISO timestamp throws Invalid Date.
+      // P11 F-16: the weekly "SLA compliance %" is the registered metric helpdesk.window_resolution_sla_pct — the reader's
+      // res_sla_pct (reports-db _computeSiteHelpdesk), on the doctrine of helpdesk.resolution_sla_pct: tickets CREATED in
+      // the week and already closed, cancelled and no-SLA-rule tickets excluded, missed under the configured
+      // helpdesk_sla_definition. No formula here: a reader without the field gives null (UNKNOWN), never 100.
+      let slaDefinition = 'flag';
+      try { slaDefinition = (await require('../services/reportConfig').getConfig(rdb.db)).helpdesk_sla_definition || 'flag'; } catch (_) { /* default rule */ }
       for (const w of _lastIsoWeeks(now.toISOString().slice(0, 10), 6)) {
-        const h = await rdb.getSiteHelpdeskWindow(gate.site_id, w.from, w.to);
-        // Adoption Lot A (item 12): "SLA compliance %" follows the KPI doctrine (closed AND on time ÷ closed), the SAME
-        // rule as the Helpdesk ranking — it used to be 100 − overdue ÷ CREATED, so Houndé read 60 % here vs 50 % there.
+        const h = await rdb.getSiteHelpdeskWindow(gate.site_id, w.from, w.to, { slaDefinition });
         // missed_pct (overdue ÷ created) is kept for older callers; null when nothing to judge, never 0.
         weekly.push({ label: wl.isoWeekLabel(w, wMode), inbound: h.created, closed: h.resolved,
           missed_pct: h.created ? Math.round((h.sla_overdue / h.created) * 1000) / 10 : null,
-          res_sla_pct: h.resolved && h.closed_overdue != null ? Math.round(((h.resolved - h.closed_overdue) / h.resolved) * 1000) / 10 : null,
+          res_sla_pct: h.res_sla_pct == null ? null : h.res_sla_pct,
+          res_sla_den: h.res_sla_den == null ? null : h.res_sla_den,
+          res_sla_definition: h.res_sla_definition || null,
+          open_overdue: h.open_overdue == null ? null : h.open_overdue,
           closed_overdue: h.closed_overdue == null ? null : h.closed_overdue });
       }
 

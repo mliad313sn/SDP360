@@ -200,6 +200,7 @@ W.defaults=O.defaults;window.Chart=W;});
               <th class="sa-num"><span data-lng="en">Received</span><span data-lng="fr">Reçus</span></th>
               <th class="sa-num"><span data-lng="en">Closed</span><span data-lng="fr">Clôturés</span></th>
               <th class="sa-num"><span data-lng="en">SLA compliance %</span><span data-lng="fr">Conformité SLA %</span></th>
+              <th class="sa-num"><span data-lng="en">Open overdue</span><span data-lng="fr">Ouverts en retard</span></th>
             </tr>
           </thead>
           <tbody id="sa-weekly"></tbody>
@@ -388,7 +389,9 @@ W.defaults=O.defaults;window.Chart=W;});
     hd_volume:       { fr: 'Volume & SLA — 6 semaines',              en: 'Volume & SLA — 6 weeks' },
     c_sla_missed:    { fr: 'SLA manqué %',                           en: 'SLA missed %' },
     c_sla_comp:      { fr: 'Conformité SLA %',                       en: 'SLA compliance %' },
-    c_sla_def:       { fr: 'Tickets clos dans le délai ÷ tickets clos de la semaine (même règle que le classement du Helpdesk ; groupes Zoho du site)', en: 'Tickets closed on time ÷ tickets closed in the week (same rule as the Helpdesk ranking; the site\'s Zoho groups)' },
+    c_sla_def:       { fr: 'Parmi les tickets créés dans la semaine et déjà clos : clos dans le délai ÷ clos (tickets annulés et sans règle SLA exclus ; règle « en retard » = helpdesk_sla_definition du serveur, la même que l\'indicateur « SLA de résolution » du dictionnaire ; groupes Zoho du site). Les tickets encore ouverts déjà en retard sont comptés à part.', en: 'Of the tickets created in the week and already closed: closed on time ÷ closed (cancelled tickets and tickets with no SLA rule excluded; "missed" = the server\'s helpdesk_sla_definition, the same rule as the dictionary\'s "Resolution SLA"; the site\'s Zoho groups). Open tickets already overdue are counted separately.' },
+    c_open_overdue:  { fr: 'Ouverts en retard', en: 'Open overdue' },
+    c_open_overdue_def: { fr: 'Tickets créés dans la semaine, encore ouverts, déjà signalés en retard (hors du taux ci-contre, qui ne juge que les tickets clos)', en: 'Tickets created in the week, still open and already flagged overdue (outside the rate next to it, which only judges closed tickets)' },
     c_sla_target:    { fr: 'Cible 90%',                              en: 'Target 90%' },
     // changes (90-day) section
     h_changes:       { fr: 'Changements — 90 jours',                 en: 'Changes — 90 days' },
@@ -570,7 +573,8 @@ W.defaults=O.defaults;window.Chart=W;});
         <td class="sa-num">${fmtNum(w.inbound)}</td>
         <td class="sa-num">${fmtNum(w.closed)}</td>
         <td class="sa-num" title="${esc(T('c_sla_def'))}">${w.res_sla_pct == null ? '<span class="sa-muted">—</span>' : fmtPct(w.res_sla_pct)}</td>
-      </tr>`).join('') : `<tr><td colspan="4" class="sa-muted">${esc(T('nodata'))}.</td></tr>`;
+        <td class="sa-num" title="${esc(T('c_open_overdue_def'))}">${w.open_overdue == null ? '<span class="sa-muted">—</span>' : fmtNum(w.open_overdue)}</td>
+      </tr>`).join('') : `<tr><td colspan="5" class="sa-muted">${esc(T('nodata'))}.</td></tr>`;
 
     const mi = data.major_incidents || [];
     $('sa-mi').innerHTML = mi.length ? mi.map(m => `<tr>
@@ -598,7 +602,7 @@ W.defaults=O.defaults;window.Chart=W;});
     if (typeof Chart === 'undefined' || !weekly.length) { if (panel) panel.style.display = 'none'; return; }
     if (panel) panel.style.display = '';
     const labels = weekly.map(w => w.label);
-    const comp = weekly.map(w => w.res_sla_pct == null ? null : w.res_sla_pct);   // Adoption Lot A: closed-on-time ÷ closed
+    const comp = weekly.map(w => w.res_sla_pct == null ? null : w.res_sla_pct);   // P11 F-16: the reader's res_sla_pct (helpdesk.window_resolution_sla_pct)
     _hdChart = new Chart($('sa-hd-chart').getContext('2d'), {
       type: 'bar',
       data: {

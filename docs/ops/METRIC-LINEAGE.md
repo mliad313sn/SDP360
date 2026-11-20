@@ -17,7 +17,7 @@ means the figures were checked as current.
 denominator is never recomputed or invented. **Data state** — every resolved figure carries one of: `measured` · `partial` · `not_measured` · `reader_not_wired` · `error`.
 **Owner role** `to be named` = nobody decided an owner for the definition (a person or a committee names it).
 
-Metrics: **53** · named by no code outside tests (decision pending): **10**
+Metrics: **54** · named by no code outside tests (decision pending): **10**
 
 ## `helpdesk.inbound`
 
@@ -97,7 +97,7 @@ Metrics: **53** · named by no code outside tests (decision pending): **10**
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `zoho.requests` — declared window 3 h |
-| Consumers | widget `exec-home#k-sla (kpi)`<br>widget `exec-home#tr-sla (trend)`<br>widget `exec-home#sites (ragGrid)`<br>widget `governance#tr (trend)`<br>alert rule `sla.resolution.red`<br>server code: `services/agendaBuilder.js`<br>server code: `services/dashboardWidgets.js`<br>server code: `services/kpiPolicyEngine.js`<br>server code: `services/reportConfig.js`<br>API routes: `routes/extApi.js`<br>API routes: `routes/governance.js`<br>API routes: `routes/kpiPolicies.js`<br>pages: `public/index.html`<br>pages: `public/portfolio.html`<br>browser libraries: `public/kpi-builder.js`<br>browser libraries: `public/lib/composerGuide.js` · tests: 34 file(s) |
+| Consumers | widget `exec-home#k-sla (kpi)`<br>widget `exec-home#tr-sla (trend)`<br>widget `exec-home#sites (ragGrid)`<br>widget `governance#tr (trend)`<br>alert rule `sla.resolution.red`<br>server code: `services/agendaBuilder.js`<br>server code: `services/dashboardWidgets.js`<br>server code: `services/kpiPolicyEngine.js`<br>server code: `services/reportConfig.js`<br>server code: `reports-db.js`<br>API routes: `routes/extApi.js`<br>API routes: `routes/governance.js`<br>API routes: `routes/kpiPolicies.js`<br>API routes: `routes/siteAwareness.js`<br>pages: `public/index.html`<br>pages: `public/portfolio.html`<br>browser libraries: `public/kpi-builder.js`<br>browser libraries: `public/lib/composerGuide.js` · tests: 35 file(s) |
 
 ## `helpdesk.first_reply_sla_pct`
 
@@ -198,6 +198,26 @@ Metrics: **53** · named by no code outside tests (decision pending): **10**
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `zoho.requests` — declared window 3 h |
 | Consumers | widget `exec-home#mi (kpi)`<br>alert rule `helpdesk.major_incident`<br>server code: `services/agendaBuilder.js`<br>browser libraries: `public/site-report.js` · tests: 1 file(s) |
+
+## `helpdesk.window_resolution_sla_pct`
+
+| Field | Value |
+|---|---|
+| Name | Resolution SLA (window) / SLA de résolution (fenêtre) |
+| Module · unit | helpdesk · % |
+| Source | reader `helpdesk.window` · field `res_sla_pct` · reports-db.getSiteHelpdeskWindow (`reports-db.js`) |
+| Reader wiring | wired |
+| Formula | (closed AND NOT missed) / closed with an SLA rule × 100 over tickets created in [from,to]; cancelled excluded; missed = helpdesk_sla_definition; null when nothing closed |
+| Window kind | week |
+| RAG policy | `sla-percent` (code default: scale points, green 90, amber 70) |
+| Higher is better | yes |
+| Denominator | closed tickets with an SLA rule (cancelled excluded) — record field `res_sla_den` |
+| Reader wired | yes |
+| Owner role | to be named |
+| Certification | not certified — KPI Committee approval not recorded |
+| Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
+| Freshness | `zoho.requests` — declared window 3 h |
+| Consumers | API routes: `routes/siteAwareness.js`<br>pages: `public/site-awareness.html` · tests: 1 file(s) |
 
 ## `helpdesk.avg_resolution_h`
 

@@ -5,12 +5,12 @@
 // FICTITIOUS numerator / denominator. The committee fields this tool cannot know (owner, threshold approval,
 // definition approval) are printed as "to be decided" — never filled.
 //
-//   node tools/kpi/dossiers.js           writes docs/agent-execution/P08-kpi-dossiers.md
+//   node tools/kpi/dossiers.js           writes docs/kpi/baselines/P08-kpi-dossiers.md
 //   node tools/kpi/dossiers.js --check   exits 1 when the committed file is stale
 const fs = require('fs');
 const path = require('path');
 const ROOT = path.resolve(__dirname, '..', '..');
-const OUT = path.join(ROOT, 'docs', 'agent-execution', 'P08-kpi-dossiers.md');
+const OUT = path.join(ROOT, 'docs', 'kpi', 'baselines', 'P08-kpi-dossiers.md');
 
 // Surfaces an executive reads: the seeded executive home + committee view, plus the disputed figures.
 function executiveKeys() {

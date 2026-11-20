@@ -10,7 +10,7 @@
 | Decision cell in RELEASE-GATES.md | empty — this gate is **NO-GO** until the approver fills it. This dossier fills nothing. |
 | What this gate blocks | blocks general deployment only |
 | Decide after | none |
-| Target SHA | `24a2f966` |
+| Target SHA | `098d2f1e` |
 | Generated | 2026-11-20 |
 
 ## 1. Question to decide
@@ -22,9 +22,9 @@ Which KPI definitions, RAG thresholds and site-score model become official — e
 | Evidence | What it shows | Regenerate / re-run | Last changed (commit, date) | Content hash |
 |---|---|---|---|---|
 | `docs/ops/SCORE-METHODOLOGY.md` | Score methodology generated from the code; D-03 open | `node tools/agent/score-methodology.js --check` | 2cad73b9, 2026-11-06 | `3aa294827b43753f` |
-| `docs/ops/METRIC-LINEAGE.md` | Where each metric comes from | `manual` | 6457dcfa, 2026-11-20 | `a82149157db3fe8f` |
+| `docs/ops/METRIC-LINEAGE.md` | Where each metric comes from | `manual` | 098d2f1e, 2026-11-20 | `cac9f9ff2bdeff2a` |
 | `docs/sdp360/completion/KPI-DISPUTES.md` | Known disagreements between formulas | `manual` | 3715318f, 2026-10-29 | `9fc347535aadd39a` |
-| `services/metricRegistry.js` | KPI dictionary | `manual` | b0d622d1, 2026-11-20 | `4a58704b516e668c` |
+| `services/metricRegistry.js` | KPI dictionary | `manual` | 098d2f1e, 2026-11-20 | `4a95028cfb394dbd` |
 | `tests/kpi-policy-engine.test.js` | Threshold policy engine behaviour | `node --test --test-force-exit tests/kpi-policy-engine.test.js` | d5a8d2e7, 2026-11-05 | `177b5e67c6d4abe4` |
 | `tests/kpi-rag.test.js` | Server-side RAG thresholds | `node --test --test-force-exit tests/kpi-rag.test.js` | 367513cd, 2026-11-04 | `546602899c67bf56` |
 | `docs/ai-decisions/ADR-C31-kpi-policy-builder.md` | Decision record for the policy builder | `manual` | d5a8d2e7, 2026-11-05 | `9388892ea0c9939b` |
@@ -33,7 +33,7 @@ Which KPI definitions, RAG thresholds and site-score model become official — e
 
 | From lot | Expected evidence | Status |
 |---|---|---|
-| P08 | KPI certification pack: one dossier per KPI, parity test, unknown-value sweep | delivered: `docs/agent-execution/P08-kpi-certification.md` (f0bf3c56, `f6fa35ee2b87b2f0`), `docs/agent-execution/P08-kpi-dossiers.md` (81ea0b81, `43c1fe4686ea0ce8`), `docs/agent-execution/P08-unknown-sweep.md` (a061dd46, `80ade81034a702d4`) |
+| P08 | KPI certification pack: one dossier per KPI, parity test, unknown-value sweep | delivered: `docs/agent-execution/P08-kpi-certification.md` (098d2f1e, `c6f7ad6bf671fdf6`), `docs/agent-execution/P08-unknown-sweep.md` (098d2f1e, `2823e1b20aa60048`) |
 
 ## 3. Not evidenced, and why
 

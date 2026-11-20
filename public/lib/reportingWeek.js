@@ -5,6 +5,7 @@
  *
  *   ReportingWeek.weekOf(date)        → { year, week }   Zoho week: W01 starts on the first Sunday of the year (UTC)
  *   ReportingWeek.range(year, week)   → { start, end }    ISO dates, Sunday → Saturday
+ *   ReportingWeek.previous(year, week) → { year, week }   the week before (W53 of a 53-week year included)
  *   ReportingWeek.dueWeek(now)        → { year, week }    the week the weekly report covers = the PREVIOUS week
  *   ReportingWeek.currentWeek(now)    → { year, week }    the week in progress (live helpdesk view)
  *   ReportingWeek.label(year, week, lang) → "W45 (08–14 nov.)" / "W45 (08–14 Nov)" — every week label carries its dates
@@ -28,8 +29,9 @@
     const d = date instanceof Date ? date : new Date(date);
     return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
   }
-  function weekOf(date) {
-    const d = dayOf(date);
+  function weekOf(date) { return _weekOfUtcDay(dayOf(date)); }
+  // d is already a UTC midnight (no local getters): DST-proof — a BST Sunday never falls into the previous week.
+  function _weekOfUtcDay(d) {
     let year = d.getUTCFullYear();
     let fs = firstSunday(year);
     if (d < fs) { year -= 1; fs = firstSunday(year); }
@@ -39,6 +41,12 @@
     const s = new Date(firstSunday(year).getTime() + (Number(week) - 1) * 7 * DAY);
     const e = new Date(s.getTime() + 6 * DAY);
     return { start: s.toISOString().slice(0, 10), end: e.toISOString().slice(0, 10) };
+  }
+  // The week before (year, week) — crosses into the previous year's LAST week, W53 included (P11 F-19: the Helpdesk
+  // comparison skipped 2028-W53 by asking for the week of 28 December).
+  function previous(year, week) {
+    if (Number(week) > 1) return { year: Number(year), week: Number(week) - 1 };
+    return _weekOfUtcDay(new Date(firstSunday(year).getTime() - DAY));
   }
   function shift(now, days) { const d = now ? new Date(now) : new Date(); d.setDate(d.getDate() + days); return d; }
   function dueWeek(now) { return weekOf(shift(now, -7)); }
@@ -52,7 +60,7 @@
     const span = sm === em ? `${p(sd)}–${p(ed)} ${m[em - 1]}` : `${p(sd)} ${m[sm - 1]} – ${p(ed)} ${m[em - 1]}`;
     return `W${p(week)} (${span})`;
   }
-  const api = { firstSunday, weekOf, range, dueWeek, currentWeek, label };
+  const api = { firstSunday, weekOf, range, previous, dueWeek, currentWeek, label };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.ReportingWeek = api;
 })(typeof self !== 'undefined' ? self : this);

@@ -1,7 +1,7 @@
 'use strict';
 // P08 §5 — "unknown is never 0" sweep. Every server-side reader / composer line that turns a missing value
 // into 0 (`|| 0`, `?? 0`, `COALESCE(…, 0)`) must be JUSTIFIED (a rule below, or a reviewed note in the
-// baseline) or FIXED. The baseline docs/agent-execution/P08-unknown-sweep.json is a RATCHET: a new hit that no
+// baseline) or FIXED. The baseline docs/kpi/baselines/P08-unknown-sweep.json is a RATCHET: a new hit that no
 // rule classifies and the baseline does not list fails tests/kpi-unknown-sweep.test.js.
 //
 //   node tools/kpi/unknown-sweep.js            summary by category (stdout)
@@ -16,7 +16,7 @@ const path = require('path');
 const crypto = require('crypto');
 
 const ROOT = path.resolve(__dirname, '..', '..');
-const BASELINE = path.join(ROOT, 'docs', 'agent-execution', 'P08-unknown-sweep.json');
+const BASELINE = path.join(ROOT, 'docs', 'kpi', 'baselines', 'P08-unknown-sweep.json');
 const PATTERN = /\|\|\s*0(?![.\d])|\?\?\s*0(?![.\d])|COALESCE\([^)]*,\s*0\)/;
 
 function files() {
@@ -68,7 +68,8 @@ function scan() {
 }
 
 // P11 F-05 — a missing baseline is SAID (baselineMissing), never read silently as "nothing reviewed": in a tree
-// without docs/agent-execution/ every reviewed hit used to show up as UNJUSTIFIED with no hint why.
+// without docs/agent-execution/ every reviewed hit used to show up as UNJUSTIFIED with no hint why. Round 4: the
+// baseline now lives in docs/kpi/baselines/ (docs/agent-execution/ is a narrative folder, absent from clean clones).
 function loadBaseline() {
   if (!fs.existsSync(BASELINE)) return { reviewed: {}, missing: true };
   return JSON.parse(fs.readFileSync(BASELINE, 'utf8'));
