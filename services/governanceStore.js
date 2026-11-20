@@ -217,12 +217,17 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
   }
 
   // ── decisions ─────────────────────────────────────────────────────────────────────
-  const decRow = (r) => r && ({ ...r, id: Number(r.id), session_id: r.session_id == null ? null : Number(r.session_id), site_id: r.site_id == null ? null : Number(r.site_id) });
-  async function listDecisions({ status = null, sessionId = null, siteIds = null, limit = 500 } = {}) {
+  // PORTFOLIO LOT 4 (migration 121) — the project-decision record columns are only returned to the decision agenda
+  // (listDecisions({ withRecord: true }) / getDecisionRecord), so every other decision payload stays today's.
+  const DEC_RECORD_COLS = ['project_id', 'authority', 'outcome', 'decided_at'];
+  const decRecordRow = (r) => r && ({ ...r, id: Number(r.id), session_id: r.session_id == null ? null : Number(r.session_id), site_id: r.site_id == null ? null : Number(r.site_id), project_id: r.project_id == null ? null : Number(r.project_id) });
+  const decRow = (r) => { if (!r) return r; const o = decRecordRow(r); for (const c of DEC_RECORD_COLS) delete o[c]; return o; };
+  async function listDecisions({ status = null, sessionId = null, siteIds = null, limit = 500, withRecord = false, projectIds = null } = {}) {
     const where = [], args = [];
     if (status) { const st = Array.isArray(status) ? status : [status]; where.push(`status IN (${st.map(() => '?').join(',')})`); args.push(...st); }
     if (sessionId) { where.push('session_id=?'); args.push(Number(sessionId)); }
-    const rows = (await P(`SELECT * FROM decisions${where.length ? ' WHERE ' + where.join(' AND ') : ''} ORDER BY created_at DESC LIMIT ${Math.max(1, Math.min(2000, Math.floor(Number(limit)) || 500))}`).all(...args)).map(decRow);
+    if (Array.isArray(projectIds)) { if (!projectIds.length) return []; where.push(`project_id IN (${projectIds.map(() => '?').join(',')})`); args.push(...projectIds.map(Number)); }
+    const rows = (await P(`SELECT * FROM decisions${where.length ? ' WHERE ' + where.join(' AND ') : ''} ORDER BY created_at DESC LIMIT ${Math.max(1, Math.min(2000, Math.floor(Number(limit)) || 500))}`).all(...args)).map(withRecord ? decRecordRow : decRow);
     return Array.isArray(siteIds) ? rows.filter(d => d.site_id == null || siteIds.includes(d.site_id)) : rows;
   }
   async function addDecision(d, { user } = {}) {
@@ -239,6 +244,28 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     return decRow(await P(`SELECT * FROM decisions WHERE id=?`).get(id));
   }
   async function getDecision(id) { return decRow(await P(`SELECT * FROM decisions WHERE id=?`).get(Number(id))); }
+  async function getDecisionRecord(id) { return decRecordRow(await P(`SELECT * FROM decisions WHERE id=?`).get(Number(id))); }
+  /** PORTFOLIO LOT 4 — a decision about one portfolio project (source_kind 'project', source_ref = its id / key). */
+  async function addProjectDecision(project, d, { user } = {}) {
+    if (!project || project.id == null) throw Object.assign(new Error('project not found'), { code: 'NOT_FOUND', status: 404 });
+    if (!d || !String(d.title || '').trim()) throw Object.assign(new Error('decision title is required'), { code: 'INVALID' });
+    const due = d.due_date == null || d.due_date === '' ? null : _day(d.due_date);
+    const ref = await nextRef('decisions', 'DEC', now().slice(0, 4));
+    const id = await insert('decisions', ['ref', 'title', 'text', 'owner', 'due_date', 'status', 'source_kind', 'source_ref', 'site_id', 'project_id', 'authority', 'outcome', 'decided_at', 'created_by', 'created_at', 'updated_at'],
+      [ref, str(d.title, 300), str(d.text), str(d.owner, 120), due, 'open', 'project', str(project.project_ref || project.key || String(project.id), 120), num(project.site_id), Number(project.id),
+        d.authority == null ? null : str(d.authority, 200), d.outcome == null ? null : str(d.outcome, 40), d.decided_at == null ? null : str(d.decided_at, 10), user ? user.id : null, now(), now()]);
+    await ppmEvent({ entity: 'decision', entity_id: id, action: 'created', field: 'project_id', old_value: null, new_value: String(project.id), note: ref }, user);
+    return getDecisionRecord(id);
+  }
+  /** PORTFOLIO LOT 4 — authority / outcome / decision date (status stays the lifecycle's). Old → new kept in ppm_events. */
+  async function setDecisionRecord(id, rec, { user } = {}) {
+    const cur = await getDecisionRecord(id); if (!cur) return null;
+    const keys = ['authority', 'outcome', 'decided_at'].filter((k) => rec[k] !== undefined);
+    if (!keys.length) return cur;
+    await updateRow('decisions', id, Object.fromEntries(keys.map((k) => [k, rec[k]])), keys);
+    for (const k of keys) if ((cur[k] == null ? null : String(cur[k])) !== (rec[k] == null ? null : String(rec[k]))) await ppmEvent({ entity: 'decision', entity_id: Number(id), action: 'record', field: k, old_value: cur[k] == null ? null : String(cur[k]), new_value: rec[k] == null ? null : String(rec[k]) }, user);
+    return getDecisionRecord(id);
+  }
   // F-PRODUCT-06 — a status change goes through services/decisionLifecycle (free while the switch is off, the transition
   // table while it is on) and ALWAYS leaves a hash-chained ppm_events row (entity 'decision': old / new / actor / reason).
   // opts.lifecycle = { enforced, actor: 'committee' | 'site', motive }; opts.reason; opts.user.
@@ -983,6 +1010,13 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
   }
   // ---- A-27 PPM exception alert dedup (ppm_alert_state) --------------------------------------------------------------
   async function alertStates() { return (await P(`SELECT * FROM ppm_alert_state`).all()).map((r) => ({ ...r, project_id: r.project_id == null ? null : Number(r.project_id) })); }
+  /** PORTFOLIO LOT 4 — record the commitment a management alert was promoted to (the alert key stays the dedup key). */
+  async function linkAlertCommitment(s) {
+    const ex = await P(`SELECT item_key FROM ppm_alert_state WHERE item_key=?`).get(String(s.item_key));
+    if (ex) await P(`UPDATE ppm_alert_state SET commitment_uid=?, severity=?, recommended_action=? WHERE item_key=?`).run(str(s.commitment_uid, 80), str(s.severity, 20), str(s.recommended_action, 1000), String(s.item_key));
+    else await P(`INSERT INTO ppm_alert_state (item_key, kind, project_id, first_seen, last_notified, cleared_at, commitment_uid, severity, recommended_action) VALUES (?,?,?,?,?,?,?,?,?)`)
+      .run(String(s.item_key), String(s.kind), s.project_id == null ? null : Number(s.project_id), now().slice(0, 10), null, null, str(s.commitment_uid, 80), str(s.severity, 20), str(s.recommended_action, 1000));
+  }
   async function saveAlertState(s) {
     const ex = await P(`SELECT item_key FROM ppm_alert_state WHERE item_key=?`).get(String(s.item_key));
     if (ex) await P(`UPDATE ppm_alert_state SET kind=?, project_id=?, first_seen=COALESCE(first_seen, ?), last_notified=?, cleared_at=? WHERE item_key=?`).run(String(s.kind), s.project_id == null ? null : Number(s.project_id), s.first_seen || null, s.last_notified || null, s.cleared_at || null, String(s.item_key));
@@ -1097,7 +1131,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
   async function minutesHistory(sessionId) { return (await P('SELECT action, actor_id, at, reason FROM minutes_history WHERE session_id=? ORDER BY id').all(Number(sessionId))).map(r => ({ ...r, actor_id: r.actor_id == null ? null : Number(r.actor_id) })); }
   return { ppmEvent, ppmEvents, stageEntries, listBudgetPeriods, saveBudgetPeriod, getRaci, saveRaci, listTemplates, getTemplate, saveTemplateFromProject, approveTemplate, createProjectFromTemplate, moveProjectStage, rfiToProject, getRfi, verifyRfi, rfiFromMeeting, rfiForMeeting, rfiLineage, setAttendance, saveDraftAgenda, getDecision, openSessionActions, addMinutesHistory, minutesHistory, init, listCadences, getCadence, saveCadence, removeCadence, listSessions, getSession, createSession, updateSession, stampItem, sessionActions, addSessionAction, setSessionActionStatus, moveSession,
     listDecisions, addDecision, updateDecision, decisionHistory, decisionProposer, decisionProposal, deleteRequestState, pendingDeleteRequests, listRfi, submitRfi, triageRfi, rfiScore, portfolio, upsertPortfolio, removePortfolio,
-    restorePortfolio, getPortfolioTrashRow, listDeletedPortfolio, purgeDeletedPortfolio, restoreCadence, getCadenceTrashRow, listDeletedCadences, purgeDeletedCadences, projectSites, setProjectSites, getProject, setProjectSensitive, memberProjectIds, planRow, deletedTaskRow, projectDetail, gateCounts, RISK_KINDS, listBaselines, rebaseline, alertStates, saveAlertState, listBenefits, getBenefit, recordBenefitRealised, verifyBenefit, dueBenefitReviews, ownedBenefitReviews,
+    restorePortfolio, getPortfolioTrashRow, listDeletedPortfolio, purgeDeletedPortfolio, restoreCadence, getCadenceTrashRow, listDeletedCadences, purgeDeletedCadences, projectSites, setProjectSites, getProject, setProjectSensitive, memberProjectIds, planRow, deletedTaskRow, projectDetail, gateCounts, RISK_KINDS, listBaselines, rebaseline, alertStates, saveAlertState, linkAlertCommitment, getDecisionRecord, addProjectDecision, setDecisionRecord, listBenefits, getBenefit, recordBenefitRealised, verifyBenefit, dueBenefitReviews, ownedBenefitReviews,
     CADENCE_KINDS, SESSION_STATUSES, DECISION_STATUSES, RFI_KINDS, RFI_STATUSES, PROJECT_STATUSES, CONFIDENCE };
 }
 

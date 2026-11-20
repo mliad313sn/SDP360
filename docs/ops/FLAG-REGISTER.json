@@ -12,12 +12,12 @@
   "expiry"
  ],
  "counts": {
-  "report_config": 304,
+  "report_config": 307,
   "planned": 9,
   "governance_policies": 37,
   "environment": 70,
   "pseudo": 4,
-  "dark": 161,
+  "dark": 163,
   "dark_complete": 0,
   "live": 6
  },
@@ -1704,6 +1704,17 @@
    "prerequisites": null
   },
   {
+   "key": "ppm_alert_actions_enabled",
+   "source": "report_config",
+   "kind": "arm switch",
+   "secret": false,
+   "default": "0",
+   "dark": true,
+   "owner_role": null,
+   "recommended": "`1` after `ppm_decision_agenda_enabled`: the six management alerts of the portfolio spec (critical risk, high risk, unfunded — amount readers only —, decision bottleneck, missing delivery lead, schedule error) on the decisions page, and the committee assigns one by promoting it to a commitment (one per alert; escalation matrix; verified closure by a reviewer). In-app only: nothing is sent; the nightly notices still need `ppm_alerts_enabled`, e-mail still needs `alert_external_enabled`. Rules, severities and recommended actions are PROPOSED. `0` = every alert route 404s and the nightly list is today's.",
+   "prerequisites": null
+  },
+  {
    "key": "ppm_alert_blocked_days",
    "source": "report_config",
    "kind": "setting",
@@ -1713,6 +1724,17 @@
    "owner_role": "Committee",
    "recommended": "`5`",
    "reference": "A-27",
+   "prerequisites": null
+  },
+  {
+   "key": "ppm_alert_decision_age_days",
+   "source": "report_config",
+   "kind": "setting",
+   "secret": false,
+   "default": "",
+   "dark": false,
+   "owner_role": null,
+   "recommended": "A number of days once the PMO sets one: an open project decision with no due date older than this is a decision bottleneck. Blank = the age rule is off (overdue and not-recorded decisions still raise). PROPOSED value to discuss: 14.",
    "prerequisites": null
   },
   {
@@ -1928,6 +1950,17 @@
    "owner_role": "PMO / scheduler",
    "recommended": "`1` once the PMO wants the DCMA 14-point schedule quality check on the Plan tab (published thresholds; points that need data the plan does not hold — link types / lags, hard constraints, resources, baselines, a deadline — read “not measurable”, never pass)",
    "reference": "W3-GOVERNANCE",
+   "prerequisites": null
+  },
+  {
+   "key": "ppm_decision_agenda_enabled",
+   "source": "report_config",
+   "kind": "arm switch",
+   "secret": false,
+   "default": "0",
+   "dark": true,
+   "owner_role": null,
+   "recommended": "`1` after `ppm_intake_register_enabled`: `/portfolio-decisions.html` decision agenda (portfolio spec Lot 4) — projects with decision required yes / tbc and the decisions linked to them in the existing DEC register (authority, due date, status, outcome, decision date), required-but-not-recorded first; the committee records a decision about a project and its outcome. Status still moves through the decision lifecycle. The outcome list and the ordering are PROPOSED. `0` = every agenda route 404s and the decision payloads are today's.",
    "prerequisites": null
   },
   {
@@ -6879,6 +6912,34 @@
    ]
   },
   {
+   "key": "ppm_alert_actions_enabled",
+   "source": "report_config",
+   "default": "0",
+   "owner_role": null,
+   "reference": null,
+   "prerequisites": null,
+   "decision": {
+    "owner": null,
+    "risk": null,
+    "dependencies": null,
+    "canary_site": null,
+    "rollback_trigger": null,
+    "success_metric": null,
+    "decision_deadline": null,
+    "expiry": null
+   },
+   "missing": [
+    "owner",
+    "risk",
+    "dependencies",
+    "canary_site",
+    "rollback_trigger",
+    "success_metric",
+    "decision_deadline",
+    "expiry"
+   ]
+  },
+  {
    "key": "ppm_alerts_enabled",
    "source": "report_config",
    "default": "0",
@@ -7220,6 +7281,34 @@
    "default": "0",
    "owner_role": "PMO / scheduler",
    "reference": "W3-GOVERNANCE",
+   "prerequisites": null,
+   "decision": {
+    "owner": null,
+    "risk": null,
+    "dependencies": null,
+    "canary_site": null,
+    "rollback_trigger": null,
+    "success_metric": null,
+    "decision_deadline": null,
+    "expiry": null
+   },
+   "missing": [
+    "owner",
+    "risk",
+    "dependencies",
+    "canary_site",
+    "rollback_trigger",
+    "success_metric",
+    "decision_deadline",
+    "expiry"
+   ]
+  },
+  {
+   "key": "ppm_decision_agenda_enabled",
+   "source": "report_config",
+   "default": "0",
+   "owner_role": null,
+   "reference": null,
    "prerequisites": null,
    "decision": {
     "owner": null,

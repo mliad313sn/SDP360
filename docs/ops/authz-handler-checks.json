@@ -133,6 +133,8 @@
   "GET /api/governance/people": {"checks":["role","site"],"note":"static signals: role, site","reviewed":false},
   "GET /api/governance/policies/effective": {"checks":["role","site"],"note":"static signals: role, site","reviewed":false},
   "GET /api/governance/portfolio": {"checks":["role","site","switch"],"note":"static signals: role, site, switch","reviewed":false},
+  "GET /api/governance/portfolio/alerts": {"checks":["role","site","switch"],"note":"PORTFOLIO LOT 4 (AI, not reviewed): viewFor = A-15 site scope / B3 / W4 + visibleDecisions, canSeeMoney for unfunded, 404 while ppm_alert_actions_enabled = 0","reviewed":false},
+  "GET /api/governance/portfolio/decision-agenda": {"checks":["role","site","switch"],"note":"PORTFOLIO LOT 4 (AI, not reviewed): viewFor + visibleDecisions intersection, 404 while ppm_decision_agenda_enabled = 0","reviewed":false},
   "GET /api/governance/portfolio/deck.pptx": {"checks":["role","site","switch"],"note":"static signals: role, site, switch","reviewed":false},
   "GET /api/governance/portfolio/exceptions": {"checks":["site","switch"],"note":"static signals: site, switch","reviewed":false},
   "GET /api/governance/portfolio/project/:id": {"checks":["role","site","switch"],"note":"static signals: role, site, switch","reviewed":false},

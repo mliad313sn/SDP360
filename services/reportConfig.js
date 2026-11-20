@@ -504,6 +504,19 @@ Object.assign(DEFAULTS, { ppm_data_quality_enabled: '0', ppm_dq_gate_enforced: '
 //    the portfolio the reader may already read; amounts only for amount readers. Report definitions (unfunded, without
 //    owners, high risk, stalled = 90 days) are PROPOSED (services/ppm/portfolioRegister.js) — arming is a PMO decision.
 Object.assign(DEFAULTS, { ppm_portfolio_dashboard_v2_enabled: '0' });
+// ── PORTFOLIO LOT 4 (IT portfolio reconstruction spec §14, §22, §31.9) — PROPOSED, '0' = today. Migration 121 (additive).
+//    ppm_decision_agenda_enabled '1' → /portfolio-decisions.html decision agenda + GET /api/governance/portfolio/decision-agenda
+//    (projects with decision required yes / tbc and their LINKED decisions in the existing DEC register), the committee
+//    records a decision about a project (POST …/project/:id/decisions) and its authority / outcome / decision date
+//    (PUT …/decisions/:id/record). Status keeps going through the decision lifecycle.
+//    ppm_alert_actions_enabled '1' → the six spec management alerts (critical / high risk, unfunded, decision bottleneck,
+//    missing delivery lead, schedule error) on GET /api/governance/portfolio/alerts, and the committee promotes one to a
+//    commitment (assign → follow → escalation matrix → verified closure). In-app only; nothing is sent (the nightly
+//    notices keep ppm_alerts_enabled, e-mail keeps alert_external_enabled — both unchanged).
+//    ppm_alert_decision_age_days — an open decision with NO due date older than this raises a bottleneck. '' = off.
+//    Every rule, severity, recommended action and the outcome list are PROPOSED (services/ppmAlerts.js,
+//    services/ppm/decisionAgenda.js) — arming is a PMO decision.
+Object.assign(DEFAULTS, { ppm_decision_agenda_enabled: '0', ppm_alert_actions_enabled: '0', ppm_alert_decision_age_days: '' });
 // ── W3-GOVERNANCE (PPM parity W3, migration 110) — PROPOSED, '0' = today (the routes answer 404, nothing is stored).
 //    ppm_simplified_view_enabled '1' → the project page offers a Simplified ↔ Expert switch (per-user preference):
 //    KPI cards (RAG, % schedule complete, budget burn for the admin tier + finance-viewer, risks / blockers, next

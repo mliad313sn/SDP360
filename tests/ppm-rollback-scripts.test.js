@@ -36,7 +36,9 @@ const PPM = ['010_roadmap', '011_roadmap_project', '039_native_ppm', '043_portfo
   // PORTFOLIO LOT 1 — register identity (PRJ-YYYY-NNN) + intake fields + portfolio reference lists
   '117_ppm_intake_register',
   // Policy Control Center — four-eyes requests for high-risk report_config rules
-  '120_policy_change_requests'];
+  '120_policy_change_requests',
+  // PORTFOLIO LOT 4 — project-linked decisions (authority / outcome / decision date) + alert → commitment link
+  '121_ppm_decision_agenda_alerts'];
 
 async function snapshot(pg) {
   const q = async (sql) => (await pg.prepare(sql).all()).map((r) => Object.values(r).join('|'));
