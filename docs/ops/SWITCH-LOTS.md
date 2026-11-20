@@ -302,7 +302,7 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 | `breakglass_timebox_enabled` | Security owner | once the security owner names the break-glass holder and SSO is `available` / `only` — a break-glass password sign-in then needs a reason  | — | admin | sessions | — | 2 | 3 |
 | `access_recert_enabled` | Security owner + site managers | once the Security owner schedules the first campaign  | — | — | — | — | 4 | 2 |
 | `portfolio_executive_readonly` | Owner + IAM | only after the PO / IAM decide that the direction reads the portfolio without changing it  | — | super_admin, executive, admin, committee-member | — | — | 3 | 1 |
-| `export_policy_strict` | Data owner + Security | once the data owner + security adopt the strict sensitivity matrix of `services/exportPolicy | — | admin, viewer, finance-viewer, committee-member | — | — | 2 | 2 |
+| `export_policy_strict` | Data owner + Security | once the data owner + security adopt the strict sensitivity matrix of `services/exportPolicy | — | admin, viewer, finance-viewer, committee-member | — | — | 3 | 2 |
 | `export_watermark_enabled` | Security | — | `export_policy_strict` | — | — | — | 3 | 2 |
 
 ## Dossier L13 — Operations resilience — sync drift, delivery failures, restore, identity
@@ -322,7 +322,7 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 | `restore_drill_full` | Operations owner | once a backup copy of `data/blobs` exists  | — | — | report_config, system_log | — | 1 | 1 |
 | `entra_deprovision_enabled` | Information Security + tenant administrator | only after the tenant administrator decides on the Graph `User | — | — | users | yes | 2 | 2 |
 | `site_code_shared_block` | Data owner + Owner | Decide who owns each shared site code (e.g. TND) and correct the data first; then test the controlled 409 and the editors' rights. | — | editor | — | — | 5 | 3 |
-| `policy_center_enabled` | to be named | — | — | — | — | — | 7 | 1 |
+| `policy_center_enabled` | to be named | — | — | — | — | — | 8 | 1 |
 
 ## Dossier L14 — PMO journey — portfolio intake register (portfolio spec Lot 1)
 

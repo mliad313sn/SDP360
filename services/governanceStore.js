@@ -999,7 +999,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     return pid;
   }
   async function removePortfolio(kind, id, opts = {}) {
-    const T = TABLES[kind]; if (!T) throw new Error('unknown portfolio entity');
+    const T = TABLES[kind]; if (!T) throw Object.assign(new Error('unknown portfolio entity'), { code: 'INVALID' });   // P11 N-R4-4: 400, not 500
     // a deleted project takes its budget with it: the ledger keeps what was removed and by whom
     if (kind === 'project') { const b = await P(`SELECT key, budget, spent, currency, stage FROM portfolio_projects WHERE id=?${opts.soft ? ' AND deleted_at IS NULL' : ''}`).get(Number(id)); if (b) await ppmEvent({ entity: 'project', entity_id: id, action: 'deleted', field: 'budget', old_value: b.budget, new_value: null, currency: b.currency, note: `${b.key} (stage ${b.stage}, spent ${b.spent == null ? 'unknown' : b.spent})${opts.soft ? ' — soft delete, restorable' : ''}` }, opts.user); }
     // A-19c — opts.soft (route: soft_delete_enabled) stamps the node; its subtree is hidden, not stamped. A kind whose

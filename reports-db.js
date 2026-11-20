@@ -1687,7 +1687,11 @@ function ensureReport(site_id, year, week) {
 }
 
 function getReport(report_id) {
-  return _getReportPg(report_id);
+  // P11 N-R4-4 — a non-numeric id (e.g. GET /api/reports/action-departments falling through to /:id) is "no such
+  // report" (404 at the routes), never an integer-cast SQL error (500).
+  const n = Number(report_id);
+  if (!Number.isSafeInteger(n) || n < 1) return Promise.resolve(null);
+  return _getReportPg(n);
 }
 
 function listReports(site_id, year, week) {

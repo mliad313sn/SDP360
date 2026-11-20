@@ -20,6 +20,7 @@ const ROOT = path.join(__dirname, '..');
 const CATALOGUE_FILE = path.join(ROOT, 'docs', 'ops', 'policy-catalogue.json');
 const REGISTER_FILE = path.join(ROOT, 'docs', 'ops', 'FLAG-REGISTER.json');
 const RISKS = ['low', 'medium', 'high'];
+const STRICT_DIRECTIONS = ['higher', 'lower'];
 const TEXT_MAX = 4000;
 
 const readJson = (f, fallback) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch (_) { return fallback; } };
@@ -90,13 +91,18 @@ const scannable = (k) => /[_.]/.test(k);
 
 // ── build ───────────────────────────────────────────────────────────────────────────────────────
 let _built = null;
-function build({ fresh = false } = {}) {
+function build({ fresh = false, catalogueFile = CATALOGUE_FILE, registerFile = REGISTER_FILE } = {}) {
   if (_built && !fresh) return _built;
   const RC = require('./reportConfig');
   const GP = require('./governancePolicy');
   let UI = null; try { UI = require('./uiPolicy'); } catch (_) { UI = null; }
-  const cat = readJson(CATALOGUE_FILE, { categories: {}, keys: {}, excluded: {} });
-  const reg = readJson(REGISTER_FILE, { report_config: [], governance_policies: [] });
+  // P11 N-10 (round 4, operations seat): the catalogue is runtime data and ships in the update package
+  // (tools/deploy/make-update-package.js RUNTIME_DOCS). If it still cannot be read the center FAILS CLOSED: every
+  // report_config rule is treated as four-eyes (never "0 four-eyes rules" silently) and the page shows the error.
+  const catRaw = readJson(catalogueFile, null);
+  const catalogueMissing = !catRaw || typeof catRaw !== 'object' || !catRaw.keys || typeof catRaw.keys !== 'object';
+  const cat = catalogueMissing ? { categories: {}, keys: {}, excluded: {} } : catRaw;
+  const reg = readJson(registerFile, { report_config: [], governance_policies: [] });
   const regBy = new Map([...(reg.report_config || []), ...(reg.governance_policies || [])].map((r) => [r.key, r]));
   const src = (() => { try { return fs.readFileSync(path.join(__dirname, 'reportConfig.js'), 'utf8'); } catch (_) { return ''; } })();
   const allKeys = [...RC.KEYS, ...GP.PARAMS.map((p) => p.key)];
@@ -117,10 +123,13 @@ function build({ fresh = false } = {}) {
       recommendation: r.recommended ? { text: String(r.recommended), status: 'PROPOSED', reference: r.reference || null } : null,
       owner_role: r.owner_role ? { role: String(r.owner_role), status: 'PROPOSED' } : null,
       prerequisites: r.prerequisites || null,
-      risk: RISKS.includes(e.risk) ? e.risk : 'medium',
+      risk: catalogueMissing ? 'high' : (RISKS.includes(e.risk) ? e.risk : 'medium'),
       scopes: ['global'],
       change_role: 'super_admin',
-      four_eyes: !!e.four_eyes && !secret,
+      four_eyes: !secret && (catalogueMissing || !!e.four_eyes),
+      // N-R4-1: the stricter value (or direction) of a four-eyes key; null = unknown → every change needs a second person
+      strict_value: e.four_eyes && e.strict_value != null ? String(e.strict_value) : null,
+      strict_direction: e.four_eyes && STRICT_DIRECTIONS.includes(e.strict_direction) ? e.strict_direction : null,
       secret, editable: !secret,
       consumers: scannable(k) ? (_consumers.get(k) || []) : null,
     });
@@ -149,7 +158,7 @@ function build({ fresh = false } = {}) {
       consumers: _consumers.get(p.key) || [],
     });
   }
-  for (const e of entries) if (e.source === 'report_config' && e.four_eyes) e.four_eyes_rule = 'away_from_default';
+  for (const e of entries) if (e.source === 'report_config' && e.four_eyes) e.four_eyes_rule = (e.strict_value != null || e.strict_direction) ? 'towards_strict' : 'second_person_always';
   // KPI RAG policies: listed for completeness, changed only through the KPI policy builder (adoption by kpi-committee).
   let kpi = [];
   try {
@@ -161,7 +170,8 @@ function build({ fresh = false } = {}) {
       scopes: ['global'], change_role: 'kpi-committee', four_eyes: true, four_eyes_rule: 'kpi_policy_builder', secret: false, editable: false,
       managed_by: 'kpi-builder.html', consumers: null }));
   } catch (_) { kpi = []; }
-  _built = { categories: cat.categories || {}, entries, excluded: cat.excluded || {}, kpi_policies: kpi, by: new Map(entries.map((e) => [e.key, e])) };
+  _built = { catalogue_missing: catalogueMissing, catalogue_error: catalogueMissing ? `policy catalogue not readable (${path.relative(ROOT, catalogueFile)}) — every rule needs a second super_admin until it is restored` : null,
+    categories: cat.categories || {}, entries, excluded: cat.excluded || {}, kpi_policies: kpi, by: new Map(entries.map((e) => [e.key, e])) };
   return _built;
 }
 
@@ -203,13 +213,25 @@ function validateConfigValue(entry, raw) {
   return v;
 }
 
-/** Does `next` need a second super_admin? report_config: a four-eyes key moving AWAY from its best-practice default. */
+/**
+ * Does `next` need a second super_admin? (N-R4-1, P11 round 4.) Only a four-eyes report_config key is concerned.
+ * The code default is NOT assumed to be the safe side — several four-eyes defaults are the weaker setting
+ * (dashkey_scope_mode 'open', ui_inject_dash_key '1', export_policy_strict '0'…). A change is immediate only when it
+ * moves TOWARDS the catalogue's strict_value / strict_direction; anything else (a reset to a weak default included)
+ * needs a second person, and a key whose stricter side is unknown always needs one (fail closed).
+ */
 function needsSecondPerson(entry, current, next) {
   if (!entry || entry.source !== 'report_config' || !entry.four_eyes) return false;
   if (String(current) === String(next)) return false;
-  return String(next) !== String(entry.default);
+  if (entry.strict_value != null) return String(next) !== String(entry.strict_value);
+  if (entry.strict_direction) {
+    const c = Number(current === '' || current == null ? entry.default : current), n = Number(next);
+    if (String(next).trim() === '' || !Number.isFinite(c) || !Number.isFinite(n)) return true;
+    return entry.strict_direction === 'higher' ? !(n > c) : !(n < c);
+  }
+  return true;
 }
 
 const deviates = (entry, value) => (entry.secret ? false : JSON.stringify(entry.default) !== JSON.stringify(entry.source === 'report_config' ? String(value) : value));
 
-module.exports = { build, coverage, validateConfigValue, needsSecondPerson, deviates, describeFromSource, inferType, scanConsumers, CATALOGUE_FILE, RISKS };
+module.exports = { STRICT_DIRECTIONS, build, coverage, validateConfigValue, needsSecondPerson, deviates, describeFromSource, inferType, scanConsumers, CATALOGUE_FILE, RISKS };

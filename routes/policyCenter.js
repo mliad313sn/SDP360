@@ -3,22 +3,24 @@
 // Every route answers 404 while report_config policy_center_enabled = '0' (default): the existing admin cards
 // (reports.html#admin, policies.html, kpi-builder.html) keep working unchanged either way.
 //
-//   GET  /policy-center.html                                 page                                            session (page checks admin)
-//   GET  /api/policy-center/catalogue                        rules + current value + deviation + pending       admin
-//   GET  /api/policy-center/rules/:key/history               who / when / old / new / reason                    admin
+//   GET  /policy-center.html                                 page                                            session (page checks super_admin)
+//   GET  /api/policy-center/catalogue                        rules + current value + deviation + pending       super_admin
+//   GET  /api/policy-center/rules/:key/history               who / when / old / new / reason                    super_admin
 //   PUT  /api/policy-center/rules/:key                       { value | reset:true, scope, reason }              super_admin
-//   GET  /api/policy-center/requests[?status=]               four-eyes requests (center + governance store)     admin
+//   GET  /api/policy-center/requests[?status=]               four-eyes requests (center + governance store)     super_admin
 //   POST /api/policy-center/requests/:id/approve|reject      a SECOND super_admin decides (pc-<n> | gp-<n>)     super_admin
 //   POST /api/policy-center/requests/:id/cancel              the requester withdraws                            super_admin
-//   GET  /api/policy-center/export[?format=csv]              effective policy set (secrets: set / not set)      admin
+//   GET  /api/policy-center/export[?format=csv]              effective policy set (secrets: set / not set)      super_admin
 //   POST /api/policy-center/import                           environment profile — dry run first; applied only  super_admin
 //                                                            with confirm:true + the plan_hash of that dry run
+// Reads are super_admin only, like GET /api/reports/config (N-R4-2, P11 round 4): the center shows non-secret identity
+// values (sso_breakglass_user, entra_tenant_id, base URLs, value history) the legacy read withholds from the admin tier.
 // Secrets are never returned, never written here. Approvals are acts of logged-in users; nothing is inferred.
 const crypto = require('crypto');
 const { fail: httpFail, typed } = require('../services/httpError');
 
 module.exports = function policyCenterRoutes(deps) {
-  const { express, requireReportSession, requireAdmin, requireSuperAdmin, sendHtmlPage } = deps;
+  const { express, requireReportSession, requireSuperAdmin, sendHtmlPage } = deps;
   const router = express.Router();
   const json = express.json({ limit: '256kb' });
   const rdb = () => deps.rdb || require('../reports-db');
@@ -94,7 +96,7 @@ module.exports = function policyCenterRoutes(deps) {
 
   router.get('/policy-center.html', enabled, (req, res) => sendHtmlPage(res, 'policy-center.html', false, 'Policy center unavailable'));
 
-  router.get('/api/policy-center/catalogue', requireReportSession, requireAdmin, enabled, async (req, res) => {
+  router.get('/api/policy-center/catalogue', requireReportSession, requireSuperAdmin, enabled, async (req, res) => {
     try {
       const b = PC.build(); const c = await cfg(); const siteList = await sites();
       const view = new Map(((await gstore().view({ siteIds: siteList.map((s) => s.id) })) || []).map((v) => [v.key, v]));
@@ -108,12 +110,12 @@ module.exports = function policyCenterRoutes(deps) {
         return { ...e, current, secret_set: e.secret ? !!c[e.key] : undefined, site_values: sitesVals,
           deviates: e.secret ? false : PC.deviates(e, current), site_deviations: siteDev, pending: pend.get(e.key) || null };
       });
-      res.json({ ok: true, can_write: isSuper(req.reportUser), categories: b.categories, rules, kpi_policies: b.kpi_policies,
+      res.json({ ok: true, can_write: isSuper(req.reportUser), catalogue_missing: !!b.catalogue_missing, catalogue_error: b.catalogue_error || null, categories: b.categories, rules, kpi_policies: b.kpi_policies,
         excluded: b.excluded, coverage: PC.coverage(), sites: siteList });
     } catch (e) { fail(res, e); }
   });
 
-  router.get('/api/policy-center/rules/:key/history', requireReportSession, requireAdmin, enabled, async (req, res) => {
+  router.get('/api/policy-center/rules/:key/history', requireReportSession, requireSuperAdmin, enabled, async (req, res) => {
     try {
       const e = entryOr404(req.params.key);
       let rows = [];
@@ -139,7 +141,7 @@ module.exports = function policyCenterRoutes(deps) {
     } catch (err) { fail(res, err); }
   });
 
-  router.get('/api/policy-center/requests', requireReportSession, requireAdmin, enabled, async (req, res) => {
+  router.get('/api/policy-center/requests', requireReportSession, requireSuperAdmin, enabled, async (req, res) => {
     try {
       const st = req.query.status === 'all' ? null : String(req.query.status || 'pending');
       const pc = (await cstore().list({ status: st })).map((r) => ({ id: 'pc-' + r.id, source: 'policy_center', key: r.key, scope: r.scope, from: r.old_value, to: r.new_value,
@@ -189,7 +191,7 @@ module.exports = function policyCenterRoutes(deps) {
       return { key: e.key, source: e.source, category: e.category, scope: 'global', value: v.effective !== undefined ? v.effective : e.default, default: e.default, site_values: v.sites || {} };
     });
   }
-  router.get('/api/policy-center/export', requireReportSession, requireAdmin, enabled, require('../services/exportPolicy').gate('reports.policy_set'), async (req, res) => {
+  router.get('/api/policy-center/export', requireReportSession, requireSuperAdmin, enabled, require('../services/exportPolicy').gate('reports.policy_set'), async (req, res) => {
     try {
       const rows = await effectiveSet(); const at = new Date().toISOString();
       await log(req, { category: 'export', action: 'policy_center_export', target: 'policy_set', details: { format: req.query.format === 'csv' ? 'csv' : 'json', rows: rows.length } });

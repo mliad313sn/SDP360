@@ -1,6 +1,6 @@
 'use strict';
 const xpGate = require('../services/exportPolicy').gate;   // P9 / B7 — one export policy (allow / mask / deny + export log + watermark)
-const { fail: httpFail } = require('../services/httpError');
+const { fail: httpFail, typed } = require('../services/httpError');
 // Step 7 — generic trackers: builder (definitions), entry runtime, source bindings, exports,
 // legacy IT Activity Tracker migration. Every score comes from services/trackerDefinitions.score.
 //
@@ -178,7 +178,8 @@ module.exports = function trackersRoutes(deps) {
   router.post('/api/trackers/:key/retire', requireReportSession, requireBuilder, async (req, res) => { try { const t = await store.setStatus(key(req), 'retired'); rdb().logEvent({ category: 'trackers', action: 'tracker_retired', target: key(req), ...rdb()._logCtx(req) }); res.json({ ok: true, tracker: t }); } catch (e) { fail(res, e); } });
   router.get('/api/trackers/:key/versions', requireReportSession, requireBuilder, async (req, res) => { try { res.json({ ok: true, versions: await store.versions(key(req)) }); } catch (e) { fail(res, e); } });
   router.post('/api/trackers/:key/rollback/:n', requireReportSession, requireBuilder, async (req, res) => {
-    try { const d = await store.rollback(key(req), Number(req.params.n), { user: req.reportUser }); if (!d) return res.status(404).json({ ok: false, error: 'version not found' }); rdb().logEvent({ category: 'trackers', action: 'tracker_rolled_back', target: d.key, details: { to: Number(req.params.n) }, ...rdb()._logCtx(req) }); res.json({ ok: true, tracker: d }); } catch (e) { fail(res, e); }
+    try { const n = Number(req.params.n); if (!/^\d+$/.test(String(req.params.n)) || !Number.isSafeInteger(n) || n < 1) return httpFail(res, typed('VALIDATION', 'version must be a positive integer', 400), undefined, { ok: false });   // P11 N-R4-4
+      const d = await store.rollback(key(req), n, { user: req.reportUser }); if (!d) return res.status(404).json({ ok: false, error: 'version not found' }); rdb().logEvent({ category: 'trackers', action: 'tracker_rolled_back', target: d.key, details: { to: Number(req.params.n) }, ...rdb()._logCtx(req) }); res.json({ ok: true, tracker: d }); } catch (e) { fail(res, e); }
   });
   router.delete('/api/trackers/:key', requireReportSession, requireBuilder, async (req, res) => { try { await store.remove(key(req)); rdb().logEvent({ category: 'trackers', action: 'tracker_deleted', target: key(req), ...rdb()._logCtx(req) }); res.json({ ok: true }); } catch (e) { fail(res, e); } });
 

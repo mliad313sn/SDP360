@@ -162,6 +162,9 @@ module.exports = function kpiPolicyRoutes(deps) {
 
   router.get('/api/kpi-policies/:id/diff', requireReportSession, async (req, res) => {
     try {
+      // P11 N-R4-4 — both ids are validated before any read: a bad request is 400, never a SQL cast error (500)
+      if (req.query.against == null || String(req.query.against).trim() === '') throw typed('VALIDATION', 'against=<policy id> is required', 400);
+      for (const [f, v] of [['against', req.query.against], ['id', req.params.id]]) if (!/^\d+$/.test(String(v)) || Number(v) < 1) throw typed('VALIDATION', `${f} must be a positive integer policy id`, 400);
       const a = await store().get(req.query.against); const b = await store().get(req.params.id);
       res.json({ ok: true, from: { id: a.id, version: a.version }, to: { id: b.id, version: b.version }, changes: Engine.diff(a.definition, b.definition) });
     } catch (e) { fail(res, e, undefined, { ok: false }); }

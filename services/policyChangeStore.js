@@ -1,10 +1,10 @@
 'use strict';
 // Policy Control Center — four-eyes requests for high-risk report_config rules (migration 120).
 // A super_admin requests; ANOTHER super_admin approves or rejects (same person refused, by id AND by normalised
-// identity — services/commitmentLifecycle.identityKey, so "J.Doe" / "j.doe " / a confusable spelling is one person).
+// identity — services/commitmentLifecycle.skeletonKey (refusal side), so "J.Doe" / "j.doe " / a confusable spelling is one person).
 // A request lapses after `days` days. Approving re-checks that the stored value is still the one the request saw.
 const { typed } = require('./httpError');
-const { identityKey } = require('./commitmentLifecycle');
+const { skeletonKey } = require('./commitmentLifecycle');   // refusal side: look-alikes fold (P11 N-R4-3)
 
 const STATUSES = ['pending', 'approved', 'rejected', 'cancelled', 'expired', 'stale'];
 
@@ -32,7 +32,7 @@ function makePolicyChangeStore(handle, { now = () => new Date().toISOString(), d
     return get(r.lastID);
   }
   const samePerson = (req, actor) => Number(req.requested_by) === Number(actor.id)
-    || (!!identityKey(req.requested_by_name) && [actor.username, actor.email, actor.name].map(identityKey).includes(identityKey(req.requested_by_name)));
+    || (!!skeletonKey(req.requested_by_name) && [actor.username, actor.email, actor.name].map(skeletonKey).includes(skeletonKey(req.requested_by_name)));
   /**
    * decision: 'approve' | 'reject' | 'cancel'. apply(req) is called for an approval (inside nothing — the caller's
    * setConfig is its own transaction); currentValue(req.key) guards against a value changed since the request.

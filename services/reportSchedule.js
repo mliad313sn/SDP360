@@ -4,6 +4,8 @@
 // execFile). runTask is injectable for tests.
 const { execFile } = require('child_process');
 const path = require('path');
+// P11 N-R4-4 — validation errors are TYPED (400 through services/httpError), never a 500 on a bad request body.
+const invalid = (m) => Object.assign(new Error(m), { code: 'VALIDATION', status: 400 });
 
 const APP_ROOT = path.join(__dirname, '..');
 const NODE = process.execPath;
@@ -45,7 +47,7 @@ function getSchedules(db) {
   return H.prepare(SQL).all();
 }
 
-function _assertTime(v) { if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(v || ''))) throw new Error(`invalid time "${v}" (expected HH:mm)`); }
+function _assertTime(v) { if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(v || ''))) throw invalid(`invalid time "${v}" (expected HH:mm)`); }
 
 const _UPSERT = `INSERT INTO report_schedules (report_type, cadence, enabled, day, time, updated_at, updated_by)
   VALUES (?, ?, ?, ?, ?, {NOW}, ?)
@@ -91,8 +93,8 @@ function _defaultRunTask(spec) {
 // (no half-apply). On disable: delete task (ignored if absent) + set enabled=0.
 async function setSchedule(db, { report_type, cadence, enabled, day, time } = {}, user, deps = {}) {
   const runTask = deps.runTask || _defaultRunTask;
-  if (!TYPES.includes(report_type)) throw new Error(`invalid report_type "${report_type}"`);
-  if (!['weekly', 'monthly'].includes(cadence)) throw new Error(`invalid cadence "${cadence}"`);
+  if (!TYPES.includes(report_type)) throw invalid(`invalid report_type "${report_type}"`);
+  if (!['weekly', 'monthly'].includes(cadence)) throw invalid(`invalid cadence "${cadence}"`);
   const taskName = `SDP-Report-${report_type}-${cadence}`;
   if (!enabled) {
     await runTask({ action: 'delete', taskName, report_type, cadence });
@@ -102,7 +104,7 @@ async function setSchedule(db, { report_type, cadence, enabled, day, time } = {}
   _assertTime(time);
   let d = String(day || '').toUpperCase();
   if (cadence === 'weekly') {
-    if (!DAYS.includes(d)) throw new Error(`invalid weekly day "${day}"`);
+    if (!DAYS.includes(d)) throw invalid(`invalid weekly day "${day}"`);
   } else {
     // monthly: accept 'LAST' (any case) or an integer 1-31
     if (d === 'LAST') {
@@ -110,7 +112,7 @@ async function setSchedule(db, { report_type, cadence, enabled, day, time } = {}
     } else if (/^\d+$/.test(d) && Number(d) >= 1 && Number(d) <= 31) {
       d = String(Number(d));
     } else {
-      throw new Error(`invalid monthly day "${day}" (expected 1-31 or LAST)`);
+      throw invalid(`invalid monthly day "${day}" (expected 1-31 or LAST)`);
     }
   }
   await runTask({ action: 'create', taskName, report_type, cadence, day: d, time });   // throws → no row write

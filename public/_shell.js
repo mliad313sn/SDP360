@@ -213,7 +213,7 @@
         { id: 'handoffs', group: 'Governance',     label: 'Handoffs',           icon: ICON_LIB.users,              href: 'handoffs.html',         roles: ['any'], lean_hidden: true },
         { id: 'obligations', group: 'Governance',  label: 'Site obligations',   icon: ICON_LIB['clipboard-check'], href: 'obligations.html',      roles: ['any'], lean_hidden: true },
         { id: 'policies', group: 'Configure',     label: 'Governance policies', icon: ICON_LIB['clipboard-check'], href: 'policies.html',        roles: ['admin', 'committee-member'] },
-        { id: 'policy-center', group: 'Configure', label: 'Policy control center', icon: ICON_LIB['clipboard-check'], href: 'policy-center.html', roles: ['admin'], policy: 'policy_center_page', lean_hidden: true },
+        { id: 'policy-center', group: 'Configure', label: 'Policy control center', icon: ICON_LIB['clipboard-check'], href: 'policy-center.html', roles: ['super_admin'], policy: 'policy_center_page', lean_hidden: true },
         // Adoption Lot A (item 6): the KPI committee's tool had no entry point (URL or Ctrl+K only).
         { id: 'kpi-builder', group: 'Configure',  label: 'KPI policies',       icon: ICON_LIB['clipboard-check'], href: 'kpi-builder.html',      roles: ['admin', 'kpi-committee'], lean_hidden: true },
         { id: 'integrations', group: 'Configure', label: 'Integrations',       icon: ICON_LIB.zap,                href: 'integrations.html',     roles: ['admin'] },
