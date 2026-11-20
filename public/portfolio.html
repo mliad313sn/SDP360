@@ -68,7 +68,7 @@
   <div class="tiles" id="tiles"></div>
   <!-- B3 (P7a) — "My projects" default, only while portfolio_my_projects_default = '1' (presentation; grants nothing) -->
   <div class="bar" id="pf-mine" hidden><label>Show <select id="pf-mine-sel"><option value="mine">My projects</option><option value="all">All projects</option></select></label><span class="muted" id="pf-mine-note">Totals and money still cover every project you may read.</span></div>
-  <div class="bar"><a class="btn" id="report" href="/api/governance/portfolio/report.html" target="_blank" rel="noopener">Monthly report (HTML)</a><a class="btn" id="register-link" href="portfolio-register.html" hidden>Register &amp; executive dashboard</a><button class="btn" id="mig-dry" type="button" hidden>Roadmap Manager migration — dry run</button><button class="btn danger" id="mig-apply" type="button" hidden>Apply migration</button></div>
+  <div class="bar"><a class="btn" id="report" href="/api/governance/portfolio/report.html" target="_blank" rel="noopener">Monthly report (HTML)</a><a class="btn" id="register-link" href="portfolio-register.html" hidden>Register &amp; executive dashboard</a><a class="btn" id="phase2-link" href="portfolio-phase2.html" hidden>Capacity &amp; scenarios</a><button class="btn" id="mig-dry" type="button" hidden>Roadmap Manager migration — dry run</button><button class="btn danger" id="mig-apply" type="button" hidden>Apply migration</button></div>
   <pre id="mig" class="panel" hidden style="font-size:12px;white-space:pre-wrap"></pre>
   <div class="panel"><h2>Programmes &amp; objectives</h2><div class="scroll" id="tree"></div></div>
   <div class="panel"><h2>Money by programme</h2><div class="scroll" id="money"></div></div>
@@ -244,7 +244,7 @@
       // E-P06 — project templates (switch ppm_templates_enabled; 404 while off = panel stays hidden)
       loadTemplates();
       // E-P08 — the annual DRAFT pack link exists only while ppm_annual_pack_enabled is on
-      api("/api/governance/ppm/features").then(function (f) { $("annual-panel").hidden = !f.annual_pack; $("register-link").hidden = !f.portfolio_dashboard_v2; VIEWS_ON = !!f.portfolio_views; drawViews(); if (f.roadmap_nnl && window.PpmRoadmapNnl) { $("nnl").innerHTML = window.PpmRoadmapNnl.html(window.PpmRoadmapNnl.group(v.projects || [], { today: new Date().toISOString().slice(0, 10) }), esc); $("nnl-panel").hidden = false; } }).catch(function () { $("annual-panel").hidden = true; });
+      api("/api/governance/ppm/features").then(function (f) { $("annual-panel").hidden = !f.annual_pack; $("register-link").hidden = !f.portfolio_dashboard_v2; $("phase2-link").hidden = !(f.resource_demand || f.structured_dependencies || f.effort_scoring || f.scenarios); VIEWS_ON = !!f.portfolio_views; drawViews(); if (f.roadmap_nnl && window.PpmRoadmapNnl) { $("nnl").innerHTML = window.PpmRoadmapNnl.html(window.PpmRoadmapNnl.group(v.projects || [], { today: new Date().toISOString().slice(0, 10) }), esc); $("nnl-panel").hidden = false; } }).catch(function () { $("annual-panel").hidden = true; });
       BOARD = { gantt: v.gantt, stages: v.stages || [] };
       var plans = {}; (v.plans || []).forEach(function (x) { plans[x.project_id] = x; });
       var stages = v.stages || [];

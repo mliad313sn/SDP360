@@ -15,9 +15,15 @@
 //   GET /ext/odata/$metadata                 CSDL
 //   GET /ext/odata/Metrics | Sites | Values  entity sets ($filter, $top, $skip, $orderby, $select, $count)
 // Values without a `Metric eq` filter resolve the keys listed in config `publish_metric_keys` (bounded).
+// PORTFOLIO LOT 6 — while report_config ext_api_portfolio_enabled = '1' (PROPOSED, default '0' = 404 + not in the
+// service document), scope portfolio:read (never a default scope of a new key):
+//   GET /ext/v1/portfolio/projects | dependencies | demand   and   GET /ext/odata/PortfolioProjects | PortfolioDependencyLinks | PortfolioDemands
+// Non-sensitive live projects only; NO amount (budget, spent, currency, RAID figures are never selected) and NO person's
+// name (owner / sponsor / dependency owner / free-text descriptions are never selected). Read-only.
 
 const crypto = require('crypto');
 const OData = require('../services/odata');
+const { fail: httpFail } = require('../services/httpError');
 const { memoryStore, decide } = require('../services/rateLimit');
 
 const QUERY_KEY_MESSAGE = 'api_key in the query string is no longer accepted: send the key in the X-Api-Key header (or Authorization: Bearer <key>)';
@@ -96,9 +102,38 @@ module.exports = function extApiRoutes(deps) {
   // Generic texts only: an internal message (SQL, path, host) never reaches an external consumer.
   const ODATA_TEXT = { INVALID: 'invalid query option', NOT_FOUND: 'not found' };
   const odataErr = (res, e) => { const code = e && (e.code === 'INVALID' || e.code === 'NOT_FOUND') ? e.code : 'ERR'; res.status(code === 'INVALID' ? 400 : code === 'NOT_FOUND' ? 404 : 500).json({ error: { code, message: ODATA_TEXT[code] || 'internal error' } }); };
-  router.get('/ext/odata/', async (req, res) => res.json(OData.serviceDocument(await base())));
+  // PORTFOLIO LOT 6 — portfolio entity sets (switch + scope); read through the phase-2 store with a ledger that refuses writes.
+  async function portfolioOn() { try { const c = await reportConfig.getConfig(rdb().db); return String(c.ext_api_portfolio_enabled) === '1' ? c : null; } catch (_) { return null; } }
+  const portfolioGate = async (req, res, next) => { const c = await portfolioOn(); if (!c) return httpFail(res, new Error('not found'), 404); req.__portfolioCfg = c; return (req.consumer.scopes || []).includes('portfolio:read') ? next() : httpFail(res, new Error('scope portfolio:read required'), 403); };
+  async function portfolioData(cfg) {
+    const p2 = deps.phase2Store || require('../services/ppm/portfolioPhase2Store').makePhase2Store(rdb().pgHandle(), { ppmEvent: async () => { throw new Error('read-only'); } });
+    const RX = require('../services/ppm/riskExposure'); const ES = require('../services/ppm/effortScoring');
+    const projects = await p2.extProjects({ intake: String(cfg.ppm_intake_register_enabled) === '1' });
+    const ids = projects.map((p) => p.id); const keep = new Set(ids); const today = new Date().toISOString().slice(0, 10);
+    const risks = await p2.listRisks(ids); const effort = await p2.effortMany(ids); const demand = (await p2.listDemand(ids)).filter((d) => keep.has(d.project_id));
+    const w = ES.parseWeights(cfg.ppm_effort_weights).weights;
+    const rows = projects.map((p) => {
+      const ru = RX.rollup(risks.filter((r) => r.project_id === p.id), { today }); const es = ES.score(effort[p.id] || {}, { weights: w });
+      const known = demand.filter((d) => d.project_id === p.id && d.avg_fte != null);
+      return { Id: p.id, Ref: p.project_ref, Key: p.key, Name: p.name, SiteId: p.site_id, Site: p.site_name, Status: p.status, Stage: p.stage, Priority: p.priority, StartDate: p.start_date, EndDate: p.end_date, ProgressPct: p.progress_pct,
+        RiskExposure: ru.level, OpenRisks: ru.open, EffortScore: es.score, EffortBand: es.band, DemandAvgFte: known.length ? Math.round(known.reduce((a, d) => a + d.avg_fte, 0) * 100) / 100 : null };
+    });
+    const links = (await p2.listDependencies(ids)).filter((d) => d.predecessor_project_id == null || keep.has(d.predecessor_project_id))
+      .map((d) => ({ Id: d.id, ProjectId: d.project_id, PredecessorProjectId: d.predecessor_project_id, ExternalCategory: d.external_category || null, Status: d.status, TargetDate: d.target_date || null, Criticality: d.criticality || null }));
+    const lines = demand.map((d) => ({ Id: d.id, ProjectId: d.project_id, Skill: d.skill, AvgFte: d.avg_fte, PeakFte: d.peak_fte, StartMonth: d.start_month || null, FinishMonth: d.finish_month || null, Sourcing: d.sourcing || null }));
+    return { rows, links, lines };
+  }
+  const PSETS = { projects: ['PortfolioProjects', 'rows'], dependencies: ['PortfolioDependencyLinks', 'links'], demand: ['PortfolioDemands', 'lines'] };
+  router.get('/ext/v1/portfolio/:set', portfolioGate, async (req, res) => {
+    try { const s = Object.prototype.hasOwnProperty.call(PSETS, req.params.set) ? PSETS[req.params.set] : null; if (!s) return httpFail(res, new Error('not found'), 404); const d = await portfolioData(req.__portfolioCfg); res.json({ [req.params.set]: d[s[1]], money: 'not exported', as_of: new Date().toISOString() }); } catch (e) { httpFail(res, e); }
+  });
+  const odataPortfolio = (set, field) => async (req, res) => { try { const b = await base(); OData.collection(b, set, [], req.query); res.json(OData.collection(b, set, (await portfolioData(req.__portfolioCfg))[field], req.query)); } catch (e) { odataErr(res, e); } };
+  router.get('/ext/odata/PortfolioProjects', portfolioGate, odataPortfolio('PortfolioProjects', 'rows'));
+  router.get('/ext/odata/PortfolioDependencyLinks', portfolioGate, odataPortfolio('PortfolioDependencyLinks', 'links'));
+  router.get('/ext/odata/PortfolioDemands', portfolioGate, odataPortfolio('PortfolioDemands', 'lines'));
+  router.get('/ext/odata/', async (req, res) => res.json(OData.serviceDocument(await base(), { portfolio: !!(await portfolioOn()) })));
   // `$` is a regex anchor in a path string — a RegExp route is the only form that matches $metadata.
-  router.get(/^\/ext\/odata\/\$metadata$/, (req, res) => res.type('application/xml').send(OData.metadataXml()));
+  router.get(/^\/ext\/odata\/\$metadata$/, async (req, res) => res.type('application/xml').send(OData.metadataXml({ portfolio: !!(await portfolioOn()) })));
   router.get('/ext/odata/Metrics', needScope('metrics:read'), async (req, res) => { try { res.json(OData.collection(await base(), 'Metrics', dict().map(m => ({ Key: m.key, Name: m.name, Module: m.module, Unit: m.unit, WindowKind: m.window_kind, HigherIsBetter: m.higher_is_better, Formula: m.formula })), req.query)); } catch (e) { odataErr(res, e); } });
   router.get('/ext/odata/Sites', needScope('sites:read'), async (req, res) => { try { res.json(OData.collection(await base(), 'Sites', (await sites()).map(s => ({ Id: s.id, Name: s.name, Country: s.country, Active: s.active })), req.query)); } catch (e) { odataErr(res, e); } });
   router.get('/ext/odata/Values', needScope('values:read'), async (req, res) => {

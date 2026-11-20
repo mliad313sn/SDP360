@@ -30,7 +30,7 @@
     'Portfolio views': 'Vues du portefeuille', 'Timeline': 'Chronologie', 'List': 'Liste', 'Board': 'Tableau par étape',
     'Programmes → objectives (evidence from the KPI dictionary) → projects → milestones → deliverables, with risks. “—” means not measured, never 0 (help §25).':
       'Programmes → objectifs (preuve issue du dictionnaire de KPI) → projets → jalons → livrables, avec les risques. « — » signifie non mesuré, jamais 0 (aide §25).',
-    'Monthly report (HTML)': 'Rapport mensuel (HTML)', 'Register & executive dashboard': 'Registre & tableau de bord de direction', 'Roadmap Manager migration — dry run': 'Migration du Roadmap Manager — simulation',
+    'Monthly report (HTML)': 'Rapport mensuel (HTML)', 'Register & executive dashboard': 'Registre & tableau de bord de direction', 'Capacity & scenarios': 'Capacité & scénarios', 'Roadmap Manager migration — dry run': 'Migration du Roadmap Manager — simulation',
     'Apply migration': 'Appliquer la migration', 'Programmes & objectives': 'Programmes et objectifs', 'Money by programme': 'Montants par programme',
     'Schedule (projects & milestones)': 'Planning (projets et jalons)', 'Table view (dates, plan, alerts)': 'Vue tableau (dates, plan, alertes)',
     'Resource conflicts': 'Conflits de ressources', 'Risks': 'Risques', 'Add / edit an element (committee)': 'Ajouter / modifier un élément (comité)',

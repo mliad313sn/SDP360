@@ -45,6 +45,9 @@
     // PORTFOLIO LOT 2 — PROPOSED (spec §20.2: green 100 %, amber 80–99 %, red < 80 %; a blocking error overrides to red
     // in services/ppm/dataQuality.js). Not approved: a PMO decision.
     'ppm-data-quality':  { scale: 'points', green: 100,  amber: 80,   proposed: true, status: 'PROPOSED', source: 'services/ppm/dataQuality.js — IT portfolio spec §20.2 (PROPOSED, not approved)' },
+    // PORTFOLIO LOT 6 — PROPOSED capacity thresholds on capacity ÷ demand (spec §17): green ≥ 1.18 (≤ ~85 % utilised),
+    // amber ≥ 1.0 (85–100 %), red = over capacity. Not approved: a PMO / resource-owner decision.
+    'ppm-capacity':      { scale: 'ratio',  green: 1.18, amber: 1.0,  proposed: true, status: 'PROPOSED', source: 'services/ppm/resourceDemand.js — IT portfolio spec §17 (PROPOSED, not approved)' },
   };
 
   // A-11 — opts.emptyAs is OPT-IN: with no measurement at all, return it instead of 0

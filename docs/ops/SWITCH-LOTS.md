@@ -12,7 +12,7 @@ or the plan breaks a rule (`tests/switch-lots.test.js`).
 
 | Dark switches in the register | In a lot | Keep dark | Retire (proposal) | Lots | Proposed count after decisions |
 |---|---|---|---|---|---|
-| 161 | 120 | 44 (of which 5 are not switches) | 3 | 15 | 153 dark entries if the 3 retirements and the 5 reclassifications are accepted (activations then lower it further, lot by lot) |
+| 167 | 126 | 44 (of which 5 are not switches) | 3 | 16 | 159 dark entries if the 3 retirements and the 5 reclassifications are accepted (activations then lower it further, lot by lot) |
 
 Plan checks: **clean** · dependency cycles: **0** · orphans (no code reads the key): **0**.
 
@@ -35,6 +35,7 @@ Plan checks: **clean** · dependency cycles: **0** · orphans (no code reads the
 | L13 | Operations resilience — sync drift, delivery failures, restore, identity | 6 | PROPOSED |
 | L14 | PMO journey — portfolio intake register, data quality, register and executive dashboard (portfolio spec Lots 1–3) | 4 | PROPOSED — New lot (portfolio reconstruction spec, Lots 1 and 2). Arm ppm_intake_register_enabled first; then ppm_data_quality_enabled (shadow) for a shadow period; ppm_dq_gate_enforced last, only after the PMO has approved the required set and the blocking checks. Lot 3: ppm_portfolio_dashboard_v2_enabled (read-only register + executive dashboard) after ppm_intake_register_enabled (and ppm_data_quality_enabled for the DQ card); its report definitions (unfunded, without owners, high risk, stalled 90 days) are PROPOSED. |
 | L15 | Adoption Lot B — each profile lands on its job | 4 | PROPOSED — Adoption review 2026-11-20, Lot B. Enable per pilot site together with ui_role_landing and ui_i18n_pages (pilot owner); gate = the human first-click and SUS sessions of USABILITY-TEST-PROTOCOL.md on two pilot sites. |
+| L16 | Portfolio phase 2 — structured dependencies & risks, resource demand & capacity, documents, effort scoring, scenarios, BI (portfolio spec Lot 6) | 6 | PROPOSED — Portfolio reconstruction spec Lot 6 (Phase 2), after L14 (ppm_intake_register_enabled first for the declared effort / risk fields). Arm one switch at a time, each after a PMO shadow review: ppm_structured_dependencies_enabled, then (optionally) run tools/ppm/backfill-project-dependencies.js as a dry run; ppm_resource_demand_enabled with ppm_capacity_fte set by the resource owner (unset = capacity unknown, no colour); ppm_effort_scoring_enabled; ppm_documents_enabled only after the operator has decided storage / retention / malware scanning; ppm_scenarios_enabled (read-only); ext_api_portfolio_enabled last — data owner + security decision, and an API consumer key with the portfolio:read scope. |
 
 Run a lot's targeted tests with its switches forced on (throwaway database only):
 
@@ -337,7 +338,7 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 
 | Switch | Who decides (register) | Human prerequisite (register text) | Depends on | Roles named | Tables touched | Job | Consumer files | Tests naming it |
 |---|---|---|---|---|---|---|---|---|
-| `ppm_intake_register_enabled` | to be named | once the PMO has reviewed the PROPOSED reference lists  | — | admin | decisions, meeting_cadences, meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits +19 | — | 15 | 4 |
+| `ppm_intake_register_enabled` | to be named | once the PMO has reviewed the PROPOSED reference lists  | — | admin | decisions, meeting_cadences, meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits +19 | — | 16 | 4 |
 | `ppm_data_quality_enabled` | to be named | once `ppm_intake_register_enabled` is on: portfolio and project reads carry the data-quality block of the portfolio reconstruction spec  | `ppm_intake_register_enabled` | — | — | — | 7 | 2 |
 | `ppm_dq_gate_enforced` | to be named | only after the PMO has approved the required set and the blocking checks of `ppm_data_quality_enabled` and run it in shadow: the proposal → approval stage move is refused  | `ppm_data_quality_enabled` | — | — | — | 4 | 1 |
 | `ppm_portfolio_dashboard_v2_enabled` | to be named | after `ppm_intake_register_enabled`  | `ppm_data_quality_enabled`, `ppm_intake_register_enabled` | executive | — | — | 6 | 1 |
@@ -358,6 +359,25 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 | `ui_home_group_variant` | Pilot owner (UI policy) | — | — | — | — | — | 3 | 3 |
 | `ui_home_freshness_strip` | Pilot owner (UI policy) | — | — | admin | — | — | 4 | 3 |
 | `ui_helpdesk_site_default` | Pilot owner (UI policy) | — | — | admin | — | — | 3 | 3 |
+
+## Dossier L16 — Portfolio phase 2 — structured dependencies & risks, resource demand & capacity, documents, effort scoring, scenarios, BI (portfolio spec Lot 6)
+
+- **Status**: PROPOSED. **Owner**: _(empty — human)_. **Canary site**: _(empty — human)_. **Decision date / expiry**: _(empty — human)_.
+- **Who sees a change**: PMO, committee members, project editors under the plan-write rule, resource owners (capacity), every project reader (read views), BI consumers (external API keys with portfolio:read).
+- **What changes**: Project page: Dependencies tab (on another project or an external category; owner, status, target date, criticality; loops refused; flags) with risk exposure (4 PROPOSED levels, residual, due date, rollup); Resources tab (demand lines per skill, numeric FTE, monthly load vs capacity, effort score of seven factors); Documents tab (typed, versioned, content-checked, ≤ 10 MB, money documents restricted). /portfolio-phase2.html: monthly load vs capacity, exposure by project, cross-project loops / flags, effort scores, read-only scenario. External API: /ext/v1/portfolio/* and OData Portfolio* (non-sensitive projects, no amount, no person name).
+- **Risk**: low-medium (AI estimate): additive tables (migration 130), every write under the existing plan-write rule and in the ledger; capacity thresholds, exposure mapping, effort weights / bands and the document allow-list are PROPOSED; document storage has no malware scanning (operator decision); the external API exports project names and dates to a third-party tool.
+- **Metric that would show it worked** (candidate, no threshold): share of active projects with at least one structured dependency or 'none known'; months over capacity per skill; external dependencies without an owner (should trend to zero); projects with a full effort score.
+- **Rollback**: set every switch of the lot back to its default `0` (Admin or `setConfig`). Data written while on stays in place and is no longer shown or acted on; the rehearsal is `tests/switch-lots-rollback.test.js`. **Rollback trigger**: _(observable and threshold left to the owner)_.
+- **Needs earlier lots**: `ppm_intake_register_enabled` (L14).
+
+| Switch | Who decides (register) | Human prerequisite (register text) | Depends on | Roles named | Tables touched | Job | Consumer files | Tests naming it |
+|---|---|---|---|---|---|---|---|---|
+| `ppm_structured_dependencies_enabled` | to be named | after `ppm_intake_register_enabled`, for a PMO shadow period: the project page gets a Dependencies tab — each dependency is on another project OR an external category  | `ppm_intake_register_enabled` | — | decisions, meeting_cadences, meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits +18 | — | 2 | 0 |
+| `ppm_resource_demand_enabled` | to be named | once the resource owner has set `ppm_capacity_fte`  | — | — | — | — | 1 | 0 |
+| `ppm_effort_scoring_enabled` | to be named | — | — | — | — | — | 1 | 0 |
+| `ppm_documents_enabled` | to be named | only after the operator has decided document storage, retention and malware scanning: typed, versioned project documents in the filesystem blob store  | — | — | — | — | 2 | 0 |
+| `ppm_scenarios_enabled` | to be named | — | `ppm_resource_demand_enabled`, `ppm_structured_dependencies_enabled` | — | — | — | 1 | 0 |
+| `ext_api_portfolio_enabled` | dependencies | — | — | — | alert_firings, alert_rules, alert_state, api_calls, api_consumers, notification_comments +4 | — | 3 | 0 |
 
 ## Keep dark (with the reason)
 
@@ -491,6 +511,8 @@ Edges = a switch whose register text (recommended value or prerequisite) names a
 | `ppm_portfolio_dashboard_v2_enabled` | L14 | `ppm_data_quality_enabled` (L14), `ppm_intake_register_enabled` (L14) |
 | `ppm_project_roles_enabled` | L02 | `ppm_project_team_enabled` (L02) |
 | `ppm_report_send_enabled` | keep:outbound | `ppm_project_report_enabled` (L02) |
+| `ppm_scenarios_enabled` | L16 | `ppm_resource_demand_enabled` (L16), `ppm_structured_dependencies_enabled` (L16) |
+| `ppm_structured_dependencies_enabled` | L16 | `ppm_intake_register_enabled` (L14) |
 | `ppm_timesheet_approval_enabled` | L05 | `ppm_time_entries_enabled` (L05) |
 | `roadmap_audience_publication_enabled` | L07 | `roadmap_publication_enabled` (L07) |
 | `roadmap_publication_enabled` | L07 | `soft_delete_enabled` (L07) |
@@ -507,7 +529,7 @@ Orphans (dark keys no code file reads, outside `services/reportConfig.js`): none
 
 Pairs of switches in different lots that share a consumer file or a table named in that file's SQL. Hub files read by more
 than 6 lot switches (and the two monoliths) are excluded: sharing them says nothing. File-level approximation.
-Hub files excluded: `public/lib/home-page.js`, `public/portfolio.html`, `public/project.html`, `routes/governance.js`, `routes/governancePpm.js`, `routes/governanceW3.js`, `routes/governanceWorkbench.js`, `routes/myWork.js`, `server.js`, `services/reportCatalogue.js`, `services/sync/jobs.js`, `services/uiPolicy.js`, `tools/agent/policy-catalogue.js`. Hub tables excluded: decisions, meeting_cadences, portfolio_objectives, portfolio_programmes, portfolio_projects, portfolio_tasks, ppm_budget_periods, ppm_events, ppm_project_members, ppm_time_entries, rfi_requests, sites.
+Hub files excluded: `public/lib/home-page.js`, `public/portfolio.html`, `public/project.html`, `routes/governance.js`, `routes/governancePpm.js`, `routes/governanceW3.js`, `routes/governanceWorkbench.js`, `routes/myWork.js`, `server.js`, `services/governanceStore.js`, `services/reportCatalogue.js`, `services/sync/jobs.js`, `services/uiPolicy.js`, `tools/agent/policy-catalogue.js`. Hub tables excluded: sites.
 
 | Lot pair | Overlapping switch pairs |
 |---|---|
@@ -527,46 +549,44 @@ Hub files excluded: `public/lib/home-page.js`, `public/portfolio.html`, `public/
 | L02 × L12 | 2 |
 | L02 × L13 | 1 |
 | L02 × L14 | 1 |
-| L03 × L04 | 5 |
-| L03 × L05 | 8 |
+| L02 × L16 | 1 |
+| L03 × L04 | 4 |
+| L03 × L05 | 9 |
 | L03 × L06 | 1 |
-| L03 × L07 | 2 |
-| L03 × L08 | 3 |
-| L03 × L11 | 2 |
+| L03 × L07 | 1 |
+| L03 × L08 | 2 |
+| L03 × L11 | 4 |
 | L03 × L12 | 2 |
 | L03 × L13 | 4 |
 | L03 × L14 | 1 |
-| L04 × L05 | 1 |
 | L04 × L06 | 4 |
-| L04 × L07 | 1 |
-| L04 × L08 | 1 |
-| L04 × L14 | 1 |
-| L05 × L07 | 1 |
-| L05 × L08 | 1 |
 | L05 × L09 | 1 |
-| L05 × L11 | 2 |
+| L05 × L11 | 6 |
 | L05 × L13 | 1 |
-| L05 × L14 | 1 |
-| L07 × L08 | 2 |
+| L05 × L14 | 2 |
+| L07 × L08 | 1 |
 | L07 × L09 | 2 |
 | L07 × L10 | 3 |
 | L07 × L11 | 3 |
 | L07 × L12 | 2 |
 | L07 × L13 | 1 |
-| L07 × L14 | 1 |
 | L08 × L09 | 2 |
 | L08 × L11 | 1 |
 | L08 × L13 | 1 |
-| L08 × L14 | 1 |
 | L09 × L10 | 1 |
 | L09 × L11 | 4 |
 | L09 × L15 | 1 |
 | L10 × L11 | 8 |
+| L10 × L16 | 4 |
 | L11 × L12 | 3 |
 | L11 × L13 | 7 |
+| L11 × L14 | 2 |
 | L12 × L13 | 3 |
 | L12 × L14 | 2 |
+| L12 × L16 | 2 |
 | L13 × L14 | 1 |
+| L13 × L16 | 1 |
+| L14 × L16 | 2 |
 
 | Lots | Switch A | Switch B | Shared files | Shared tables |
 |---|---|---|---|---|
@@ -620,51 +640,50 @@ Hub files excluded: `public/lib/home-page.js`, `public/portfolio.html`, `public/
 | L02 × L12 | `export_watermark_enabled` | `ppm_project_report_enabled` | `services/exportPolicy.js` | — |
 | L02 × L13 | `policy_center_enabled` | `ppm_project_report_enabled` | `services/exportPolicy.js` | — |
 | L02 × L14 | `ppm_portfolio_dashboard_v2_enabled` | `ppm_project_report_enabled` | `services/exportPolicy.js` | — |
+| L02 × L16 | `ppm_documents_enabled` | `ppm_project_report_enabled` | `services/exportPolicy.js` | — |
 | L03 × L04 | `ppm_baseline_slots_enabled` | `ppm_calendars_enabled` | `db/postgres/reports/105_ppm_engine_w2.sql`, `db/postgres_rollback/105_ppm_engine_w2_drop.sql`, `routes/ppmEngine.js` | — |
 | L03 × L04 | `ppm_baseline_slots_enabled` | `ppm_leveling_enabled` | `db/postgres/reports/105_ppm_engine_w2.sql`, `db/postgres_rollback/105_ppm_engine_w2_drop.sql`, `routes/ppmEngine.js` | — |
 | L03 × L04 | `ppm_baseline_slots_enabled` | `ppm_resources_enabled` | `db/postgres/reports/105_ppm_engine_w2.sql`, `db/postgres_rollback/105_ppm_engine_w2_drop.sql`, `routes/ppmEngine.js` | — |
 | L03 × L04 | `ppm_baseline_slots_enabled` | `ppm_schedule_engine_v2_ui` | `routes/ppmEngine.js` | — |
-| L03 × L04 | `ppm_baseline_versions` | `ppm_capacity_view` | `services/governanceStore.js` | meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_project_sites, portfolio_risks, ppm_alert_state, ppm_project_ref_seq, ppm_raci, ppm_templates, session_actions |
-| L03 × L05 | `finance_currency_required` | `ppm_baseline_versions` | `services/governanceStore.js` | meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_project_sites, portfolio_risks, ppm_alert_state, ppm_project_ref_seq, ppm_raci, ppm_templates, session_actions |
+| L03 × L05 | `actuals_import_enabled` | `ppm_change_requests_enabled` | — | portfolio_projects |
+| L03 × L05 | `finance_certification_enabled` | `ppm_change_requests_enabled` | — | portfolio_projects |
 | L03 × L05 | `ppm_budget_periods_enabled` | `ppm_change_requests_enabled` | `services/portfolioDeck.js` | — |
 | L03 × L05 | `ppm_change_requests_enabled` | `ppm_time_entries_enabled` | `db/postgres/reports/085_ppm_workbench.sql` | — |
 | L03 × L05 | `ppm_change_requests_enabled` | `ppm_timesheet_approval_enabled` | — | users |
 | L03 × L05 | `ppm_cr_simulation_enabled` | `ppm_timesheet_approval_enabled` | `db/postgres/reports/102_ppm_timesheets_cr_simulation.sql`, `db/postgres_rollback/102_ppm_timesheets_cr_simulation_drop.sql` | — |
 | L03 × L05 | `ppm_dcma_enabled` | `ppm_evm_enabled` | `services/ppm/w3Context.js` | — |
 | L03 × L05 | `ppm_evm_enabled` | `ppm_gate_checklist_enabled` | `services/ppm/w3Context.js` | — |
-| L03 × L05 | `ppm_rebaseline_enabled` | `ppm_timesheet_approval_enabled` | `services/ppmWorkbenchStore.js` | ppm_change_requests, ppm_timesheet_weeks, users |
+| L03 × L05 | `ppm_rebaseline_enabled` | `ppm_timesheet_approval_enabled` | `services/ppmWorkbenchStore.js` | portfolio_tasks, ppm_change_requests, ppm_project_members, ppm_time_entries, ppm_timesheet_weeks, users |
 | L03 × L06 | `ppm_baseline_slots_enabled` | `ppm_mspdi_enabled` | `db/postgres_rollback/105_ppm_engine_w2_drop.sql`, `routes/ppmEngine.js` | — |
 | L03 × L07 | `portfolio_editor_plan_writes` | `portfolio_sensitive_projects` | `services/portfolioAccess.js` | — |
-| L03 × L07 | `ppm_baseline_versions` | `soft_delete_enabled` | `services/governanceStore.js` | meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_project_sites, portfolio_risks, ppm_alert_state, ppm_project_ref_seq, ppm_raci, ppm_templates, session_actions |
-| L03 × L08 | `decision_motive_required` | `ppm_baseline_versions` | `services/governanceStore.js` | meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_project_sites, portfolio_risks, ppm_alert_state, ppm_project_ref_seq, ppm_raci, ppm_templates, session_actions |
 | L03 × L08 | `handoffs_enabled` | `ppm_baseline_versions` | `public/help.html` | — |
 | L03 × L08 | `handoffs_enabled` | `ppm_rebaseline_enabled` | `public/help.html` | — |
 | L03 × L11 | `field_task_timing` | `ppm_change_requests_enabled` | — | users |
 | L03 × L11 | `field_task_timing` | `ppm_rebaseline_enabled` | — | users |
+| L03 × L11 | `insp_repeat_findings` | `ppm_change_requests_enabled` | — | portfolio_projects |
+| L03 × L11 | `ppm_change_requests_enabled` | `wan_sla_claims_enabled` | — | portfolio_projects |
 | L03 × L12 | `access_require_approval` | `ppm_change_requests_enabled` | — | sessions |
 | L03 × L12 | `breakglass_timebox_enabled` | `ppm_change_requests_enabled` | — | sessions |
 | L03 × L13 | `entra_deprovision_enabled` | `ppm_change_requests_enabled` | — | users |
 | L03 × L13 | `entra_deprovision_enabled` | `ppm_rebaseline_enabled` | — | users |
 | L03 × L13 | `policy_center_enabled` | `ppm_baseline_versions` | `public/help.html` | — |
 | L03 × L13 | `policy_center_enabled` | `ppm_rebaseline_enabled` | `public/help.html` | — |
-| L03 × L14 | `ppm_baseline_versions` | `ppm_intake_register_enabled` | `services/governanceStore.js` | meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_project_sites, portfolio_risks, ppm_alert_state, ppm_project_ref_seq, ppm_raci, ppm_templates, session_actions |
-| L04 × L05 | `finance_currency_required` | `ppm_capacity_view` | `services/governanceStore.js` | meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_project_sites, portfolio_risks, ppm_alert_state, ppm_project_ref_seq, ppm_raci, ppm_templates, session_actions |
+| L03 × L14 | `ppm_change_requests_enabled` | `ppm_intake_register_enabled` | — | portfolio_projects |
 | L04 × L06 | `ppm_calendars_enabled` | `ppm_mspdi_enabled` | `db/postgres_rollback/105_ppm_engine_w2_drop.sql`, `routes/ppmEngine.js` | — |
 | L04 × L06 | `ppm_leveling_enabled` | `ppm_mspdi_enabled` | `db/postgres_rollback/105_ppm_engine_w2_drop.sql`, `routes/ppmEngine.js` | — |
 | L04 × L06 | `ppm_mspdi_enabled` | `ppm_resources_enabled` | `db/postgres_rollback/105_ppm_engine_w2_drop.sql`, `routes/ppmEngine.js` | — |
 | L04 × L06 | `ppm_mspdi_enabled` | `ppm_schedule_engine_v2_ui` | `routes/ppmEngine.js` | — |
-| L04 × L07 | `ppm_capacity_view` | `soft_delete_enabled` | `services/governanceStore.js` | meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_project_sites, portfolio_risks, ppm_alert_state, ppm_project_ref_seq, ppm_raci, ppm_templates, session_actions |
-| L04 × L08 | `decision_motive_required` | `ppm_capacity_view` | `services/governanceStore.js` | meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_project_sites, portfolio_risks, ppm_alert_state, ppm_project_ref_seq, ppm_raci, ppm_templates, session_actions |
-| L04 × L14 | `ppm_capacity_view` | `ppm_intake_register_enabled` | `services/governanceStore.js` | meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_project_sites, portfolio_risks, ppm_alert_state, ppm_project_ref_seq, ppm_raci, ppm_templates, session_actions |
-| L05 × L07 | `finance_currency_required` | `soft_delete_enabled` | `services/governanceStore.js` | meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_project_sites, portfolio_risks, ppm_alert_state, ppm_project_ref_seq, ppm_raci, ppm_templates, session_actions |
-| L05 × L08 | `decision_motive_required` | `finance_currency_required` | `services/governanceStore.js` | meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_project_sites, portfolio_risks, ppm_alert_state, ppm_project_ref_seq, ppm_raci, ppm_templates, session_actions |
 | L05 × L09 | `finance_certification_enabled` | `ui_i18n_pages` | `public/assets.html` | — |
+| L05 × L11 | `actuals_import_enabled` | `insp_repeat_findings` | — | portfolio_projects |
+| L05 × L11 | `actuals_import_enabled` | `wan_sla_claims_enabled` | — | portfolio_projects |
 | L05 × L11 | `asset_money_certify_display` | `finance_certification_enabled` | `public/assets.html` | — |
 | L05 × L11 | `field_task_timing` | `ppm_timesheet_approval_enabled` | — | users |
+| L05 × L11 | `finance_certification_enabled` | `insp_repeat_findings` | — | portfolio_projects |
+| L05 × L11 | `finance_certification_enabled` | `wan_sla_claims_enabled` | — | portfolio_projects |
 | L05 × L13 | `entra_deprovision_enabled` | `ppm_timesheet_approval_enabled` | — | users |
-| L05 × L14 | `finance_currency_required` | `ppm_intake_register_enabled` | `services/governanceStore.js` | meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_project_sites, portfolio_risks, ppm_alert_state, ppm_project_ref_seq, ppm_raci, ppm_templates, session_actions |
+| L05 × L14 | `actuals_import_enabled` | `ppm_intake_register_enabled` | — | portfolio_projects |
+| L05 × L14 | `finance_certification_enabled` | `ppm_intake_register_enabled` | — | portfolio_projects |
 | L07 × L08 | `decision_lifecycle_enforced` | `soft_delete_two_person` | `public/cockpit.html` | — |
-| L07 × L08 | `decision_motive_required` | `soft_delete_enabled` | `services/governanceStore.js` | meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_project_sites, portfolio_risks, ppm_alert_state, ppm_project_ref_seq, ppm_raci, ppm_templates, session_actions |
 | L07 × L09 | `incubation_rfi_link_enabled` | `ui_i18n_pages` | `public/meeting.html` | — |
 | L07 × L09 | `soft_delete_enabled` | `ui_i18n_pages` | `public/reports.html` | — |
 | L07 × L10 | `alert_group_by_rule` | `roadmap_audience_publication_enabled` | `routes/engagement.js` | — |
@@ -676,12 +695,10 @@ Hub files excluded: `public/lib/home-page.js`, `public/portfolio.html`, `public/
 | L07 × L12 | `access_grant_expiry_job` | `soft_delete_enabled` | `tools/security/retention-inventory.js` | — |
 | L07 × L12 | `access_recert_enabled` | `soft_delete_enabled` | `tools/security/retention-inventory.js` | — |
 | L07 × L13 | `site_code_shared_block` | `soft_delete_enabled` | `routes/inspection.js`, `routes/meetings.js` | — |
-| L07 × L14 | `ppm_intake_register_enabled` | `soft_delete_enabled` | `services/governanceStore.js` | meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_project_sites, portfolio_risks, ppm_alert_state, ppm_project_ref_seq, ppm_raci, ppm_templates, session_actions |
 | L08 × L09 | `dashboard_red_action_links` | `pir_reviews_enabled` | `routes/commitments.js` | — |
 | L08 × L09 | `dashboard_red_action_links` | `problem_candidates_enabled` | `routes/commitments.js` | — |
 | L08 × L11 | `controls_register_enabled` | `field_task_timing` | — | site_module_codes |
 | L08 × L13 | `handoffs_enabled` | `policy_center_enabled` | `public/help.html` | — |
-| L08 × L14 | `decision_motive_required` | `ppm_intake_register_enabled` | `services/governanceStore.js` | meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_project_sites, portfolio_risks, ppm_alert_state, ppm_project_ref_seq, ppm_raci, ppm_templates, session_actions |
 | L09 × L10 | `report_drift_banner` | `ui_i18n_pages` | `public/reports.html` | — |
 | L09 × L11 | `asset_money_certify_display` | `ui_i18n_pages` | `public/assets.html` | — |
 | L09 × L11 | `insp_repeat_findings` | `ui_i18n_pages` | `public/inspections.html` | — |
@@ -696,6 +713,10 @@ Hub files excluded: `public/lib/home-page.js`, `public/portfolio.html`, `public/
 | L10 × L11 | `insp_repeat_findings` | `schedule_reminders_enabled` | — | insp_inspections, md_meetings |
 | L10 × L11 | `report_drift_banner` | `wan_sla_require_contract_evidence` | `public/reports.html` | — |
 | L10 × L11 | `schedule_reminders_enabled` | `wan_sla_claims_enabled` | — | insp_inspections, md_meetings |
+| L10 × L16 | `action_aging_reminders_enabled` | `ext_api_portfolio_enabled` | — | notifications |
+| L10 × L16 | `alert_group_by_rule` | `ext_api_portfolio_enabled` | — | notifications |
+| L10 × L16 | `ext_api_portfolio_enabled` | `schedule_reminders_enabled` | — | notifications |
+| L10 × L16 | `ext_api_portfolio_enabled` | `weekly_report_nudges_enabled` | — | notifications |
 | L11 × L12 | `access_require_approval` | `field_task_timing` | — | system_log |
 | L11 × L12 | `access_require_approval` | `insp_repeat_findings` | — | system_log |
 | L11 × L12 | `access_require_approval` | `wan_sla_claims_enabled` | — | system_log |
@@ -706,12 +727,19 @@ Hub files excluded: `public/lib/home-page.js`, `public/portfolio.html`, `public/
 | L11 × L13 | `insp_repeat_findings` | `restore_drill_full` | — | system_log |
 | L11 × L13 | `insp_repeat_findings` | `site_code_shared_block` | `routes/inspection.js` | — |
 | L11 × L13 | `restore_drill_full` | `wan_sla_claims_enabled` | — | system_log |
+| L11 × L14 | `insp_repeat_findings` | `ppm_intake_register_enabled` | — | portfolio_projects |
+| L11 × L14 | `ppm_intake_register_enabled` | `wan_sla_claims_enabled` | — | portfolio_projects |
 | L12 × L13 | `access_require_approval` | `restore_drill_full` | — | system_log |
 | L12 × L13 | `export_policy_strict` | `policy_center_enabled` | `services/exportPolicy.js` | — |
 | L12 × L13 | `export_watermark_enabled` | `policy_center_enabled` | `services/exportPolicy.js` | — |
 | L12 × L14 | `export_policy_strict` | `ppm_portfolio_dashboard_v2_enabled` | `services/exportPolicy.js` | — |
 | L12 × L14 | `export_watermark_enabled` | `ppm_portfolio_dashboard_v2_enabled` | `services/exportPolicy.js` | — |
+| L12 × L16 | `export_policy_strict` | `ppm_documents_enabled` | `services/exportPolicy.js` | — |
+| L12 × L16 | `export_watermark_enabled` | `ppm_documents_enabled` | `services/exportPolicy.js` | — |
 | L13 × L14 | `policy_center_enabled` | `ppm_portfolio_dashboard_v2_enabled` | `services/exportPolicy.js` | — |
+| L13 × L16 | `policy_center_enabled` | `ppm_documents_enabled` | `services/exportPolicy.js` | — |
+| L14 × L16 | `ext_api_portfolio_enabled` | `ppm_intake_register_enabled` | `routes/extApi.js` | — |
+| L14 × L16 | `ppm_documents_enabled` | `ppm_portfolio_dashboard_v2_enabled` | `services/exportPolicy.js` | — |
 
 ## Expiry (step 7)
 

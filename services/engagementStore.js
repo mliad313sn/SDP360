@@ -11,7 +11,7 @@ const CHANNELS = ['inapp', 'email', 'teams', 'webhook'];
 const SUB_KINDS = ['report_template', 'dashboard', 'alert_rule'];
 const DIGESTS = ['none', 'daily', 'weekly'];
 const SHARE_KINDS = ['dashboard', 'report_run', 'roadmap_publication'];   // B6: roadmap_publication links are created ONLY by /api/governance/roadmap-publications/:id/share
-const SCOPES = ['metrics:read', 'values:read', 'sites:read'];
+const SCOPES = ['metrics:read', 'values:read', 'sites:read', 'portfolio:read'];   // portfolio:read — PORTFOLIO LOT 6, never a default scope; served only while ext_api_portfolio_enabled = '1'
 const J = (v) => (v == null ? null : JSON.stringify(v));
 const P_ = (s, d) => { if (s == null) return d; if (typeof s !== 'string') return s; try { return JSON.parse(s); } catch (_) { return d; } };
 const hash = (s) => crypto.createHash('sha256').update(String(s)).digest('hex');
