@@ -1216,27 +1216,12 @@ async function _setWanSubsiteNetworksPg(rows) {
   });
 }
 
-// A closed ticket counts in the Resolution SLA denominator when it is not cancelled and carries an SLA rule —
-// the getCalendarMonthlyHelpdesk SQL (NOT_CANCELLED AND overdue_status IS NOT NULL); under 'due_vs_resolved' a
-// due time is a rule too (that mode judges resolved-after-due).
-function _siteSlaJudged(r, mode) {
-  const st = String(r.request_status || '').toLowerCase().trim();
-  if (st === 'cancelled' || st === 'canceled') return false;
-  if (r.overdue_status != null) return true;
-  return mode === 'due_vs_resolved' && r.due_by_time != null && String(r.due_by_time).trim() !== '';
-}
-
 // Pure aggregation core — exported for tests. `rows` are request_records rows
 // already scoped to the site's groups + the calendar month.
 function _computeSiteHelpdesk(rows, opts) {
-  // closed_overdue (Adoption Lot A, item 12): closed AND flagged overdue (raw count, kept for older callers).
-  // res_sla_* (P11 F-16): the Resolution SLA of these rows on the metric dictionary's doctrine — the SAME rule as
-  // helpdesk.resolution_sla_pct (reports-db getCalendarMonthlyHelpdesk sla_res_pct): denominator = closed tickets
-  // carrying an SLA rule, CANCELLED EXCLUDED; missed = services/slaDefinition.resOverdueRow under the configured
-  // report_config helpdesk_sla_definition (opts.slaDefinition, 'flag' by default). Nothing closed → null (UNKNOWN),
-  // never 100. open_overdue = open tickets already flagged overdue, shown next to the closed-only rate.
-  const SD = require('./services/slaDefinition');
-  const mode = SD.normalizeMode(opts && opts.slaDefinition);
+  // closed_overdue (Lot A item 12) = closed AND flagged overdue; res_sla_* / open_overdue: services/siteHelpdeskSla.js (P11 F-16).
+  const SS = require('./services/siteHelpdeskSla');
+  const mode = SS.mode(opts);
   const out = { created: 0, resolved: 0, backlog: 0, sla_overdue: 0, closed_overdue: 0, major_incidents: 0, top_categories: [], recurring: [],
     res_sla_definition: mode, res_sla_den: 0, res_sla_missed: 0, res_sla_pct: null, open_overdue: 0 };
   out.avg_resolution_h = null;   // null = nothing resolved with both timestamps (never a fake 0 h)
@@ -1249,10 +1234,7 @@ function _computeSiteHelpdesk(rows, opts) {
     // overdue_status is TRI-state: 1 / 0 / NULL (NULL = no SLA rule applies).
     // Keep the strict === 1 — do not "simplify" to !== 0, which counts NULLs.
     if (r.overdue_status === 1) { out.sla_overdue++; if (r.pending_status === 0) out.closed_overdue++; else out.open_overdue++; }
-    if (r.pending_status === 0 && _siteSlaJudged(r, mode)) {
-      out.res_sla_den++;
-      if (SD.resOverdueRow(r, mode)) out.res_sla_missed++;
-    }
+    SS.tally(out, r, mode);
     if (r.pending_status === 0) {
       const end = Date.parse(r.resolved_time || r.completed_time || ''), start = Date.parse(r.created_time || '');
       if (Number.isFinite(end) && Number.isFinite(start) && end >= start) { resH += (end - start) / 3600000; resN++; }
@@ -1265,7 +1247,7 @@ function _computeSiteHelpdesk(rows, opts) {
     if (c && s) { const k = `${c} / ${s}`; sub.set(k, (sub.get(k) || 0) + 1); }
   }
   out.avg_resolution_h = resN ? Math.round((resH / resN) * 10) / 10 : null;
-  out.res_sla_pct = out.res_sla_den ? Math.round(((out.res_sla_den - out.res_sla_missed) / out.res_sla_den) * 1000) / 10 : null;
+  out.res_sla_pct = SS.pct(out);
   out.top_categories = [...cat.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
     .slice(0, 5).map(([category, count]) => ({ category, count }));
   out.recurring = [...sub.entries()].filter(([, n]) => n >= 3)

@@ -45,7 +45,7 @@
     'past target date': 'échéance dépassée',
     'No champion': 'Sans champion',
     'resolved / cancelled / transferred': 'résolues / annulées / transférées',
-    'Closed': 'Clôturées',
+    'Closed': 'Clôturé',
     'Overdue': 'En retard',
     'Ref': 'Réf.',
     'Champion': 'Champion',

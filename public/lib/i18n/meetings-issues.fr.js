@@ -22,7 +22,7 @@
     'Total issues': 'Problèmes au total',
     'HIGH severity': 'Gravité HAUTE',
     'Open': 'Ouverts',
-    'Escalated': 'Escaladés',
+    'Escalated': 'Escaladé',
     'Overdue': 'En retard',
     'in scope': 'dans le périmètre',
     'production-impact': 'impact sur la production',

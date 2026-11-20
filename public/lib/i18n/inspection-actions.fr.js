@@ -46,7 +46,7 @@
     'past due date': 'échéance dépassée',
     'No owner': 'Sans responsable',
     'closed / cancelled': 'clôturées / annulées',
-    'Closed': 'Clôturées',
+    'Closed': 'Clôturé',
     'Overdue': 'En retard',
     'Verification note (what you checked):': 'Note de vérification (ce que vous avez contrôlé) :',
     'Action verified': 'Action vérifiée',
