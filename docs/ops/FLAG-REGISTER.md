@@ -371,7 +371,7 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `reports.override_reason_min` | `10` | int | yes | yes | to be named |
 | `reports.withdraw_reason_min` | `5` | int | yes | yes | to be named |
 
-## 4. Environment variables (68) — read in *.js, services/, routes/
+## 4. Environment variables (66) — read in *.js, services/, routes/
 
 | Variable | Kind | Default when unset | Owner | Read in |
 |---|---|---|---|---|
@@ -414,7 +414,6 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `REQUIRE_CONFIG_KEY` | setting | see the reading file | to be named | services/backendGuard.js |
 | `REQUIRE_POSTGRES` | setting | see the reading file | to be named | server.js, services/backendGuard.js |
 | `SDP_ALLOW_PLAINTEXT_SECRETS` | switch | see the reading file | to be named | services/configSecrets.js |
-| `SDP_BACKUP_ALLOW_PLAINTEXT` | switch | see the reading file | to be named | services/backup.js |
 | `SDP_BACKUP_DIR` | switch | see the reading file | to be named | services/backupSchedule.js, services/sync/jobs.js |
 | `SDP_BACKUP_KEEP` | switch | see the reading file | to be named | services/sync/jobs.js |
 | `SDP_BACKUP_KEY` | secret | (secret — not shown) | to be named | services/backup.js, services/dbRestore.js |
@@ -424,8 +423,6 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `SDP_DATA_DIR` | switch | see the reading file | to be named | assets-db.js, inspection-db.js, meetings-db.js, reports-db.js (+5) |
 | `SDP_PDF_SANDBOX` | switch | unset (PDF render keeps --no-sandbox) | Security owner | services/reportRender.js |
 | `SDP_QUAL_CFG_TTL_MS` | switch | see the reading file | to be named | services/qualificationStore.js |
-| `SDP_READY_FAIL_CACHE_MS` | switch | see the reading file | to be named | routes/health.js |
-| `SDP_READY_STATEMENT_TIMEOUT_MS` | switch | see the reading file | to be named | routes/health.js |
 | `SDP_SERVICE` | switch | see the reading file | to be named | services/serviceControl.js |
 | `SDP_TEST_NO_RATE_LIMIT` | switch | see the reading file | to be named | server.js |
 | `SESSION_COOKIE_SECURE` | switch | unset | Security owner | server.js |
@@ -434,6 +431,7 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `SSO_ENABLED` | switch | see the reading file | to be named | services/ssoSettings.js |
 | `SSO_GROUP_MAP` | setting | see the reading file | to be named | services/ssoSettings.js |
 | `SSO_MODE` | setting | see the reading file | to be named | services/ssoSettings.js |
+| `SYNC_TRUNCATION_SHRINK_CONFIRMATIONS` | setting | see the reading file | to be named | services/sync/truncationGuard.js |
 | `SYNC_TRUNCATION_TOLERANCE_PCT` | setting | see the reading file | to be named | services/sync/truncationGuard.js |
 | `WORKSPACE_ID` | setting | see the reading file | to be named | server.js |
 | `ZOHO_CLIENT_ID` | setting | see the reading file | to be named | server.js |

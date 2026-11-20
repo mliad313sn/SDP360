@@ -12,7 +12,18 @@ test('monthOf reads the Zoho export date shapes and refuses the rest (never gues
   assert.equal(R.monthOf('2026-06-04T10:00:00Z'), '2026-06');
   assert.equal(R.monthOf('04 Jun 2026 10:00 AM'), '2026-06');
   assert.equal(R.monthOf('Jun 4, 2026 10:00 AM'), '2026-06');
-  assert.equal(R.monthOf('04/06/2026'), '2026-06');
+  // P11 F-04: a slashed date where both parts are ≤ 12 is ambiguous (4 June or April 6) — refused, never guessed
+  assert.equal(R.monthOf('04/06/2026'), null);
+  assert.equal(R.monthOf('01/10/2026'), null);
+  assert.equal(R.monthOf('10/01/2026'), null);
+  assert.equal(R.isAmbiguousDate('10/01/2026'), true);
+  assert.equal(R.monthOf('04/06/2026', { dateOrder: 'dmy' }), '2026-06', 'the operator states the order');
+  assert.equal(R.monthOf('04/06/2026', { dateOrder: 'mdy' }), '2026-04');
+  assert.equal(R.monthOf('25/06/2026'), '2026-06', 'day > 12: only day-first is possible');
+  assert.equal(R.monthOf('06/25/2026'), '2026-06', 'second part > 12: only month-first is possible');
+  assert.equal(R.monthOf('05/05/2026'), '2026-05', 'same either way');
+  assert.equal(R.isAmbiguousDate('05/05/2026'), false);
+  assert.equal(R.monthOf('13/13/2026'), null);
   assert.equal(R.monthOf('yesterday'), null);
   assert.equal(R.monthOf(''), null);
 });
@@ -38,6 +49,44 @@ test('compare: match, count difference, missing on each side, unreadable rows co
   assert.equal(r.rows.find((x) => x.key === '2026-06 | fx other').source_sum, null);
   const csv = R.sheet(r);
   assert.ok(csv.startsWith('﻿key,source_count,sdp360_count,delta_count,source_sum,sdp360_sum,delta_sum,status\r\n'));
+});
+
+test('F-10: nothing compared is NOT_COMPARABLE, never RECONCILED', () => {
+  assert.equal(R.compare([], [], R.SOURCES.sdp_requests).verdict, 'NOT_COMPARABLE');
+  assert.equal(R.compare([], [{ key: '2026-06 | fx', n: 1, s: 0 }], R.SOURCES.sdp_requests).verdict, 'NOT_COMPARABLE', 'no export row');
+  const allBad = R.compare([{ 'Created Time': 'nope', Group: 'x' }], [], R.SOURCES.sdp_requests);
+  assert.equal(allBad.verdict, 'NOT_COMPARABLE', 'no readable export row');
+});
+
+test('F-04: ambiguous dates are counted separately and block a RECONCILED verdict', () => {
+  const exp = [{ 'Created Time': '04/06/2026', Group: 'FX', 'Reopen Count': '0' }, { 'Created Time': '2026-06-04', Group: 'FX', 'Reopen Count': '0' }];
+  const r = R.compare(exp, [{ key: '2026-06 | fx', n: 1, s: 0 }], R.SOURCES.sdp_requests);
+  assert.equal(r.totals.ambiguous_dates, 1);
+  assert.equal(r.totals.unreadable_export_rows, 1);
+  assert.match(r.verdict, /DIFFERENCES/);
+  const r2 = R.compare(exp, [{ key: '2026-06 | fx', n: 2, s: 0 }], R.SOURCES.sdp_requests, { dateOrder: 'dmy' });
+  assert.equal(r2.verdict, 'RECONCILED');
+});
+
+test('F-10: the column check reads the HEADER, even for an export with no rows', () => {
+  const { spawnSync } = require('child_process');
+  const cli = path.join(__dirname, '..', 'tools', 'kpi', 'reconcile-source.js');
+  // run the CLI in a child (overriding console here would swallow the test reporter's output)
+  const run = (args, env = {}) => spawnSync(process.execPath, [cli, ...args], { encoding: 'utf8', env: { PATH: process.env.PATH, ...env } });
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'p11-rec-'));
+  try {
+    assert.deepEqual(R.parseCsvHeader('Wrong,Columns\r\n'), ['Wrong', 'Columns']);
+    fs.writeFileSync(path.join(dir, 'wrong.csv'), 'Wrong,Columns\r\n');
+    let r = run(['--source=sdp_requests', `--export=${path.join(dir, 'wrong.csv')}`]);
+    assert.equal(r.status, 2, r.stderr + r.stdout);
+    assert.match(r.stderr, /missing column/);
+    fs.writeFileSync(path.join(dir, 'empty.csv'), 'Created Time,Group,Reopen Count\r\n');
+    r = run(['--source=sdp_requests', `--export=${path.join(dir, 'empty.csv')}`], { PG_URL: 'postgres://nobody@127.0.0.1:1/none' });
+    assert.equal(r.status, 3, 'header-only export: nothing to compare, exit 3 before any database read\n' + r.stderr);
+    assert.match(r.stdout, /NOT_COMPARABLE/);
+    r = run(['--source=sdp_requests', `--export=${path.join(dir, 'empty.csv')}`, '--date-order=xyz']);
+    assert.equal(r.status, 2, 'unknown date order refused');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('a clean export reconciles', () => {

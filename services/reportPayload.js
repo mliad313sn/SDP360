@@ -518,23 +518,28 @@ async function _changes(filters) {
 //     },
 //     commentary: []                (placeholder for AI/manual annotations)
 //   }
-function _tracker(filters) {
+// P11 F-02 — null = not measured: an activity with no input for the month is NOT scored (it used to count red),
+// a site with nothing measured is left out (it used to score 0), and a fleet / pillar / average over nothing is
+// null (it used to be 0 %). A stored value — a stored 0 included — is a measurement. loadTracker() is a Promise on
+// PostgreSQL: it is awaited (unawaited, the fallback always threw and returned the all-zero default).
+async function _tracker(filters, deps = {}) {
+  const tdb = deps.trackerDb !== undefined ? deps.trackerDb : trackerDb;
   const out = {
-    green: 0, amber: 0, red: 0, avg_score: 0, avg_delta_pp: 0,
+    green: 0, amber: 0, red: 0, avg_score: null, avg_delta_pp: null,
     sites: [], pillars: {}, commentary: [],
     trends: { months: [], fleet: [], pillars: {}, sites: {} },
   };
-  if (!trackerDb) return out;
+  if (!tdb) return out;
   try {
-    const D = trackerDb.loadTracker();
-    const activeSites = (D.activeSites && D.activeSites.length) ? D.activeSites : D.sites;
+    const D = await tdb.loadTracker();
+    const activeSites = (D.activeSites && D.activeSites.length) ? D.activeSites : (D.sites || []);
     const _ragOf = (v, target) => {
       const t = target || 1;
       if (v >= t)        return 'g';
       if (v >= t / 2)    return 'a';
       return 'r';
     };
-    const _scoreOf = (g, a, r) => (g + a + r) > 0 ? Math.round((g / (g + a + r)) * 100) : 0;
+    const _scoreOf = (g, a, r) => (g + a + r) > 0 ? Math.round((g / (g + a + r)) * 100) : null;
     const _SHORT_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
     // Compute counts (g/a/r) at a specific (year, month) for a given site.
@@ -546,9 +551,11 @@ function _tracker(filters) {
       (D.activities || []).forEach((act, ix) => {
         const tgt = (D.targets || {})[siteCode]?.[ix];
         if (!tgt || !tgt.active) return;
-        nActive++;
         const months = (D.inputs || {})[year]?.[siteCode]?.[ix] || [];
-        const v   = months[month - 1] || 0;
+        const raw = months[month - 1];
+        if (raw == null || raw === '' || !Number.isFinite(Number(raw))) return;   // no input = not measured
+        nActive++;
+        const v   = Number(raw);
         const tag = _ragOf(v, tgt.target);
         if (tag === 'g') g++;
         else if (tag === 'a') a++;
@@ -595,7 +602,7 @@ function _tracker(filters) {
           const arr = (out.trends.pillars[pname] = out.trends.pillars[pname] || []);
           // We need TOTALS to compute the pillar score across all sites
           // for this period — store {g,a,r} sums then convert to %
-          while (arr.length <= pIx) arr.push({ g: 0, a: 0, r: 0 });
+          while (arr.length < TREND_LEN) arr.push({ g: 0, a: 0, r: 0 });
           arr[pIx].g += t.g; arr[pIx].a += t.a; arr[pIx].r += t.r;
         });
 
@@ -616,7 +623,7 @@ function _tracker(filters) {
             name:     (D.siteNames || {})[siteCode] || siteCode,
             color:    (D.siteColors || {})[siteCode] || '#1A3A5F',
             score:    r.score,
-            delta_pp: r.score - (rPrev ? rPrev.score : r.score),
+            delta_pp: rPrev && rPrev.score != null ? r.score - rPrev.score : null,
             g: r.g, a: r.a, r: r.r,
           });
         }
@@ -635,13 +642,14 @@ function _tracker(filters) {
       const periodSiteScores = activeSites
         .map(s => out.trends.sites[s][ix])
         .filter(v => v != null);
-      if (!periodSiteScores.length) return 0;
+      if (!periodSiteScores.length) return null;
       return Math.round(periodSiteScores.reduce((s, x) => s + x, 0) / periodSiteScores.length);
     });
 
     if (out.sites.length) {
-      out.avg_score    = out.trends.fleet[TREND_LEN - 1] || 0;
-      out.avg_delta_pp = out.avg_score - (out.trends.fleet[TREND_LEN - 2] || out.avg_score);
+      const cur = out.trends.fleet[TREND_LEN - 1], prev = out.trends.fleet[TREND_LEN - 2];
+      out.avg_score    = cur == null ? null : cur;
+      out.avg_delta_pp = cur != null && prev != null ? cur - prev : null;
     }
 
     // Materialise pillars{} with per-pillar score + weight from config
@@ -988,7 +996,7 @@ async function build(browserPayload, opts = {}) {
   // tracker with the faithful engine (cumulative + per-KPI-type via
   // _trkSiteSummary), whereas _tracker() below scores a single month crudely
   // (all-red). Fall back to _tracker() only when the browser didn't send one.
-  const tracker     = browserPayload.tracker || _tracker(dbFilters);
+  const tracker     = browserPayload.tracker || await _tracker(dbFilters);
 
   // v14 deck — Governance (slides 13/14). Only computed for deck='v14'
   // (loadReviewData is a heavier query); null otherwise → render.py skips them.
@@ -1161,4 +1169,4 @@ async function build(browserPayload, opts = {}) {
   return enriched;
 }
 
-module.exports = { build, helpdeskBaseline, markNullKpis, NULLABLE_KPIS, mergeBrowserKpis, mergeBrowserCategories, mergeBrowserAgeing, mergeBrowserChanges };
+module.exports = { build, serverTracker: _tracker, helpdeskBaseline, markNullKpis, NULLABLE_KPIS, mergeBrowserKpis, mergeBrowserCategories, mergeBrowserAgeing, mergeBrowserChanges };

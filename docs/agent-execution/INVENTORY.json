@@ -14,8 +14,8 @@
   "routes_in_server_js": 160,
   "jobs": 33,
   "jobs_without_test_reference": 0,
-  "migrations": 103,
-  "test_files": 860
+  "migrations": 104,
+  "test_files": 862
  },
  "pages": [
   {
@@ -14562,6 +14562,10 @@
   {
    "id": "MG-sync-113-truncation-anchors",
    "file": "db/postgres/sync/113_truncation_anchors.sql"
+  },
+  {
+   "id": "MG-sync-114-truncation-anchor-pending",
+   "file": "db/postgres/sync/114_truncation_anchor_pending.sql"
   },
   {
    "id": "MG-tracker-001-init",

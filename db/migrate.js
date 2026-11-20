@@ -8,6 +8,14 @@
 // reaches the current schema in one call. Scripts are idempotent (IF NOT EXISTS) — on an
 // existing production database the first run re-applies them harmlessly and records them.
 //
+// P11 F-03 (ADR-P11-F03-migrator-changed-scripts): an APPLIED script whose bytes changed is always reported
+// (`changed`). A script that WRITES DATA (INSERT / UPDATE … SET / DELETE / TRUNCATE / MERGE outside comments)
+// is then NOT re-executed — a comment edit used to re-run backfills (reports/039 stage reset, reports/066
+// time-zone default) over what users had changed since; it stays 'changed' in --status and logs a warning on
+// every run. A DDL-only script keeps the historical contract (idempotent, re-applied once, journal updated).
+// Explicit line markers override the detection: `-- migrate:rerun-on-change` / `-- migrate:run-once`.
+// A new behaviour goes in a NEW file (ADR-002); never edit an applied script to change what it does.
+//
 // Usage:   node db/migrate.js            (reads PG_URL / DATABASE_URL, or .env)
 //          node db/migrate.js --status   (lists applied / pending, applies nothing)
 // API:     await migrate(pgDb, { root, log, dryRun })  → { applied: [...], skipped: [...] }
@@ -17,6 +25,30 @@ const path = require('path');
 const crypto = require('crypto');
 
 const ROOT = path.join(__dirname, 'postgres');
+const RERUN_MARKER = '-- migrate:rerun-on-change';
+const RUN_ONCE_MARKER = '-- migrate:run-once';
+const _hasLine = (sql, marker) => sql.split(/\r?\n/).some((l) => l.trim() === marker);
+/** True when the script writes data (comments stripped). Conservative: any match counts. */
+function writesData(sql) {
+  const code = String(sql).replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/--[^\n]*/g, ' ');
+  if (/\b(INSERT\s+INTO|DELETE\s+FROM|TRUNCATE|MERGE\s+INTO)\b/i.test(code)) return true;
+  if (/\bCOPY\s+\S+\s+FROM\b/i.test(code)) return true;
+  // UPDATE <table> … SET within the same statement (not "ON UPDATE", "FOR UPDATE", "BEFORE UPDATE OR …")
+  const re = /\bUPDATE\s+/gi; let m;
+  while ((m = re.exec(code))) {
+    const before = code.slice(Math.max(0, m.index - 12), m.index);
+    if (/\b(ON|FOR|BEFORE|AFTER|OR|OF)\s*$/i.test(before)) continue;
+    const stmt = code.slice(m.index, code.indexOf(';', m.index) === -1 ? code.length : code.indexOf(';', m.index));
+    if (/\bSET\b/i.test(stmt)) return true;
+  }
+  return false;
+}
+/** May an applied script whose bytes changed be executed again? */
+function rerunOnChange(sql) {
+  if (_hasLine(sql, RUN_ONCE_MARKER)) return false;
+  if (_hasLine(sql, RERUN_MARKER)) return true;
+  return !writesData(sql);
+}
 // Apply order between areas (reports first: other areas reference sites/users).
 const AREA_ORDER = ['reports', 'tracker', 'meetings', 'inspection', 'assets', 'sync'];
 
@@ -99,11 +131,16 @@ function listMigrations(root = ROOT) {
 async function migrate(pg, { root = ROOT, log = () => {}, dryRun = false } = {}) {
   const legacy = await ensureJournal(pg, { log, dryRun });
   const done = new Map((await _journalRows(pg, 'id, checksum')).map((r) => [r.id, r.checksum]));
-  const applied = [], skipped = [], changed = [];
+  const applied = [], skipped = [], changed = [], notReapplied = [];
   for (const m of listMigrations(root)) {
     if (done.has(m.id)) {
-      if (done.get(m.id) !== m.checksum) changed.push(m.id); // edited after being applied — reported, re-applied (scripts are idempotent)
-      else { skipped.push(m.id); continue; }
+      if (done.get(m.id) === m.checksum) { skipped.push(m.id); continue; }
+      changed.push(m.id);   // edited after being applied
+      if (!rerunOnChange(m.sql)) {
+        notReapplied.push(m.id);
+        log(`[migrate] WARNING ${m.id} changed after it was applied — NOT re-executed: it writes data (put the change in a new file; "${RERUN_MARKER}" forces a re-run)`);
+        continue;
+      }
     }
     if (dryRun) { applied.push(m.id); continue; }
     const t0 = Date.now();
@@ -124,7 +161,7 @@ async function migrate(pg, { root = ROOT, log = () => {}, dryRun = false } = {})
     applied.push(m.id);
     log(`[migrate] applied ${m.id} (${Date.now() - t0} ms)`);
   }
-  return { applied, skipped, changed, legacyJournal: legacy };
+  return { applied, skipped, changed, notReapplied, legacyJournal: legacy };
 }
 
 async function status(pg, { root = ROOT } = {}) {
@@ -145,7 +182,7 @@ async function migrateAtBoot({ env = process.env, log = console.log } = {}) {
   try { return await migrate(pg, { log }); } finally { await pg.close(); }
 }
 
-module.exports = { migrate, status, listMigrations, migrateAtBoot, ensureJournal, ROOT, AREA_ORDER };
+module.exports = { migrate, status, listMigrations, migrateAtBoot, ensureJournal, ROOT, AREA_ORDER, RERUN_MARKER, RUN_ONCE_MARKER, writesData, rerunOnChange };
 
 if (require.main === module) {
   (async () => {
@@ -159,7 +196,7 @@ if (require.main === module) {
         for (const r of await status(pg)) console.log(`${r.state.padEnd(8)} ${r.id}${r.applied_at ? '  ' + new Date(r.applied_at).toISOString() : ''}`);
       } else {
         const r = await migrate(pg, { log: console.log, dryRun: process.argv.includes('--dry-run') });
-        console.log(`[migrate] applied=${r.applied.length} already=${r.skipped.length} changed=${r.changed.length}`);
+        console.log(`[migrate] applied=${r.applied.length} already=${r.skipped.length} changed=${r.changed.length} not_reapplied=${r.notReapplied.length}`);
       }
     } finally { await pg.close(); }
   })().catch((e) => { console.error('[migrate] FAILED:', e.message); process.exit(1); });

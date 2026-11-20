@@ -8,6 +8,7 @@ const S = require('../tools/kpi/unknown-sweep');
 
 test('no unjustified unknown→0 in readers / composers', () => {
   const r = S.check();
+  assert.ok(!r.baselineMissing, `reviewed baseline file is missing: ${r.baseline} — restore it; the hits below are not a code regression`);
   assert.ok(r.hits.length > 100, 'the scan must actually find the known hits (scope not empty)');
   assert.deepEqual(r.unjustified.map((h) => `${h.file}:${h.line} ${h.text}`), []);
   const todo = r.hits.filter((h) => !h.rule && r.reviewed[h.key] && r.reviewed[h.key].verdict === 'TODO');

@@ -20,6 +20,7 @@ System Logs ▸ onglet « 🔄 Sync health » (tableau santé + 30 derniers runs
 ## 6. Règles métier
 - Un job est **stale** si son dernier succès est plus vieux que sa fenêtre déclarée (`FRESHNESS_HOURS`) ; **idle** si optionnel (intégration non configurée) et jamais exécuté.
 - Garde anti-troncature : une extraction plus petite que la table locale de plus de 20 % (clé `sync_truncation_tolerance_pct` / env `SYNC_TRUNCATION_TOLERANCE_PCT`) est refusée et rejouée.
+  Depuis P11 (r2 N-02, r3 F-14/N-02r) la base de comparaison est max(table locale, dernier compte confirmé par la source) ; ce compte ne baisse jamais tout seul : un compte inférieur reste « en attente » jusqu'à confirmation par l'opérateur (`node tools/sync/confirm-shrink.js --job=… --apply`) ou, politique SRE proposée et désactivée par défaut, N exports consécutifs identiques (`SYNC_TRUNCATION_SHRINK_CONFIRMATIONS`).
 - Alerte d'échec après **2 échecs consécutifs**, une fois par série ; alerte de fraîcheur une fois par 24 h ; rien n'est envoyé tant que `sync_alert_recipients` et `sync_alert_teams_url` sont vides.
 
 ## 7. Tests
