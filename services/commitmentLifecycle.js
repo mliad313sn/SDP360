@@ -47,10 +47,25 @@ const TRANSITIONS = {
 const VERIFY_DECISION = { verified_closed: 'accepted', rejected_for_rework: 'rejected_for_rework', accepted_risk_exception: 'residual_risk_accepted' };
 
 const _s = (v) => String(v == null ? '' : v).trim().toLowerCase();
-function _execs(c) { const e = c && c.execution_owners; return (Array.isArray(e) ? e : []).map(_s).filter(Boolean); }
-/** Identities an actor answers to (username, full name, e-mail, id) — matched case-insensitively. */
-function _ids(actor) { return [actor && actor.username, actor && actor.full_name, actor && actor.email, actor && actor.id != null ? String(actor.id) : null].map(_s).filter(Boolean); }
-const _is = (actor, who) => { const w = _s(who); return !!w && _ids(actor).includes(w); };
+// P11 round 3 N-R3-1 — identities are compared on a normalised key, so a value that only LOOKS different from
+// the actor (zero-width / format character, soft hyphen, compatibility form, doubled or non-breaking space,
+// case) is the same person. identityKey = NFKC, format characters (\p{Cf}) removed, whitespace collapsed,
+// case folded. skeletonKey also folds the common Cyrillic / Greek look-alikes of Latin letters: it is used on
+// the REFUSAL side only (isSelf — more matches there only means more caution), never to grant a right.
+function identityKey(v) {
+  return String(v == null ? '' : v).normalize('NFKC').replace(/\p{Cf}/gu, '').replace(/\s+/gu, ' ').trim()
+    .toUpperCase().toLowerCase();
+}
+const CONFUSABLE = { 'а': 'a', 'в': 'b', 'е': 'e', 'ё': 'e', 'к': 'k', 'м': 'm', 'н': 'h', 'о': 'o', 'р': 'p', 'с': 'c',
+  'т': 't', 'у': 'y', 'х': 'x', 'ѕ': 's', 'і': 'i', 'ї': 'i', 'ј': 'j', 'ԁ': 'd', 'ӏ': 'l', 'ɡ': 'g', 'ԛ': 'q', 'ԝ': 'w',
+  'α': 'a', 'β': 'b', 'ε': 'e', 'η': 'n', 'ι': 'i', 'κ': 'k', 'ν': 'v', 'ο': 'o', 'ρ': 'p', 'τ': 't', 'υ': 'u', 'χ': 'x', 'ı': 'i' };
+function skeletonKey(v) {
+  return identityKey(v).normalize('NFD').replace(/\p{M}/gu, '').replace(/[\u0080-\uffff]/g, (ch) => CONFUSABLE[ch] || ch);
+}
+function _execs(c, key = skeletonKey) { const e = c && c.execution_owners; return (Array.isArray(e) ? e : []).map(key).filter(Boolean); }
+/** Identities an actor answers to (username, full name, e-mail, id) — matched on the look-alike skeleton. */
+function _ids(actor) { return [actor && actor.username, actor && actor.full_name, actor && actor.email, actor && actor.id != null ? String(actor.id) : null].map(skeletonKey).filter(Boolean); }
+const _is = (actor, who) => { const w = skeletonKey(who); return !!w && _ids(actor).includes(w); };
 
 /** Is the actor one of the people doing / owning / having created the work? */
 function isSelf(c, actor) {
@@ -72,12 +87,12 @@ function isSelf(c, actor) {
 // A grant (who may VERIFY) matches only a unique identity — username or e-mail — never a full name
 // (namesakes are common) nor a bare numeric id typed into the field (committee security P1-3).
 // Refusals (isSelf) keep the broad match: more matches there only means more caution.
-function _grantIds(actor) { return [actor && actor.username, actor && actor.email].map(_s).filter(Boolean); }
+function _grantIds(actor) { return [actor && actor.username, actor && actor.email].map(identityKey).filter(Boolean); }
 // ADR-006: the named reviewer, their deputy (actor.principals), or — when no person is named on the
 // commitment — a holder of the role commitments.reviewer for its site (actor.roleReviewer, resolved by the route)
 const isReviewer = (c, actor) => {
   if (!actor) return false;
-  const w = _s(c && c.reviewer);
+  const w = identityKey(c && c.reviewer);
   if (w) return _grantIds(actor).includes(w) || (actor.principals || []).some((p) => _grantIds(p).includes(w));
   return actor.roleReviewer === true;
 };
@@ -155,5 +170,5 @@ function exceptionExpiry(at, policy = null) {
   const t = Date.parse(at || new Date().toISOString()); return new Date(t + days * 864e5).toISOString();
 }
 
-module.exports = { dueMoveCheck, exceptionExpiry, KINDS, SEVERITIES, PRIORITIES, STATUSES, TERMINAL, SOURCE_SYSTEMS, TRANSITIONS, VERIFY_DECISION,
+module.exports = { identityKey, skeletonKey, dueMoveCheck, exceptionExpiry, KINDS, SEVERITIES, PRIORITIES, STATUSES, TERMINAL, SOURCE_SYSTEMS, TRANSITIONS, VERIFY_DECISION,
   checkTransition, allowedTransitions, severityGaps, isSelf, isReviewer, sourceStatusSuggestion, isVerified };

@@ -95,3 +95,23 @@ test('reviewer rights follow the unique identity only: a namesake or a typed id 
   // refusals stay broad: the doer named by full name still cannot verify
   assert.equal(L.isSelf({ ...c, execution_owners: ['A. Ouedraogo'] }, { username: 'ouedraogo.b', full_name: 'A. Ouedraogo' }), true);
 });
+
+// P11 round 3 N-R3-1 — four-eyes bypass with a look-alike identity: an owner / executor / creator value that only
+// LOOKS different from the actor (zero-width character, homoglyph, compatibility form, doubled inner space, case)
+// still counts as the actor; the grant side stays strict (a homoglyph reviewer value grants nobody).
+test('N-R3-1: look-alike owner identities count as the actor (refusal side), never as a grant', () => {
+  const alice = { id: 21, username: 'alice', full_name: 'Alice A', email: 'alice@corp.example', isAdmin: true };
+  const aw = (o) => ({ status: 'awaiting_verification', severity: 'medium', accountable_owner: 'bob', execution_owners: ['bob.x'], created_by: 'carol', reviewer: 'alice', due_date: '2026-11-30', treatment_plan: 'p', ...o });
+  const looks = ['alice​', '‍alice', 'alіce', 'аlice', 'Alice  A', ' ALICE ', 'ａｌｉｃｅ', 'alice­', 'Alice A', 'ALİCE'];
+  for (const v of looks) {
+    assert.equal(L.isSelf(aw({ accountable_owner: v }), alice), true, `owner ${JSON.stringify(v)} is alice`);
+    assert.equal(L.isSelf(aw({ execution_owners: [v] }), alice), true, `executor ${JSON.stringify(v)} is alice`);
+    assert.equal(L.isSelf(aw({ history: { owners: [v] } }), alice), true, `past owner ${JSON.stringify(v)} is alice`);
+    assert.equal(L.checkTransition(aw({ accountable_owner: v }), 'verified_closed', alice).ok, false, `verify refused for owner ${JSON.stringify(v)}`);
+  }
+  assert.equal(L.isSelf(aw({ accountable_owner: 'alicia' }), alice), false, 'a different name stays different');
+  assert.equal(L.checkTransition(aw({}), 'verified_closed', alice).ok, true, 'control: an independent reviewer verifies');
+  // grant side: a homoglyph reviewer value does not make alice the designated reviewer
+  assert.equal(L.isReviewer(aw({ reviewer: 'alіce' }), { ...alice, isAdmin: false }), false, 'homoglyph is no grant');
+  assert.equal(L.isReviewer(aw({ reviewer: 'alice​' }), { ...alice, isAdmin: false }), true, 'an invisible character does not hide a real grant');
+});
