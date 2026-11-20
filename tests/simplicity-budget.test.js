@@ -42,20 +42,23 @@ const PERSONAS = {
 };
 
 // Today's menu (measured on sdp-waves before A-21) — the 'full' profile must reproduce it entry for entry.
-const OPS_ANY = ['inspections', 'meetings', 'site-actions', 'tracker', 'trackers', 'dashboards', 'cockpit', 'portfolio', 'rfi', 'report-studio', 'notifications', 'handoffs', 'obligations'];
+// Adoption Lot A (item 4): the Activity Tracker entry follows its route roles (admin tier + tracker-*), the KPI
+// policies entry is shown to admin + kpi-committee (item 6), and business-only accounts get Help (item 9).
+const OPS_ANY = ['inspections', 'meetings', 'site-actions', 'trackers', 'dashboards', 'cockpit', 'portfolio', 'rfi', 'report-studio', 'notifications', 'handoffs', 'obligations'];
+const OPS_TRK = ['inspections', 'meetings', 'site-actions', 'tracker', ...OPS_ANY.slice(3)];
 const INFRA = ['assets', 'wan', 'infra-health'];
 const TODAY = {
   viewer: { home: [], helpdesk: ['dashboard'], operations: OPS_ANY, infrastructure: INFRA, reports: ['site-reports'], help: [] },
   editor: { home: [], helpdesk: ['dashboard'], operations: [...OPS_ANY, 'field'], infrastructure: INFRA, reports: ['site-reports'], help: [] },
-  'editor+tracker-editor': { home: [], helpdesk: ['dashboard'], operations: [...OPS_ANY, 'field'], infrastructure: INFRA, reports: ['site-reports'], help: [] },
+  'editor+tracker-editor': { home: [], helpdesk: ['dashboard'], operations: [...OPS_TRK, 'field'], infrastructure: INFRA, reports: ['site-reports'], help: [] },
   'field-tech': { home: [], helpdesk: ['dashboard'], operations: [...OPS_ANY, 'field'], infrastructure: INFRA, reports: ['site-reports'], help: [] },
-  admin: { home: [], helpdesk: ['dashboard', 'analytics'], operations: [...OPS_ANY, 'policies', 'integrations', 'field'], infrastructure: INFRA, reports: ['site-reports'], help: [] },
-  executive: { home: [], 'site-awareness': [], helpdesk: ['dashboard', 'analytics'], operations: [...OPS_ANY, 'policies', 'integrations', 'field'], infrastructure: INFRA, reports: ['site-reports'], executive: ['exec-home', 'it-review', 'scorecard'], help: [] },
-  super_admin: { home: [], 'site-awareness': [], helpdesk: ['dashboard', 'analytics'], operations: [...OPS_ANY, 'policies', 'integrations', 'field'], infrastructure: INFRA, reports: ['site-reports', 'reports-builder'], executive: ['exec-home', 'it-review', 'scorecard'], admin: ['admin-settings', 'system-logs'], help: [] },
+  admin: { home: [], helpdesk: ['dashboard', 'analytics'], operations: [...OPS_TRK, 'policies', 'kpi-builder', 'integrations', 'field'], infrastructure: INFRA, reports: ['site-reports'], help: [] },
+  executive: { home: [], 'site-awareness': [], helpdesk: ['dashboard', 'analytics'], operations: [...OPS_TRK, 'policies', 'kpi-builder', 'integrations', 'field'], infrastructure: INFRA, reports: ['site-reports'], executive: ['exec-home', 'it-review', 'scorecard'], help: [] },
+  super_admin: { home: [], 'site-awareness': [], helpdesk: ['dashboard', 'analytics'], operations: [...OPS_TRK, 'policies', 'kpi-builder', 'integrations', 'field'], infrastructure: INFRA, reports: ['site-reports', 'reports-builder'], executive: ['exec-home', 'it-review', 'scorecard'], admin: ['admin-settings', 'system-logs'], help: [] },
   'committee-member': { helpdesk: ['dashboard'], operations: [...OPS_ANY, 'policies'], infrastructure: INFRA, reports: ['site-reports'], help: [] },
-  'business-only': { 'site-awareness': [] },
+  'business-only': { 'site-awareness': [], help: [] },
 };
-const TODAY_TOP = { viewer: 6, editor: 6, 'editor+tracker-editor': 6, 'field-tech': 6, admin: 6, executive: 8, super_admin: 9, 'committee-member': 5, 'business-only': 1 };
+const TODAY_TOP = { viewer: 6, editor: 6, 'editor+tracker-editor': 6, 'field-tech': 6, admin: 6, executive: 8, super_admin: 9, 'committee-member': 5, 'business-only': 2 };
 
 const opsTasks = (shell) => (j(shell.menuModel()).find((s) => s.id === 'operations') || { children: [] }).children.filter((c) => c.group !== 'Configure');
 const opsConfigure = (shell) => (j(shell.menuModel()).find((s) => s.id === 'operations') || { children: [] }).children.filter((c) => c.group === 'Configure');
@@ -84,8 +87,10 @@ test('lean: exactly one tracker entry and no Configure item for viewer / editor 
   for (const name of ['viewer', 'editor', 'editor+tracker-editor', 'field-tech']) {
     const { shell } = load(PERSONAS[name][0], { profile: 'lean' });
     const ops = model(shell).operations;
-    assert.strictEqual(ops.filter((id) => id === 'tracker' || id === 'trackers').length, 1, name);
-    assert.ok(ops.includes('tracker'), `${name} keeps the live Activity Tracker`);
+    // Lot A: the live Activity Tracker only for accounts its route admits (tracker-*); none for a plain viewer.
+    const want = name === 'editor+tracker-editor' ? 1 : 0;
+    assert.strictEqual(ops.filter((id) => id === 'tracker' || id === 'trackers').length, want, name);
+    if (want) assert.ok(ops.includes('tracker'), `${name} keeps the live Activity Tracker`);
     assert.deepStrictEqual(opsConfigure(shell), [], name);
   }
   assert.ok(model(load(['admin'], { profile: 'lean' }).shell).operations.includes('trackers'), 'admin keeps the tracker engine');
@@ -122,7 +127,7 @@ test('Deck Builder entry follows ui_deck_builder_roles (default super_admin only
 });
 
 test('business-only user sees only Site Overview in both profiles', () => {
-  for (const profile of ['full', 'lean']) assert.deepStrictEqual(model(load(['site-business'], { businessOnly: true, profile }).shell), { 'site-awareness': [] });
+  for (const profile of ['full', 'lean']) assert.deepStrictEqual(model(load(['site-business'], { businessOnly: true, profile }).shell), { 'site-awareness': [], help: [] });
 });
 
 test('lean: body class toggles and the rendered menu matches the model', () => {

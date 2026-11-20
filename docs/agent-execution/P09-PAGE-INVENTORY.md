@@ -7,7 +7,7 @@ columns are **AI proposals** — no page is merged or retired without the sponso
 from `system_log`. This qualification environment holds no production data, so **usage = unknown** for every page;
 the pilot runbook (S2) captures it on the pilot instance. A merge or retirement must wait for that data.
 
-Pages found: **85** HTML files under `public/` (62 top-level, 21 design-system specimens, others nested).
+Pages found: **86** HTML files under `public/` (63 top-level, 21 design-system specimens, others nested).
 
 | Page | Roles required | In nav | Owner profile(s) | French | Usage 30 d | Overlap | Proposal |
 |---|---|---|---|---|---|---|---|
@@ -59,6 +59,7 @@ Pages found: **85** HTML files under `public/` (62 top-level, 21 design-system s
 | `notifications.html` | any | yes | — (reached from shell) | English (pending) | unknown |  | keep |
 | `obligations.html` | any | yes | — (reached from shell) | self-translated | unknown | governance obligations vs policies.html | keep |
 | `policies.html` | admin, committee-member | yes | governance | self-translated | unknown |  | keep |
+| `policy-center.html` | admin | yes | — (reached from shell) | self-translated | unknown |  | keep |
 | `portfolio.html` | any | yes | executive, pmo, finance | translated | unknown |  | keep |
 | `project.html` | any | no | — (reached from meeting.html) | translated | unknown |  | keep |
 | `report-studio.html` | any | yes | pmo, finance, analyst | English (pending) | unknown | overlaps executive-report.html | keep |

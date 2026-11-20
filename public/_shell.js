@@ -215,7 +215,7 @@
         { id: 'policies', group: 'Configure',     label: 'Governance policies', icon: ICON_LIB['clipboard-check'], href: 'policies.html',        roles: ['admin', 'committee-member'] },
         { id: 'policy-center', group: 'Configure', label: 'Policy control center', icon: ICON_LIB['clipboard-check'], href: 'policy-center.html', roles: ['admin'], policy: 'policy_center_page', lean_hidden: true },
         // Adoption Lot A (item 6): the KPI committee's tool had no entry point (URL or Ctrl+K only).
-        { id: 'kpi-builder', group: 'Configure',  label: 'KPI policies',       icon: ICON_LIB['clipboard-check'], href: 'kpi-builder.html',      roles: ['admin', 'kpi-committee'] },
+        { id: 'kpi-builder', group: 'Configure',  label: 'KPI policies',       icon: ICON_LIB['clipboard-check'], href: 'kpi-builder.html',      roles: ['admin', 'kpi-committee'], lean_hidden: true },
         { id: 'integrations', group: 'Configure', label: 'Integrations',       icon: ICON_LIB.zap,                href: 'integrations.html',     roles: ['admin'] },
         { id: 'connector-health', group: 'Configure', label: 'Connector health', icon: ICON_LIB.zap,              href: 'connector-health.html', roles: ['admin'], policy: 'connector_health_page', lean_hidden: true },
         { id: 'data-quality', group: 'Configure', label: 'Data quality',       icon: ICON_LIB['clipboard-check'], href: 'data-quality.html',     roles: ['admin'], policy: 'data_quality_page' },

@@ -322,7 +322,7 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 | `restore_drill_full` | Operations owner | once a backup copy of `data/blobs` exists  | — | — | report_config, system_log | — | 1 | 1 |
 | `entra_deprovision_enabled` | Information Security + tenant administrator | only after the tenant administrator decides on the Graph `User | — | — | users | yes | 2 | 2 |
 | `site_code_shared_block` | Data owner + Owner | Decide who owns each shared site code (e.g. TND) and correct the data first; then test the controlled 409 and the editors' rights. | — | editor | — | — | 5 | 3 |
-| `policy_center_enabled` | to be named | — | — | — | — | — | 6 | 1 |
+| `policy_center_enabled` | to be named | — | — | — | — | — | 7 | 1 |
 
 ## Dossier L14 — PMO journey — portfolio intake register (portfolio spec Lot 1)
 
@@ -500,6 +500,7 @@ Hub files excluded: `public/portfolio.html`, `public/project.html`, `routes/gove
 | L02 × L05 | 3 |
 | L02 × L07 | 3 |
 | L02 × L12 | 2 |
+| L02 × L13 | 1 |
 | L03 × L04 | 5 |
 | L03 × L05 | 8 |
 | L03 × L06 | 1 |
@@ -536,7 +537,7 @@ Hub files excluded: `public/portfolio.html`, `public/project.html`, `routes/gove
 | L10 × L11 | 8 |
 | L11 × L12 | 3 |
 | L11 × L13 | 7 |
-| L12 × L13 | 1 |
+| L12 × L13 | 3 |
 
 | Lots | Switch A | Switch B | Shared files | Shared tables |
 |---|---|---|---|---|
@@ -585,6 +586,7 @@ Hub files excluded: `public/portfolio.html`, `public/project.html`, `routes/gove
 | L02 × L07 | `portfolio_sensitive_projects` | `ppm_project_roles_enabled` | `services/portfolioAccess.js` | — |
 | L02 × L12 | `export_policy_strict` | `ppm_project_report_enabled` | `services/exportPolicy.js` | — |
 | L02 × L12 | `export_watermark_enabled` | `ppm_project_report_enabled` | `services/exportPolicy.js` | — |
+| L02 × L13 | `policy_center_enabled` | `ppm_project_report_enabled` | `services/exportPolicy.js` | — |
 | L03 × L04 | `ppm_baseline_slots_enabled` | `ppm_calendars_enabled` | `db/postgres/reports/105_ppm_engine_w2.sql`, `db/postgres_rollback/105_ppm_engine_w2_drop.sql`, `routes/ppmEngine.js` | — |
 | L03 × L04 | `ppm_baseline_slots_enabled` | `ppm_leveling_enabled` | `db/postgres/reports/105_ppm_engine_w2.sql`, `db/postgres_rollback/105_ppm_engine_w2_drop.sql`, `routes/ppmEngine.js` | — |
 | L03 × L04 | `ppm_baseline_slots_enabled` | `ppm_resources_enabled` | `db/postgres/reports/105_ppm_engine_w2.sql`, `db/postgres_rollback/105_ppm_engine_w2_drop.sql`, `routes/ppmEngine.js` | — |
@@ -671,6 +673,8 @@ Hub files excluded: `public/portfolio.html`, `public/project.html`, `routes/gove
 | L11 × L13 | `insp_repeat_findings` | `site_code_shared_block` | `routes/inspection.js` | — |
 | L11 × L13 | `restore_drill_full` | `wan_sla_claims_enabled` | — | system_log |
 | L12 × L13 | `access_require_approval` | `restore_drill_full` | — | system_log |
+| L12 × L13 | `export_policy_strict` | `policy_center_enabled` | `services/exportPolicy.js` | — |
+| L12 × L13 | `export_watermark_enabled` | `policy_center_enabled` | `services/exportPolicy.js` | — |
 
 ## Expiry (step 7)
 

@@ -161,8 +161,8 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
         // missed_pct (overdue ÷ created) is kept for older callers; null when nothing to judge, never 0.
         weekly.push({ label: wl.isoWeekLabel(w, wMode), inbound: h.created, closed: h.resolved,
           missed_pct: h.created ? Math.round((h.sla_overdue / h.created) * 1000) / 10 : null,
-          res_sla_pct: h.resolved ? Math.round(((h.resolved - (h.closed_overdue || 0)) / h.resolved) * 1000) / 10 : null,
-          closed_overdue: h.closed_overdue || 0 });
+          res_sla_pct: h.resolved && h.closed_overdue != null ? Math.round(((h.resolved - h.closed_overdue) / h.resolved) * 1000) / 10 : null,
+          closed_overdue: h.closed_overdue == null ? null : h.closed_overdue });
       }
 
       const groups = String(rs.helpdesk_group || '').split(',').map((g) => g.trim()).filter(Boolean);
