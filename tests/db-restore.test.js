@@ -30,7 +30,7 @@ test('backup → change → restore brings the data back; a broken dump changes 
     await c.query('CREATE TABLE IF NOT EXISTS restore_probe (id int primary key, v text)');
     await c.query("INSERT INTO restore_probe VALUES (1, 'before') ON CONFLICT (id) DO UPDATE SET v = 'before'");
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bk-'));
-    const env = { PG_URL: url, SDP_BACKUP_DIR: dir, SDP_SERVICE: 'pm2' };
+    const env = { PG_URL: url, SDP_BACKUP_DIR: dir, SDP_SERVICE: 'pm2', SDP_BACKUP_ALLOW_PLAINTEXT: '1' };   // P11 F-05: plaintext only on explicit override
     const b = await B.runBackup({ dir, env: { ...process.env, ...env }, log: () => {} });
     await c.query("UPDATE restore_probe SET v = 'after'");
     const svc = []; const service = { stop: () => svc.push('stop'), start: () => svc.push('start') };
