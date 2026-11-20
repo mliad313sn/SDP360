@@ -4938,9 +4938,9 @@ app.get('/api/reports/:id/pptx', requireReportSession, _xp('reports.weekly_pptx'
   } catch(e) { fail(res, e); }
 });
 
-// GET /api/reports/monthly/all-sites/:year/:month/pptx  — combined all-sites monthly deck
+const _pp = require('./services/periodParams').check;   // N-R3-3 — malformed :site_id/:year/:month/:week → 400 (after auth); GET /api/reports/monthly/all-sites/:year/:month/pptx below
 // NOTE: must be registered BEFORE the /:site_id route so Express does not treat "all-sites" as a site_id
-app.get('/api/reports/monthly/all-sites/:year/:month/pptx', requireReportSession, requireAdmin, _xp('reports.monthly_all_pptx'), async (req, res) => {
+app.get('/api/reports/monthly/all-sites/:year/:month/pptx', requireReportSession, requireAdmin, _pp, _xp('reports.monthly_all_pptx'), async (req, res) => {
   if (!rpptxMonthly) return res.status(503).json({ error: 'Monthly PPTX module not available' });
   try {
     const { year, month } = req.params;
@@ -4972,7 +4972,7 @@ app.get('/api/reports/monthly/all-sites/:year/:month/pptx', requireReportSession
 });
 
 // GET /api/reports/monthly/:site_id/:year/:month/pptx  — download monthly PPTX
-app.get('/api/reports/monthly/:site_id/:year/:month/pptx', requireReportSession, _xp('reports.monthly_pptx'), async (req, res) => {
+app.get('/api/reports/monthly/:site_id/:year/:month/pptx', requireReportSession, _pp, _xp('reports.monthly_pptx'), async (req, res) => {
   if (!rpptx) return res.status(503).json({ error: 'PPTX module not available' });
   try {
     const { site_id, year, month } = req.params;
@@ -5004,7 +5004,7 @@ app.get('/api/reports/monthly/:site_id/:year/:month/pptx', requireReportSession,
 });
 
 // GET /api/reports/weekly-summary/:year/:week/pptx  — all-sites aggregated weekly PPTX
-app.get('/api/reports/weekly-summary/:year/:week/pptx', requireReportSession, requireAdmin, _xp('reports.weekly_summary_pptx'), async (req, res) => {
+app.get('/api/reports/weekly-summary/:year/:week/pptx', requireReportSession, requireAdmin, _pp, _xp('reports.weekly_summary_pptx'), async (req, res) => {
   if (!rpptx) return res.status(503).json({ error: 'PPTX module not available' });
   try {
     const { year, week } = req.params;
@@ -5041,7 +5041,7 @@ app.get('/api/reports/weekly-summary/:year/:week/pptx', requireReportSession, re
 });
 
 // GET /api/reports/monthly/:site_id/:year/:month  — monthly overview (no PPTX)
-app.get('/api/reports/monthly/:site_id/:year/:month', requireReportSession, async (req, res) => {
+app.get('/api/reports/monthly/:site_id/:year/:month', requireReportSession, _pp, async (req, res) => {
   try {
     const { site_id, year, month } = req.params;
     const data = await rdb.getMonthlyData(parseInt(site_id), parseInt(year), parseInt(month));
@@ -5052,7 +5052,7 @@ app.get('/api/reports/monthly/:site_id/:year/:month', requireReportSession, asyn
 // ── MONTHLY REPORT EDITS ──────────────────────────────────────────
 // GET /api/reports/monthly/:site_id/:year/:month/edits
 // Returns merged lights+actions with week labels (saved edits or auto-merged from weekly)
-app.get('/api/reports/monthly/:site_id/:year/:month/edits', requireReportSession, async (req, res) => {
+app.get('/api/reports/monthly/:site_id/:year/:month/edits', requireReportSession, _pp, async (req, res) => {
   try {
     const { site_id, year, month } = req.params;
     const data = await rdb.getMonthlyEdits(parseInt(site_id), parseInt(year), parseInt(month));
@@ -5064,7 +5064,7 @@ app.get('/api/reports/monthly/:site_id/:year/:month/edits', requireReportSession
 // Save user-edited lights/actions for the monthly report.
 // Applies the same validateActionItems guard as the weekly PUT — spec §9.1-9.2
 // (defense-in-depth on every action-item write path, not just the weekly one).
-app.post('/api/reports/monthly/:site_id/:year/:month/edits', requireReportSession, express.json({ limit: '2mb' }), async (req, res) => {
+app.post('/api/reports/monthly/:site_id/:year/:month/edits', requireReportSession, _pp, express.json({ limit: '2mb' }), async (req, res) => {
   try {
     if (!_authorizeSiteWrite(req, res, req.params.site_id)) return;
     const { site_id, year, month } = req.params;
@@ -5087,7 +5087,7 @@ app.post('/api/reports/monthly/:site_id/:year/:month/edits', requireReportSessio
 
 // GET /api/reports/yearly/:site_id/:year
 // Returns 12-month summary: infra KPIs (last week each month) + helpdesk totals
-app.get('/api/reports/yearly/:site_id/:year', requireReportSession, async (req, res) => {
+app.get('/api/reports/yearly/:site_id/:year', requireReportSession, _pp, async (req, res) => {
   try {
     const { site_id, year } = req.params;
     const data = await rdb.getYearlySummary(parseInt(site_id), parseInt(year));
@@ -5097,7 +5097,7 @@ app.get('/api/reports/yearly/:site_id/:year', requireReportSession, async (req, 
 
 // GET /api/reports/objectives/:site_id/:year
 // Return annual objectives for site+year
-app.get('/api/reports/objectives/:site_id/:year', requireReportSession, async (req, res) => {
+app.get('/api/reports/objectives/:site_id/:year', requireReportSession, _pp, async (req, res) => {
   try {
     const { site_id, year } = req.params;
     const rows = await rdb.getAnnualObjectives(parseInt(site_id), parseInt(year));
@@ -5107,7 +5107,7 @@ app.get('/api/reports/objectives/:site_id/:year', requireReportSession, async (r
 
 // POST /api/reports/objectives/:site_id/:year
 // Replace all objectives for site+year
-app.post('/api/reports/objectives/:site_id/:year', requireReportSession, express.json({ limit: '1mb' }), async (req, res) => {
+app.post('/api/reports/objectives/:site_id/:year', requireReportSession, _pp, express.json({ limit: '1mb' }), async (req, res) => {
   try {
     if (!_authorizeSiteWrite(req, res, req.params.site_id)) return;
     const { site_id, year } = req.params;
@@ -5119,7 +5119,7 @@ app.post('/api/reports/objectives/:site_id/:year', requireReportSession, express
 });
 
 // GET /api/reports/monthly/:site_id/:year/:month/pptx-v2  — new 7-slide monthly format
-app.get('/api/reports/monthly/:site_id/:year/:month/pptx-v2', requireReportSession, _xp('reports.monthly_pptx'), async (req, res) => {
+app.get('/api/reports/monthly/:site_id/:year/:month/pptx-v2', requireReportSession, _pp, _xp('reports.monthly_pptx'), async (req, res) => {
   if (!rpptxMonthly) return res.status(503).json({ error: 'Monthly PPTX module not available' });
   try {
     const { site_id, year, month } = req.params;
@@ -5148,7 +5148,7 @@ app.get('/api/reports/monthly/:site_id/:year/:month/pptx-v2', requireReportSessi
 
 // GET /api/reports/monthly/:site_id/:year/:month/site-template/pptx
 // 19-slide mine-site template PPTX — auto-fills all data-driven sections
-app.get('/api/reports/monthly/:site_id/:year/:month/site-template/pptx', requireReportSession, _xp('reports.monthly_pptx'), async (req, res) => {
+app.get('/api/reports/monthly/:site_id/:year/:month/site-template/pptx', requireReportSession, _pp, _xp('reports.monthly_pptx'), async (req, res) => {
   if (!rpptxSiteTemplate) return res.status(503).json({ error: 'Site template PPTX module not available' });
   try {
     const { site_id, year, month } = req.params;
