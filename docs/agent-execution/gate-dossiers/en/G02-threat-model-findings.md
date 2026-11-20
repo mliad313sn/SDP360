@@ -10,7 +10,7 @@
 | Decision cell in RELEASE-GATES.md | empty — this gate is **NO-GO** until the approver fills it. This dossier fills nothing. |
 | What this gate blocks | blocks the two-site pilot on the TEST instance |
 | Decide after | [G01](G01-security-access-policy.md) Security: access policy and authorization matrix |
-| Target SHA | `6457dcfa` |
+| Target SHA | `4d4edc58` |
 | Generated | 2026-11-20 |
 
 ## 1. Question to decide
@@ -26,7 +26,7 @@ Do you accept the residual risks of the threat model and the findings register, 
 | `docs/security/EX-01-CREDENTIAL-INCIDENT.md` | Historical credential in the installer configuration — open human gate | `manual` | 7576d012, 2026-10-29 | `c940ae12a71398f0` |
 | `docs/security/ROTATION-RECORD.md` | Where a rotation is recorded once a person has done it | `manual` | d5d3b82f, 2026-11-06 | `9f8be1b68b704da5` |
 | `tools/security/secret-scan.js` | Secret scanner over the tree | `node tools/security/secret-scan.js` | cf2b8ae3, 2026-10-29 | `6efe7f2db825d61e` |
-| `docs/security/CSP-JOURNEYS.md` | Content-Security-Policy observations per journey | `node tools/security/csp-journey-report.js` | ccaeb0a3, 2026-11-19 | `ca99fd6f85ce6eb7` |
+| `docs/security/CSP-JOURNEYS.md` | Content-Security-Policy observations per journey | `node tools/security/csp-journey-report.js` | 7ab38b13, 2026-11-20 | `ad218669bd3db7d3` |
 
 **Evidence awaited from parallel lots**
 
