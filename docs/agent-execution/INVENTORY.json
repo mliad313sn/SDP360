@@ -15,7 +15,7 @@
   "jobs": 33,
   "jobs_without_test_reference": 0,
   "migrations": 107,
-  "test_files": 877
+  "test_files": 878
  },
  "pages": [
   {
@@ -8741,7 +8741,7 @@
    "method": "GET",
    "path": "/api/policy-center/export",
    "file": "routes/policyCenter.js",
-   "line": 194,
+   "line": 205,
    "tests": [
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
@@ -8752,7 +8752,7 @@
    "method": "POST",
    "path": "/api/policy-center/import",
    "file": "routes/policyCenter.js",
-   "line": 245,
+   "line": 256,
    "tests": [
     "tests/policy-center-routes.smoke.test.js"
    ]
@@ -8762,7 +8762,7 @@
    "method": "POST",
    "path": "/api/policy-center/requests/:id/approve",
    "file": "routes/policyCenter.js",
-   "line": 180,
+   "line": 191,
    "tests": [
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
@@ -8773,7 +8773,7 @@
    "method": "POST",
    "path": "/api/policy-center/requests/:id/cancel",
    "file": "routes/policyCenter.js",
-   "line": 182,
+   "line": 193,
    "tests": [
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
@@ -8784,7 +8784,7 @@
    "method": "POST",
    "path": "/api/policy-center/requests/:id/reject",
    "file": "routes/policyCenter.js",
-   "line": 181,
+   "line": 192,
    "tests": [
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
@@ -12213,6 +12213,7 @@
     "tests/identity-log.smoke.test.js",
     "tests/inventory-strict.test.js",
     "tests/multi-site-editor.smoke.test.js",
+    "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/uat-amdec-org-models.smoke.test.js",
     "tests/workspace-profiles-grants-nothing-matrix.smoke.test.js"
@@ -12236,6 +12237,7 @@
     "tests/identity-log.smoke.test.js",
     "tests/inventory-strict.test.js",
     "tests/multi-site-editor.smoke.test.js",
+    "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/uat-amdec-org-models.smoke.test.js",
     "tests/workspace-profiles-grants-nothing-matrix.smoke.test.js"
@@ -12269,6 +12271,7 @@
     "tests/identity-log.smoke.test.js",
     "tests/inventory-strict.test.js",
     "tests/multi-site-editor.smoke.test.js",
+    "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/uat-amdec-org-models.smoke.test.js",
     "tests/workspace-profiles-grants-nothing-matrix.smoke.test.js"
@@ -12292,6 +12295,7 @@
     "tests/identity-log.smoke.test.js",
     "tests/inventory-strict.test.js",
     "tests/multi-site-editor.smoke.test.js",
+    "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/uat-amdec-org-models.smoke.test.js",
     "tests/workspace-profiles-grants-nothing-matrix.smoke.test.js"

@@ -160,6 +160,17 @@ module.exports = function policyCenterRoutes(deps) {
       const m = String(req.params.id).match(/^(pc|gp)-(\d+)$/);
       if (!m) throw typed('VALIDATION', 'request id is pc-<n> or gp-<n>', 400);
       const u = req.reportUser; const reason = req.body && req.body.reason;
+      if (decision === 'approve') {   // P11 R4-A2(b): the approver must be independent of the requester (identity journal)
+        const requesterId = m[1] === 'pc' ? ((await cstore().get(Number(m[2]))) || {}).requested_by
+          : (((await gstore().listProposals({ status: null })) || []).find((p) => Number(p.id) === Number(m[2])) || {}).proposed_by;
+        if (requesterId != null && Number(requesterId) !== Number(u.id)) {
+          const ind = await require('../services/approverProvenance').checkIndependent({ db: rdb().db, requesterId, approver: u });
+          if (!ind.ok) {
+            await log(req, { category: 'config', action: 'policy_approval_refused', target: req.params.id, details: { reason: ind.reason }, risk: 1 });
+            throw typed('FORBIDDEN', `a second, independent super_admin must approve: ${ind.reason}`, 403);
+          }
+        }
+      }
       if (m[1] === 'gp') {
         if (decision === 'cancel') throw typed('VALIDATION', 'a governance proposal lapses on its own after 7 days; another super_admin can reject it', 400);
         const out = await gstore().decide(Number(m[2]), decision, { actor: { id: u.id, isSuper: isSuper(u) }, reason });

@@ -26,6 +26,8 @@ before(async () => {
   hounde = sites.find((s) => /hounde/i.test(s.name)).id; mana = sites.find((s) => /^mana$/i.test(s.name)).id;
   const mk = async (k, roles, site) => { const u = 'pc_' + k; try { await rdb.createUser({ username: u, full_name: u, password: u + 'pass1234', roles, site_id: site }); } catch {} T[k] = (await rdb.login(u, u + 'pass1234')).token; };
   await mk('super', ['super_admin']); await mk('super2', ['super_admin']); await mk('admin', ['admin']); await mk('viewer', ['viewer'], hounde);
+  // super2 is an established account (outside the approver cooling-off window — services/approverProvenance.js)
+  await rdb.db.prepare("UPDATE users SET created_at = now() - interval '30 days' WHERE username = 'pc_super2'").run();
   await RC.setConfig(rdb.db, { smtp_pass: 'S3cret-value-xyz', smtp_host: 'mail.example.org' }, 'test');
   await new Promise((r) => { server = http.createServer(app).listen(0, '127.0.0.1', r); });
   base = 'http://127.0.0.1:' + server.address().port;

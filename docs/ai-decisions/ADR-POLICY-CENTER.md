@@ -47,6 +47,14 @@ one place to adapt rules to field reality, with best practice as the default and
      days; approving re-checks that the stored value is still the one the request saw (otherwise `stale`, 409); the
      value is re-validated at approval. The strict side of each key is an engineering classification (reviewable by
      Information Security), not a business approval.
+   - **Independent approver (fix 14, P11 round 4 audit R4-A2(b)).** Differing by user id / identity is not enough: one
+     super_admin could create a second super_admin account and approve their own request with it. Before an approval
+     (`pc-` and `gp-`), `services/approverProvenance.js` reads the identity journal (system_log `user_created` /
+     `user_role_changed`) and refuses (403) when the approver was created or had roles changed by the requester (ever),
+     or descends from such an account (chain depth ≤ 4); it fails closed when the approver account was created, or
+     granted super_admin, less than 7 days ago with no named author, and when the journal cannot be read. Residual:
+     governance proposals decided from policies.html (not through the center) do not run this check yet; a requester
+     who creates an account and waits 7 days with the journal intact is still caught by rule 1.
    - **One change path while the center is on (fix 14).** With `policy_center_enabled = '1'`, the legacy
      `PUT /api/reports/config` refuses (typed 409 `CONFLICT`, `four_eyes_keys` listed) any four-eyes key whose value
      would CHANGE; unchanged re-sent fields and non-four-eyes keys still save, so the admin cards keep working. With the
