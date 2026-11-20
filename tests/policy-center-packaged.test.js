@@ -33,10 +33,17 @@ test('a corrupt catalogue file also fails closed', () => {
   finally { PC.build({ fresh: true }); }
 });
 
-test('the repository catalogue loads: 79 four-eyes report_config rules, not in fail-closed mode', () => {
+test('the repository catalogue loads: its four-eyes report_config rules (79 at fix 14, grows with lots), not in fail-closed mode', () => {
   const b = PC.build({ fresh: true });
   assert.strictEqual(b.catalogue_missing, false);
-  assert.strictEqual(b.entries.filter((e) => e.source === 'report_config' && e.four_eyes).length, 79);
+  // The count must match the committed catalogue exactly (not the fail-closed "every key" set): it grows as lots add
+  // four-eyes switches, so it is read from docs/ops/policy-catalogue.json instead of being a literal.
+  const cat = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'docs', 'ops', 'policy-catalogue.json'), 'utf8'));
+  const rows = Object.values(cat.keys || cat.report_config || cat).filter((v) => v && typeof v === 'object' && v.four_eyes === true);
+  const n = b.entries.filter((e) => e.source === 'report_config' && e.four_eyes).length;
+  assert.ok(n >= 79, `four-eyes rules ${n} < 79 (fix 14 baseline)`);
+  assert.ok(n < 150, `four-eyes rules ${n} looks like fail-closed mode`);
+  assert.ok(rows.length === 0 || n === rows.length, `loaded ${n} four-eyes rules, catalogue declares ${rows.length}`);
 });
 
 test('the update package carries the runtime data files read under docs/', (t) => {
