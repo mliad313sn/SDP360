@@ -31,4 +31,11 @@ function check(req, res, next) {
   return next();
 }
 
-module.exports = { check, paramError, RULES };
+/** For a handler whose site check must answer first (403 before 400): true when it has refused the request. */
+function refused(req, res) {
+  let done = true; check(req, res, () => { done = false; });
+  return done;
+}
+check.refused = refused;
+
+module.exports = { check, refused, paramError, RULES };

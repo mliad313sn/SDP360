@@ -5064,9 +5064,9 @@ app.get('/api/reports/monthly/:site_id/:year/:month/edits', requireReportSession
 // Save user-edited lights/actions for the monthly report.
 // Applies the same validateActionItems guard as the weekly PUT — spec §9.1-9.2
 // (defense-in-depth on every action-item write path, not just the weekly one).
-app.post('/api/reports/monthly/:site_id/:year/:month/edits', requireReportSession, _pp, express.json({ limit: '2mb' }), async (req, res) => {
+app.post('/api/reports/monthly/:site_id/:year/:month/edits', requireReportSession, express.json({ limit: '2mb' }), async (req, res) => {
   try {
-    if (!_authorizeSiteWrite(req, res, req.params.site_id)) return;
+    if (!_authorizeSiteWrite(req, res, req.params.site_id) || _pp.refused(req, res)) return;   // site check first, then N-R3-3
     const { site_id, year, month } = req.params;
     const { edited_lights, edited_actions, notes, status } = req.body || {};
 
@@ -5107,9 +5107,9 @@ app.get('/api/reports/objectives/:site_id/:year', requireReportSession, _pp, asy
 
 // POST /api/reports/objectives/:site_id/:year
 // Replace all objectives for site+year
-app.post('/api/reports/objectives/:site_id/:year', requireReportSession, _pp, express.json({ limit: '1mb' }), async (req, res) => {
+app.post('/api/reports/objectives/:site_id/:year', requireReportSession, express.json({ limit: '1mb' }), async (req, res) => {
   try {
-    if (!_authorizeSiteWrite(req, res, req.params.site_id)) return;
+    if (!_authorizeSiteWrite(req, res, req.params.site_id) || _pp.refused(req, res)) return;   // site check first, then N-R3-3
     const { site_id, year } = req.params;
     const objectives = Array.isArray(req.body) ? req.body : [];
     await rdb.saveAnnualObjectives(parseInt(site_id), parseInt(year), objectives);
