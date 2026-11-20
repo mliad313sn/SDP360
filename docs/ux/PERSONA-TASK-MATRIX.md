@@ -9,7 +9,7 @@ Sources: vision pack v2.0 §3.2 (seven personas), `public/_shell.js` WORKSPACES 
 
 | Vision persona | Primary question (vision §3.2) | Head workspace (proposal) | Workspace pages | review.1 profile | Journeys mapped |
 |---|---|---|---|---|---|
-| Executive / Group Management | Where are the critical exceptions, decisions, cross-site gaps and strategic risks? | Executive (`executive`) | `dashboards.html?key=exec-home`, `it-review.html`, `executive.html`, `portfolio.html`, `cockpit.html` | NEEDS-REVIEW.1-ARTIFACT | 10 |
+| Executive / Group Management | Where are the critical exceptions, decisions, cross-site gaps and strategic risks? | Executive (`executive`) | `dashboards.html?key=exec-home`, `it-review.html`, `executive.html`, `portfolio.html`, `cockpit.html` | NEEDS-REVIEW.1-ARTIFACT | 11 |
 | Site Management / Business Lead | What is the site posture, business impact and management action required? | Site business view (`business`) | `site-awareness.html` | NEEDS-REVIEW.1-ARTIFACT | 0 |
 | Site IT Lead | What is failing, at risk, overdue or awaiting evidence at my site? | Site IT (`site-it`), Technician (`technician`) | `home.html`, `site-actions.html`, `inspections.html`, `meetings.html`, `reports.html`, `activity-tracker.html`, `obligations.html`, `field/index.html` | NEEDS-REVIEW.1-ARTIFACT | 19 |
 | Department Member | What is assigned to my department and what do I need to update or submit? | **none at head — gap** | — | NEEDS-REVIEW.1-ARTIFACT | 0 |
@@ -57,6 +57,7 @@ Expected first click = the action page when it differs from the start page (a **
 | Site IT Lead | Site IT coordinator | Hand the shift over; it stays pending until the incoming person accepts it (C-23) | `public/coverage.html` | in-page control | `tests/e2e/i6-shift-handover.spec.js` |
 | Administrator | super_admin | Rotate a stored integration key: the old one stops working, no secret comes back to the browser or the journal; anonymous visitors never get the API key (C-23) | `public/reports.html` | in-page control | `tests/e2e/i7-secret-rotation.spec.js` |
 | Executive / Group Management | Scorecard viewer | Read the executive scorecard without write powers | `public/executive.html` | `public/analytics.html` | `tests/e2e/u5-scorecard-viewer.spec.js` |
+| Executive / Group Management | Committee member (profile landing, Lot B) | Log in and land directly on the portfolio, the first page of the committee workspace profile, with no refused page on the way | `public/login.html` | `public/portfolio.html` | `tests/e2e/b1-adoption-lotb-landing.spec.js` (adoption Lot B) |
 | — | Super admin | Share an Analytics view by its URL: the colleague opens the same filters (site, period, status, type), Back restores, Reset clears | `public/home.html` | `public/analytics.html` | `tests/e2e/u6-shared-analytics-url.spec.js` |
 | Site IT Lead | Site editor | Leave a human note on a dashboard trend so readers see why a point moved (switch `chart_annotations_enabled`) | `public/home.html` | `public/dashboards.html` | `tests/e2e/u7-chart-annotations.spec.js` |
 | Executive / Group Management | Committee member (Group IT, extra) | Prepare Friday's agenda from the cadence | `public/cockpit.html` | in-page control | `tests/e2e/t4-cockpit-agenda.spec.js` |
