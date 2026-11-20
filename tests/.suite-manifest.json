@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 5656,
+ "total": 5661,
  "files": {
   "a11y-legacy-ratchet.test.js": 3,
   "a11y-static.test.js": 18,
@@ -865,7 +865,7 @@
   "pg-migrate-changed.test.js": 2,
   "report-payload-tracker-null.test.js": 4,
   "report-period-params.smoke.test.js": 2,
-  "ppm-intake-pure.test.js": 8,
+  "ppm-intake-pure.test.js": 9,
   "ppm-intake-ui.test.js": 4,
   "ppm-intake.smoke.test.js": 6,
   "policy-center-catalogue.test.js": 6,
@@ -877,6 +877,7 @@
   "activate-switches.test.js": 5,
   "ppm-data-quality-pure.test.js": 10,
   "ppm-data-quality.smoke.test.js": 3,
-  "ppm-data-quality-ui.test.js": 3
+  "ppm-data-quality-ui.test.js": 3,
+  "ppm-r4-actuals-intake.smoke.test.js": 4
  }
 }

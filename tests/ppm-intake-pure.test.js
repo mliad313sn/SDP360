@@ -96,3 +96,10 @@ test('reference lists: create needs code + EN/FR labels; code immutable; locked 
   assert.strictEqual(reason(() => LK.validateValue('priority', { code: 'x', label_en: 'X', label_fr: 'X', color: '#ff0000' })), 'LOOKUP_COLOR');
   assert.strictEqual(reason(() => LK.validateValue('nope', {})), 'LOOKUP_DOMAIN');
 });
+
+test('P11 R4-2 — readIntake drops a value state whose field holds a value (written while the register was off)', () => {
+  const r = IF.readIntake({ budget: 5000, delivery_lead: null, sponsor: '  ', value_states: '{"budget":"tbc","delivery_lead":"tbc","sponsor":"na","risks":"none_known"}' });
+  assert.deepStrictEqual(r.value_states, { delivery_lead: 'tbc', sponsor: 'na', risks: 'none_known' });
+  assert.deepStrictEqual(IF.readIntake({ budget: 0, value_states: '{"budget":"tbc"}' }).value_states, {}, 'a measured zero answers too');
+  assert.deepStrictEqual(IF.readIntake({ value_states: '[1]' }).value_states, {});
+});
