@@ -1,0 +1,152 @@
+{
+ "administrator": {
+  "landing": "/home.html",
+  "target": "integrations.html",
+  "clicks": 1,
+  "how": "link on landing",
+  "ms": 1746,
+  "final": "/integrations.html",
+  "refused": false,
+  "first": "Skip to content ▾ Opérations ▾ ▾ ▾ ▾ ▾ EN Mon espace Retour S Opérations Configurer Intégrations Integrations & alert rules Admin. Alert rules (metric, scope, c"
+ },
+ "executive": {
+  "landing": "/dashboards.html?key=exec-home",
+  "target": "dashboards.html?key=exec-home",
+  "clicks": 0,
+  "how": "landing",
+  "ms": 1538,
+  "final": "/dashboards.html",
+  "refused": false,
+  "first": "Aller au contenu Endeavour Mining ▾ ▾ ▾ Direction ▾ Rechercher Ctrl K EN Mon espace Retour Synthétique executive EXECUTIVE Direction Accueil direction Executive"
+ },
+ "business": {
+  "landing": "/site-awareness.html",
+  "target": "site-awareness.html",
+  "clicks": 0,
+  "how": "landing",
+  "ms": 983,
+  "final": "/site-awareness.html",
+  "refused": false,
+  "first": "Aller au contenu Endeavour Mining Vue du site Rechercher Ctrl K EN Mon espace Retour Synthétique business VIEWER Site Overview — Hounde LECTURE SEULE SITE Hound"
+ },
+ "operations": {
+  "landing": "/index.html",
+  "target": "index.html",
+  "clicks": 0,
+  "how": "landing",
+  "ms": 1251,
+  "final": "/index.html",
+  "refused": false,
+  "first": "Aller au contenu Endeavour Mining Helpdesk ▾ ▾ ▾ Rechercher Ctrl K EN Mon espace Retour Synthétique operations ADMIN v1.10.8 Helpdesk Tableau de bord Helpdesk ·"
+ },
+ "coordinator": {
+  "landing": "/home.html",
+  "target": "site-actions.html",
+  "clicks": 1,
+  "how": "link on landing",
+  "ms": 1880,
+  "final": "/site-actions.html",
+  "refused": false,
+  "first": "Aller au contenu Endeavour Mining Opérations ▾ ▾ Rechercher Ctrl K EN Mon espace Retour Synthétique coordinator EDITOR Opérations Gouvernance Actions du site Si"
+ },
+ "field": {
+  "landing": "/field/index.html",
+  "target": "field/index.html",
+  "clicks": 0,
+  "how": "landing",
+  "ms": 1178,
+  "final": "/field/index.html",
+  "refused": false,
+  "first": "Aller au contenu IT Terrain FR EN En ligne 0 Mon site Site Hounde Synchroniser Données au 20/11/2026 08:17:25 Mode faible débit (sans photos, moins de rafraîchi"
+ },
+ "pmo": {
+  "landing": "/index.html",
+  "target": "portfolio.html",
+  "clicks": 2,
+  "how": "menu (≥2 clicks: open group + item)",
+  "ms": 2178,
+  "final": "/portfolio.html",
+  "refused": false,
+  "first": "Aller au contenu Endeavour Mining Opérations ▾ ▾ Rechercher Ctrl K EN Mon espace Retour Synthétique pmo VIEWER Opérations Planifier et suivre Portefeuille Porte"
+ },
+ "finance": {
+  "landing": "/index.html",
+  "target": "portfolio.html",
+  "clicks": 2,
+  "how": "menu (≥2 clicks: open group + item)",
+  "ms": 2120,
+  "final": "/portfolio.html",
+  "refused": false,
+  "first": "Aller au contenu Endeavour Mining Opérations ▾ ▾ Rechercher Ctrl K EN Mon espace Retour Synthétique finance VIEWER Opérations Planifier et suivre Portefeuille P"
+ },
+ "governance": {
+  "landing": "/index.html",
+  "target": "meetings-unsigned.html",
+  "clicks": 3,
+  "how": "not in menu (URL or Ctrl+K search)",
+  "ms": 2111,
+  "final": "/meetings-unsigned.html",
+  "refused": false,
+  "first": "Aller au contenu Endeavour Mining Opérations ▾ ▾ Rechercher Ctrl K EN Mon espace Retour Synthétique governance VIEWER Opérations Gouvernance Réunions et décisio"
+ },
+ "kpi": {
+  "landing": "/index.html",
+  "target": "kpi-builder.html",
+  "clicks": 3,
+  "how": "not in menu (URL or Ctrl+K search)",
+  "ms": 2131,
+  "final": "/kpi-builder.html",
+  "refused": false,
+  "first": "Skip to content Endeavour Mining ▾ ▾ Rapports Rechercher Ctrl K EN Mon espace Retour Synthétique kpi VIEWER Constructeur de politiques KPI Le comité KPI définit"
+ },
+ "analyst": {
+  "landing": "/index.html",
+  "target": "dashboards.html",
+  "clicks": 2,
+  "how": "menu (≥2 clicks: open group + item)",
+  "ms": 1986,
+  "final": "/dashboards.html",
+  "refused": false,
+  "first": "Aller au contenu Endeavour Mining Opérations ▾ ▾ Rechercher Ctrl K EN Mon espace Retour Synthétique analyst VIEWER Opérations Rapporter et partager Tableaux de "
+ },
+ "reader": {
+  "landing": "/index.html",
+  "target": "index.html",
+  "clicks": 0,
+  "how": "landing",
+  "ms": 1550,
+  "final": "/index.html",
+  "refused": false,
+  "first": "Aller au contenu Endeavour Mining Helpdesk ▾ ▾ Rechercher Ctrl K EN Mon espace Retour Synthétique reader VIEWER v1.10.8 Helpdesk Tableau de bord Helpdesk · Cent"
+ },
+ "siteeditor": {
+  "landing": "/home.html",
+  "target": "site-actions.html",
+  "clicks": 1,
+  "how": "link on landing",
+  "ms": 1834,
+  "final": "/site-actions.html",
+  "refused": false,
+  "first": "Aller au contenu Endeavour Mining Opérations ▾ ▾ Rechercher Ctrl K EN Mon espace Retour Synthétique siteeditor EDITOR Opérations Gouvernance Actions du site Sit"
+ },
+ "scorecard": {
+  "landing": "/index.html",
+  "target": "it-review.html",
+  "clicks": 2,
+  "how": "menu (≥2 clicks: open group + item)",
+  "ms": 2172,
+  "final": "/it-review.html",
+  "refused": false,
+  "first": "Aller au contenu Endeavour Mining ▾ ▾ ▾ Direction ▾ Rechercher Ctrl K EN Mon espace Retour Synthétique scorecard VIEWER Direction Revue IT ENDEAVOUR MINING — GR"
+ },
+ "groupbusiness": {
+  "landing": "/site-awareness.html",
+  "target": "site-awareness.html",
+  "clicks": 0,
+  "how": "landing",
+  "ms": 914,
+  "final": "/site-awareness.html",
+  "refused": false,
+  "first": "Aller au contenu Endeavour Mining Vue du site Rechercher Ctrl K EN Mon espace Retour Synthétique groupbusiness VIEWER Site Overview — Sabodala LECTURE SEULE SIT"
+ }
+}
