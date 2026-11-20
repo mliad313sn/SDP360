@@ -182,6 +182,8 @@
   "ppm_alloc_unspecified": {"category":"ppm","risk":"medium","four_eyes":false,"allowed":["full_time","unknown"]},
   "ppm_annual_pack_enabled": {"category":"ppm","risk":"medium","four_eyes":false},
   "ppm_intake_register_enabled": {"category":"ppm","risk":"medium","four_eyes":false},
+  "ppm_data_quality_enabled": {"category":"ppm","risk":"low","four_eyes":false},
+  "ppm_dq_gate_enforced": {"category":"ppm","risk":"medium","four_eyes":false},
   "ppm_azdo_org_url": {"category":"integrations","risk":"medium","four_eyes":false},
   "ppm_azdo_pat": {"category":"integrations","risk":"high","four_eyes":false},
   "ppm_azdo_project": {"category":"integrations","risk":"medium","four_eyes":false},

@@ -14,3 +14,16 @@
 .in-note { font-size: 12px; color: var(--color-text-muted); margin: 4px 0; }
 .in-check { font-size: 12px; color: var(--color-text); display: flex; flex-direction: row; gap: 6px; align-items: center; }
 .in-ref { font-weight: 700; color: var(--color-text-strong); }
+/* PORTFOLIO LOT 2 — data-quality panel (lib/ppmFieldHelp.js). Tokens only. */
+.dq-panel { border: 1px solid var(--color-border); border-radius: 10px; padding: 10px 14px; margin: 0 0 12px; }
+.dq-panel h3 { margin: 0 0 4px; } .dq-panel h4 { margin: 10px 0 4px; font-size: 13px; color: var(--color-text-strong); }
+.dq-score { font-size: 14px; color: var(--color-text); margin: 6px 0; }
+.dq-rag { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; font-weight: 700; border: 1px solid var(--color-border); }
+.dq-green { background: var(--color-success-bg); color: var(--color-success-text); }
+.dq-amber { background: var(--color-warning-bg); color: var(--color-warning-text); }
+.dq-red { background: var(--color-danger-bg); color: var(--color-text-strong); }
+.dq-na { background: var(--color-card); color: var(--color-text-muted); }
+.dq-list, .dq-blocking { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--color-text); }
+.dq-mark { display: inline-block; min-width: 72px; font-weight: 600; }
+.dq-not_done .dq-mark { color: var(--color-warning-text); } .dq-done .dq-mark { color: var(--color-success-text); }
+.dq-item .in-help-btn { display: inline-block; vertical-align: middle; }
