@@ -238,7 +238,7 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 | `chart_annotations_enabled` | Owner (UI policy) | after a browser review | — | — | — | — | 4 | 1 |
 | `dashboard_red_action_links` | Owner (UI policy) + PMO | — | `commitments_enabled` | — | — | — | 4 | 2 |
 | `value_scoreboard_enabled` | Owner (UI policy) + KPI committee | once the committee agrees the value contract  | — | super_admin, admin | value_scoreboard_snapshots | — | 4 | 2 |
-| `ui_i18n_pages` | Owner (D-2) | — | — | — | — | — | 43 | 5 |
+| `ui_i18n_pages` | Owner (D-2) | — | — | — | — | — | 53 | 5 |
 
 ## Dossier L10 — Reporting rhythm — reminders, drift and deck clarity
 
@@ -510,7 +510,7 @@ Hub files excluded: `public/portfolio.html`, `public/project.html`, `routes/gove
 | L08 × L09 | 2 |
 | L08 × L11 | 1 |
 | L09 × L10 | 1 |
-| L09 × L11 | 3 |
+| L09 × L11 | 4 |
 | L10 × L11 | 8 |
 | L11 × L12 | 3 |
 | L11 × L13 | 7 |
@@ -622,6 +622,7 @@ Hub files excluded: `public/portfolio.html`, `public/project.html`, `routes/gove
 | L08 × L11 | `controls_register_enabled` | `field_task_timing` | — | site_module_codes |
 | L09 × L10 | `report_drift_banner` | `ui_i18n_pages` | `public/reports.html` | — |
 | L09 × L11 | `asset_money_certify_display` | `ui_i18n_pages` | `public/assets.html` | — |
+| L09 × L11 | `insp_repeat_findings` | `ui_i18n_pages` | `public/inspections.html` | — |
 | L09 × L11 | `ui_i18n_pages` | `wan_sla_claims_enabled` | `public/wan.html` | — |
 | L09 × L11 | `ui_i18n_pages` | `wan_sla_require_contract_evidence` | `public/reports.html` | — |
 | L10 × L11 | `alert_group_by_rule` | `field_task_timing` | — | insp_inspections, md_meetings |

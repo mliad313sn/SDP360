@@ -726,7 +726,7 @@ Metrics: **53** · named by no code outside tests (decision pending): **10**
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | not tracked (no sync job feeds this module) |
-| Consumers | widget `exec-home#sites-tr (ragGrid)`<br>alert rule `tracker.site.red`<br>server code: `services/agendaBuilder.js`<br>server code: `services/dashboardData.js`<br>server code: `services/reportConfig.js`<br>exports: `services/dashboardCsv.js`<br>API routes: `routes/extApi.js` · tests: 4 file(s) |
+| Consumers | widget `exec-home#sites-tr (ragGrid)`<br>alert rule `tracker.site.red`<br>server code: `services/agendaBuilder.js`<br>server code: `services/dashboardData.js`<br>server code: `services/reportConfig.js`<br>exports: `services/dashboardCsv.js`<br>API routes: `routes/extApi.js` · tests: 5 file(s) |
 
 ## `tracker.site_green`
 

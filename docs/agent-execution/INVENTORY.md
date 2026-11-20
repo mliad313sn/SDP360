@@ -9,10 +9,10 @@
 | pages | 62 |
 | pages without test reference | 0 |
 | pages without declared role | 6 |
-| pages not in navigation | 30 |
-| pages not in shell or module tabs | 21 |
+| pages not in navigation | 29 |
+| pages not in shell or module tabs | 20 |
 | pages deep link only | 9 |
-| pages without entry point | 3 |
+| pages without entry point | 2 |
 | pages with inline scripts | 46 |
 | routes | 753 |
 | routes without test reference | 30 |
@@ -20,73 +20,73 @@
 | jobs | 33 |
 | jobs without test reference | 0 |
 | migrations | 105 |
-| test files | 863 |
+| test files | 867 |
 
 ## Pages
 
 | Id | Page | Role required | In nav | Inline scripts | Tests |
 |---|---|---|---|---:|---:|
 | PG-access | public/access.html | any | no | 0 | 7 |
-| PG-activity-tracker | public/activity-tracker.html | any | yes | 0 | 6 |
-| PG-analytics | public/analytics.html | admin / scorecard-viewer | yes | 1 | 9 |
+| PG-activity-tracker | public/activity-tracker.html | admin / tracker-admin / tracker-editor | yes | 0 | 7 |
+| PG-analytics | public/analytics.html | admin / scorecard-viewer | yes | 1 | 10 |
 | PG-assets-finance | public/assets-finance.html | UNKNOWN | no | 1 | 2 |
 | PG-assets-hygiene | public/assets-hygiene.html | UNKNOWN | no | 1 | 3 |
-| PG-assets | public/assets.html | any | yes | 10 | 16 |
-| PG-cockpit | public/cockpit.html | any | yes | 1 | 10 |
+| PG-assets | public/assets.html | any | yes | 10 | 18 |
+| PG-cockpit | public/cockpit.html | any | yes | 1 | 11 |
 | PG-commitments | public/commitments.html | any | no | 1 | 6 |
-| PG-connector-health | public/connector-health.html | admin | yes | 0 | 2 |
+| PG-connector-health | public/connector-health.html | admin | yes | 0 | 3 |
 | PG-coverage | public/coverage.html | any | no | 0 | 3 |
 | PG-dashboard-composer | public/dashboard-composer.html | admin / dashboard-publisher | no | 1 | 5 |
-| PG-dashboards | public/dashboards.html | any | yes | 1 | 13 |
-| PG-data-quality | public/data-quality.html | admin | yes | 0 | 2 |
+| PG-dashboards | public/dashboards.html | any | yes | 1 | 14 |
+| PG-data-quality | public/data-quality.html | admin | yes | 0 | 3 |
 | PG-exec-view | public/exec-view.html | public | no | 1 | 8 |
-| PG-executive-report | public/executive-report.html | super_admin | yes | 1 | 13 |
-| PG-executive | public/executive.html | executive / scorecard-viewer | yes | 1 | 16 |
-| PG-finance | public/finance.html | admin / finance-viewer / finance-verifier | yes | 0 | 3 |
-| PG-handoffs | public/handoffs.html | any | yes | 1 | 9 |
-| PG-help | public/help.html | any | yes | 1 | 11 |
-| PG-home | public/home.html | any | yes | 0 | 15 |
-| PG-index | public/index.html | any | yes | 1 | 34 |
-| PG-infra-health | public/infra-health.html | any | yes | 2 | 6 |
+| PG-executive-report | public/executive-report.html | super_admin | yes | 1 | 14 |
+| PG-executive | public/executive.html | executive / scorecard-viewer | yes | 1 | 17 |
+| PG-finance | public/finance.html | admin / finance-viewer | yes | 0 | 4 |
+| PG-handoffs | public/handoffs.html | any | yes | 1 | 10 |
+| PG-help | public/help.html | any | yes | 1 | 12 |
+| PG-home | public/home.html | any | yes | 0 | 17 |
+| PG-index | public/index.html | any | yes | 1 | 38 |
+| PG-infra-health | public/infra-health.html | any | yes | 2 | 7 |
 | PG-inspection-actions | public/inspection-actions.html | any | no | 1 | 6 |
-| PG-inspection | public/inspection.html | any | no | 2 | 8 |
-| PG-inspections | public/inspections.html | any | yes | 1 | 8 |
-| PG-integrations | public/integrations.html | any | yes | 1 | 4 |
-| PG-it-review | public/it-review.html | executive / scorecard-viewer | yes | 2 | 8 |
+| PG-inspection | public/inspection.html | any | no | 2 | 9 |
+| PG-inspections | public/inspections.html | any | yes | 1 | 10 |
+| PG-integrations | public/integrations.html | admin | yes | 1 | 5 |
+| PG-it-review | public/it-review.html | executive / scorecard-viewer | yes | 2 | 9 |
 | PG-itsm-integrations-plan | public/itsm-integrations-plan.html | UNKNOWN | no | 0 | 5 |
 | PG-itsm-roadmap | public/itsm-roadmap.html | super_admin | no | 1 | 5 |
-| PG-kpi-builder | public/kpi-builder.html | any | no | 0 | 2 |
+| PG-kpi-builder | public/kpi-builder.html | any | yes | 0 | 4 |
 | PG-login | public/login.html | public | no | 1 | 13 |
-| PG-meeting | public/meeting.html | any | no | 1 | 13 |
+| PG-meeting | public/meeting.html | any | no | 1 | 14 |
 | PG-meetings-actions | public/meetings-actions.html | any | no | 2 | 9 |
 | PG-meetings-compliance | public/meetings-compliance.html | any | no | 2 | 4 |
 | PG-meetings-council | public/meetings-council.html | any | no | 2 | 3 |
 | PG-meetings-import | public/meetings-import.html | editor | no | 2 | 4 |
 | PG-meetings-insights | public/meetings-insights.html | any | no | 2 | 5 |
-| PG-meetings-issues | public/meetings-issues.html | any | no | 2 | 5 |
+| PG-meetings-issues | public/meetings-issues.html | any | no | 2 | 6 |
 | PG-meetings-progress | public/meetings-progress.html | any | no | 2 | 3 |
 | PG-meetings-setup | public/meetings-setup.html | any | no | 1 | 4 |
 | PG-meetings-unsigned | public/meetings-unsigned.html | any | no | 2 | 4 |
-| PG-meetings | public/meetings.html | any | yes | 2 | 7 |
+| PG-meetings | public/meetings.html | any | yes | 2 | 9 |
 | PG-no-access | public/no-access.html | any | no | 0 | 2 |
-| PG-notifications | public/notifications.html | any | yes | 1 | 3 |
-| PG-obligations | public/obligations.html | any | yes | 0 | 4 |
-| PG-policies | public/policies.html | admin / committee-member | yes | 1 | 5 |
-| PG-portfolio | public/portfolio.html | any | yes | 1 | 16 |
+| PG-notifications | public/notifications.html | any | yes | 1 | 4 |
+| PG-obligations | public/obligations.html | any | yes | 0 | 5 |
+| PG-policies | public/policies.html | admin / committee-member | yes | 1 | 6 |
+| PG-portfolio | public/portfolio.html | any | yes | 1 | 17 |
 | PG-project | public/project.html | any | no | 1 | 20 |
-| PG-report-studio | public/report-studio.html | any | yes | 1 | 3 |
-| PG-reports | public/reports.html | any | yes | 2 | 38 |
-| PG-rfi | public/rfi.html | any | yes | 1 | 4 |
-| PG-site-actions | public/site-actions.html | any | yes | 1 | 17 |
-| PG-site-awareness | public/site-awareness.html | site-business / group-business / executive | yes | 2 | 5 |
+| PG-report-studio | public/report-studio.html | any | yes | 1 | 4 |
+| PG-reports | public/reports.html | any | yes | 2 | 41 |
+| PG-rfi | public/rfi.html | any | yes | 1 | 5 |
+| PG-site-actions | public/site-actions.html | any | yes | 1 | 18 |
+| PG-site-awareness | public/site-awareness.html | site-business / group-business / executive | yes | 2 | 6 |
 | PG-site-report | public/site-report.html | UNKNOWN | no | 0 | 6 |
-| PG-system-logs | public/system-logs.html | super_admin | yes | 1 | 3 |
+| PG-system-logs | public/system-logs.html | super_admin | yes | 1 | 4 |
 | PG-tracker-builder | public/tracker-builder.html | admin / tracker-admin | no | 1 | 4 |
-| PG-trackers | public/trackers.html | any | yes | 1 | 3 |
-| PG-value-scoreboard | public/value-scoreboard.html | admin | yes | 0 | 2 |
+| PG-trackers | public/trackers.html | any | yes | 1 | 4 |
+| PG-value-scoreboard | public/value-scoreboard.html | admin | yes | 0 | 3 |
 | PG-wan-health | public/wan-health.html | UNKNOWN | no | 0 | 4 |
 | PG-wan-sla | public/wan-sla.html | UNKNOWN | no | 0 | 4 |
-| PG-wan | public/wan.html | any | yes | 3 | 15 |
+| PG-wan | public/wan.html | any | yes | 3 | 16 |
 | PG-workspace-settings | public/workspace-settings.html | any | no | 0 | 3 |
 
 ## Page entry points (E-U04)
@@ -124,7 +124,7 @@
 | public/it-review.html | yes | — | lib/workspaceProfiles.js | — | — | shell |
 | public/itsm-integrations-plan.html | — | — | itsm-roadmap.html | — | — | itsm-roadmap.html |
 | public/itsm-roadmap.html | — | — | — | — | the manager's personal roadmap tool: reached by its URL (bookmark), deliberately outside the shared menu | — |
-| public/kpi-builder.html | — | — | — | — | — | **NO ENTRY POINT** — KPI policy builder (kpi-committee) — only named in the role help text of the Users card |
+| public/kpi-builder.html | yes | — | — | — | — | shell |
 | public/login.html | — | — | auth.js, executive-report.html, reports.html | — | sign-in page: reached by redirect from every gated page (auth.js), not from a menu | executive-report.html |
 | public/meeting.html | — | — | lib/home-page.js, meetings-actions.html, meetings-council.html, meetings-issues.html (+4) | — | — | meetings-actions.html |
 | public/meetings-actions.html | — | yes | — | — | — | meetings.html |
@@ -162,34 +162,34 @@
 
 | Id | Method | Path | File:line |
 |---|---|---|---|
-| RT-POST-api-admin-refresh-major-incident-udfs | POST | `/api/admin/refresh-major-incident-udfs` | server.js:1967 |
-| RT-GET-api-cab | GET | `/api/cab` | server.js:1717 |
-| RT-GET-api-change | GET | `/api/change` | server.js:1695 |
-| RT-GET-api-data-ageing-by-group | GET | `/api/data/ageing-by-group` | server.js:2877 |
-| RT-GET-api-data-ageing-by-site | GET | `/api/data/ageing-by-site` | server.js:2827 |
-| RT-GET-api-data-cab-approvals | GET | `/api/data/cab-approvals` | server.js:2399 |
-| RT-GET-api-data-cab-recommendations | GET | `/api/data/cab-recommendations` | server.js:2421 |
-| RT-GET-api-data-change-table | GET | `/api/data/change-table` | server.js:2165 |
-| RT-GET-api-data-emergency-changes | GET | `/api/data/emergency-changes` | server.js:2333 |
-| RT-GET-api-data-first-response | GET | `/api/data/first-response` | server.js:2198 |
-| RT-GET-api-data-group-requests | GET | `/api/data/group-requests` | server.js:2311 |
-| RT-GET-api-data-incident-vs-sr | GET | `/api/data/incident-vs-sr` | server.js:2377 |
-| RT-GET-api-data-major-incidents | GET | `/api/data/major-incidents` | server.js:2138 |
-| RT-GET-api-data-monthly-summary | GET | `/api/data/monthly-summary` | server.js:2782 |
-| RT-GET-api-data-sla-by-category | GET | `/api/data/sla-by-category` | server.js:2268 |
+| RT-POST-api-admin-refresh-major-incident-udfs | POST | `/api/admin/refresh-major-incident-udfs` | server.js:1969 |
+| RT-GET-api-cab | GET | `/api/cab` | server.js:1719 |
+| RT-GET-api-change | GET | `/api/change` | server.js:1697 |
+| RT-GET-api-data-ageing-by-group | GET | `/api/data/ageing-by-group` | server.js:2879 |
+| RT-GET-api-data-ageing-by-site | GET | `/api/data/ageing-by-site` | server.js:2829 |
+| RT-GET-api-data-cab-approvals | GET | `/api/data/cab-approvals` | server.js:2401 |
+| RT-GET-api-data-cab-recommendations | GET | `/api/data/cab-recommendations` | server.js:2423 |
+| RT-GET-api-data-change-table | GET | `/api/data/change-table` | server.js:2167 |
+| RT-GET-api-data-emergency-changes | GET | `/api/data/emergency-changes` | server.js:2335 |
+| RT-GET-api-data-first-response | GET | `/api/data/first-response` | server.js:2200 |
+| RT-GET-api-data-group-requests | GET | `/api/data/group-requests` | server.js:2313 |
+| RT-GET-api-data-incident-vs-sr | GET | `/api/data/incident-vs-sr` | server.js:2379 |
+| RT-GET-api-data-major-incidents | GET | `/api/data/major-incidents` | server.js:2140 |
+| RT-GET-api-data-monthly-summary | GET | `/api/data/monthly-summary` | server.js:2784 |
+| RT-GET-api-data-sla-by-category | GET | `/api/data/sla-by-category` | server.js:2270 |
 | RT-GET-api-integration-fmp-readiness | GET | `/api/integration/fmp/readiness` | routes/fourmypeople.js:31 |
 | RT-GET-api-meetings-import-incubation-template | GET | `/api/meetings/import/incubation-template` | routes/meetings.js:806 |
 | RT-POST-api-meetings-import-incubation-commit | POST | `/api/meetings/import/incubation/commit` | routes/meetings.js:846 |
 | RT-POST-api-meetings-import-incubation-preview | POST | `/api/meetings/import/incubation/preview` | routes/meetings.js:819 |
 | RT-GET-api-meetings-progress-export-pptx | GET | `/api/meetings/progress/export-pptx` | routes/meetings.js:922 |
-| RT-GET-api-reports-helpdesk-live | GET | `/api/reports/helpdesk-live` | server.js:4310 |
-| RT-GET-api-reports-technicians | GET | `/api/reports/technicians` | server.js:4567 |
+| RT-GET-api-reports-helpdesk-live | GET | `/api/reports/helpdesk-live` | server.js:4314 |
+| RT-GET-api-reports-technicians | GET | `/api/reports/technicians` | server.js:4571 |
 | RT-POST-api-reports-test-smtp | POST | `/api/reports/test-smtp` | routes/adminConfig.js:177 |
 | RT-GET-api-risk-register-config-unmapped | GET | `/api/risk-register-config/unmapped` | routes/riskRegister.js:130 |
 | RT-GET-api-roadmap-evidence-catalogue | GET | `/api/roadmap/evidence/catalogue` | routes/roadmap.js:56 |
 | RT-GET-api-roadmap-evidence-incidents | GET | `/api/roadmap/evidence/incidents` | routes/roadmap.js:73 |
 | RT-GET-api-roadmap-evidence-platform | GET | `/api/roadmap/evidence/platform` | routes/roadmap.js:64 |
-| RT-POST-api-save-pptx | POST | `/api/save-pptx` | server.js:5247 |
+| RT-POST-api-save-pptx | POST | `/api/save-pptx` | server.js:5251 |
 | RT-POST-api-tracker-import-dept-meetings | POST | `/api/tracker/import-dept-meetings` | routes/tracker.js:109 |
 | RT-GET- | GET | `/` | server.js:1356 |
 

@@ -57,7 +57,8 @@ test('invariant 3 (static): business-only roles reach only Site Awareness + sess
     for (const role of ['site-business', 'group-business']) {
       if (!r.allowed_roles.includes(role)) continue;
       assert.ok(guard.isAllowed(r.path.slice(4)), `${r.key} reachable by ${role}`);
-      assert.match(r.path, /^\/api\/(site-awareness|reports\/auth|auth|ping|health\/version|workspace\/(me|prefs))(\/|$)/, r.key);
+      // Adoption Lot A (item 17): + POST /api/ux/page-view — writes the CALLER's own page_viewed row, returns {ok, logged}, reads nothing
+      assert.match(r.path, /^\/api\/(site-awareness|reports\/auth|auth|ping|health\/version|workspace\/(me|prefs)|ux\/page-view)(\/|$)/, r.key);
     }
   }
 });

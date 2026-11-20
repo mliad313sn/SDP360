@@ -785,7 +785,7 @@
   "POST /api/trackers/:key/sync": "UUUFFFFNFFFFFFFFFFFFSSS",
   "POST /api/trackers/legacy/import": "UUUFFFFAFFFFFFFFFFFFAAA",
   "POST /api/ux/event": "UUUVVVVVVVVVVVVVVVFFVVV",
-  "POST /api/ux/page-view": "UUUVVVVVVVVVVVVVVVFFVVV",
+  "POST /api/ux/page-view": "UUUVVVVVVVVVVVVVVVVVVVV",
   "POST /api/value-scoreboard/snapshot": "UUUFFFFFFFFFFFFFFFFFFFA",
   "PUT /api/access/templates/versions/:vid": "UUUFFFFFFFFFFFFFFFFFFFV",
   "PUT /api/analytics/wan/mappings": "UUUFFFFFFFFFFFFFFFFFFFA",
