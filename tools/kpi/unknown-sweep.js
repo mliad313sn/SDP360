@@ -67,7 +67,12 @@ function scan() {
   return hits;
 }
 
-function loadBaseline() { try { return JSON.parse(fs.readFileSync(BASELINE, 'utf8')); } catch (_) { return { reviewed: {} }; } }
+// P11 F-05 — a missing baseline is SAID (baselineMissing), never read silently as "nothing reviewed": in a tree
+// without docs/agent-execution/ every reviewed hit used to show up as UNJUSTIFIED with no hint why.
+function loadBaseline() {
+  if (!fs.existsSync(BASELINE)) return { reviewed: {}, missing: true };
+  return JSON.parse(fs.readFileSync(BASELINE, 'utf8'));
+}
 
 /** { hits, unjustified, byCategory } — a hit is justified by a rule or by a reviewed baseline note. */
 function check() {
@@ -75,7 +80,7 @@ function check() {
   const unjustified = hits.filter((h) => !h.rule && !reviewed[h.key]);
   const byCategory = {};
   for (const h of hits) { const c = h.rule || (reviewed[h.key] ? 'reviewed:' + reviewed[h.key].verdict : 'UNJUSTIFIED'); byCategory[c] = (byCategory[c] || 0) + 1; }
-  return { hits, unjustified, byCategory, reviewed };
+  return { hits, unjustified, byCategory, reviewed, baselineMissing: !!base.missing, baseline: BASELINE };
 }
 
 if (require.main === module) {
@@ -92,6 +97,10 @@ if (require.main === module) {
       console.log(`| ${h.file}:${h.line} | \`${h.text.replace(/\|/g, '\\|').slice(0, 110)}\` | ${h.rule ? 'justified (' + h.rule + ')' : rv ? rv.verdict : 'UNJUSTIFIED'} | ${(rule ? rule.why : rv ? rv.note : '').replace(/\|/g, '\\|')} |`); }
   } else {
     console.log(JSON.stringify({ total: r.hits.length, byCategory: r.byCategory, unjustified: r.unjustified.length }, null, 1));
+    if (a.includes('--check') && r.baselineMissing) {
+      console.error(`reviewed baseline file is missing: ${path.relative(ROOT, BASELINE)} — the reviewed hits cannot be matched (restore the file; this is not a code regression)`);
+      process.exit(1);
+    }
     if (a.includes('--check') && (r.unjustified.length || r.hits.some((h) => !h.rule && r.reviewed[h.key] && r.reviewed[h.key].verdict === 'TODO'))) {
       for (const h of r.unjustified) console.error(`UNJUSTIFIED ${h.file}:${h.line}  ${h.text}`);
       process.exit(1);
