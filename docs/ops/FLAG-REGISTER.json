@@ -15,7 +15,7 @@
   "report_config": 319,
   "planned": 9,
   "governance_policies": 37,
-  "environment": 70,
+  "environment": 71,
   "pseudo": 4,
   "dark": 173,
   "dark_complete": 0,
@@ -4752,6 +4752,17 @@
    ]
   },
   {
+   "key": "SDP_BLOB_ROOT",
+   "source": "environment",
+   "kind": "switch",
+   "secret": false,
+   "default_when_unset": null,
+   "owner_role": null,
+   "read_in": [
+    "services/blobBackup.js"
+   ]
+  },
+  {
    "key": "SDP_CONFIG_BOX_VERSION",
    "source": "environment",
    "kind": "switch",
@@ -4799,6 +4810,7 @@
     "reports-db.js",
     "routes/health.js",
     "server.js",
+    "services/blobBackup.js",
     "services/blobStore.js",
     "services/sync/jobs.js",
     "tracker-db.js"

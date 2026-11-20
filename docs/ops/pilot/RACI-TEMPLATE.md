@@ -6,7 +6,7 @@ data-steward and decision-SLA cell below is deliberately empty**: no name, no de
 the delivery team or an agent. R = responsible, A = accountable (one per row), C = consulted, I = informed.
 
 Sources: the product domains (below), 14 connectors from `docs/sdp360/completion/CONNECTOR-REGISTER.csv`, and
-**209 switches whose owner is "to be named"** in `docs/ops/FLAG-REGISTER.md`, grouped into 80 areas.
+**210 switches whose owner is "to be named"** in `docs/ops/FLAG-REGISTER.md`, grouped into 80 areas.
 
 ## 1. Product domains
 
@@ -41,7 +41,7 @@ Sources: the product domains (below), 14 connectors from `docs/sdp360/completion
 | C13 | Defender, AD and Entra device exports | ACTIVE (manual) | Infrastructure owner | | | | | | |
 | C14 | Microsoft Graph — Entra leaver check (users/{id} accountEnabled) | DORMANT (entra_deprovision_enabled 0; needs User.Read.All application consent — human gate 2) | Information Security | | | | | | |
 
-## 3. Switches with no owner yet — 209, by area
+## 3. Switches with no owner yet — 210, by area
 
 | Area | Switches | Count | R | A | C | I | Data steward | Decision SLA |
 |---|---|---|---|---|---|---|---|---|
@@ -67,7 +67,7 @@ Sources: the product domains (below), 14 connectors from `docs/sdp360/completion
 | Environment variables · port | `PORT` | 1 | | | | | | |
 | Environment variables · report | `REPORT_BROWSER` `REPORT_PDF_TIMEOUT_MS` `REPORT_SEND_TIMEOUT_MS` | 3 | | | | | | |
 | Environment variables · require | `REQUIRE_CONFIG_KEY` `REQUIRE_POSTGRES` | 2 | | | | | | |
-| Environment variables · sdp | `SDP_ALLOW_PLAINTEXT_SECRETS` `SDP_BACKUP_ALLOW_PLAINTEXT` `SDP_BACKUP_DIR` `SDP_BACKUP_KEEP` `SDP_BACKUP_KEY` `SDP_CONFIG_KEY` `SDP_DATA_DIR` `SDP_QUAL_CFG_TTL_MS` `SDP_READY_FAIL_CACHE_MS` `SDP_READY_STATEMENT_TIMEOUT_MS` `SDP_SERVICE` `SDP_TEST_NO_RATE_LIMIT` | 12 | | | | | | |
+| Environment variables · sdp | `SDP_ALLOW_PLAINTEXT_SECRETS` `SDP_BACKUP_ALLOW_PLAINTEXT` `SDP_BACKUP_DIR` `SDP_BACKUP_KEEP` `SDP_BACKUP_KEY` `SDP_BLOB_ROOT` `SDP_CONFIG_KEY` `SDP_DATA_DIR` `SDP_QUAL_CFG_TTL_MS` `SDP_READY_FAIL_CACHE_MS` `SDP_READY_STATEMENT_TIMEOUT_MS` `SDP_SERVICE` `SDP_TEST_NO_RATE_LIMIT` | 13 | | | | | | |
 | Environment variables · session | `SESSION_HOURS` | 1 | | | | | | |
 | Environment variables · sso | `SSO_BREAKGLASS_USER` `SSO_ENABLED` `SSO_GROUP_MAP` `SSO_MODE` | 4 | | | | | | |
 | Environment variables · sync | `SYNC_TRUNCATION_SHRINK_CONFIRMATIONS` `SYNC_TRUNCATION_TOLERANCE_PCT` | 2 | | | | | | |
