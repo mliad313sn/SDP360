@@ -204,7 +204,7 @@ not the browser-checked level.
 | `docs/agent-execution/P11-fix9-NEW-1.md` | P11 | code+test | pending | pending | `83f309ec23e4e81317829a0cf41eaf747eed3fd81b991be731645c5c2c5dd4ce` |
 | `docs/agent-execution/P11-r2-fix6.md` | P11 | code+test | pending | pending | `89b042252deafa49334ea9b41a8799943f6c39d6d583e2096c3c204f85c4917d` |
 | `docs/agent-execution/P11-r2-ux-field-fixes.md` | P11 | code+test | pending | pending | `0b100d191aca5ce94c6395923e413b56c6b9db8004bfac47121eaa0e6325566e` |
-| `docs/agent-execution/P11-readiness-report.md` | P11 | code+test | pending | pending | `18c406a350206fab9f53a9731420a1e1f26e337cf6a025d47843aa6a3ae6393c` |
+| `docs/agent-execution/P11-readiness-report.md` | P11 | code+test | pending | pending | `74c893e111287d4ab898fd6cd9c1fd0e388faaaa4f62af699ca8543baf6e3025` |
 | `docs/agent-execution/PERF-BASELINE.md` | — (reference) | — | — | — | `87bb8122e2371fc4f53c2daadf8773c755a1eecda166e62dcbd0c6c862362ab9` |
 | `docs/agent-execution/PLAN-REVIEW-2026-11-04.md` | — (reference) | — | — | — | `73b5994a781123a7e22e1d57ea59ca90bfb3f1e422d4fd044d7c7cabaa4b688e` |
 | `docs/agent-execution/POLICY-CENTER.md` | — (reference) | — | — | — | `b94496fce0aac3859324261a44aded5ed07ea59e4fe5934898ff7122f83f70be` |
