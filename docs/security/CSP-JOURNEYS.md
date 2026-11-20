@@ -104,7 +104,7 @@ by the nonce-only policy just like handlers in the markup. **Nonce** = rendered 
 tags receive the request nonce. **candidate** = nothing a static scan can see would be blocked; it is a proposal for
 `report_config.csp_strict_pages` after a report-only run, not an approval.
 
-Pages: 63 — strict 2, candidate 55, blocked 6.
+Pages: 64 — strict 3, candidate 55, blocked 6.
 
 | Page | Inline scripts | Markup handlers | Script-built handlers | Nonce | Readiness |
 |---|---|---|---|---|---|
@@ -155,6 +155,7 @@ Pages: 63 — strict 2, candidate 55, blocked 6.
 | `/notifications.html` | 1 | 0 | 0 | yes | candidate |
 | `/obligations.html` | 0 | 0 | 0 | yes | candidate |
 | `/policies.html` | 1 | 0 | 0 | yes | candidate |
+| `/policy-center.html` | 0 | 0 | 0 | yes | strict |
 | `/portfolio.html` | 1 | 0 | 0 | yes | candidate |
 | `/project.html` | 1 | 0 | 0 | yes | candidate |
 | `/report-studio.html` | 1 | 0 | 0 | yes | candidate |

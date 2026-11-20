@@ -251,7 +251,7 @@
    "title": "Operations resilience — sync drift, delivery failures, restore, identity",
    "status": "PROPOSED",
    "profiles": "Platform/ops owner, data owners per flow, Information Security, data owner (site codes)",
-   "changes": "Drift alerts through the existing sync alert path, delivery-failure alerts, full restore drill (TEST instance), Entra deprovisioning DRY RUN, controlled 409 on shared site codes.",
+   "changes": "Drift alerts through the existing sync alert path, delivery-failure alerts, full restore drill (TEST instance), Entra deprovisioning DRY RUN, controlled 409 on shared site codes. Policy control center (one page over the existing rule stores; high-risk changes need a second super_admin).",
    "risk": "medium (AI estimate): alerts use the already-armed sync alert path (recipients needed); site_code_shared_block refuses saves until the data owner fixes shared codes.",
    "metric_candidate": "sync drift alerts acknowledged; restore drill RTO measured (no threshold set here)",
    "switches": [
@@ -259,7 +259,8 @@
     "delivery_failure_alert_enabled",
     "restore_drill_full",
     "entra_deprovision_enabled",
-    "site_code_shared_block"
+    "site_code_shared_block",
+    "policy_center_enabled"
    ]
   },
   {

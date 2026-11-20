@@ -6,21 +6,21 @@
 
 | Item | Count |
 |---|---:|
-| pages | 62 |
+| pages | 63 |
 | pages without test reference | 0 |
 | pages without declared role | 6 |
 | pages not in navigation | 30 |
 | pages not in shell or module tabs | 21 |
 | pages deep link only | 9 |
-| pages without entry point | 3 |
+| pages without entry point | 2 |
 | pages with inline scripts | 46 |
-| routes | 759 |
+| routes | 769 |
 | routes without test reference | 30 |
 | routes in server js | 160 |
 | jobs | 33 |
 | jobs without test reference | 0 |
-| migrations | 106 |
-| test files | 866 |
+| migrations | 107 |
+| test files | 868 |
 
 ## Pages
 
@@ -55,7 +55,7 @@
 | PG-it-review | public/it-review.html | executive / scorecard-viewer | yes | 2 | 8 |
 | PG-itsm-integrations-plan | public/itsm-integrations-plan.html | UNKNOWN | no | 0 | 5 |
 | PG-itsm-roadmap | public/itsm-roadmap.html | super_admin | no | 1 | 5 |
-| PG-kpi-builder | public/kpi-builder.html | any | no | 0 | 2 |
+| PG-kpi-builder | public/kpi-builder.html | any | no | 0 | 3 |
 | PG-login | public/login.html | public | no | 1 | 13 |
 | PG-meeting | public/meeting.html | any | no | 1 | 13 |
 | PG-meetings-actions | public/meetings-actions.html | any | no | 2 | 9 |
@@ -72,6 +72,7 @@
 | PG-notifications | public/notifications.html | any | yes | 1 | 3 |
 | PG-obligations | public/obligations.html | any | yes | 0 | 4 |
 | PG-policies | public/policies.html | admin / committee-member | yes | 1 | 5 |
+| PG-policy-center | public/policy-center.html | admin | yes | 0 | 4 |
 | PG-portfolio | public/portfolio.html | any | yes | 1 | 17 |
 | PG-project | public/project.html | any | no | 1 | 21 |
 | PG-report-studio | public/report-studio.html | any | yes | 1 | 3 |
@@ -124,7 +125,7 @@
 | public/it-review.html | yes | — | lib/workspaceProfiles.js | — | — | shell |
 | public/itsm-integrations-plan.html | — | — | itsm-roadmap.html | — | — | itsm-roadmap.html |
 | public/itsm-roadmap.html | — | — | — | — | the manager's personal roadmap tool: reached by its URL (bookmark), deliberately outside the shared menu | — |
-| public/kpi-builder.html | — | — | — | — | — | **NO ENTRY POINT** — KPI policy builder (kpi-committee) — only named in the role help text of the Users card |
+| public/kpi-builder.html | — | — | lib/policyCenterPage.js | — | — | lib/policyCenterPage.js |
 | public/login.html | — | — | auth.js, executive-report.html, reports.html | — | sign-in page: reached by redirect from every gated page (auth.js), not from a menu | executive-report.html |
 | public/meeting.html | — | — | lib/home-page.js, meetings-actions.html, meetings-council.html, meetings-issues.html (+4) | — | — | meetings-actions.html |
 | public/meetings-actions.html | — | yes | — | — | — | meetings.html |
@@ -141,6 +142,7 @@
 | public/notifications.html | yes | — | home.html, site-actions.html | — | — | shell |
 | public/obligations.html | yes | — | home.html, site-actions.html | — | — | shell |
 | public/policies.html | yes | — | access.html, lib/workspaceProfiles.js | — | — | shell |
+| public/policy-center.html | yes | — | — | — | — | shell |
 | public/portfolio.html | yes | — | itsm-roadmap.html, lib/workspaceProfiles.js, project.html | — | — | shell |
 | public/project.html | — | — | lib/home-page.js, lib/portfolioViews.js, lib/ppmRoadmapNnl.js, meeting.html (+1) | — | — | meeting.html |
 | public/report-studio.html | yes | — | lib/workspaceProfiles.js | — | — | shell |

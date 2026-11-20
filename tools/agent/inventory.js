@@ -77,7 +77,6 @@ const DEEP_LINK_ONLY = {
 // reachable and stays listed. Where to link them is a navigation decision for a person (E-U04 evidence).
 const KNOWN_DEAD_ENDS = {
   'coverage.html': 'duty coverage page — no menu entry, no link from another page',
-  'kpi-builder.html': 'KPI policy builder (kpi-committee) — only named in the role help text of the Users card',
   'site-report.html': 'live site scoreboard — no link from the app (the coordinator e-mail names it but carries no link)',
 };
 const HREF_RE = /(?:href\s*[:=]\s*|location(?:\.href)?\s*=\s*|location\.(?:assign|replace)\(\s*|url=)['"`]?(?:\/)?([a-z0-9][a-z0-9._-]*\.html)/gi;

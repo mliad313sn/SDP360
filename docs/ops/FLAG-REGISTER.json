@@ -1608,6 +1608,18 @@
    "prerequisites": null
   },
   {
+   "key": "policy_center_enabled",
+   "source": "report_config",
+   "kind": "arm switch",
+   "secret": false,
+   "default": "0",
+   "dark": true,
+   "owner_role": null,
+   "recommended": null,
+   "reference": null,
+   "prerequisites": null
+  },
+  {
    "key": "portfolio_editor_plan_writes",
    "source": "report_config",
    "kind": "setting",
@@ -6528,6 +6540,34 @@
    "default": "0",
    "owner_role": "Incident manager + business sponsor",
    "reference": "E-I03",
+   "prerequisites": null,
+   "decision": {
+    "owner": null,
+    "risk": null,
+    "dependencies": null,
+    "canary_site": null,
+    "rollback_trigger": null,
+    "success_metric": null,
+    "decision_deadline": null,
+    "expiry": null
+   },
+   "missing": [
+    "owner",
+    "risk",
+    "dependencies",
+    "canary_site",
+    "rollback_trigger",
+    "success_metric",
+    "decision_deadline",
+    "expiry"
+   ]
+  },
+  {
+   "key": "policy_center_enabled",
+   "source": "report_config",
+   "default": "0",
+   "owner_role": null,
+   "reference": null,
    "prerequisites": null,
    "decision": {
     "owner": null,

@@ -6,7 +6,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
-const PAGES = ['policies.html', 'handoffs.html', 'cockpit.html', 'dashboard-composer.html', 'tracker-builder.html', 'commitments.html'];
+const PAGES = ['policy-center.html', 'policies.html', 'handoffs.html', 'cockpit.html', 'dashboard-composer.html', 'tracker-builder.html', 'commitments.html'];
 
 for (const p of PAGES) {
   test(`${p}: no native prompt/confirm; loads the inline dialog`, () => {

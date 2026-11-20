@@ -34,7 +34,9 @@ const PPM = ['010_roadmap', '011_roadmap_project', '039_native_ppm', '043_portfo
   // W4-CONNECTORS — optional Jira / Azure DevOps read-only pull: per-project opt-in + task ↔ work-item links
   '112_ppm_external_connectors',
   // PORTFOLIO LOT 1 — register identity (PRJ-YYYY-NNN) + intake fields + portfolio reference lists
-  '117_ppm_intake_register'];
+  '117_ppm_intake_register',
+  // Policy Control Center — four-eyes requests for high-risk report_config rules
+  '120_policy_change_requests'];
 
 async function snapshot(pg) {
   const q = async (sql) => (await pg.prepare(sql).all()).map((r) => Object.values(r).join('|'));

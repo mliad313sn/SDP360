@@ -151,6 +151,7 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `opmanager_tls_insecure` | `0` | setting | to be named | — | — | — |
 | `outbound_allow_hosts` | `` | setting | to be named | — | — | — |
 | `pir_reviews_enabled` | `0` | arm switch | Incident manager + business sponsor | `1` once the Incident manager names who signs a post-incident review and the business sponsor per major incident (the sign-off is a recorded human act by someone other than the author; nothing is sent) | E-I03 | — |
+| `policy_center_enabled` | `0` | arm switch | to be named | — | — | — |
 | `portfolio_editor_plan_writes` | `0` | setting | Owner (access policy) | `1` | A-15 | — |
 | `portfolio_executive_readonly` | `0` | setting | Owner + IAM | PROPOSITION: `1` only after the PO / IAM decide that the direction reads the portfolio without changing it (an account whose only write tier is `executive` gets 403 on portfolio, project, benefit and change-request writes; admin, super_admin and committee-member unchanged) | UAT-OI-05 | — |
 | `portfolio_my_projects_default` | `0` | setting | PMO | `1` once the PMO wants the portfolio page to open on "My projects" (projects I own, of my sites, or where I am a named team member) — the admin tier, the committee and finance-viewer keep an explicit "All projects" choice. Presentation only: grants nothing, the API still answers with what the reader may read | B3 (P7a) | — |
