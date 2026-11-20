@@ -25,7 +25,7 @@ Qui peut vérifier et clore un engagement, qui accepte le risque résiduel, et q
 | `docs/sdp360/completion/GOVERNANCE-LIFECYCLE.md` | Cycle de vie des engagements | `manual` | f69d7fa2, 2026-10-28 | `040eb0f33a500f96` |
 | `tests/commitment-lifecycle.test.js` | Règles du cycle de vie | `node --test --test-force-exit tests/commitment-lifecycle.test.js` | 7c2ecba2, 2026-11-20 | `15d4a5ad75643af2` |
 | `tests/commitment-escalation.test.js` | Règles d'escalade | `node --test --test-force-exit tests/commitment-escalation.test.js` | 2054b544, 2026-10-28 | `f7858855a224b5c0` |
-| `tests/commitments-routes.smoke.test.js` | Les routes répondent 404 tant que l'interrupteur est éteint | `node --test --test-force-exit tests/commitments-routes.smoke.test.js` | 8253c5e3, 2026-11-19 | `94ba4439ac4f8225` |
+| `tests/commitments-routes.smoke.test.js` | Les routes répondent 404 tant que l'interrupteur est éteint | `node --test --test-force-exit tests/commitments-routes.smoke.test.js` | 4ed787fe, 2026-11-20 | `8c2d946959276e1b` |
 | `docs/ops/FLAG-REGISTER.json` | Registre des interrupteurs : défaut, responsable (à nommer) | `node tools/agent/flag-register.js` | 35065f98, 2026-11-20 | `2abb829624defcf1` |
 
 **Preuves attendues des lots parallèles**

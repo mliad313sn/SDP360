@@ -121,7 +121,33 @@ they stay outside activation lots by the plan's own reasons (`docs/ops/SWITCH-LO
 
 Browser journeys with every switch on: see §5.
 
-## 4. Operator commands (proposed; run by a human)
+## 5. Browser journeys with every switch on
+
+`node tools/test/run-e2e.js --runs=1` (Chromium, every non-localhost request blocked) with the same 140 forced keys:
+**42 journeys, 25 pass, 17 fail**. With the 27 narrowing / policy switches removed: 28 pass, 14 fail (C5 role removal,
+I1 access request, X1 exports recover — they collide with `access_require_approval` / the strict export policy and
+watermark). The 14 were read one by one:
+
+| Journey | Cause | Class |
+|---|---|---|
+| UAT S1–S8 (simulations) | their **pass A is defined as "switches off"** and asserts 404 / absent features (`S1-09`, `S2-05/06`, `S3-03…07`, `S4-03/06`, `S5-03/07`, `S6-05`, `S7-05/07`, `S8-06`) | (a) |
+| I5 emergency access, I6 shift handover, DENY cross-site | first step asserts the off state (404 / "switch off = today") | (a) |
+| T3 field inspection, F1 field network, S6-02 | `field_review_step` adds the review dialog before queuing; the journeys click through without it (`<dialog id="review">` intercepts the click) | (c) |
+| DEMO two-site journey | `portfolio_my_projects_default` opens the portfolio on "My projects"; the PMO persona owns no demo project, so the list it waits for is not shown (confirmed with that switch alone) | (c) — UX point for the PMO owner: the committee lands on an empty "My projects" until it picks "All projects" |
+
+No journey failure points to a defect. Journeys that exercise the switched-on behaviour passed (e.g. field
+review-step and task-timing browser units, Home queue R2).
+
+## 6. Limits of this evidence
+
+- One full-suite run and one journey run; flakiness not measured (no `--runs=2`).
+- The nested `sla_wan_config.notify.enabled` and the excluded keys (§2) were not forced.
+- Class (a)/(c) counts are approximate (pattern + reading + 28 bisections); every (c) row names the switch found by
+  bisection, but not every one of the ≈ 30 (c) failures was bisected individually.
+- No live connector, mailbox, Teams channel, Jira / Azure DevOps or Graph tenant was used; outbound switches are
+  qualified only against fakes / disarmed paths.
+
+## 7. Operator commands (proposed; run by a human)
 
 TEST instance first (its own `.env` / `PG_URL`), from the application folder:
 
