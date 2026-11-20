@@ -239,7 +239,7 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 | `chart_annotations_enabled` | Owner (UI policy) | after a browser review | — | — | — | — | 4 | 1 |
 | `dashboard_red_action_links` | Owner (UI policy) + PMO | — | `commitments_enabled` | — | — | — | 4 | 2 |
 | `value_scoreboard_enabled` | Owner (UI policy) + KPI committee | once the committee agrees the value contract  | — | super_admin, admin | value_scoreboard_snapshots | — | 4 | 2 |
-| `ui_i18n_pages` | Owner (D-2) | — | — | — | — | — | 53 | 5 |
+| `ui_i18n_pages` | Owner (D-2) | — | — | — | — | — | 53 | 6 |
 
 ## Dossier L10 — Reporting rhythm — reminders, drift and deck clarity
 
