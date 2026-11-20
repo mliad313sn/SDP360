@@ -144,6 +144,7 @@ not the browser-checked level.
 | `docs/agent-execution/F-w3-governance.md` | — (reference) | — | — | — | `c4ed39b77862060c183678d460c8d2135b07fc61d7185bd60a9b04fdeab58f35` |
 | `docs/agent-execution/F-w4-connectors.md` | — (reference) | — | — | — | `2b2e1486c8029b083c88617df8b6d8065734e6df490f64f08f2ec772718e537a` |
 | `docs/agent-execution/F-w4-enterprise.md` | — (reference) | — | — | — | `38e2dff18b9e0a398d0f7fc8e87e7e464e7267d75c1a5fbc941463e1d2adfd65` |
+| `docs/agent-execution/FIX-18-FIELD.md` | — (reference) | — | — | — | `7bc3f2e2c9601d193345730357b869661edf5f40c4535cdb091ebfb1769a95c1` |
 | `docs/agent-execution/G00.md` | G00 | code+test | pending | pending | `851fd0ca5460f8907fc678153f3984ef56facd75f643cbb4676e3f97643f1210` |
 | `docs/agent-execution/G01.md` | G01 | code+test | pending | pending | `2fbce7e79960cc4e55ecc9101df2256a5df921d0a3e8bf08df363a77ae935bea` |
 | `docs/agent-execution/G02.md` | G02 | code+test | pending | pending | `933b84b8c361d4129e97e0e4203d2ee759da8891d428727599d549e287ac4f9c` |
@@ -171,7 +172,7 @@ not the browser-checked level.
 | `docs/agent-execution/G24-DOSSIER-GO-NOGO-FR.md` | G24 | code+test | pending | pending | `0130ead17d7d988951b2adfb2777ec34fd98c24e587b96fbe6fee9e569474cbc` |
 | `docs/agent-execution/G24.md` | G24 | code+test | pending | pending | `2349897316ae9dd2908e50fa872042b53a905f48a9b8854085ff07b8cc2c4ac2` |
 | `docs/agent-execution/HANDOFF-2026-11-13-orchestrator.md` | — (reference) | — | — | — | `c010103709fd70a13cad816c188d62b7317ddc27f54bae97742c1769d49b9126` |
-| `docs/agent-execution/INVENTORY-STRICT.md` | — (reference) | — | — | — | `5a003ce91b2da01cdbc002fcaf9da9d4de37dba087c39b7f1afd26dfd554f4c0` |
+| `docs/agent-execution/INVENTORY-STRICT.md` | — (reference) | — | — | — | `00098ba8604bdab310fb1bb280fad54f651c3805eaaab2167688aa91dd28489f` |
 | `docs/agent-execution/P02-authz-outcomes.md` | P02 | code+test | pending | pending | `1b3c7c2278a4e5d1a5aa0ca98da31cd64a54cf2d18ee5287ec685243e58ffc81` |
 | `docs/agent-execution/P03-switch-lots.md` | P03 | code+test | pending | pending | `99419412678af916494549fa3c6ef56f7c4f4d94aab09482c800dcccf93caa39` |
 | `docs/agent-execution/P04-ppm-certification.md` | P04 | code+test | pending | pending | `ce601c12654f688fbed18b2feb9a2bdc42734d19de01075a2292838c4e74cca3` |
@@ -211,8 +212,8 @@ not the browser-checked level.
 
 | File | SHA-256 |
 |---|---|
-| `docs/agent-execution/INVENTORY.json` | `b9e1dfef98c111fff145e4b56fcc4e0662b0596884fb515835e036e95b6b4f56` |
-| `docs/agent-execution/INVENTORY.md` | `dae1891312668973981d285f2697565040c9afa9dda8cc40e4d2b27f4f14e748` |
+| `docs/agent-execution/INVENTORY.json` | `9671c9a7341997a30ef1fb2e6e8f652b6820bba80fbaba5ae3f2878fdede1de5` |
+| `docs/agent-execution/INVENTORY.md` | `df73c05cb6dc971c1f76bad5cc6201d3abacff47dffed1276468cecd4dfc2ddd` |
 | `docs/agent-execution/TRACEABILITY.md` | `bab98d60573cc653947f1acead471e8655cbc78134969e91ee7f281ff9876c0a` |
 | `docs/ops/AUTHZ-MATRIX.md` | `bc2482b65fbfa152211e33fe2d847c949c031c71af36acf506712062a95161f4` |
 | `docs/ops/FLAG-REGISTER.md` | `4355b1ca467a62e0b10f937ad898b61a989dcabb6d5d81f3aee9bc0dbbda33ee` |

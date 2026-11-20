@@ -27,3 +27,4 @@
 .dq-mark { display: inline-block; min-width: 72px; font-weight: 600; }
 .dq-not_done .dq-mark { color: var(--color-warning-text); } .dq-done .dq-mark { color: var(--color-success-text); }
 .dq-item .in-help-btn { display: inline-block; vertical-align: middle; }
+.in-ro { color: var(--color-text-strong); }

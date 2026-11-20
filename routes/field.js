@@ -44,7 +44,7 @@ module.exports = function fieldRoutes(deps) {
 
   const isAdmin = (u) => rdb().userHasRole(u, 'admin');
   const isField = (u) => isAdmin(u) || rdb().userHasRole(u, 'editor') || rdb().userHasRole(u, 'field-tech');
-  function requireField(req, res, next) { if (!isField(req.reportUser)) return res.status(403).json({ ok: false, error: 'editor or field-tech role required' }); next(); }
+  function requireField(req, res, next) { if (!isField(req.reportUser)) return res.status(403).json({ ok: false, reason: 'field_role', error: 'editor or field-tech role required' }); next(); }
   requireField.legacyRoles = ['admin', 'editor', 'field-tech'];   // C-17 capability catalogue tag
   const fail = (res, e) => httpFail(res, e, undefined, { ok: false, missing: e && e.missing || undefined });
   // C-19 (G41): qualification evidence for field capture — a no-op unless qualification_check_enabled='1' AND
@@ -139,11 +139,11 @@ module.exports = function fieldRoutes(deps) {
   // ── applying one envelope, exactly once ───────────────────────────────────────────
   const APPLY = {
     async inspection(u, p) {
-      if (!p.meta || !p.meta.f_site) throw Object.assign(new Error('inspection payload needs meta.f_site'), { code: 'INVALID' });
+      if (!p.meta || !p.meta.f_site) throw Object.assign(new Error('inspection payload needs meta.f_site'), { code: 'INVALID', reason: 'inspection_invalid' });
       const codes = await moduleCodes(u);
-      if (Array.isArray(codes) && !codes.length) throw Object.assign(new Error('your account has no inspection site'), { code: 'FORBIDDEN' });
+      if (Array.isArray(codes) && !codes.length) throw Object.assign(new Error('your account has no inspection site'), { code: 'FORBIDDEN', reason: 'no_inspection_site' });
       const siteCode = idb().parseSiteCode(p.meta.f_site);
-      if (codes !== null && !userSites.inScope(siteCode, codes)) throw Object.assign(new Error(`inspection is for ${siteCode || 'no site'}, your scope is ${codes.join(', ')}`), { code: 'FORBIDDEN' });
+      if (codes !== null && !userSites.inScope(siteCode, codes)) throw Object.assign(new Error(`inspection is for ${siteCode || 'no site'}, your scope is ${codes.join(', ')}`), { code: 'FORBIDDEN', reason: 'inspection_out_of_scope' });
       // Photos must reference COMPLETED uploads of this user ({upload_id} → {__blob}); inline data: URLs are refused on the field path.
       const allowRefs = new Set();
       for (const it of Object.values(p.items || {})) {
@@ -151,9 +151,9 @@ module.exports = function fieldRoutes(deps) {
         const out = [];
         for (const ph of it.photos) {
           // a phone never names a stored file itself: a client-supplied {__blob} could point at another site's evidence
-          if (ph && ph.__blob) throw Object.assign(new Error('field photos are referenced by upload id only'), { code: 'INVALID' });
-          if (ph && ph.upload_id != null) { const up = await store.getUpload(ph.upload_id); if (!up || up.user_id !== Number(u.id) || up.status !== 'done') throw Object.assign(new Error(`upload ${ph.upload_id} not completed`), { code: 'INVALID' }); allowRefs.add(up.ref); out.push({ __blob: up.ref, mime: up.mime, sizeBytes: up.size, caption: ph.caption || '' }); continue; }
-          throw Object.assign(new Error('field photos must be uploaded in chunks first (no inline data URLs)'), { code: 'INVALID' });
+          if (ph && ph.__blob) throw Object.assign(new Error('field photos are referenced by upload id only'), { code: 'INVALID', reason: 'photo_not_uploaded' });
+          if (ph && ph.upload_id != null) { const up = await store.getUpload(ph.upload_id); if (!up || up.user_id !== Number(u.id) || up.status !== 'done') throw Object.assign(new Error(`upload ${ph.upload_id} not completed`), { code: 'INVALID', reason: 'photo_not_uploaded' }); allowRefs.add(up.ref); out.push({ __blob: up.ref, mime: up.mime, sizeBytes: up.size, caption: ph.caption || '' }); continue; }
+          throw Object.assign(new Error('field photos must be uploaded in chunks first (no inline data URLs)'), { code: 'INVALID', reason: 'photo_not_uploaded' });
         }
         it.photos = out;
       }
@@ -178,17 +178,24 @@ module.exports = function fieldRoutes(deps) {
       return { inspection_id: (r && r.id) || p.meta.f_id || null };
     },
     async tracker(u, p) {
-      const err = F.validateTrackerPayload(p); if (err) throw Object.assign(new Error(err), { code: 'INVALID' });
+      const err = F.validateTrackerPayload(p); if (err) throw Object.assign(new Error(err), { code: 'INVALID', reason: 'tracker_invalid' });
       if (!trackerStore) throw new Error('tracker store unavailable');
-      const pub = await trackerStore.published(p.key); if (!pub) throw Object.assign(new Error('tracker not published'), { code: 'INVALID' });
+      const pub = await trackerStore.published(p.key); if (!pub) throw Object.assign(new Error('tracker not published'), { code: 'INVALID', reason: 'tracker_not_published' });
       const allowed = await trackerUnits(u, pub.definition);
-      if (Array.isArray(allowed) && !allowed.length) throw Object.assign(new Error('no writable unit for your account'), { code: 'FORBIDDEN' });
+      if (Array.isArray(allowed) && !allowed.length) throw Object.assign(new Error('no writable unit for your account'), { code: 'FORBIDDEN', reason: 'tracker_no_unit' });
       return trackerStore.saveEntries(p.key, p.cells, { user: u, def: pub.definition, lockClosed: true, allowedUnits: allowed, source: 'field' });
     },
     async action(u, p, env) {
-      const err = F.validateActionPayload(p); if (err) throw Object.assign(new Error(err), { code: 'INVALID' });
+      const err = F.validateActionPayload(p); if (err) throw Object.assign(new Error(err), { code: 'INVALID', reason: 'action_invalid' });
       // A-05: old phones / queued envelopes send 'closed' (not a md_statuses code) → 'resolved'
-      if (p.source === 'meetings' && p.status_change) p = { ...p, status_change: statusTransfer.normalizeMeetingStatus(p.status_change) };
+      if (p.source === 'meetings' && p.status_change) {
+        p = { ...p, status_change: statusTransfer.normalizeMeetingStatus(p.status_change) };
+        // P11 r4 F-10 — the same rule as r3 F-9 for inspection actions: from the field app a meetings action is only
+        // resolved, cancelled or transferred (demand / helpdesk_ticket) — what the app offers. A reopen or a move
+        // (open, in_progress, blocked, on_hold) needs the web register, where `editor` of the site is required
+        // (POST /api/meetings/actions/:id/update). The terminal set is the shared statusTransfer.DONE list.
+        if (!statusTransfer.isDone(p.status_change)) throw Object.assign(new Error(`a meetings action can only be resolved, cancelled or transferred from the field app (not "${String(p.status_change).slice(0, 40)}")`), { code: 'INVALID', reason: 'meetings_action_status' });
+      }
       // P11 r2 F-5 — an inspection action takes Open / In Progress / Closed / Cancelled only (the transfer statuses
       // demand / helpdesk_ticket are meetings-only); a case variant is stored in its canonical form
       if (p.source === 'inspection' && p.status_change) {
@@ -200,10 +207,13 @@ module.exports = function fieldRoutes(deps) {
         p = { ...p, status_change: canon };
       }
       const mod = p.source === 'meetings' ? mdb() : idb();
-      const parent = await mod.getActionParent(Number(p.id)); if (!parent) throw Object.assign(new Error('action not found'), { code: 'INVALID' });
+      // P11 r4 F-11 — a missing id and an id outside the caller's scope get ONE refusal (same code, same text, no site
+      // code): the field route is not an oracle on which actions exist or which site owns them (cf. r3 R2-N3)
+      const unavailable = () => Object.assign(new Error('this action does not exist or is not in your scope'), { code: 'FORBIDDEN', reason: 'action_unavailable' });
+      const parent = await mod.getActionParent(Number(p.id)); if (!parent) throw unavailable();
       const codes = await moduleCodes(u);
-      if (codes !== null && !userSites.inScope(parent.site_code, codes)) throw Object.assign(new Error(`action belongs to ${parent.site_code}`), { code: 'FORBIDDEN' });
-      const tErr = statusTransfer.validate(p.status_change, p.body, p.helpdesk_ticket); if (tErr) throw Object.assign(new Error(tErr), { code: 'INVALID' });
+      if (codes !== null && !userSites.inScope(parent.site_code, codes)) throw unavailable();
+      const tErr = statusTransfer.validate(p.status_change, p.body, p.helpdesk_ticket); if (tErr) throw Object.assign(new Error(tErr), { code: 'INVALID', reason: 'status_justification' });
       // P11 F-2 — a status change made on the server after the phone saw the action is never overwritten (409):
       // the phone sends the status it saw (base_status); an envelope queued before that field existed is compared
       // on its queue time with the last server status change. A comment only changes nothing and never conflicts.
@@ -212,11 +222,17 @@ module.exports = function fieldRoutes(deps) {
         const now = parent.action_status;
         let changed = false;
         if (p.base_status != null && String(p.base_status) !== '') changed = norm(now) !== norm(p.base_status);
-        else if (parent.last_status_change_at) {
+        else {
           // P11 r2 F-2 residual — without base_status the queue time decides; a missing or future client_ts (beyond a
           // 5-minute clock skew) cannot prove the phone saw the server's last status change, so that change wins
-          const last = Date.parse(parent.last_status_change_at), ts = env && env.client_ts ? Date.parse(env.client_ts) : NaN;
-          changed = !Number.isFinite(ts) || ts > Date.now() + 5 * 60e3 || last > ts;
+          const ts = env && env.client_ts ? Date.parse(env.client_ts) : NaN;
+          if (parent.last_status_change_at) {
+            const last = Date.parse(parent.last_status_change_at);
+            changed = !Number.isFinite(ts) || ts > Date.now() + 5 * 60e3 || last > ts;
+          }
+          // P11 r4 F-2 residual — an action re-created or edited through the inspection editor writes no audit row;
+          // a row changed after the queue time is treated as a server-side change too (optimistic concurrency)
+          if (!changed && parent.row_changed_at && Number.isFinite(ts)) changed = Date.parse(parent.row_changed_at) > ts;
         }
         if (changed && norm(now) !== norm(p.status_change)) throw Object.assign(new Error(`this action was changed on the server since it was queued (now ${String(now || '—').slice(0, 40)}) — check it before sending again`), { code: 'CONFLICT', reason: 'action_changed', detail: { now: String(now || '—').slice(0, 40) } });
       }
@@ -224,15 +240,15 @@ module.exports = function fieldRoutes(deps) {
       return { action_id: Number(p.id), status: p.status_change || null };
     },
     async ticket(u, p) {
-      const err = F.validateTicketPayload(p); if (err) throw Object.assign(new Error(err), { code: 'INVALID' });
+      const err = F.validateTicketPayload(p); if (err) throw Object.assign(new Error(err), { code: 'INVALID', reason: 'ticket_invalid' });
       const c = await cfg();
-      if (String(c.sdp_api_write_enabled) !== '1') throw Object.assign(new Error('SDP ticket creation is disabled by the administrator (sdp_api_write_enabled)'), { code: 'REJECTED' });
+      if (String(c.sdp_api_write_enabled) !== '1') throw Object.assign(new Error('SDP ticket creation is disabled by the administrator (sdp_api_write_enabled)'), { code: 'REJECTED', reason: 'ticket_disabled' });
       // SEC-01 — a site-scoped user opens a request for one of THEIR sites only (canonical name sent); admin tier unscoped
       let siteName = p.site || null;
       if (!isAdmin(u)) {
         const k = (v) => String(v == null ? '' : v).trim().toLowerCase();
         const mine = (await scopeSites(u)).find((s) => k(s.name) === k(p.site));
-        if (!p.site || !mine) throw Object.assign(new Error(p.site ? `ticket names ${String(p.site).slice(0, 60)}, which is not one of your sites` : 'a ticket must name one of your sites'), { code: 'FORBIDDEN' });
+        if (!p.site || !mine) throw Object.assign(new Error(p.site ? `ticket names ${String(p.site).slice(0, 60)}, which is not one of your sites` : 'a ticket must name one of your sites'), { code: 'FORBIDDEN', reason: 'ticket_out_of_scope' });
         siteName = mine.name;
       }
       const client = deps.sdpClient || require('../services/sdpApiClient').makeSdpClient({ baseUrl: c.sdp_api_base_url, accountsUrl: c.sdp_api_accounts_url, allowHosts: require('../services/safeUrl').allowHostsFromConfig(c), clientId: c.sdp_api_client_id, clientSecret: c.sdp_api_client_secret, refreshToken: c.sdp_api_refresh_token, writeEnabled: true });
@@ -253,32 +269,32 @@ module.exports = function fieldRoutes(deps) {
   router.put('/api/field/outbox/:uuid', requireReportSession, requireField, qualificationGate, json, async (req, res) => {
     try {
       const env = { ...(req.body || {}), uuid: req.params.uuid };
-      const v = F.validateEnvelope(env); if (!v.ok) return res.status(400).json({ ok: false, error: v.errors.join('; '), errors: v.errors });
+      const v = F.validateEnvelope(env); if (!v.ok) return res.status(400).json({ ok: false, reason: 'envelope_invalid', error: v.errors.join('; '), errors: v.errors });
       const hash = F.payloadHash(env.payload);
       const u = req.reportUser;
       // the phone names the author of the entry; an entry queued by someone else is never applied under this session
-      if (env.author != null && String(env.author) !== String(u.username)) return res.status(403).json({ ok: false, wrong_author: true, error: `this entry was recorded by ${String(env.author).slice(0, 60)} — sign in as that person to send it` });
+      if (env.author != null && String(env.author) !== String(u.username)) return res.status(403).json({ ok: false, wrong_author: true, reason: 'wrong_author', error: `this entry was recorded by ${String(env.author).slice(0, 60)} — sign in as that person to send it` });
       const row = await store.receive({ uuid: env.uuid, userId: u.id, kind: env.kind, payloadHash: hash, clientTs: env.client_ts || null, device: env.device || null });
-      if (row.user_id !== Number(u.id)) return res.status(403).json({ ok: false, error: 'uuid belongs to another user' });
-      if (row.payload_hash !== hash) return res.status(409).json({ ok: false, error: 'same uuid, different payload — generate a new uuid', status: row.status });
+      if (row.user_id !== Number(u.id)) return res.status(403).json({ ok: false, reason: 'uuid_other_user', error: 'uuid belongs to another user' });
+      if (row.payload_hash !== hash) return res.status(409).json({ ok: false, reason: 'uuid_payload_mismatch', error: 'same uuid, different payload — generate a new uuid', status: row.status });
       if (row.status === 'applied' || row.status === 'rejected') return res.json({ ok: row.status === 'applied', duplicate: true, status: row.status, result: row.result });
       // G19 — exactly once even with two sends of the same envelope at the same time (two tabs, a retry while the
       // first send is still running); a transient failure stays retryable instead of becoming a dead duplicate
       const claimId = await store.claim(env.uuid, { kind: env.kind });
-      if (!claimId) return res.status(409).json({ ok: false, in_progress: true, status: 'applying', error: 'this entry is being applied — try again in a moment' });
+      if (!claimId) return res.status(409).json({ ok: false, in_progress: true, reason: 'in_progress', status: 'applying', error: 'this entry is being applied — try again in a moment' });
       let status = 'applied', result = null, code = 200;
       try { result = await APPLY[env.kind](u, env.payload, env); }
       catch (e) {
         // P11 F-1/F-2 — a conflict (the record changed elsewhere, or the id already exists) is terminal and a 409:
         // the phone keeps the entry as 'conflict' with the reason; nothing is written
         // P11 r2 F-4 — `reason` (+ `detail`) lets the phone show the refusal in the user's language
-        if (e.code === 'CONFLICT') { status = 'rejected'; result = { error: e.message, conflict: true, reason: e.reason || undefined, detail: e.detail || undefined }; code = 409; }
+        if (e.code === 'CONFLICT') { status = 'rejected'; result = { error: e.message, conflict: true, reason: e.reason || 'conflict', detail: e.detail || undefined }; code = 409; }
         // P11 r3 F-8 — a typed VALIDATION error (e.g. an out-of-vocabulary action status inside an inspection) is a
         // client error like INVALID: terminal 400, never 'failed' (which the phone would retry forever)
-        else if (e.code === 'INVALID' || e.code === 'VALIDATION' || e.code === 'FORBIDDEN' || e.code === 'REJECTED' || e.code === 'WRITE_DISABLED') { status = 'rejected'; result = { error: e.message, errors: e.errors || undefined, reason: e.reason || undefined }; code = e.code === 'FORBIDDEN' ? 403 : (e.code === 'INVALID' || e.code === 'VALIDATION') ? 400 : 200; }
+        else if (e.code === 'INVALID' || e.code === 'VALIDATION' || e.code === 'FORBIDDEN' || e.code === 'REJECTED' || e.code === 'WRITE_DISABLED') { status = 'rejected'; result = { error: e.message, errors: e.errors || undefined, reason: e.reason || F.fallbackReason(e.code) }; code = e.code === 'FORBIDDEN' ? 403 : (e.code === 'INVALID' || e.code === 'VALIDATION') ? 400 : 200; }
         // a ticket whose outcome is unknown (SDP may have created it before the error) is NOT retried: a retry would
         // create a second request. It is refused with a reason to check SDP; other kinds stay retryable.
-        else if (env.kind === 'ticket') { status = 'rejected'; result = { error: 'outcome unknown — check ServiceDesk Plus before sending again', outcome_unknown: true, correlation_id: logError(e, req, 500) }; code = 200; }
+        else if (env.kind === 'ticket') { status = 'rejected'; result = { error: 'outcome unknown — check ServiceDesk Plus before sending again', outcome_unknown: true, reason: 'outcome_unknown', correlation_id: logError(e, req, 500) }; code = 200; }
         else { status = 'failed'; result = { error: 'internal_error', correlation_id: logError(e, req, 500) }; code = 500; }
       }
       let fin;

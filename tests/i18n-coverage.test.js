@@ -36,12 +36,13 @@ const TRANSLATED_PAGES = {
   'meetings-unsigned.html': { dict: 'I18N_FR_MEETINGS_UNSIGNED', file: 'meetings-unsigned.fr.js' },
   'meetings-council.html': { dict: 'I18N_FR_MEETINGS_COUNCIL', file: 'meetings-council.fr.js' },
   'meetings-progress.html': { dict: 'I18N_FR_MEETINGS_PROGRESS', file: 'meetings-progress.fr.js' },
-  // Adoption Lot A (item 11) — the list pages coordinators and technicians open every day (static markup + scope wording).
-  'inspections.html': { dict: 'I18N_FR_INSPECTIONS', file: 'inspections.fr.js' },
-  'inspection-actions.html': { dict: 'I18N_FR_INSPECTION_ACTIONS', file: 'inspection-actions.fr.js' },
-  'meetings.html': { dict: 'I18N_FR_MEETINGS', file: 'meetings.fr.js' },
-  'meetings-actions.html': { dict: 'I18N_FR_MEETINGS_ACTIONS', file: 'meetings-actions.fr.js' },
-  'meetings-issues.html': { dict: 'I18N_FR_MEETINGS_ISSUES', file: 'meetings-issues.fr.js' },
+  // Adoption Lot A (item 11) — the list pages coordinators and technicians open every day (static markup + scope wording);
+  // P11 r4 F-12 — plus their script-built texts (toasts, empty states, row buttons, table heads), pinned to the source.
+  'inspections.html': { dict: 'I18N_FR_INSPECTIONS', file: 'inspections.fr.js', runtimeInSource: true },
+  'inspection-actions.html': { dict: 'I18N_FR_INSPECTION_ACTIONS', file: 'inspection-actions.fr.js', runtimeInSource: true },
+  'meetings.html': { dict: 'I18N_FR_MEETINGS', file: 'meetings.fr.js', runtimeInSource: true },
+  'meetings-actions.html': { dict: 'I18N_FR_MEETINGS_ACTIONS', file: 'meetings-actions.fr.js', runtimeInSource: true },
+  'meetings-issues.html': { dict: 'I18N_FR_MEETINGS_ISSUES', file: 'meetings-issues.fr.js', runtimeInSource: true },
 };
 
 // A-09b — whole regions of a translated page left out of the coverage check, with the reason. Each marker

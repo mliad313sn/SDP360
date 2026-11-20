@@ -24,6 +24,33 @@
       'Exporter la vue filtrée en présentation PowerPoint (indicateurs, graphiques et liste des actions en cours).',
     'Search description / owner…': 'Rechercher description / responsable…',
   };
-  root.I18N_FR_MEETINGS_ACTIONS = Object.assign({}, STATIC);
-  root.I18N_FR_MEETINGS_ACTIONS_RUNTIME = [];   // JS-built rows: next pass
+  const RUNTIME = {
+    // P11 r4 F-12 — texts built in script (toasts, empty states, row buttons, table heads)
+    'Total actions': 'Actions au total',
+    'Open': 'Ouvertes',
+    'in scope': 'dans le périmètre',
+    'not yet closed': 'pas encore clôturées',
+    'open & unassigned': 'ouvertes et non attribuées',
+    'Action updated →': 'Action mise à jour →',
+    'Update failed:': 'Échec de la mise à jour :',
+    'PPTX library not loaded — refresh the page.': 'Bibliothèque PPTX non chargée — rechargez la page.',
+    'PPTX exported': 'PPTX exporté',
+    'Export failed:': 'Échec de l’export :',
+    'Excel downloaded': 'Excel téléchargé',
+    'Excel export failed:': 'Échec de l’export Excel :',
+    'No actions match the current filter.': 'Aucune action ne correspond au filtre courant.',
+    'Open ›': 'Ouvrir ›',
+    'Failed to load actions.': 'Échec du chargement des actions.',
+    'Target': 'Échéance',
+    'past target date': 'échéance dépassée',
+    'No champion': 'Sans champion',
+    'resolved / cancelled / transferred': 'résolues / annulées / transférées',
+    'Closed': 'Clôturées',
+    'Overdue': 'En retard',
+    'Ref': 'Réf.',
+    'Champion': 'Champion',
+    'PV closed': 'PV clôturé',
+  };
+  root.I18N_FR_MEETINGS_ACTIONS = Object.assign({}, STATIC, RUNTIME);
+  root.I18N_FR_MEETINGS_ACTIONS_RUNTIME = Object.keys(RUNTIME);
 })(typeof window !== 'undefined' ? window : globalThis);

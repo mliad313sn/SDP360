@@ -53,6 +53,8 @@ const PRIMARY = {
   'executive.html': 'GET /api/survey/summary',
   'system-logs.html': 'GET /api/reports/system-log',
   'help.html': null,
+  // P11 r4 F-13 — the Policy Center entry (switch policy_center_page) is walked like every other policy-gated entry
+  'policy-center.html': 'GET /api/policy-center/catalogue',
 };
 // Admin settings live on reports.html#admin: its data is the users list (super_admin), not the weekly reports.
 const PRIMARY_BY_HREF = { 'reports.html#admin': 'GET /api/reports/users' };
@@ -90,7 +92,7 @@ function pageGate(page) {
   return m ? m[1] : 'any';
 }
 
-const POLICIES = { defaults: undefined, 'all page switches on': { finance_page: '1', connector_health_page: '1', data_quality_page: '1', value_scoreboard_page: '1' } };
+const POLICIES = { defaults: undefined, 'all page switches on': { finance_page: '1', connector_health_page: '1', data_quality_page: '1', value_scoreboard_page: '1', policy_center_page: '1' } };
 for (const [pname, policy] of Object.entries(POLICIES)) {
   test(`no menu entry leads to a refusal, for any persona (${pname})`, () => {
     const violations = [];
@@ -132,4 +134,13 @@ test('the Activity Tracker entry carries the same roles as its data route', () =
   const navRoles = nav[1].split(',').map((s) => s.trim().replace(/'/g, '')).sort();
   if (roles.length) assert.deepStrictEqual(navRoles, roles);
   assert.deepStrictEqual(navRoles, ['admin', 'tracker-admin', 'tracker-editor']);
+});
+
+// P11 r4 F-13 — "all page switches on" turns on EVERY policy-gated menu entry of the shell, so a new switch cannot
+// escape the walk again (the Policy Center entry did).
+test('the "all page switches on" policy covers every policy-gated menu entry', () => {
+  const shell = fs.readFileSync(path.join(ROOT, 'public', '_shell.js'), 'utf8');
+  const gated = [...new Set([...shell.matchAll(/policy: *'([a-z_]+)'/g)].map((m) => m[1]))];
+  assert.ok(gated.length >= 5, 'found the gated entries');
+  for (const k of gated) assert.strictEqual(POLICIES['all page switches on'][k], '1', k + ' is not switched on in the walk');
 });

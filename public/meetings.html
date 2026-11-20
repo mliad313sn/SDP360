@@ -462,6 +462,9 @@
 </div>
 
 <script nonce="%%CSP_NONCE%%">
+  // P11 r4 F-12 — a text built in script with a dynamic part (toast, alert, prompt) is translated through the page
+  // dictionary (lib/i18n/*.fr.js, inert unless ui_i18n_pages='1'); a whole text node is swapped by i18nText itself.
+  function uiT(s) { return (window.I18nText && window.I18nText.t) ? window.I18nText.t(s) : s; }
 (function () {
   'use strict';
 
@@ -747,7 +750,7 @@
         a.href = url; a.download = 'Meetings_full_' + new Date().toISOString().slice(0, 10) + '.xlsx';
         document.body.appendChild(a); a.click(); a.remove();
         setTimeout(() => URL.revokeObjectURL(url), 5000);
-      } catch (e) { alert('Excel export failed: ' + (e.message || '')); }
+      } catch (e) { alert(uiT('Excel export failed:') + ' ' + (e.message || '')); }
       finally { xl.innerHTML = orig; xl.disabled = false; }
     });
   })();
@@ -771,7 +774,7 @@
 
   loadAll().catch(err => {
     console.error('[meetings] load failed:', err);
-    document.getElementById('mdTable').innerHTML = '<div class="md-empty">Failed to load meetings. ' + esc(err.message || '') + '</div>';
+    document.getElementById('mdTable').innerHTML = '<div class="md-empty"><span>Failed to load meetings.</span> ' + esc(err.message || '') + '</div>';
   });
 })();
 </script>

@@ -16,6 +16,31 @@
     // a11y labels of the filters (Adoption Lot A, item 10)
     'Category': 'Catégorie', 'Severity': 'Sévérité', 'Champion': 'Champion', 'Escalation': 'Escalade', 'Search issues': 'Rechercher des problèmes',
   };
-  root.I18N_FR_MEETINGS_ISSUES = Object.assign({}, STATIC);
-  root.I18N_FR_MEETINGS_ISSUES_RUNTIME = [];   // JS-built rows: next pass
+  const RUNTIME = {
+    // P11 r4 F-12 — texts built in script (toasts, empty states, row buttons, table heads)
+    'Editor role or higher required to change status': 'Rôle éditeur ou supérieur requis pour changer le statut',
+    'Total issues': 'Problèmes au total',
+    'HIGH severity': 'Gravité HAUTE',
+    'Open': 'Ouverts',
+    'Escalated': 'Escaladés',
+    'Overdue': 'En retard',
+    'in scope': 'dans le périmètre',
+    'production-impact': 'impact sur la production',
+    'not yet resolved': 'pas encore résolus',
+    'open for Council': 'ouverts pour le Conseil',
+    'past target date': 'échéance dépassée',
+    'Issue updated →': 'Problème mis à jour →',
+    'Update failed:': 'Échec de la mise à jour :',
+    'No issues yet for the active filter.': 'Aucun problème pour le filtre actif.',
+    'Ref': 'Réf.',
+    'Category': 'Catégorie',
+    'Severity': 'Gravité',
+    'Champion': 'Champion',
+    'Target': 'Échéance',
+    'No issues match the current filter.': 'Aucun problème ne correspond au filtre courant.',
+    'Open ›': 'Ouvrir ›',
+    'Failed to load issues.': 'Échec du chargement des problèmes.',
+  };
+  root.I18N_FR_MEETINGS_ISSUES = Object.assign({}, STATIC, RUNTIME);
+  root.I18N_FR_MEETINGS_ISSUES_RUNTIME = Object.keys(RUNTIME);
 })(typeof window !== 'undefined' ? window : globalThis);

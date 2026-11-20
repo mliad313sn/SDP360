@@ -539,7 +539,10 @@ async function _getActionParentPg(actionId) {
   return (await pgHandle().prepare(`
     SELECT i.site_code AS site_code, i.status AS inspection_status, a.status AS action_status,
            (SELECT to_char(max(u.created_at) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') FROM insp_action_updates u
-             WHERE u.action_id = a.id AND u.status_change IS NOT NULL AND u.status_change <> '') AS last_status_change_at
+             WHERE u.action_id = a.id AND u.status_change IS NOT NULL AND u.status_change <> '') AS last_status_change_at,
+           -- P11 r4 F-2 residual: the inspection editor re-creates every action row (DELETE + INSERT) and writes no
+           -- audit row; the row's own time tells the field replay that the action changed after the phone queued it
+           to_char(GREATEST(a.created_at, a.updated_at) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS row_changed_at
       FROM insp_actions a JOIN insp_inspections i ON i.id = a.inspection_id
      WHERE a.id = ? AND i.deleted_at IS NULL
   `).get(actionId)) || null;

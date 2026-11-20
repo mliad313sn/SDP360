@@ -19,6 +19,23 @@
     'Download a roll-up PPTX of the current filter (executive only)': 'Télécharger une présentation PPTX de synthèse du filtre courant (direction uniquement)',
   };
   const RUNTIME = {
+    // P11 r4 F-12 — texts built in script (toasts, empty states, row buttons, table heads)
+    'Delete failed:': 'Échec de la suppression :',
+    'Export failed:': 'Échec de l’export :',
+    'Excel export failed:': 'Échec de l’export Excel :',
+    'Delete this inspection? This cannot be undone.': 'Supprimer cette inspection ? Action irréversible.',
+    'Same item rated minor / major / critical in at least 2 of each site’s last N submitted inspections.': 'Même point noté mineur / majeur / critique dans au moins 2 des N dernières inspections soumises de chaque site.',
+    'No window set (insp_repeat_window is empty): nothing is computed.': 'Aucune fenêtre définie (insp_repeat_window est vide) : rien n’est calculé.',
+    'No data yet.': 'Pas encore de données.',
+    'Open ▸': 'Ouvrir ▸',
+    '✕ Delete': '✕ Supprimer',
+    'This removes the row and every finding, action, photo, and signature from the database.': 'Cela supprime la ligne et tous les constats, actions, photos et signatures de la base.',
+    'This cannot be undone.': 'Action irréversible.',
+    'Item': 'Point',
+    'Check': 'Contrôle',
+    'Seen': 'Vu',
+    'Worst': 'Pire',
+    'No repeat finding.': 'Aucun constat répété.',
     'No site in your scope': 'Aucun site dans votre périmètre',
     'Not measured — the data could not be read': 'Non mesuré — les données n’ont pas pu être lues',
     'Your account reads no site. Ask an administrator to add your site.': 'Votre compte ne lit aucun site. Demandez à un administrateur d’ajouter votre site.',
