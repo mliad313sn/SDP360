@@ -10,7 +10,7 @@
 | Case de décision dans RELEASE-GATES.md | vide — cette porte est **NO-GO** tant que l'approbateur ne l'a pas remplie. Ce dossier ne remplit rien. |
 | Ce que cette porte bloque | ne bloque que le déploiement général |
 | À décider après | aucune |
-| SHA cible | `7ab38b13` |
+| SHA cible | `c64c1a9b` |
 | Généré | 2026-11-20 |
 
 ## 1. La question à trancher
