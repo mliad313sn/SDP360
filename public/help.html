@@ -224,6 +224,7 @@
       <a href="#en-28">28. Commitments &amp; verified closure</a>
       <a href="#en-29">29. Handoffs between departments</a>
       <a href="#en-30">30. Governance policies</a>
+      <a href="#en-31">31. Policy control center</a>
     </div>
 
     <!-- Content -->
@@ -1294,6 +1295,19 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
           <li><strong>Not configurable</strong> — site scoping, no self-verification, no acceptance on someone else's behalf, the audit trail, "not measured" shown as —.</li>
         </ul>
       </div>
+      <div class="section" id="en-31">
+        <h2>31. Policy control center</h2>
+        <p><code>/policy-center.html</code> (admin tier reads, super_admin changes; shown only when <code>policy_center_enabled</code> is on) lists every rule the platform applies in one place: the configuration keys of the admin console and the governance policies, grouped by category (access &amp; security, data quality &amp; sync, KPI thresholds &amp; money, reporting &amp; notifications, governance, portfolio, field, integrations, operations &amp; backup, retention, interface).</p>
+        <ul>
+          <li><strong>Best practice is the default</strong> — each rule shows its current value next to its best-practice default (today's behaviour) and a <em>deviates from best practice</em> badge when they differ. A recommendation is a <em>proposal</em> until a human approves it; "no recommendation yet" means nobody has written one.</li>
+          <li><strong>Impact preview</strong> — <em>Affects</em> lists the files and pages that read the rule.</li>
+          <li><strong>Change with a reason</strong> — every change asks for a reason and is kept in the rule's <em>History</em> (who, when, old, new, reason). <em>Reset to recommended</em> returns to the default.</li>
+          <li><strong>Per site</strong> — only governance rules that are read per site offer a site scope; configuration keys apply to the whole platform.</li>
+          <li><strong>Two people for high-risk changes</strong> — moving a high-risk rule (access, money, outbound sends, retention, security) away from its default creates a request; a <em>second</em> super_admin approves or rejects it. Going back to the default is immediate.</li>
+          <li><strong>Export and environment profile</strong> — export the effective set (JSON / CSV; secrets show only "set / not set"). Paste a profile to adapt a new site or environment: a dry run shows every change first, nothing is applied until you confirm that exact plan.</li>
+          <li><strong>Not here</strong> — secrets (passwords, keys, webhook URLs) stay in their admin cards; KPI RAG policies change in the KPI policy builder.</li>
+        </ul>
+      </div>
     </div><!-- /content -->
   </div><!-- /doc-layout -->
 </div><!-- /sec-en -->
@@ -1409,6 +1423,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
       <a href="#fr-28">28. Engagements &amp; clôture vérifiée</a>
       <a href="#fr-29">29. Demandes inter-services</a>
       <a href="#fr-30">30. Politiques de gouvernance</a>
+      <a href="#fr-31">31. Centre de contrôle des politiques</a>
     </div>
 
     <div class="content">
@@ -2476,6 +2491,19 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
           <li><strong>Calendrier ouvré et cibles d'indicateurs</strong> — les fériés et arrêts de chaque site ne comptent pas dans les règles de retard ; les cibles par site ou plateforme affichent chaque chiffre face à sa cible.</li>
           <li><strong>Obligations du site</strong> — <code>/obligations.html</code> liste en un seul endroit ce que doit un site : engagements, demandes inter-services, actions de réunion / d'inspection, suivis du rapport (lecture seule).</li>
           <li><strong>Non paramétrable</strong> — le cloisonnement par site, l'interdiction de vérifier son propre travail ou d'accepter à la place d'autrui, la piste d'audit, l'affichage « — » d'une valeur non mesurée.</li>
+        </ul>
+      </div>
+      <div class="section" id="fr-31">
+        <h2>31. Centre de contrôle des politiques</h2>
+        <p><code>/policy-center.html</code> (lecture par le palier admin, modification par un super_admin ; visible seulement quand <code>policy_center_enabled</code> est activé) rassemble toutes les règles de la plateforme : les clés de configuration de la console d'administration et les politiques de gouvernance, regroupées par catégorie (accès et sécurité, qualité des données et synchronisation, seuils et montants, rapports et notifications, gouvernance, portefeuille, terrain, intégrations, exploitation et sauvegarde, conservation, interface).</p>
+        <ul>
+          <li><strong>La bonne pratique par défaut</strong> — chaque règle montre sa valeur actuelle à côté de sa valeur de bonne pratique (le fonctionnement actuel), avec un badge <em>s'écarte de la bonne pratique</em> quand elles diffèrent. Une recommandation reste une <em>proposition</em> tant qu'un humain ne l'a pas approuvée ; « pas encore de recommandation » signifie que personne n'en a écrit.</li>
+          <li><strong>Aperçu de l'impact</strong> — <em>Concerne</em> liste les fichiers et pages qui lisent la règle.</li>
+          <li><strong>Changer avec un motif</strong> — chaque changement demande un motif et reste dans l'<em>Historique</em> de la règle (qui, quand, avant, après, motif). <em>Revenir à la recommandation</em> rétablit la valeur par défaut.</li>
+          <li><strong>Par site</strong> — seules les règles de gouvernance lues par site proposent une portée site ; les clés de configuration valent pour toute la plateforme.</li>
+          <li><strong>Deux personnes pour les changements à risque</strong> — écarter de sa valeur par défaut une règle à risque élevé (accès, montants, envois sortants, conservation, sécurité) crée une demande ; un <em>second</em> super_admin l'approuve ou la refuse. Revenir à la valeur par défaut est immédiat.</li>
+          <li><strong>Export et profil d'environnement</strong> — exportez le jeu effectif (JSON / CSV ; les secrets indiquent seulement « renseigné / non renseigné »). Collez un profil pour adapter un nouveau site ou environnement : la simulation montre chaque changement d'abord, rien n'est appliqué avant que vous confirmiez ce plan précis.</li>
+          <li><strong>Pas ici</strong> — les secrets (mots de passe, clés, URL de webhook) restent dans leur carte d'administration ; les politiques RAG des indicateurs se modifient dans le constructeur de politiques KPI.</li>
         </ul>
       </div>
     </div><!-- /content -->
