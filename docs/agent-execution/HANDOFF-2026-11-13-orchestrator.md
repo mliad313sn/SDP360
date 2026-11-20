@@ -139,3 +139,18 @@ node tools/test/run-all.js > /home/user/suite.log 2>&1     # full suite, ~18 min
   operations a205a84d6fbe8af14 · ux-field a1dd829991e313d89 · audit a61c45618c62dede1.
 - Container restarts happen: PG max_connections must be re-set to 400 after a restart (env only); drop leftover test DBs when idle.
 - Human step pending: run `node tools/field/inspection-action-status-check.js` on the live DB; SEC-F2 committee-money decision.
+
+## Update 2026-11-20 13:45 UTC (orchestrator)
+
+- Round 3 (ead6efb6): P0 = 0, P1 = 0 in code; its P2/P3 items were addressed by fixes 10–13 (merged).
+- Merged since: portfolio Lot 1 (intake register, `ppm_intake_register_enabled`, migration reports/117), Policy
+  Control Center (`policy_center_enabled`, migration reports/120), adoption Lot A (truth/no-dead-end fixes ON,
+  policy items PROPOSED), activate-all qualification (`tools/ops/activate-switches.js`, commitments `?site=` 500 fix).
+- Post-merge drift fixed (dotenv quiet, soft-delete allowlist, export-policy gate, LIMIT floor, CSV guard,
+  menu budget, KPI citations, site SLA unknown-not-100). Full suite at e43d11d5: 5663 tests, 0 failed, 10 skipped
+  (no prod-snapshot). CI green at e43d11d5.
+- **P11 round 4 launched at e43d11d5** (local tag `qual-p11-e43d11d5`, clean clones in /home/user/qual/<seat>,
+  brief in /home/user/tools-orch/p11-seats.json, outputs /home/user/qual/out/r4-<seat>.md). Seats: security,
+  data-kpi, ppm, operations, ux-field, audit.
+- Open human decisions unchanged (SEC-F2, G14, lot approvals, …) plus: turning on `policy_center_enabled`,
+  catalogue risk/four-eyes review, KPI committee items from Lot A, activation of outbound / access / money switches.
