@@ -15,7 +15,7 @@
   "jobs": 33,
   "jobs_without_test_reference": 0,
   "migrations": 107,
-  "test_files": 887
+  "test_files": 891
  },
  "pages": [
   {
@@ -785,10 +785,11 @@
    "parent": "inspections.html",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 46260,
+   "bytes": 46669,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
+    "tests/i18n-lota-runtime.test.js",
     "tests/inventory-reachability.test.js",
     "tests/rbac-ui-gates.test.js",
     "tests/review-dashboard.test.js",
@@ -850,13 +851,14 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 40887,
+   "bytes": 41278,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/adoption-lota-truth.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/home-queue-page.test.js",
     "tests/i18n-coverage.test.js",
+    "tests/i18n-lota-runtime.test.js",
     "tests/page-head.test.js",
     "tests/page-states-adoption.test.js",
     "tests/rbac-ui-gates.test.js",
@@ -1114,10 +1116,11 @@
    "parent": "meetings.html",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 46027,
+   "bytes": 46421,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
+    "tests/i18n-lota-runtime.test.js",
     "tests/inventory-reachability.test.js",
     "tests/meeting-status-options.test.js",
     "tests/module-tabs.test.js",
@@ -1258,11 +1261,12 @@
    "parent": "meetings.html",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 32688,
+   "bytes": 33052,
    "tests": [
     "tests/adoption-lota-labels.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
+    "tests/i18n-lota-runtime.test.js",
     "tests/meeting-status-options.test.js",
     "tests/status-transfer.smoke.test.js",
     "tests/ui-design-ratchet.test.js"
@@ -1370,12 +1374,13 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 35691,
+   "bytes": 36045,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/adoption-lota-truth.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
+    "tests/i18n-lota-runtime.test.js",
     "tests/inventory-strict.test.js",
     "tests/page-head.test.js",
     "tests/page-states-adoption.test.js",
@@ -1521,6 +1526,7 @@
    "bytes": 6515,
    "tests": [
     "tests/a11y-static.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/i18n-coverage.test.js",
     "tests/no-native-dialogs.test.js",
     "tests/policy-center-routes.smoke.test.js"
@@ -4163,11 +4169,12 @@
    "method": "PUT",
    "path": "/api/field/outbox/:uuid",
    "file": "routes/field.js",
-   "line": 253,
+   "line": 269,
    "tests": [
     "tests/field-actions-dialog-browser.test.js",
     "tests/field-inspection-action-status.smoke.test.js",
     "tests/field-outbox-conflict.smoke.test.js",
+    "tests/field-r4-action-rules.smoke.test.js",
     "tests/field-review-step-browser.test.js",
     "tests/field-routes.smoke.test.js",
     "tests/field-task-timing.test.js",
@@ -4184,6 +4191,7 @@
     "tests/field-actions-dialog-browser.test.js",
     "tests/field-inspection-action-status.smoke.test.js",
     "tests/field-outbox-conflict.smoke.test.js",
+    "tests/field-r4-action-rules.smoke.test.js",
     "tests/field-review-step-browser.test.js",
     "tests/field-routes.smoke.test.js",
     "tests/field-task-timing.test.js",
@@ -4195,7 +4203,7 @@
    "method": "PUT",
    "path": "/api/field/uploads/:id/chunks/:idx",
    "file": "routes/field.js",
-   "line": 331,
+   "line": 347,
    "tests": [
     "tests/emergency-access.smoke.test.js",
     "tests/field-routes.smoke.test.js",
@@ -4207,7 +4215,7 @@
    "method": "POST",
    "path": "/api/field/uploads/:id/complete",
    "file": "routes/field.js",
-   "line": 340,
+   "line": 356,
    "tests": [
     "tests/emergency-access.smoke.test.js",
     "tests/field-routes.smoke.test.js",
@@ -4219,7 +4227,7 @@
    "method": "GET",
    "path": "/api/field/uploads/:id",
    "file": "routes/field.js",
-   "line": 328,
+   "line": 344,
    "tests": [
     "tests/emergency-access.smoke.test.js",
     "tests/field-routes.smoke.test.js",
@@ -4231,7 +4239,7 @@
    "method": "POST",
    "path": "/api/field/uploads",
    "file": "routes/field.js",
-   "line": 310,
+   "line": 326,
    "tests": [
     "tests/emergency-access.smoke.test.js",
     "tests/field-routes.smoke.test.js",
@@ -8814,6 +8822,7 @@
    "file": "routes/policyCenter.js",
    "line": 99,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
    ]

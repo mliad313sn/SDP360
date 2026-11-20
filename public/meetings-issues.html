@@ -272,6 +272,9 @@ border-color: var(--edv-orange, #EF631A);
 <div class="mi-toast" id="miToast"></div>
 
 <script nonce="%%CSP_NONCE%%">
+  // P11 r4 F-12 — a text built in script with a dynamic part (toast, alert, prompt) is translated through the page
+  // dictionary (lib/i18n/*.fr.js, inert unless ui_i18n_pages='1'); a whole text node is swapped by i18nText itself.
+  function uiT(s) { return (window.I18nText && window.I18nText.t) ? window.I18nText.t(s) : s; }
 (function () {
   'use strict';
   const API = '/api/meetings';
@@ -568,7 +571,7 @@ border-color: var(--edv-orange, #EF631A);
         if (TERMINAL.has(status)) row.closed_at = row.closed_at || new Date().toISOString();
         else row.closed_at = null;
       }
-      toast('Issue updated → ' + status);
+      toast(uiT('Issue updated →') + ' ' + status);
       renderTable();
       await refreshAggregate();
     } catch (err) {
@@ -577,7 +580,7 @@ border-color: var(--edv-orange, #EF631A);
       // are meaningful (cross-site / closed parent PV) — surface them verbatim.
       selEl.value    = prev;
       selEl.disabled = false;
-      toast('Update failed: ' + (err.message || 'unknown error'), true);
+      toast(uiT('Update failed:') + ' ' + (err.message || 'unknown error'), true);
     }
   }
 
@@ -620,7 +623,7 @@ border-color: var(--edv-orange, #EF631A);
 
   loadAll().catch(err => {
     console.error('[issues] load failed:', err);
-    document.getElementById('miTable').innerHTML = '<div class="mi-empty">Failed to load issues. ' + esc(err.message || '') + '</div>';
+    document.getElementById('miTable').innerHTML = '<div class="mi-empty"><span>Failed to load issues.</span> ' + esc(err.message || '') + '</div>';
   });
 })();
 </script>

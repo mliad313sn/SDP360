@@ -22,6 +22,20 @@
     'Previous page': 'Page précédente', 'Next page': 'Page suivante',
   };
   const RUNTIME = {
+    // P11 r4 F-12 — texts built in script (toasts, empty states, row buttons, table heads)
+    'Excel export failed:': 'Échec de l’export Excel :',
+    'Failed to load meetings.': 'Échec du chargement des réunions.',
+    'Reference': 'Référence',
+    'Department · priorities': 'Département · priorités',
+    'Dept Head · Site IT Lead': 'Chef de département · Responsable IT du site',
+    'Meeting date': 'Date de réunion',
+    'Issues · Esc.': 'Problèmes · Esc.',
+    'No meetings match the current filter — try widening the date range or use “+ New meeting”.': 'Aucune réunion ne correspond au filtre courant — élargissez la période ou utilisez « + Nouvelle réunion ».',
+    'No priorities recorded': 'Aucune priorité enregistrée',
+    'Open ›': 'Ouvrir ›',
+    'Issues captured': 'Problèmes enregistrés',
+    'HIGH severity issues': 'Problèmes de gravité HAUTE',
+    'Escalated to Council': 'Escaladé au Conseil',
     'No site in your scope': 'Aucun site dans votre périmètre',
     'Your account reads no site, so these figures are not measured for you. Ask an administrator to add your site.':
       'Votre compte ne lit aucun site : ces chiffres ne sont pas mesurés pour vous. Demandez à un administrateur d’ajouter votre site.',

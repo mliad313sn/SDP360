@@ -181,7 +181,40 @@
     if (r.reason === 'inspection_exists') return FT('This inspection already exists on the server and is not changed from the field app — capture a new inspection.') + (d.status ? ' (' + FT('server status:') + ' ' + d.status + ')' : '');
     if (r.reason === 'action_changed') return FT('This action was changed on the server since it was queued — check it before sending again.') + (d.now ? ' (' + FT('now:') + ' ' + d.now + ')' : '');
     if (r.reason === 'inspection_action_status') return FT('An inspection action can only be closed or cancelled from the field app.');
+    // P11 r4 F-4 — every refusal reason the server sends (services/fieldOutbox.js REFUSAL_REASONS) has its own text
+    var t = reasonText(r.reason || (j && j.reason));
+    if (t) return t;
     return String(r.error || (j && j.error) || (j && j.status) || FT('refused'));
+  }
+  function reasonText(reason) {
+    switch (reason) {
+      case 'meetings_action_status': return FT('A meeting action can only be resolved, cancelled or transferred from the field app.');
+      case 'action_unavailable': return FT('This action does not exist or is not in your scope.');
+      case 'action_invalid': return FT('This action entry is incomplete or invalid.');
+      case 'status_justification': return FT('This status needs a justification comment (and the ticket number for a Helpdesk ticket).');
+      case 'inspection_invalid': return FT('This inspection entry is incomplete (site missing).');
+      case 'no_inspection_site': return FT('Your account has no inspection site — ask Group IT.');
+      case 'inspection_out_of_scope': return FT('This inspection is for a site outside your scope.');
+      case 'photo_not_uploaded': return FT('A photo of this entry was not uploaded completely — send it again.');
+      case 'tracker_invalid': return FT('This tracker entry is incomplete or invalid.');
+      case 'tracker_not_published': return FT('This tracker is no longer published.');
+      case 'tracker_no_unit': return FT('Your account cannot write any unit of this tracker.');
+      case 'ticket_invalid': return FT('This ticket entry is incomplete or invalid.');
+      case 'ticket_disabled': return FT('Ticket creation from the field is not enabled by the administrator.');
+      case 'ticket_out_of_scope': return FT('A ticket must name one of your sites.');
+      case 'outcome_unknown': return FT('outcome unknown — check ServiceDesk Plus');
+      case 'envelope_invalid': return FT('This entry is malformed and cannot be sent.');
+      case 'wrong_author': return FT('This phone is signed in as another person — sign in again. Nothing is sent meanwhile.');
+      case 'uuid_other_user': return FT('This entry belongs to another user.');
+      case 'uuid_payload_mismatch': return FT('This entry was changed after a first send — record it again.');
+      case 'in_progress': return FT('the server has been applying this entry for too long');
+      case 'field_role': return FT('Your account cannot use the field app — ask Group IT.');
+      case 'invalid': return FT('The server refused this entry as invalid.');
+      case 'forbidden': return FT('You are not allowed to send this entry.');
+      case 'rejected': return FT('The server refused this entry.');
+      case 'conflict': return FT('This entry conflicts with a change made on the server — check it before sending again.');
+      default: return null;
+    }
   }
   function entryError(e, err) {
     if (err && err.status === 401) { msg(FT('Session expired — sign in again. Nothing was lost: your entries are kept on this phone.'), 'err'); return true; }

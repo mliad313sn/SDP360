@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 5715,
+ "total": 5742,
  "files": {
   "a11y-legacy-ratchet.test.js": 3,
   "a11y-static.test.js": 18,
@@ -296,7 +296,7 @@
   "html-lang-mirror.test.js": 4,
   "html-pages-before-static.test.js": 2,
   "http-error.test.js": 6,
-  "i18n-coverage.test.js": 59,
+  "i18n-coverage.test.js": 64,
   "i18n-inline-glossary.test.js": 5,
   "i18n-shell-charts.test.js": 7,
   "i18n-text.test.js": 6,
@@ -871,7 +871,7 @@
   "policy-center-catalogue.test.js": 6,
   "policy-center-routes.smoke.test.js": 6,
   "adoption-lota-week.test.js": 5,
-  "adoption-lota-nav-authz.test.js": 3,
+  "adoption-lota-nav-authz.test.js": 4,
   "adoption-lota-truth.test.js": 7,
   "adoption-lota-labels.test.js": 6,
   "activate-switches.test.js": 8,
@@ -888,6 +888,10 @@
   "kpi-baselines-location.test.js": 2,
   "reporting-week-dst.test.js": 4,
   "pg-migrate-destructive.test.js": 3,
-  "pg-pool-acquire-timeout.test.js": 3
+  "pg-pool-acquire-timeout.test.js": 3,
+  "field-r4-action-rules.smoke.test.js": 5,
+  "field-r4-refusal-reasons.test.js": 3,
+  "i18n-lota-runtime.test.js": 10,
+  "ppm-intake-r4-ux.test.js": 3
  }
 }

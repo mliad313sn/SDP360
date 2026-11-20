@@ -19,7 +19,10 @@
       current_situation: 'Current situation', impact: 'Business impact', problem: 'Problem', required_outcome: 'Required outcome',
       dependencies: 'Dependencies', risks: 'Risks', duration: 'Calculated duration', days: 'days', not_baselined: 'Schedule not baselined (no valid planned dates)',
       sites_note: 'Primary site and affected sites are set from the portfolio page.', amount_note: 'Amount and currency: the budget fields of the project (shown to the money readers only).',
-      warn: 'Check:', unavailable: 'Intake fields unavailable.' },
+      warn: 'Check:', unavailable: 'Intake fields unavailable.',
+      w_ROLES_SAME_PERSON: 'the business sponsor, the IT owner and the delivery lead are the same person — the three roles are meant to be held by different people (proposed rule, not enforced)',
+      w_ROLES_OVERLAP: 'two of the three roles (business sponsor, IT owner, delivery lead) are held by the same person (proposed rule, not enforced)',
+      w_BUDGET_ZERO: 'the budget is 0 while its status is not “not budgeted” — check it (a zero is kept as a measured value, never as unknown)' },
     fr: { title: 'Fiche projet', sub: 'Les champs du registre pour ce projet. « — » signifie inconnu, jamais 0. Les définitions des priorités, les niveaux de risque et les tranches d’effort sont des valeurs proposées, pas une politique approuvée.',
       identity: 'Identité', business_case: 'Justification', ownership: 'Responsabilités', schedule: 'Planning', budget: 'Budget', resources: 'Ressources',
       save: 'Enregistrer la fiche', saved: 'Fiche enregistrée.', readonly: 'Lecture seule : le comité tient le registre des projets.', help: 'Aide pour', definition: 'Définition', why: 'Pourquoi c’est utile',
@@ -28,7 +31,10 @@
       current_situation: 'Situation actuelle', impact: 'Impact métier', problem: 'Problème', required_outcome: 'Résultat attendu',
       dependencies: 'Dépendances', risks: 'Risques', duration: 'Durée calculée', days: 'jours', not_baselined: 'Planning non établi (pas de dates prévues valides)',
       sites_note: 'Le site principal et les sites concernés se règlent depuis la page portefeuille.', amount_note: 'Montant et devise : les champs budget du projet (visibles des lecteurs autorisés aux montants seulement).',
-      warn: 'À vérifier :', unavailable: 'Champs de la fiche indisponibles.' },
+      warn: 'À vérifier :', unavailable: 'Champs de la fiche indisponibles.',
+      w_ROLES_SAME_PERSON: 'le sponsor métier, le responsable IT et le chef de projet sont la même personne — les trois rôles sont prévus pour trois personnes différentes (règle proposée, non imposée)',
+      w_ROLES_OVERLAP: 'deux des trois rôles (sponsor métier, responsable IT, chef de projet) sont tenus par la même personne (règle proposée, non imposée)',
+      w_BUDGET_ZERO: 'le budget vaut 0 alors que son statut n’est pas « non budgété » — à vérifier (un zéro reste une valeur mesurée, jamais une inconnue)' },
   };
   var lang = function () { try { return root.I18nText && root.I18nText.lang && root.I18nText.lang() === 'fr' ? 'fr' : 'en'; } catch (_) { return 'en'; } };
   var t = function (k) { var l = S[lang()]; return l[k] != null ? l[k] : S.en[k]; };
@@ -46,8 +52,11 @@
     if (key === 'affected_sites') return '<p class="in-note" id="' + id + '">' + esc(t('sites_note')) + '</p>';
     if (key === 'business_need') {
       var bn = v || {};
+      // P11 r4 F-14 — read only: an unknown value reads "—" (the tab's own rule), not an empty disabled control
+      if (!edit) return CAT.business_need_parts.map(function (part) { return '<div class="in-sub"><span>' + esc(t(part)) + '</span> <output class="in-ro">' + esc(bn[part] || '—') + '</output></div>'; }).join('');
       return CAT.business_need_parts.map(function (part) { return '<label class="in-sub">' + esc(t(part)) + '<textarea rows="2" data-need="' + part + '"' + dis + '>' + esc(bn[part] || '') + '</textarea></label>'; }).join('');
     }
+    if (!edit) return '<output id="' + id + '" class="in-ro">' + esc(readText(key, v, states[col])) + '</output>';
     var input;
     if (LIST[key]) {
       var vals = (CAT.lookups[LIST[key]] || []).slice().sort(function (a, b) { return a.sort_order - b.sort_order; });
@@ -67,9 +76,20 @@
     return input;
   }
 
+  // P11 r4 F-14 — the read-only text of a value: its label for a list, the state (TBC / not applicable) when one is set,
+  // else "—" for unknown (never an empty box, never 0 for a blank)
+  function readText(key, v, st) {
+    var empty = v == null || v === '' || (Array.isArray(v) && !v.length);
+    if (empty) return st ? t('st_' + st) : '—';
+    if (LIST[key]) { var o = (CAT.lookups[LIST[key]] || []).filter(function (x) { return x.code === v; })[0]; return o ? (lang() === 'fr' ? o.label_fr : o.label_en) : v + ' ' + t('retired'); }
+    if (Array.isArray(v)) return v.join(', ');
+    return String(v);
+  }
+
   function fieldHtml(f, p, edit, states) {
     var x = txt(f), hid = 'in-help-' + f.key;
-    var head = f.key === 'business_need' ? '<span class="in-label">' + esc(x.label) + '</span>' : '<label class="in-label" for="in-' + esc(f.key) + '">' + esc(x.label) + '</label>';
+    // P11 r4 F-14 — a <label for> only on a labelable control: business_need is a group, affected_sites a note
+    var head = (f.key === 'business_need' || f.key === 'affected_sites') ? '<span class="in-label">' + esc(x.label) + '</span>' : '<label class="in-label" for="in-' + esc(f.key) + '">' + esc(x.label) + '</label>';
     return '<div class="in-field">' + head + ' <button type="button" class="in-help-btn" aria-expanded="false" aria-controls="' + hid + '" aria-label="' + esc(t('help') + ' ' + x.label) + '">?</button>' +
       '<div class="in-ctl">' + control(f, p, edit, states) + '</div>' +
       '<div class="in-help" id="' + hid + '" hidden><dl><dt>' + esc(t('definition')) + '</dt><dd>' + esc(x.description) + '</dd><dt>' + esc(t('why')) + '</dt><dd>' + esc(x.why) + '</dd>' +
@@ -114,7 +134,8 @@
   function save(ctx, host) {
     var p = ctx.V().project;
     ctx.api('/api/governance/portfolio/project', { method: 'PUT', body: JSON.stringify(collect(host, p)) }).then(function (j) {
-      var w = (j.warnings || []).map(function (x) { return x.message; });
+      // P11 r4 F-14 — the warning text by its code in the page language; the server sentence only for an unknown code
+      var w = (j.warnings || []).map(function (x) { var k = 'w_' + x.code; return S.en[k] ? t(k) : x.message; });
       ctx.msg(w.length ? t('saved') + ' ' + t('warn') + ' ' + w.join(' · ') : t('saved'));
       return ctx.reload();
     }).catch(ctx.fail);

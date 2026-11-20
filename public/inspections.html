@@ -457,6 +457,9 @@
 </div>
 
 <script nonce="%%CSP_NONCE%%">
+  // P11 r4 F-12 — a text built in script with a dynamic part (toast, alert, prompt) is translated through the page
+  // dictionary (lib/i18n/*.fr.js, inert unless ui_i18n_pages='1'); a whole text node is swapped by i18nText itself.
+  function uiT(s) { return (window.I18nText && window.I18nText.t) ? window.I18nText.t(s) : s; }
 (function () {
   'use strict';
 
@@ -632,7 +635,7 @@
     if (!modal || !title || !body || !ok) {
       // Defensive fallback — keep the action available even if the
       // markup somehow got lost.
-      const m = `Delete inspection ${btn.dataset.id}? This cannot be undone.\nProceed?`;
+      const m = uiT('Delete this inspection? This cannot be undone.') + '\n' + btn.dataset.id;
       if (window.confirm(m)) performDelete(btn);
       return;
     }
@@ -679,7 +682,7 @@
       });
       if (!r.ok) {
         const j = await r.json().catch(() => ({}));
-        alert('Delete failed: ' + (j.error || ('HTTP ' + r.status)));
+        alert(uiT('Delete failed:') + ' ' + (j.error || ('HTTP ' + r.status)));
         rowBtn.disabled = false; rowBtn.textContent = '✕ Delete';
         if (modalBtn) { modalBtn.disabled = false; modalBtn.textContent = 'Delete · Supprimer'; }
         return;
@@ -688,7 +691,7 @@
       // Row gone — refresh the whole dashboard so KPIs + chart re-tally
       refresh();
     } catch (err) {
-      alert('Delete failed: ' + err.message);
+      alert(uiT('Delete failed:') + ' ' + err.message);
       rowBtn.disabled = false; rowBtn.textContent = '✕ Delete';
       if (modalBtn) { modalBtn.disabled = false; modalBtn.textContent = 'Delete · Supprimer'; }
     }
@@ -721,7 +724,7 @@
       const j = await r.json(); panel.hidden = false;
       const info = document.getElementById('repeatInfo'), list = document.getElementById('repeatList');
       if (!j.enabled) { info.textContent = 'No window set (insp_repeat_window is empty): nothing is computed.'; list.innerHTML = ''; return; }
-      info.textContent = 'Same item rated minor / major / critical in at least 2 of each site\'s last ' + j.n + ' submitted inspections.';
+      info.textContent = uiT('Same item rated minor / major / critical in at least 2 of each site’s last N submitted inspections.').replace('N', j.n);
       const esc2 = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
       const rows = [];
       for (const [site, d] of Object.entries(j.sites || {})) for (const x of d.repeats) rows.push(`<tr><td>${esc2(site)}</td><td>${esc2(x.item_code)}</td><td>${esc2(x.item_text || '')}</td><td>${x.hits} / ${x.of}</td><td>${esc2(x.worst)}</td></tr>`);
@@ -835,7 +838,7 @@
       });
       if (!r.ok) {
         const t = await r.text().catch(() => '');
-        alert('Export failed: ' + (t || r.status));
+        alert(uiT('Export failed:') + ' ' + (t || r.status));
         return;
       }
       const blob = await r.blob();
@@ -882,7 +885,7 @@
           const url = URL.createObjectURL(await r.blob());
           const a = document.createElement('a'); a.href = url; a.download = 'Inspections_full.xlsx';
           document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 5000);
-        } catch (e) { alert('Excel export failed: ' + (e.message || '')); }
+        } catch (e) { alert(uiT('Excel export failed:') + ' ' + (e.message || '')); }
         finally { xl.innerHTML = orig; xl.disabled = false; }
       });
     }

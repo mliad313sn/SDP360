@@ -281,6 +281,9 @@ border-color: var(--edv-orange, #EF631A);
 <div class="mi-toast" id="miToast"></div>
 
 <script nonce="%%CSP_NONCE%%">
+  // P11 r4 F-12 — a text built in script with a dynamic part (toast, alert, prompt) is translated through the page
+  // dictionary (lib/i18n/*.fr.js, inert unless ui_i18n_pages='1'); a whole text node is swapped by i18nText itself.
+  function uiT(s) { return (window.I18nText && window.I18nText.t) ? window.I18nText.t(s) : s; }
 (function () {
   'use strict';
   const API = '/api/meetings';
@@ -550,10 +553,10 @@ border-color: var(--edv-orange, #EF631A);
         const j = await r.json().catch(() => ({}));
         throw new Error(j.error || ('HTTP ' + r.status));
       }
-      toast('Action updated → ' + status);
+      toast(uiT('Action updated →') + ' ' + status);
       await loadAll();
     } catch (err) {
-      toast('Update failed: ' + (err.message || ''), true);
+      toast(uiT('Update failed:') + ' ' + (err.message || ''), true);
       selEl.disabled = false;
       await loadAll();
     }
@@ -717,11 +720,11 @@ border-color: var(--edv-orange, #EF631A);
       const fnScope = (state.filters.site || 'all') + (state.filters.department ? '-' + state.filters.department : '');
       pptx.writeFile({ fileName: 'Meeting-Actions_' + fnScope.replace(/[^\w-]/g, '') + '_' + today + '.pptx' })
         .then(() => toast('PPTX exported'))
-        .catch(e => { console.error('[mtg-actions] pptx failed:', e); toast('Export failed: ' + (e.message || ''), true); })
+        .catch(e => { console.error('[mtg-actions] pptx failed:', e); toast(uiT('Export failed:') + ' ' + (e.message || ''), true); })
         .finally(() => { btn.disabled = false; btn.innerHTML = label; });
     } catch (err) {
       console.error('[mtg-actions] export error:', err);
-      toast('Export failed: ' + (err.message || ''), true);
+      toast(uiT('Export failed:') + ' ' + (err.message || ''), true);
       btn.disabled = false; btn.innerHTML = label;
     }
   }
@@ -748,7 +751,7 @@ border-color: var(--edv-orange, #EF631A);
         const a = document.createElement('a'); a.href = url; a.download = 'Meetings_full.xlsx';
         document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 5000);
         toast('Excel downloaded');
-      } catch (e) { toast('Excel export failed: ' + (e.message || ''), true); }
+      } catch (e) { toast(uiT('Excel export failed:') + ' ' + (e.message || ''), true); }
       finally { b.disabled = false; b.innerHTML = lbl; }
     });
   })();
@@ -771,7 +774,7 @@ border-color: var(--edv-orange, #EF631A);
 
   loadAll().catch(err => {
     console.error('[actions] load failed:', err);
-    document.getElementById('miTable').innerHTML = '<div class="mi-empty">Failed to load actions. ' + esc(err.message || '') + '</div>';
+    document.getElementById('miTable').innerHTML = '<div class="mi-empty"><span>Failed to load actions.</span> ' + esc(err.message || '') + '</div>';
   });
 })();
 </script>

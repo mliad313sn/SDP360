@@ -88,4 +88,26 @@ function validateTicketPayload(p) {
 /** Freshness stamp the app shows: "data as of" from the newest as_of across widgets, else null (never now()). */
 function dataAsOf(widgets) { let max = null; for (const w of Object.values(widgets || {})) { const t = w && w.as_of ? Date.parse(w.as_of) : NaN; if (Number.isFinite(t) && (max == null || t > max)) max = t; } return max == null ? null : new Date(max).toISOString(); }
 
-module.exports = { KINDS, MAX_PHOTO_BYTES, CHUNK_BYTES, MAX_CHUNKS, CONFLICT_POLICY, validateEnvelope, payloadHash, stableJson, chunkPlan, missingChunks, assembleChunks, validateTrackerPayload, validateActionPayload, validateTicketPayload, dataAsOf };
+// P11 r4 F-4 — every refusal the field outbox answers carries one of these reason codes; the phone (public/field/app.js
+// refusalText) shows its French / English text for each, and falls back to the server text only for an unknown code.
+// A new refusal path must use one of these (or add one here AND in app.js — tests/field-r4-refusal-reasons.test.js).
+const REFUSAL_REASONS = [
+  // envelope level (route answers)
+  'envelope_invalid', 'wrong_author', 'uuid_other_user', 'uuid_payload_mismatch', 'in_progress', 'field_role',
+  // inspection
+  'inspection_invalid', 'no_inspection_site', 'inspection_out_of_scope', 'photo_not_uploaded', 'inspection_exists', 'inspection_action_status',
+  // actions
+  'action_invalid', 'action_unavailable', 'meetings_action_status', 'status_justification', 'action_changed',
+  // tracker / ticket
+  'tracker_invalid', 'tracker_not_published', 'tracker_no_unit', 'ticket_invalid', 'ticket_disabled', 'ticket_out_of_scope', 'outcome_unknown',
+  // generic fallbacks by error code (a typed error thrown by a module writer without its own reason)
+  'invalid', 'forbidden', 'rejected', 'conflict',
+];
+function fallbackReason(code) {
+  if (code === 'INVALID' || code === 'VALIDATION') return 'invalid';
+  if (code === 'FORBIDDEN') return 'forbidden';
+  if (code === 'CONFLICT') return 'conflict';
+  return 'rejected';
+}
+
+module.exports = { REFUSAL_REASONS, fallbackReason, KINDS, MAX_PHOTO_BYTES, CHUNK_BYTES, MAX_CHUNKS, CONFLICT_POLICY, validateEnvelope, payloadHash, stableJson, chunkPlan, missingChunks, assembleChunks, validateTrackerPayload, validateActionPayload, validateTicketPayload, dataAsOf };

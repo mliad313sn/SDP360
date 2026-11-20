@@ -26,6 +26,37 @@
       'Exporter la vue filtrée en présentation PowerPoint (indicateurs, graphiques et liste des actions prioritaires).',
     'Search description / owner / item…': 'Rechercher description / responsable / élément…',
   };
-  root.I18N_FR_INSPECTION_ACTIONS = Object.assign({}, STATIC);
-  root.I18N_FR_INSPECTION_ACTIONS_RUNTIME = [];   // JS-built rows: next pass
+  const RUNTIME = {
+    // P11 r4 F-12 — texts built in script (toasts, empty states, row buttons, table heads)
+    'Total actions': 'Actions au total',
+    'Open': 'Ouvertes',
+    'in scope': 'dans le périmètre',
+    'not yet closed': 'pas encore clôturées',
+    'open & unassigned': 'ouvertes et non attribuées',
+    'Action updated →': 'Action mise à jour →',
+    'Update failed:': 'Échec de la mise à jour :',
+    'PPTX library not loaded — refresh the page.': 'Bibliothèque PPTX non chargée — rechargez la page.',
+    'PPTX exported': 'PPTX exporté',
+    'Export failed:': 'Échec de l’export :',
+    'Excel downloaded': 'Excel téléchargé',
+    'Excel export failed:': 'Échec de l’export Excel :',
+    'No actions match the current filter.': 'Aucune action ne correspond au filtre courant.',
+    'Open ›': 'Ouvrir ›',
+    'Failed to load actions.': 'Échec du chargement des actions.',
+    'past due date': 'échéance dépassée',
+    'No owner': 'Sans responsable',
+    'closed / cancelled': 'clôturées / annulées',
+    'Closed': 'Clôturées',
+    'Overdue': 'En retard',
+    'Verification note (what you checked):': 'Note de vérification (ce que vous avez contrôlé) :',
+    'Action verified': 'Action vérifiée',
+    'Action verified (the person who closed it is not recorded)': 'Action vérifiée (la personne qui l’a clôturée n’est pas enregistrée)',
+    'Verification failed:': 'Échec de la vérification :',
+    'Verify': 'Vérifier',
+    '✓ verified': '✓ vérifiée',
+    'awaiting verification': 'en attente de vérification',
+    'Inspection': 'Inspection',
+  };
+  root.I18N_FR_INSPECTION_ACTIONS = Object.assign({}, STATIC, RUNTIME);
+  root.I18N_FR_INSPECTION_ACTIONS_RUNTIME = Object.keys(RUNTIME);
 })(typeof window !== 'undefined' ? window : globalThis);

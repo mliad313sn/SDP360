@@ -20,7 +20,7 @@
 | jobs | 33 |
 | jobs without test reference | 0 |
 | migrations | 107 |
-| test files | 887 |
+| test files | 891 |
 
 ## Pages
 
@@ -48,9 +48,9 @@
 | PG-home | public/home.html | any | yes | 0 | 17 |
 | PG-index | public/index.html | any | yes | 1 | 39 |
 | PG-infra-health | public/infra-health.html | any | yes | 2 | 7 |
-| PG-inspection-actions | public/inspection-actions.html | any | no | 1 | 6 |
+| PG-inspection-actions | public/inspection-actions.html | any | no | 1 | 7 |
 | PG-inspection | public/inspection.html | any | no | 2 | 9 |
-| PG-inspections | public/inspections.html | any | yes | 1 | 10 |
+| PG-inspections | public/inspections.html | any | yes | 1 | 11 |
 | PG-integrations | public/integrations.html | admin | yes | 1 | 5 |
 | PG-it-review | public/it-review.html | executive / scorecard-viewer | yes | 2 | 9 |
 | PG-itsm-integrations-plan | public/itsm-integrations-plan.html | UNKNOWN | no | 0 | 5 |
@@ -58,21 +58,21 @@
 | PG-kpi-builder | public/kpi-builder.html | any | yes | 0 | 5 |
 | PG-login | public/login.html | public | no | 1 | 13 |
 | PG-meeting | public/meeting.html | any | no | 1 | 14 |
-| PG-meetings-actions | public/meetings-actions.html | any | no | 2 | 9 |
+| PG-meetings-actions | public/meetings-actions.html | any | no | 2 | 10 |
 | PG-meetings-compliance | public/meetings-compliance.html | any | no | 2 | 4 |
 | PG-meetings-council | public/meetings-council.html | any | no | 2 | 3 |
 | PG-meetings-import | public/meetings-import.html | editor | no | 2 | 4 |
 | PG-meetings-insights | public/meetings-insights.html | any | no | 2 | 5 |
-| PG-meetings-issues | public/meetings-issues.html | any | no | 2 | 6 |
+| PG-meetings-issues | public/meetings-issues.html | any | no | 2 | 7 |
 | PG-meetings-progress | public/meetings-progress.html | any | no | 2 | 3 |
 | PG-meetings-setup | public/meetings-setup.html | any | no | 1 | 4 |
 | PG-meetings-unsigned | public/meetings-unsigned.html | any | no | 2 | 4 |
-| PG-meetings | public/meetings.html | any | yes | 2 | 9 |
+| PG-meetings | public/meetings.html | any | yes | 2 | 10 |
 | PG-no-access | public/no-access.html | any | no | 0 | 2 |
 | PG-notifications | public/notifications.html | any | yes | 1 | 4 |
 | PG-obligations | public/obligations.html | any | yes | 0 | 5 |
 | PG-policies | public/policies.html | admin / committee-member | yes | 1 | 6 |
-| PG-policy-center | public/policy-center.html | super_admin | yes | 0 | 4 |
+| PG-policy-center | public/policy-center.html | super_admin | yes | 0 | 5 |
 | PG-portfolio | public/portfolio.html | any | yes | 1 | 18 |
 | PG-project | public/project.html | any | no | 1 | 22 |
 | PG-report-studio | public/report-studio.html | any | yes | 1 | 4 |
