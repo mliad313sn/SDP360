@@ -173,3 +173,17 @@ node tools/test/run-all.js > /home/user/suite.log 2>&1     # full suite, ~18 min
 - Human steps added by round 5: DBA applies the extended `tools/pg/harden-audit-grants.sql` (database ownership moves to
   `sdp_audit_owner`); production `.env` needs `SDP_LEDGER_SCHEMA=public` and `SDP_CONFIG_KEY`; file-store backup
   location/retention; second operator per four-eyes lot; who may reset a super_admin password (G01).
+
+## Update 2026-11-20 23:55 UTC (orchestrator)
+
+- Round 6 (e82d95ba): **P0 = 0, P1 = 0 on all six seats** (first time). New P2s fixed by fixes 25–29, all merged:
+  25 data/KPI (fleet SLA cell, one high-risk rule, demand panel, migration 132), 26 security (canonical switch
+  values before the four-eyes guard, CR bound to named fields, migration 133), 27 operations (backup off the event
+  loop, link-aware walker), 28 field/UX (refused reopen reported), 29 audit (CLI four-eyes only via one-time
+  operator token, audit chain fails closed + HMAC anchors, dossier script hashes, migrations 135/136).
+- Round-6 seat reports in `docs/agent-execution/p11/round6-e82d95ba/`; Round 6 section in P11-readiness-report.md.
+- Trunk head b9e191dd pushed; full local suite running (`/home/user/full29.log`).
+- **API change (fix 25):** capacity/scenario responses now carry `view_partial` / `view_partial_note`.
+- New human steps: who may issue CLI operator tokens (HD-G01); anchors advisory until `SDP_CONFIG_KEY` set and the
+  DBA hardening script applied; PMO to confirm the residual-first gate rule; KPI committee to approve
+  `helpdesk-fleet-sla` bands. Nothing in fixes 25–29 has been re-checked by a P11 panel yet (round 7 optional).
