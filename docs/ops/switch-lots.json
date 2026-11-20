@@ -261,6 +261,19 @@
     "entra_deprovision_enabled",
     "site_code_shared_block"
    ]
+  },
+  {
+   "id": "L14",
+   "title": "PMO journey — portfolio intake register (portfolio spec Lot 1)",
+   "status": "PROPOSED",
+   "order_note": "New lot (portfolio reconstruction spec, Lot 1). Prerequisite of the data-quality lot (spec Lot 2).",
+   "profiles": "PMO, committee members (who maintain projects), admin tier (reference lists), every project reader",
+   "changes": "Projects carry the intake fields (type, tags, priority, structured business need, expected value, delivery lead, indicative quarter + schedule confidence, budget status / approval date / reference, decision required, delivery effort, risk exposure, FTE, skills, workload notes, explicit TBC / not applicable / none-known states); new projects get an immutable PRJ-YYYY-NNN id; the admin tier maintains the reference lists; Intake tab with field guidance on the project page. Existing projects get ids only through tools/ppm/backfill-project-ids.js (dry run first).",
+   "risk": "low-medium (AI estimate): additive columns, writes stay committee-only; the priority meanings, risk levels and effort bands are PROPOSED reference data the PMO must review before arming; the id backfill is permanent (ids are never reused).",
+   "metric_candidate": "share of live projects with type, priority, business need, sponsor, IT owner and budget status filled; projects without an id after the backfill (should be zero)",
+   "switches": [
+    "ppm_intake_register_enabled"
+   ]
   }
  ],
  "keep": {

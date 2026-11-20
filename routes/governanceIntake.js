@@ -49,14 +49,14 @@ module.exports = function governanceIntakeRoutes(router, h) {
     try { if (!domainOk(req, res)) return; const value = await store().save(req.params.domain, req.body || {}, { user: req.reportUser }); log(req, 'portfolio_lookup_saved', `${req.params.domain}:${value.code}`); res.json({ ok: true, value }); }
     catch (e) { fail(res, e); }
   });
-  for (const op of ['retire', 'restore']) {
-    router.post(`/api/governance/intake/lookups/:domain/:code/${op}`, requireReportSession, sw, requireAdminTier, json, async (req, res) => {
-      try {
-        if (!domainOk(req, res)) return;
-        const out = await store()[op](req.params.domain, req.params.code, { user: req.reportUser });
-        log(req, `portfolio_lookup_${op}d`, `${req.params.domain}:${req.params.code}`);
-        res.json({ ok: true, ...(op === 'retire' ? out : { value: out }) });
-      } catch (e) { fail(res, e); }
-    });
-  }
+  const lifecycle = (op) => async (req, res) => {
+    try {
+      if (!domainOk(req, res)) return;
+      const out = await store()[op](req.params.domain, req.params.code, { user: req.reportUser });
+      log(req, `portfolio_lookup_${op}d`, `${req.params.domain}:${req.params.code}`);
+      res.json({ ok: true, ...(op === 'retire' ? out : { value: out }) });
+    } catch (e) { fail(res, e); }
+  };
+  router.post('/api/governance/intake/lookups/:domain/:code/retire', requireReportSession, sw, requireAdminTier, json, lifecycle('retire'));
+  router.post('/api/governance/intake/lookups/:domain/:code/restore', requireReportSession, sw, requireAdminTier, json, lifecycle('restore'));
 };

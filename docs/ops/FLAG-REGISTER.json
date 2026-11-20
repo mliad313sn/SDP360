@@ -12,12 +12,12 @@
   "expiry"
  ],
  "counts": {
-  "report_config": 295,
+  "report_config": 296,
   "planned": 9,
   "governance_policies": 37,
   "environment": 65,
   "pseudo": 4,
-  "dark": 152,
+  "dark": 153,
   "dark_complete": 0
  },
  "frozen_lots_source": "CLAUDE.md (tools/deploy/frozen-lots.json absent on this branch)",
@@ -1952,6 +1952,17 @@
    "owner_role": "PMO",
    "recommended": "`1` once the PMO defines gate checklists: per project and target stage, required artifacts (links) and checks, N named approvers or roles, all or quorum; the approver is never the project owner, a reject needs a reason, sign-offs are append-only with server time and are a recorded approval (not a legal signature); a stage move is refused (409) while a defined checklist is incomplete and nothing is approved automatically. Who approves which gate is a PMO decision",
    "reference": "W3-GOVERNANCE",
+   "prerequisites": null
+  },
+  {
+   "key": "ppm_intake_register_enabled",
+   "source": "report_config",
+   "kind": "arm switch",
+   "secret": false,
+   "default": "0",
+   "dark": true,
+   "owner_role": null,
+   "recommended": "`1` once the PMO has reviewed the PROPOSED reference lists (priority meanings, risk levels, effort bands) and wants the project register of the portfolio reconstruction spec (Lot 1): intake fields on every project (type, tags, priority, structured business need, expected value, delivery lead, indicative quarter + schedule confidence, budget status / approval date / reference, decision required, delivery effort, risk exposure, average / peak FTE, skills, workload notes, explicit TBC / not applicable / none-known states), an immutable PRJ-YYYY-NNN id for each new project (existing projects: `tools/ppm/backfill-project-ids.js`, dry run first — the ids are permanent), the reference lists maintained by the admin tier (never deleted, retired), and the Intake tab with field guidance. Project writes stay committee-only. `0` = the fields are hidden and ignored, no id is generated.",
    "prerequisites": null
   },
   {
@@ -7088,6 +7099,34 @@
    "default": "0",
    "owner_role": "PMO",
    "reference": "W3-GOVERNANCE",
+   "prerequisites": null,
+   "decision": {
+    "owner": null,
+    "risk": null,
+    "dependencies": null,
+    "canary_site": null,
+    "rollback_trigger": null,
+    "success_metric": null,
+    "decision_deadline": null,
+    "expiry": null
+   },
+   "missing": [
+    "owner",
+    "risk",
+    "dependencies",
+    "canary_site",
+    "rollback_trigger",
+    "success_metric",
+    "decision_deadline",
+    "expiry"
+   ]
+  },
+  {
+   "key": "ppm_intake_register_enabled",
+   "source": "report_config",
+   "default": "0",
+   "owner_role": null,
+   "reference": null,
    "prerequisites": null,
    "decision": {
     "owner": null,

@@ -14,13 +14,13 @@
 | pages deep link only | 9 |
 | pages without entry point | 3 |
 | pages with inline scripts | 46 |
-| routes | 753 |
+| routes | 759 |
 | routes without test reference | 30 |
 | routes in server js | 161 |
 | jobs | 33 |
 | jobs without test reference | 0 |
-| migrations | 103 |
-| test files | 858 |
+| migrations | 104 |
+| test files | 861 |
 
 ## Pages
 
@@ -72,8 +72,8 @@
 | PG-notifications | public/notifications.html | any | yes | 1 | 3 |
 | PG-obligations | public/obligations.html | any | yes | 0 | 4 |
 | PG-policies | public/policies.html | admin / committee-member | yes | 1 | 5 |
-| PG-portfolio | public/portfolio.html | any | yes | 1 | 16 |
-| PG-project | public/project.html | any | no | 1 | 20 |
+| PG-portfolio | public/portfolio.html | any | yes | 1 | 17 |
+| PG-project | public/project.html | any | no | 1 | 21 |
 | PG-report-studio | public/report-studio.html | any | yes | 1 | 3 |
 | PG-reports | public/reports.html | any | yes | 2 | 38 |
 | PG-rfi | public/rfi.html | any | yes | 1 | 4 |
