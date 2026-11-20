@@ -153,6 +153,7 @@ not the browser-checked level.
 | `docs/agent-execution/FIX-20-PPM.md` | — (reference) | — | — | — | `71c8d3279d4b723dff51d7c61a873e122e7001ddd0653bc92c34140798322047` |
 | `docs/agent-execution/FIX-22-OPS.md` | — (reference) | — | — | — | `e45a44ecbf9593a9ebb05ebc1fac2385b0964e07add35936922b0e23858dfbae` |
 | `docs/agent-execution/FIX-23-FIELD.md` | — (reference) | — | — | — | `a4920791ba0d400b89cae258efeb9eb3330cdf24ee087ba5829d2215380c118d` |
+| `docs/agent-execution/FIX-24-AUDIT.md` | — (reference) | — | — | — | `704932e8559277bc5e3611637df37e8d361a249b210bd67f16606e4ae04b886f` |
 | `docs/agent-execution/G00.md` | G00 | code+test | pending | pending | `851fd0ca5460f8907fc678153f3984ef56facd75f643cbb4676e3f97643f1210` |
 | `docs/agent-execution/G01.md` | G01 | code+test | pending | pending | `2fbce7e79960cc4e55ecc9101df2256a5df921d0a3e8bf08df363a77ae935bea` |
 | `docs/agent-execution/G02.md` | G02 | code+test | pending | pending | `933b84b8c361d4129e97e0e4203d2ee759da8891d428727599d549e287ac4f9c` |
