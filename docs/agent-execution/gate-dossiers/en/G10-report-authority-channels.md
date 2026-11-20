@@ -10,7 +10,7 @@
 | Decision cell in RELEASE-GATES.md | empty — this gate is **NO-GO** until the approver fills it. This dossier fills nothing. |
 | What this gate blocks | blocks general deployment only |
 | Decide after | [G06](G06-kpi-definitions-thresholds.md) KPI definitions, thresholds and score |
-| Target SHA | `a7565f27` |
+| Target SHA | `60d16efb` |
 | Generated | 2026-11-20 |
 
 ## 1. Question to decide
