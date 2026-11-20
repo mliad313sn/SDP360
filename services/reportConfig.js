@@ -693,6 +693,8 @@ Object.assign(DEFAULTS, { portfolio_my_projects_default: '0', portfolio_sensitiv
 //    export_watermark_enabled  '1' → user + UTC timestamp stamped on exported files (CSV last line, HTML footer, XLSX
 //                              first sheet "Export", PPTX footer on every slide; PDF/JSON carry it in a response header).
 Object.assign(DEFAULTS, { export_policy_strict: '0', export_watermark_enabled: '0' });
+// Policy Control Center (ADR-POLICY-CENTER) — '1' serves policy-center.html + /api/policy-center/* (else 404). '0' = today.
+DEFAULTS.policy_center_enabled = '0';
 
 const KEYS = Object.keys(DEFAULTS);
 
