@@ -10,7 +10,7 @@
 | Decision cell in RELEASE-GATES.md | empty — this gate is **NO-GO** until the approver fills it. This dossier fills nothing. |
 | What this gate blocks | blocks the pilot only if its feature is in the pilot scope |
 | Decide after | [G01](G01-security-access-policy.md) Security: access policy and authorization matrix |
-| Target SHA | `801c0c84` |
+| Target SHA | `e57c188029b72bc62b7d9b2a88fbbe4d534c0322` |
 | Generated | 2026-11-20 |
 
 ## 1. Question to decide
