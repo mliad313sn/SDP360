@@ -10,7 +10,7 @@
 | Decision cell in RELEASE-GATES.md | empty — this gate is **NO-GO** until the approver fills it. This dossier fills nothing. |
 | What this gate blocks | blocks general deployment only |
 | Decide after | none |
-| Target SHA | `5176ec3b` |
+| Target SHA | `db704a36` |
 | Generated | 2026-11-20 |
 
 ## 1. Question to decide
@@ -22,7 +22,7 @@ Which KPI definitions, RAG thresholds and site-score model become official — e
 | Evidence | What it shows | Regenerate / re-run | Last changed (commit, date) | Content hash |
 |---|---|---|---|---|
 | `docs/ops/SCORE-METHODOLOGY.md` | Score methodology generated from the code; D-03 open | `node tools/agent/score-methodology.js --check` | 2cad73b9, 2026-11-06 | `3aa294827b43753f` |
-| `docs/ops/METRIC-LINEAGE.md` | Where each metric comes from | `manual` | 098d2f1e, 2026-11-20 | `cac9f9ff2bdeff2a` |
+| `docs/ops/METRIC-LINEAGE.md` | Where each metric comes from | `manual` | 962ff523, 2026-11-20 | `8e3ec1523b9c2752` |
 | `docs/sdp360/completion/KPI-DISPUTES.md` | Known disagreements between formulas | `manual` | 3715318f, 2026-10-29 | `9fc347535aadd39a` |
 | `services/metricRegistry.js` | KPI dictionary | `manual` | 098d2f1e, 2026-11-20 | `4a95028cfb394dbd` |
 | `tests/kpi-policy-engine.test.js` | Threshold policy engine behaviour | `node --test --test-force-exit tests/kpi-policy-engine.test.js` | d5a8d2e7, 2026-11-05 | `177b5e67c6d4abe4` |
