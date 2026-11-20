@@ -26,5 +26,7 @@ test('runBackup: skips without PG_URL, fails loudly on a bad exit or a tiny file
   const out = await runBackup({ dir, keep: 1, env: { PG_URL: 'x', SDP_BACKUP_ALLOW_PLAINTEXT: '1' }, spawn: (c, a) => { fs.writeFileSync(a[1], DUMP); return { status: 0 }; }, log: () => {} });
   assert.ok(out.bytes >= 5000);
   assert.ok(out.file.endsWith('.sql.gz'), 'stored gzip-compressed');
-  assert.equal(fs.readdirSync(dir).filter((n) => n.startsWith('sdp_dashboard_')).length, 1);
+  // P11 r4: the tiny dump above is quarantined as .rejected (not a managed dump name)
+  assert.equal(fs.readdirSync(dir).filter((n) => require('../services/backup').isDumpName(n)).length, 1);
+  assert.equal(fs.readdirSync(dir).filter((n) => n.endsWith('.sql.rejected')).length, 1);
 });

@@ -129,3 +129,32 @@ test('latestDump / prune manage only the generator pattern sdp_dashboard_<yyyymm
   assert.equal(B.isDumpName('sdp_dashboard_before-upgrade.sql'), false);
   assert.equal(B.isDumpName('sdp_dashboard_20261102T030000Z.sql'), true);
 });
+
+// P11 r4 — a key of 16 spaces was accepted as "encrypted"; a rejected undersized dump stayed on disk under a managed
+// dump name, so latestDump / the restore drill could pick it.
+test('r4: whitespace-only / low-entropy backup keys are refused; deriveKey (restore path) unchanged', async () => {
+  assert.match(B.keyQualityProblem(' '.repeat(16)), /non-space/);
+  assert.match(B.keyQualityProblem(' a b c d e f g h '), /non-space/);
+  assert.match(B.keyQualityProblem('a'.repeat(32)), /distinct/);
+  assert.equal(B.keyQualityProblem('a-proper-backup-passphrase-2026'), null);
+  assert.equal(B.keyQualityProblem(''), 'not set');
+  const dir = tmp(); let dumped = 0;
+  const spawnOk = (c, a) => { dumped++; fs.writeFileSync(a[1], TRAILED(3000)); return { status: 0 }; };
+  for (const k of [' '.repeat(16), '\t'.repeat(20), 'b'.repeat(32)]) {
+    await assert.rejects(B.runBackup({ dir, env: { PG_URL: 'x', SDP_BACKUP_KEY: k }, spawn: spawnOk, log: () => {} }), (e) => e.code === 'BACKUP_KEY_MISSING');
+  }
+  assert.equal(dumped, 0);
+  assert.ok(B.deriveKey('b'.repeat(32)), 'an old backup made with a weak key can still be opened');
+});
+
+test('r4: an undersized dump is quarantined as .rejected and never selected as the newest backup', async () => {
+  const dir = tmp();
+  await assert.rejects(B.runBackup({ dir, env: { PG_URL: 'x', SDP_BACKUP_KEY: 'a-proper-backup-passphrase-2026' },
+    spawn: (c, a) => { fs.writeFileSync(a[1], 'tiny'); return { status: 0 }; }, log: () => {} }), /suspiciously small.*quarantined/);
+  const names = fs.readdirSync(dir);
+  assert.equal(names.length, 1);
+  assert.ok(names[0].endsWith('.sql.rejected'), names[0]);
+  assert.equal(B.isDumpName(names[0]), false);
+  assert.equal(B.latestDump(dir), null);
+  assert.deepEqual(B.prune(dir, { keep: 0 }), [], 'never pruned either');
+});

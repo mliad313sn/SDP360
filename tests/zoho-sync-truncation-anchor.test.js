@@ -29,7 +29,7 @@ test('nextAnchorState: only a confirmed count moves the anchor; a lossy run neve
   assert.deepEqual(nextAnchorState(null, 100, 0), st(100));            // first run
   assert.deepEqual(nextAnchorState(st(100), 81, 100), st(100, 81, 1));  // lossy run: keeps the pre-loss count, 81 pending
   assert.deepEqual(nextAnchorState(st(100, 81, 1), 81, 81), st(100, 81, 2), 'agreement alone never lowers it by default (N-02r)');
-  assert.deepEqual(nextAnchorState(st(100, 81, 1), 81, 81, { confirmations: 2 }), st(81), 'policy N=2: two agreeing exports lower it');
+  assert.deepEqual(nextAnchorState(st(100, 81, 1), 81, 81, { confirmations: 2 }), st(100, 81, 2), 'P11 r4: policy N=2 never lowers it by itself');
   assert.deepEqual(confirmShrink(st(100, 81, 2)), st(81), 'operator confirmation of the pending count');
   assert.deepEqual(confirmShrink(st(100), 70), st(70));
   assert.throws(() => confirmShrink(st(100)), /no pending count/);
@@ -91,15 +91,47 @@ test('N-02r: a partial export growing by one row per run never ratchets: 100 →
   assert.equal(r.anchor, 100);
 });
 
-test('policy N=2 (opt-in): a genuine shrink seen twice lowers the anchor, still bounded per step', () => {
-  const r = replay([85, 85, 70], 100, { confirmations: 2 });
-  assert.deepEqual(r.accepted, [85, 85, 70]);
-  assert.equal(r.anchor, 85, '70 is pending, not yet confirmed');
+// P11 r4 — SYNC_TRUNCATION_SHRINK_CONFIRMATIONS ≥ 2 used to lower the anchor after N agreeing exports, so a repeated
+// row cap (81, 81, 81, 66, 66, 66, 54) walked the table down to 54. The policy now only adds a requirement to the
+// operator confirmation; the ratchet holds whatever its value.
+test('r4: policy N=2 or N=3 never re-opens the ratchet for a repeated cap 100 → 81,81,81,66,66,66,54', () => {
+  for (const confirmations of [2, 3]) {
+    const r = replay([81, 81, 81, 66, 66, 66, 54], 100, { confirmations });
+    assert.deepEqual(r.accepted, [81, 81, 81], `N=${confirmations}`);
+    assert.equal(r.anchor, 100);
+    assert.ok(r.stored >= 80);
+  }
+  const prev = process.env.SYNC_TRUNCATION_SHRINK_CONFIRMATIONS; process.env.SYNC_TRUNCATION_SHRINK_CONFIRMATIONS = '2';
+  try { assert.deepEqual(replay([81, 81, 81, 66, 66, 54]).accepted, [81, 81, 81], 'env default path too'); }
+  finally { if (prev == null) delete process.env.SYNC_TRUNCATION_SHRINK_CONFIRMATIONS; else process.env.SYNC_TRUNCATION_SHRINK_CONFIRMATIONS = prev; }
 });
 
-test('guardWithAnchor: a failing anchor store never blocks a sync', async () => {
-  const commit = await guardWithAnchor('j', 90, 100, { get: async () => { throw new Error('no table'); }, set: async () => { throw new Error('no table'); } });
-  await commit();
+test('r4: confirmShrink refuses a count above the anchor; policy N adds a confirmation requirement', () => {
+  const st = (anchor, pending = null, agree = 0) => ({ anchor, pending, agree });
+  assert.throws(() => confirmShrink(st(100), 999999), /above the current anchor 100/);
+  assert.throws(() => confirmShrink(st(100, 81, 1), 101), /above the current anchor/);
+  assert.deepEqual(confirmShrink(st(100), 100), st(100), 'confirming the anchor itself is harmless');
+  assert.throws(() => confirmShrink(st(100, 81, 1), null, { confirmations: 2 }), /requires 2 consecutive runs/);
+  assert.deepEqual(confirmShrink(st(100, 81, 2), null, { confirmations: 2 }), st(81));
+  assert.deepEqual(confirmShrink(st(100, 81, 1), null, { confirmations: 0 }), st(81), 'no policy: operator alone decides');
+});
+
+// P11 r4 — an unreadable anchor store used to degrade silently (console.warn) to the stored-only guard, so 100 → 36
+// was accepted. It now logs to the system log (category sync) and refuses any shrink; growth still syncs.
+test('r4: an unreadable anchor store is logged and fails closed for shrinks, growth still syncs', async () => {
+  const logs = [];
+  const broken = { get: async () => { throw new Error('no table'); }, set: async () => { throw new Error('should not be called'); } };
+  const orig = console.warn; console.warn = () => {};
+  try {
+    await assert.rejects(guardWithAnchor('j', 36, 100, broken, 20, { logEvent: (e) => logs.push(e) }), (e) => e.truncation && e.transient && /anchor could not be read/.test(e.message));
+    await assert.rejects(guardWithAnchor('j', 99, 100, broken, 20, { logEvent: (e) => logs.push(e) }), (e) => e.truncation, 'even inside the tolerance');
+    const commit = await guardWithAnchor('j', 120, 100, broken, 20, { logEvent: (e) => logs.push(e) });
+    await commit();   // never writes over an anchor it could not read
+    const commit0 = await guardWithAnchor('j', 50, 0, broken, 20, { logEvent: (e) => logs.push(e) });
+    await commit0();  // empty table = rebuild
+  } finally { console.warn = orig; }
+  assert.equal(logs.length, 4);
+  assert.ok(logs.every((l) => l.category === 'sync' && l.action === 'sync_truncation_anchor_unreadable' && l.risk === 1 && l.target === 'j'));
 });
 
 // ── PostgreSQL: the repro sequences ───────────────────────────────────────────────────────────
@@ -246,6 +278,8 @@ test('tools/sync/confirm-shrink.js: dry run by default, --apply lowers the ancho
   assert.deepEqual(await rdb.truncationAnchorStore.get('fx/job'), { anchor: 85, pending: null, agree: 0 });
   assert.equal(await cli.main(['--job=fx/job', '--apply'], io), 2, 'nothing pending any more: refuses without --count');
   assert.equal(await cli.main(['--job=fx/job', '--count=-3'], io), 2);
+  assert.equal(await cli.main(['--job=fx/job', '--count=999999'], io), 2, 'P11 r4: a count above the anchor is refused');
+  assert.match(out.join('\n'), /above the current anchor 85/);
   assert.equal(await cli.main(['--job=nope'], io), 2);
   assert.match(out.join('\n'), /anchor 100 → 85/);
 });

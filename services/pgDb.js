@@ -67,6 +67,27 @@ function _bind(sql, args) {
 }
 
 const { AsyncLocalStorage } = require('async_hooks');
+
+// P11 r4 N-11 — bounded wait for a pooled connection. Without it, a long table lock (or a slow report) holding every
+// client made ordinary requests queue for ~43 s. The timeout bounds only the ACQUIRE (the wait for a free client in
+// node-pg's queue), never the run time of a query that already holds a client — so a long migration or a backup
+// (pg_dump runs in its own process anyway) is not cut short once it is running. Default 10 s; PG_POOL_ACQUIRE_TIMEOUT_MS
+// overrides it, 0 = wait without limit (the former behaviour). A timed-out acquire is a typed DB_BUSY error that
+// services/httpError.fail() answers as 503 + Retry-After.
+const DEFAULT_ACQUIRE_TIMEOUT_MS = 10000;
+function acquireTimeoutMs(env = process.env) {
+  const raw = env.PG_POOL_ACQUIRE_TIMEOUT_MS;
+  if (raw == null || String(raw).trim() === '') return DEFAULT_ACQUIRE_TIMEOUT_MS;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : DEFAULT_ACQUIRE_TIMEOUT_MS;
+}
+function _isAcquireTimeout(e) { return !!e && /timeout exceeded when trying to connect|connection terminated due to connection timeout/i.test(String(e.message || '')); }
+function _busy(e) {
+  if (!_isAcquireTimeout(e)) return e;
+  const b = new Error('database busy: no PostgreSQL connection was free within the acquire timeout');
+  b.code = 'DB_BUSY'; b.status = 503; b.cause = e;
+  return b;
+}
 function makePgDb(connectionString) {
   let pool = null;
   const txStore = new AsyncLocalStorage();
@@ -75,28 +96,31 @@ function makePgDb(connectionString) {
   async function query(sql, args) {
     let { text, values } = _bind(sql, args);
     if (isBareInsert(text)) text += ' RETURNING *';   // so .run() can surface lastID
-    return client().query(text, values);
+    try { return await client().query(text, values); } catch (e) { throw _busy(e); }
   }
+  async function q(text, values) { try { return await client().query(text, values); } catch (e) { throw _busy(e); } }
   return {
     async connect() {
-      pool = new Pool({ connectionString, max: Number(process.env.PG_POOL_MAX || 10), idleTimeoutMillis: 30000 });
+      pool = new Pool({ connectionString, max: Number(process.env.PG_POOL_MAX || 10), idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: acquireTimeoutMs() });
       // An IDLE pooled client whose server connection is terminated (PostgreSQL restart, pg_terminate_backend,
       // DROP DATABASE … WITH FORCE) makes node-pg emit 'error' on the pool. With no listener that is an
       // uncaught exception and the whole server dies. Log it; the pool drops that client and opens a new one.
       pool.on('error', (e) => { console.error('[pgDb] idle PostgreSQL client lost:', (e && (e.code || e.message)) || e); });
       const c = await pool.connect(); try { await c.query('SELECT 1'); } finally { c.release(); }
     },
-    async exec(sql) { await client().query(sql); },           // DDL / multi-statement; no placeholder xlate
+    async exec(sql) { await q(sql); },           // DDL / multi-statement; no placeholder xlate
     prepare(sql) {
       return {
         async run(...p) { const r = await query(sql, p); const id = r.rows[0] && r.rows[0].id; return { changes: r.rowCount, lastID: id }; },
-        async get(...p) { const { text, values } = _bind(sql, p); const r = await client().query(text, values); return r.rows[0]; },
-        async all(...p) { const { text, values } = _bind(sql, p); const r = await client().query(text, values); return r.rows; },
+        async get(...p) { const { text, values } = _bind(sql, p); const r = await q(text, values); return r.rows[0]; },
+        async all(...p) { const { text, values } = _bind(sql, p); const r = await q(text, values); return r.rows; },
       };
     },
     async runTransaction(fn) {
       if (txStore.getStore()) return fn();                     // nested → reuse client
-      const c = await pool.connect();
+      let c;
+      try { c = await pool.connect(); } catch (e) { throw _busy(e); }
       try {
         return await txStore.run(c, async () => {
           await c.query('BEGIN');
@@ -108,4 +132,4 @@ function makePgDb(connectionString) {
     async close() { if (pool) await pool.end(); pool = null; },
   };
 }
-module.exports = { _translate, _translateNamed, makePgDb };
+module.exports = { _translate, _translateNamed, makePgDb, acquireTimeoutMs, DEFAULT_ACQUIRE_TIMEOUT_MS, _busy };
