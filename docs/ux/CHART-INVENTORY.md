@@ -67,7 +67,7 @@ Files scanned: **149** · inline <style> blocks: **61** · hex literals: **5576*
 | `public/reports.html` | 548810 | 1 | 817 | 2 | bar×2 | 0 | 0 | yes | — | — | chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
 | `public/rfi.html` | 12560 | 1 | 40 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/site-actions.html` | 41652 | 1 | 76 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/site-awareness.html` | 73416 | 1 | 131 | 7 | bar×5 doughnut×3 line×3 | 4 | 5 | yes | — | — | dual axis → small multiples, one unit per panel (§5.2 "comparaison à plusieurs séries"); doughnut/pie → ordered horizontal bars with values and population % (§5.2 "répartition de catégories"); chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
+| `public/site-awareness.html` | 73718 | 1 | 131 | 7 | bar×5 doughnut×3 line×3 | 4 | 5 | yes | — | — | dual axis → small multiples, one unit per panel (§5.2 "comparaison à plusieurs séries"); doughnut/pie → ordered horizontal bars with values and population % (§5.2 "répartition de catégories"); chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
 | `public/site-report.html` | 17707 | 1 | 75 | 0 | — | 0 | 0 | yes | — | — | hex literals → _tokens.css variables |
 | `public/system-logs.html` | 19348 | 1 | 57 | 1 | — | 0 | 0 | yes | — | — | chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
 | `public/tracker-builder.html` | 24708 | 1 | 30 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
@@ -102,7 +102,7 @@ Files scanned: **149** · inline <style> blocks: **61** · hex literals: **5576*
 | `public/lib/ganttV2.js` | 33609 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/helpdeskSiteDefault.js` | 3970 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/home-page.js` | 22012 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/lib/homeGroup.js` | 10539 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/homeGroup.js` | 10982 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/homeQueue.js` | 37015 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/i18nText.js` | 5067 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/incubationEditor.js` | 5909 | 0 | 1 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
@@ -121,8 +121,8 @@ Files scanned: **149** · inline <style> blocks: **61** · hex literals: **5576*
 | `public/lib/portfolioDecisionsPage.js` | 10493 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/portfolioMine.js` | 2023 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/portfolioPhase2Page.js` | 9841 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/lib/portfolioRegister.js` | 12457 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/lib/portfolioRegisterPage.js` | 8959 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/portfolioRegister.js` | 13148 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/portfolioRegisterPage.js` | 9106 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/portfolioViews.js` | 3669 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/ppmBoard.js` | 5556 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/ppmCollabUi.js` | 16333 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
@@ -133,7 +133,7 @@ Files scanned: **149** · inline <style> blocks: **61** · hex literals: **5576*
 | `public/lib/ppmIntake.js` | 15168 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/ppmIntakeAdmin.js` | 9357 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/ppmOfflineQueue.js` | 11711 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/lib/ppmPhase2.js` | 23042 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/ppmPhase2.js` | 23358 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/ppmReview.js` | 8181 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/ppmRoadmapNnl.js` | 3911 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/ppmVisuals.js` | 23603 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |

@@ -177,7 +177,7 @@ not the browser-checked level.
 | `docs/agent-execution/G24-DOSSIER-GO-NOGO-FR.md` | G24 | code+test | pending | pending | `0130ead17d7d988951b2adfb2777ec34fd98c24e587b96fbe6fee9e569474cbc` |
 | `docs/agent-execution/G24.md` | G24 | code+test | pending | pending | `2349897316ae9dd2908e50fa872042b53a905f48a9b8854085ff07b8cc2c4ac2` |
 | `docs/agent-execution/HANDOFF-2026-11-13-orchestrator.md` | — (reference) | — | — | — | `7e4e42e386b3a4f791ab85625a0e8a13c5331cd8704bb79c2067974ac11d00ce` |
-| `docs/agent-execution/INVENTORY-STRICT.md` | — (reference) | — | — | — | `f3c5777aef485531fb252fc11c782e2fffc92d920ba0aaa5836934dae2c683ea` |
+| `docs/agent-execution/INVENTORY-STRICT.md` | — (reference) | — | — | — | `8adb31c5d800726ab9dd19ea270c8d3af69613df93cdce2d6cd6d8483f4be572` |
 | `docs/agent-execution/P02-authz-outcomes.md` | P02 | code+test | pending | pending | `1b3c7c2278a4e5d1a5aa0ca98da31cd64a54cf2d18ee5287ec685243e58ffc81` |
 | `docs/agent-execution/P03-switch-lots.md` | P03 | code+test | pending | pending | `99419412678af916494549fa3c6ef56f7c4f4d94aab09482c800dcccf93caa39` |
 | `docs/agent-execution/P04-ppm-certification.md` | P04 | code+test | pending | pending | `ce601c12654f688fbed18b2feb9a2bdc42734d19de01075a2292838c4e74cca3` |
