@@ -100,10 +100,18 @@ module.exports = function governanceWorkbenchRoutes(router, h) {
   router.get('/api/governance/ppm/task/:id/time', requireReportSession, async (req, res) => {
     try {
       if (!(await timeOn(res))) return;
-      const t = await readableTask(req.reportUser, req.params.id); if (!t) return notFound(res);
+      const t = await readableTask(req.reportUser, req.params.id);
+      if (!t) {
+        // P11 R4-4 — a soft-deleted task's hours stay counted in the timesheet week and EVM AC (R3-4): list them, flagged,
+        // read-only (POST / DELETE keep refusing a deleted task).
+        const g = Number.isInteger(Number(req.params.id)) ? await store.deletedTaskRow(Number(req.params.id)) : null;
+        const p = g && await readableProject(req.reportUser, g.project_id); if (!p) return notFound(res);
+        const entries = await wb().listTimeEntries(g.id);
+        return res.json({ ok: true, task_deleted: true, entries, hours: SCH.actualHours([{ id: g.id }], entries)[0] });
+      }
       const entries = await wb().listTimeEntries(t.task_id);
       const d = await store.projectDetail(t.project.id); const task = (d.tasks || []).find((x) => x.id === t.task_id) || { id: t.task_id };
-      res.json({ ok: true, entries, hours: SCH.actualHours([task], entries)[0] });
+      res.json({ ok: true, task_deleted: false, entries, hours: SCH.actualHours([task], entries)[0] });
     } catch (e) { fail(res, e); }
   });
   router.post('/api/governance/ppm/task/:id/time', requireReportSession, json, async (req, res) => {

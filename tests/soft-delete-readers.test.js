@@ -73,6 +73,8 @@ const ALLOW = {
     purgeDeletedPortfolio: 'purge: deleted rows past retention only',
     removePortfolio: 'ledger read before the delete (filtered when soft) and the hard delete itself',
     actualsUnder: 'P11 R2-1: counts the time entries a HARD delete / purge would cascade away — deleted rows included on purpose',
+    deletedTaskRow: 'P11 R4-4: read-only listing of a soft-deleted task\'s hours (still counted, R3-4) — deleted rows only, project checked live',
+    actualPeriodsUnder: 'P11 R4-1: counts the ACTUAL budget periods a HARD delete / purge would cascade away — deleted rows included on purpose',
   },
 };
 

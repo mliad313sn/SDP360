@@ -501,6 +501,8 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     return { openTasks, openRisksHigh };
   }
   async function planRow(kind, id) { const T = TABLES[kind]; if (!T || !T.cols.includes('project_id')) return null; const r = await P(`SELECT id, project_id FROM ${T.table} WHERE id=?${softDelete.TABLES[T.table] ? ' AND deleted_at IS NULL' : ''}`).get(Number(id)); /* benefits have no deleted_at: they follow their project */ return r && !(await _projectGone(r.project_id)) ? { id: Number(r.id), project_id: Number(r.project_id) } : null; }
+  /** P11 R4-4 — a SOFT-DELETED task whose project is live: its hours stay counted (R3-4), so they stay listable read-only. */
+  async function deletedTaskRow(id) { const r = await P(`SELECT id, project_id FROM portfolio_tasks WHERE id=? AND deleted_at IS NOT NULL`).get(Number(id)); return r && !(await _projectGone(r.project_id)) ? { id: Number(r.id), project_id: Number(r.project_id) } : null; }
   const TABLES = {
     programme: { table: 'portfolio_programmes', cols: ['key', 'name', 'sponsor', 'description', 'status'], req: ['key', 'name'] },
     objective: { table: 'portfolio_objectives', cols: ['programme_id', 'key', 'name', 'weight', 'owner', 'target_date', 'status', 'confidence', 'progress_pct', 'evidence_metric', 'evidence_target', 'evidence_hib', 'manual_evidence', 'sort_order'], req: ['programme_id', 'key', 'name'] },
@@ -1007,8 +1009,10 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     if (opts.soft && softDelete.TABLES[T.table]) return softDelete.stamp(db, T.table, Number(id), { by: opts.user && opts.user.id, reason: opts.reason, now: new Date(now()) });
     // P11 R2-1 — a hard delete cascades ppm_time_entries away (FK ON DELETE CASCADE): money already spent would vanish
     // from earned-value AC. Refused while any task below carries hours; a soft delete keeps them (ADR-P11-R2).
-    const spent = await actualsUnder(kind, id);
-    if (spent) throw Object.assign(new Error(`this ${kind} has ${spent} logged time entr${spent === 1 ? 'y' : 'ies'} (money already spent) — a hard delete would erase them; turn soft delete on (soft_delete_enabled) to delete it, or cancel the work instead`), { code: 'CONFLICT', status: 409, reason: 'HAS_ACTUALS', expose: true });
+    // P11 R4-1 — money recorded as ACTUAL budget periods (committee entry or Finance actuals import, 072 / 095) is spent
+    // money too (evm.js reads it first for AC); ppm_budget_periods also cascades with the project, so it is refused alike.
+    const spent = await spentUnder(kind, id);
+    if (spent) throw Object.assign(new Error(`this ${kind} has ${spent} (money already spent) — a hard delete would erase them; turn soft delete on (soft_delete_enabled) to delete it, or cancel the work instead`), { code: 'CONFLICT', status: 409, reason: 'HAS_ACTUALS', expose: true });
     await P(`DELETE FROM ${T.table} WHERE id=?`).run(Number(id));
     return true;
   }
@@ -1025,6 +1029,25 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     if (!q) return 0;
     const r = await P(q).get(n);
     return Number((r && r.n) || 0);
+  }
+  /** P11 R4-1 — number of ACTUAL budget-period rows a hard delete of this node would cascade away (project and above). */
+  async function actualPeriodsUnder(kind, id) {
+    const q = {
+      project: `SELECT COUNT(*) AS n FROM ppm_budget_periods WHERE kind = 'actual' AND project_id=?`,
+      objective: `SELECT COUNT(*) AS n FROM ppm_budget_periods b JOIN portfolio_projects p ON p.id = b.project_id WHERE b.kind = 'actual' AND p.objective_id=?`,
+      programme: `SELECT COUNT(*) AS n FROM ppm_budget_periods b JOIN portfolio_projects p ON p.id = b.project_id JOIN portfolio_objectives o ON o.id = p.objective_id WHERE b.kind = 'actual' AND o.programme_id=?`,
+    }[kind];
+    if (!q) return 0;
+    const r = await P(q).get(Number(id));
+    return Number((r && r.n) || 0);
+  }
+  /** Spent money below a node, as a readable phrase ('' when none): logged time entries + ACTUAL budget periods. */
+  async function spentUnder(kind, id) {
+    const e = await actualsUnder(kind, id), b = await actualPeriodsUnder(kind, id);
+    const parts = [];
+    if (e) parts.push(`${e} logged time entr${e === 1 ? 'y' : 'ies'}`);
+    if (b) parts.push(`${b} actual budget period${b === 1 ? '' : 's'}`);
+    return parts.join(' and ');
   }
   async function restorePortfolio(kind, id, opts = {}) {
     const T = TABLES[kind]; if (!T || !softDelete.TABLES[T.table]) throw Object.assign(new Error('unknown portfolio entity'), { code: 'INVALID' });
@@ -1051,8 +1074,8 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
       for (const r of await P(`SELECT id FROM ${t} WHERE deleted_at IS NOT NULL AND deleted_at < ? ORDER BY deleted_at`).all(cutoff)) {
         ids.push(`${kind}:${r.id}`);
         if (!apply) continue;
-        const spent = await actualsUnder(kind, r.id);   // P11 R2-1: the purge never erases money already spent
-        if (spent) { skipped.push({ id: `${kind}:${r.id}`, reason: `has ${spent} logged time entries (money already spent) — kept soft-deleted` }); continue; }
+        const spent = await spentUnder(kind, r.id);   // P11 R2-1 / R4-1: the purge never erases money already spent
+        if (spent) { skipped.push({ id: `${kind}:${r.id}`, reason: `has ${spent} (money already spent) — kept soft-deleted`, code: 'HAS_ACTUALS' }); continue; }
         try { if (Number((await P(`DELETE FROM ${t} WHERE id=? AND deleted_at IS NOT NULL AND deleted_at < ?`).run(Number(r.id), cutoff) || {}).changes) > 0) purged++; }
         catch (e) { skipped.push({ id: `${kind}:${r.id}`, reason: /append.only|baseline/i.test(String(e.message)) ? 'has approved baselines (append-only) — kept soft-deleted' : String(e.message).slice(0, 200) }); }
       }
@@ -1067,7 +1090,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
   async function minutesHistory(sessionId) { return (await P('SELECT action, actor_id, at, reason FROM minutes_history WHERE session_id=? ORDER BY id').all(Number(sessionId))).map(r => ({ ...r, actor_id: r.actor_id == null ? null : Number(r.actor_id) })); }
   return { ppmEvent, ppmEvents, listBudgetPeriods, saveBudgetPeriod, getRaci, saveRaci, listTemplates, getTemplate, saveTemplateFromProject, approveTemplate, createProjectFromTemplate, moveProjectStage, rfiToProject, getRfi, verifyRfi, rfiFromMeeting, rfiForMeeting, rfiLineage, setAttendance, saveDraftAgenda, getDecision, openSessionActions, addMinutesHistory, minutesHistory, init, listCadences, getCadence, saveCadence, removeCadence, listSessions, getSession, createSession, updateSession, stampItem, sessionActions, addSessionAction, setSessionActionStatus, moveSession,
     listDecisions, addDecision, updateDecision, decisionHistory, decisionProposer, decisionProposal, deleteRequestState, pendingDeleteRequests, listRfi, submitRfi, triageRfi, rfiScore, portfolio, upsertPortfolio, removePortfolio,
-    restorePortfolio, getPortfolioTrashRow, listDeletedPortfolio, purgeDeletedPortfolio, restoreCadence, getCadenceTrashRow, listDeletedCadences, purgeDeletedCadences, projectSites, setProjectSites, getProject, setProjectSensitive, memberProjectIds, planRow, projectDetail, gateCounts, RISK_KINDS, listBaselines, rebaseline, alertStates, saveAlertState, listBenefits, getBenefit, recordBenefitRealised, verifyBenefit, dueBenefitReviews, ownedBenefitReviews,
+    restorePortfolio, getPortfolioTrashRow, listDeletedPortfolio, purgeDeletedPortfolio, restoreCadence, getCadenceTrashRow, listDeletedCadences, purgeDeletedCadences, projectSites, setProjectSites, getProject, setProjectSensitive, memberProjectIds, planRow, deletedTaskRow, projectDetail, gateCounts, RISK_KINDS, listBaselines, rebaseline, alertStates, saveAlertState, listBenefits, getBenefit, recordBenefitRealised, verifyBenefit, dueBenefitReviews, ownedBenefitReviews,
     CADENCE_KINDS, SESSION_STATUSES, DECISION_STATUSES, RFI_KINDS, RFI_STATUSES, PROJECT_STATUSES, CONFIDENCE };
 }
 

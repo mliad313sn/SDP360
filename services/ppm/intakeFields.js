@@ -152,7 +152,12 @@ function readIntake(r) {
   for (const c of INTAKE_COLS) out[c] = r[c] === undefined ? null : r[c];
   out.tags = parse(r.tags, null);
   out.business_need = parse(r.business_need, null);
-  out.value_states = parse(r.value_states, null) || {};
+  // P11 R4-2 — "a state is only stored while the field value is NULL": a value written while the register was off
+  // (lot rollback) leaves its stale state in the column until the next intake write; the value answers, so the read
+  // ignores the state (dependencies / risks are lists elsewhere, never a column here: their state is kept).
+  const vs = parse(r.value_states, null);
+  out.value_states = {};
+  if (vs && typeof vs === 'object' && !Array.isArray(vs)) for (const [f, st] of Object.entries(vs)) if (NONE_KNOWN_ONLY.includes(f) || blank(r[f])) out.value_states[f] = st;
   out.avg_fte = r.avg_fte == null ? null : Number(r.avg_fte);
   out.peak_fte = r.peak_fte == null ? null : Number(r.peak_fte);
   // spec §10: duration = planned end − planned start + 1 (calendar days); null until both dates are valid
