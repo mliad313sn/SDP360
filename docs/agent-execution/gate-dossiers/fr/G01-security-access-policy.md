@@ -10,7 +10,7 @@
 | Case de décision dans RELEASE-GATES.md | vide — cette porte est **NO-GO** tant que l'approbateur ne l'a pas remplie. Ce dossier ne remplit rien. |
 | Ce que cette porte bloque | bloque le pilote sur deux sites (instance de TEST) |
 | À décider après | [G19](G19-qa-ci-green.md) QA : CI verte et tests sautés revus |
-| SHA cible | `afc07f86` |
+| SHA cible | `b6700d69` |
 | Généré | 2026-11-20 |
 
 ## 1. La question à trancher
@@ -34,7 +34,7 @@ Les règles d'accès (périmètre de site des comptes métier CG-01, plus de lec
 | Lot | Preuve attendue | Statut |
 |---|---|---|
 | P02 | Rapport de la sonde des résultats d'autorisation (chaque route × persona, codes observés) | livrée: `docs/agent-execution/P02-authz-outcomes.md` (9007a5c4, `1b3c7c2278a4e5d1`) |
-| P02 | Instantané des résultats utilisé par le test de la sonde | livrée: `docs/ops/authz-outcomes.json` (afc07f86, `6a70f6a26c31be09`) |
+| P02 | Instantané des résultats utilisé par le test de la sonde | livrée: `docs/ops/authz-outcomes.json` (76b55aef, `fda67d3d4631a228`) |
 
 ## 3. Ce qui n'est pas prouvé, et pourquoi
 

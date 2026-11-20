@@ -10,7 +10,7 @@
 | Decision cell in RELEASE-GATES.md | empty — this gate is **NO-GO** until the approver fills it. This dossier fills nothing. |
 | What this gate blocks | blocks the two-site pilot on the TEST instance |
 | Decide after | [G19](G19-qa-ci-green.md) QA: CI green and skipped tests reviewed |
-| Target SHA | `afc07f86` |
+| Target SHA | `b6700d69` |
 | Generated | 2026-11-20 |
 
 ## 1. Question to decide
@@ -34,7 +34,7 @@ Do the access rules (site perimeter for business accounts CG-01, no fleet-wide r
 | From lot | Expected evidence | Status |
 |---|---|---|
 | P02 | Authorization outcome probe report (every route × persona, observed status codes) | delivered: `docs/agent-execution/P02-authz-outcomes.md` (9007a5c4, `1b3c7c2278a4e5d1`) |
-| P02 | Outcome snapshot used by the probe test | delivered: `docs/ops/authz-outcomes.json` (afc07f86, `6a70f6a26c31be09`) |
+| P02 | Outcome snapshot used by the probe test | delivered: `docs/ops/authz-outcomes.json` (76b55aef, `fda67d3d4631a228`) |
 
 ## 3. Not evidenced, and why
 

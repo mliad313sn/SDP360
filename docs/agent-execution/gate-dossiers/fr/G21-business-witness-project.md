@@ -10,7 +10,7 @@
 | Case de décision dans RELEASE-GATES.md | vide — cette porte est **NO-GO** tant que l'approbateur ne l'a pas remplie. Ce dossier ne remplit rien. |
 | Ce que cette porte bloque | bloque le pilote sur deux sites (instance de TEST) |
 | À décider après | [G11](G11-pilot-sites-field-uat.md) Sites pilotes et recette terrain |
-| SHA cible | `afc07f86` |
+| SHA cible | `b6700d69` |
 | Généré | 2026-11-20 |
 
 ## 1. La question à trancher
