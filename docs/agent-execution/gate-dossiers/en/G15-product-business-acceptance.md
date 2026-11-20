@@ -10,7 +10,7 @@
 | Decision cell in RELEASE-GATES.md | empty — this gate is **NO-GO** until the approver fills it. This dossier fills nothing. |
 | What this gate blocks | blocks general deployment only |
 | Decide after | [G11](G11-pilot-sites-field-uat.md) Pilot sites and field acceptance · [G21](G21-business-witness-project.md) Business witness project · [G06](G06-kpi-definitions-thresholds.md) KPI definitions, thresholds and score |
-| Target SHA | `098d2f1e` |
+| Target SHA | `a6a89431` |
 | Generated | 2026-11-20 |
 
 ## 1. Question to decide
