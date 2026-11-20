@@ -176,7 +176,7 @@ not the browser-checked level.
 | `docs/agent-execution/G24-DOSSIER-GO-NOGO-FR.md` | G24 | code+test | pending | pending | `0130ead17d7d988951b2adfb2777ec34fd98c24e587b96fbe6fee9e569474cbc` |
 | `docs/agent-execution/G24.md` | G24 | code+test | pending | pending | `2349897316ae9dd2908e50fa872042b53a905f48a9b8854085ff07b8cc2c4ac2` |
 | `docs/agent-execution/HANDOFF-2026-11-13-orchestrator.md` | — (reference) | — | — | — | `c010103709fd70a13cad816c188d62b7317ddc27f54bae97742c1769d49b9126` |
-| `docs/agent-execution/INVENTORY-STRICT.md` | — (reference) | — | — | — | `57c47740aec037e6cccacb7f565bfb39697d7aee59b935bcf3a38dd1f103df57` |
+| `docs/agent-execution/INVENTORY-STRICT.md` | — (reference) | — | — | — | `a5e9a6044c241256aa0289ac882107bd1475e05d35a933090ee6d5015b055a9b` |
 | `docs/agent-execution/P02-authz-outcomes.md` | P02 | code+test | pending | pending | `1b3c7c2278a4e5d1a5aa0ca98da31cd64a54cf2d18ee5287ec685243e58ffc81` |
 | `docs/agent-execution/P03-switch-lots.md` | P03 | code+test | pending | pending | `99419412678af916494549fa3c6ef56f7c4f4d94aab09482c800dcccf93caa39` |
 | `docs/agent-execution/P04-ppm-certification.md` | P04 | code+test | pending | pending | `ce601c12654f688fbed18b2feb9a2bdc42734d19de01075a2292838c4e74cca3` |
@@ -217,8 +217,8 @@ not the browser-checked level.
 
 | File | SHA-256 |
 |---|---|
-| `docs/agent-execution/INVENTORY.json` | `faf90d071fd090414f0f2fda9613980cc6ea112038a1900fe7e6c48781d1ff18` |
-| `docs/agent-execution/INVENTORY.md` | `5f017e2d3ab7ac0108338f134f79d5077a7f4d2a3834257f86b9739fed6a3197` |
+| `docs/agent-execution/INVENTORY.json` | `0ca3e4909e0dd0e757c328e97ee22a4f880cccd21182dfb3433712946383caed` |
+| `docs/agent-execution/INVENTORY.md` | `c5bfa0e68168f1a1a4bd8e45607cf73fa6dcf1b5356a58f3c32af1634b73db60` |
 | `docs/agent-execution/TRACEABILITY.md` | `bab98d60573cc653947f1acead471e8655cbc78134969e91ee7f281ff9876c0a` |
 | `docs/ops/AUTHZ-MATRIX.md` | `4ea2ae0a1c681442e1eb6b25caa188b7ee5414c3d6bce7a84bd4796b0de944b9` |
 | `docs/ops/FLAG-REGISTER.md` | `f5192d76404a8a1139a69a053a143ca43187f3c398158c2b9250558738626b7e` |
