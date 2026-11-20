@@ -2193,22 +2193,22 @@
  "GET /api/assets/reconcile/export.xlsx as viewer": {
   "status": 200,
   "ct": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "cd": "attachment; filename=\"reconciliation_2026-11-19.xlsx\""
+  "cd": "attachment; filename=\"reconciliation_YYYY-MM-DD.xlsx\""
  },
  "GET /api/assets/reconcile/export.xlsx as editor": {
   "status": 200,
   "ct": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "cd": "attachment; filename=\"reconciliation_2026-11-19.xlsx\""
+  "cd": "attachment; filename=\"reconciliation_YYYY-MM-DD.xlsx\""
  },
  "GET /api/assets/reconcile/export.xlsx as finance": {
   "status": 200,
   "ct": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "cd": "attachment; filename=\"reconciliation_2026-11-19.xlsx\""
+  "cd": "attachment; filename=\"reconciliation_YYYY-MM-DD.xlsx\""
  },
  "GET /api/assets/reconcile/export.xlsx as super_admin": {
   "status": 200,
   "ct": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "cd": "attachment; filename=\"reconciliation_2026-11-19.xlsx\""
+  "cd": "attachment; filename=\"reconciliation_YYYY-MM-DD.xlsx\""
  },
  "GET /api/assets/depreciation/summary as anon": {
   "status": 401,

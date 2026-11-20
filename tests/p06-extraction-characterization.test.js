@@ -88,7 +88,10 @@ async function probe(method, p, who) {
   if (method !== 'GET') headers['content-type'] = 'application/json';
   const r = await fetch(base + p, { method, headers, body: method === 'GET' ? undefined : '{}' });
   const ct = (r.headers.get('content-type') || '').split(';')[0];
-  const out = { status: r.status, ct, cd: r.headers.get('content-disposition') || null };
+  // Dates in download file names (e.g. reconciliation_2026-11-19.xlsx) depend on the day the test runs — normalise them
+  // so the golden pins the route's naming pattern, not the calendar (flake seen in a full run the day after recording).
+  const cdRaw = r.headers.get('content-disposition') || null;
+  const out = { status: r.status, ct, cd: cdRaw && cdRaw.replace(/\d{4}-\d{2}-\d{2}/g, 'YYYY-MM-DD') };
   if (ct === 'application/json') {
     const j = await r.json();
     out.body = shape(j);
