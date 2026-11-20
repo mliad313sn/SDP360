@@ -32,7 +32,25 @@
     if (c && typeof c.randomUUID === 'function') return c.randomUUID();
     return 'q-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
   }
-  var same = function (a, b) { return String(a == null ? '' : a) === String(b == null ? '' : b); };
+  // P11 R3-3: compare by CONTENT. A scalar keeps the old loose rule (null ≡ '', 40 ≡ '40'); an object is compared key by
+  // key whatever the key order; an array of objects (dependency_links) is compared as a set (order-insensitive by link
+  // identity: the items are sorted by their canonical form). String([{…}]) used to be "[object Object]" for every value
+  // of the same length, so a colleague's links change was never seen as a conflict.
+  function canon(v) {
+    if (v == null) return '';
+    if (Array.isArray(v)) {
+      var items = v.map(canon);
+      if (v.some(function (x) { return x != null && typeof x === 'object'; })) items.sort();
+      return '[' + items.map(function (x) { return JSON.stringify(x); }).join(',') + ']';
+    }
+    if (typeof v === 'object') return '{' + Object.keys(v).sort().map(function (k) { return JSON.stringify(k) + ':' + JSON.stringify(canon(v[k])); }).join(',') + '}';
+    return String(v);
+  }
+  var same = function (a, b) {
+    var oa = a != null && typeof a === 'object', ob = b != null && typeof b === 'object';
+    if (!oa && !ob) return String(a == null ? '' : a) === String(b == null ? '' : b);
+    return canon(a) === canon(b);
+  };
   function fieldsOf(body) { return Object.keys(body || {}).filter(function (k) { return META.indexOf(k) < 0 && body[k] !== undefined; }); }
 
   /** A queue persisted under one key of an async {get, put} store (draftStore / memory). */
@@ -65,10 +83,15 @@
 
   /** The conflicting fields of an edit against the row as stored now. */
   function conflictsOf(entry, current) {
-    if (!entry.base || !current) return [];
+    if (!current) return [];
+    // P11 R1-F3: an edit of an EXISTING row queued without base (the cached detail did not hold the row) cannot tell
+    // "nobody touched it" from "a colleague changed it": every field whose stored value differs from mine is a conflict.
+    var base = entry.base;
+    if (!base) { if (entry.id == null) return []; base = {}; }
     return fieldsOf(entry.body).filter(function (f) {
-      return !same(current[f], entry.base[f]) && !same(current[f], entry.body[f]);
-    }).map(function (f) { return { field: f, base: entry.base[f] == null ? null : entry.base[f], mine: entry.body[f], theirs: current[f] == null ? null : current[f] }; });
+      var noBase = !Object.prototype.hasOwnProperty.call(base, f);
+      return (noBase || !same(current[f], base[f])) && !same(current[f], entry.body[f]);
+    }).map(function (f) { return { field: f, base: base[f] == null ? null : base[f], mine: entry.body[f], theirs: current[f] == null ? null : current[f] }; });
   }
   function withVersion(body, version) { var b = Object.assign({}, body); if (version != null) b.version = Number(version); return b; }
 
@@ -84,6 +107,22 @@
       function next() {
         if (i >= pending.length) return out;
         var e = pending[i++];
+        // P11 R1-F3: no base for an existing row → read the stored row FIRST (the body may carry no version, so the
+        // server would accept it blindly): conflict on any field that differs from mine, otherwise send with the
+        // current version.
+        if (e.id != null && !e.base) {
+          return Promise.resolve(deps.current(e)).then(function (cur) {
+            if (!cur) return queue.update(e.uuid, { state: 'refused', code: 'NOT_FOUND' }).then(function () { out.refused++; return next(); });
+            var c0 = conflictsOf(e, cur);
+            if (c0.length) return queue.update(e.uuid, { state: 'conflict', conflicts: c0, current_version: cur.version == null ? null : Number(cur.version) }).then(function () { out.conflicts++; return next(); });
+            return deps.send(e, withVersion(e.body, cur.version)).then(function (r0) {
+              if (r0 && r0.ok) { out.sent++; return queue.remove(e.uuid).then(next); }
+              if (r0 && r0.network) { out.stopped = true; return out; }
+              if (r0 && r0.status === 409) return queue.update(e.uuid, { state: 'conflict', conflicts: [], current_version: cur.version }).then(function () { out.conflicts++; return next(); });
+              return queue.update(e.uuid, { state: 'refused', code: (r0 && r0.code) || ('HTTP_' + (r0 && r0.status)) }).then(function () { out.refused++; return next(); });
+            });
+          }, function () { out.stopped = true; return out; });
+        }
         return deps.send(e, e.body).then(function (r) {
           if (r && r.ok) { out.sent++; return queue.remove(e.uuid).then(next); }
           if (r && r.network) { out.stopped = true; return out; }
