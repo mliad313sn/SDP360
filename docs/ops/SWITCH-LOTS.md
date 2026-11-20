@@ -80,7 +80,7 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 
 | Switch | Who decides (register) | Human prerequisite (register text) | Depends on | Roles named | Tables touched | Job | Consumer files | Tests naming it |
 |---|---|---|---|---|---|---|---|---|
-| `portfolio_site_scope_reads` | Owner (access policy) | — | — | — | — | — | 7 | 10 |
+| `portfolio_site_scope_reads` | Owner (access policy) | — | — | — | — | — | 7 | 12 |
 | `portfolio_views_enabled` | PMO | once the PMO wants the portfolio read as a list or a board as well as the timeline  | — | — | — | — | 3 | 0 |
 | `portfolio_my_projects_default` | PMO | once the PMO wants the portfolio page to open on "My projects"  | — | admin, finance-viewer | — | — | 3 | 1 |
 | `ppm_project_team_enabled` | PMO | once the PMO wants a named team per project  | — | — | portfolio_deliverables, portfolio_objectives, portfolio_programmes, portfolio_projects | — | 5 | 3 |
@@ -105,7 +105,7 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 |---|---|---|---|---|---|---|---|---|
 | `ppm_baseline_versions` | Committee | — | — | — | decisions, meeting_cadences, meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits +19 | — | 7 | 3 |
 | `ppm_rebaseline_enabled` | Committee | — | — | — | portfolio_deliverables, portfolio_objectives, portfolio_programmes, portfolio_projects, portfolio_tasks, ppm_change_requests +4 | — | 7 | 5 |
-| `ppm_change_requests_enabled` | PMO | once the PMO adopts a change-control step on projects  | `ppm_rebaseline_enabled` | — | dashboard_definition_versions, dashboard_definitions, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_objectives +9 | — | 7 | 2 |
+| `ppm_change_requests_enabled` | PMO | once the PMO adopts a change-control step on projects  | `ppm_rebaseline_enabled` | — | dashboard_definition_versions, dashboard_definitions, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_objectives +9 | — | 7 | 3 |
 | `ppm_cr_simulation_enabled` | PMO | once the PMO wants change requests decided on simulated numbers: a request may list task changes  | `ppm_change_requests_enabled`, `ppm_rebaseline_enabled` | — | portfolio_deliverables, portfolio_objectives, portfolio_programmes, portfolio_projects | — | 4 | 2 |
 | `ppm_gate_checklist_enabled` | PMO | once the PMO defines gate checklists: per project and target stage, required artifacts  | — | — | users | — | 8 | 2 |
 | `ppm_baseline_slots_enabled` | PMO | once the PMO wants MS-Project-style comparison points: Baseline, Baseline1 | — | — | — | — | 4 | 1 |
@@ -299,12 +299,12 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 | `auth_account_throttle_enabled` | Security owner | — | — | — | — | — | 3 | 3 |
 | `login_limit_failures_only` | Security owner | once the Security owner accepts it  | — | — | — | — | 2 | 1 |
 | `access_grant_expiry_job` | Security owner | — | — | — | — | yes | 3 | 1 |
-| `access_require_approval` | Security owner + Owner (approver matrix) | once the approver rule and the requires_request list are decided  | — | — | access_grants, access_recert_campaigns, access_recert_lines, access_request_events, access_requests, access_template_versions +5 | — | 4 | 5 |
+| `access_require_approval` | Security owner + Owner (approver matrix) | once the approver rule and the requires_request list are decided  | — | — | access_grants, access_recert_campaigns, access_recert_lines, access_request_events, access_requests, access_template_versions +5 | — | 4 | 7 |
 | `emergency_access_enabled` | Security owner + Owner | once the super_admins who may grant and review are named  | — | super_admin, admin | access_emergencies, access_request_events, access_requests, deputies | yes | 6 | 3 |
 | `breakglass_timebox_enabled` | Security owner | once the security owner names the break-glass holder and SSO is `available` / `only` — a break-glass password sign-in then needs a reason  | — | admin | sessions | — | 3 | 4 |
 | `access_recert_enabled` | Security owner + site managers | once the Security owner schedules the first campaign  | — | — | — | — | 4 | 2 |
 | `portfolio_executive_readonly` | Owner + IAM | only after the PO / IAM decide that the direction reads the portfolio without changing it  | — | super_admin, executive, admin, committee-member | — | — | 4 | 1 |
-| `export_policy_strict` | Data owner + Security | once the data owner + security adopt the strict sensitivity matrix of `services/exportPolicy | — | admin, viewer, finance-viewer, committee-member | — | — | 4 | 4 |
+| `export_policy_strict` | Data owner + Security | once the data owner + security adopt the strict sensitivity matrix of `services/exportPolicy | — | admin, viewer, finance-viewer, committee-member | — | — | 4 | 6 |
 | `export_watermark_enabled` | Security | — | `export_policy_strict` | — | — | — | 4 | 2 |
 
 ## Dossier L13 — Operations resilience — sync drift, delivery failures, restore, identity
@@ -324,7 +324,7 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 | `restore_drill_full` | Operations owner | once a backup copy of `data/blobs` exists  | — | — | report_config, system_log | — | 1 | 1 |
 | `entra_deprovision_enabled` | Information Security + tenant administrator | only after the tenant administrator decides on the Graph `User | — | — | users | yes | 3 | 2 |
 | `site_code_shared_block` | Data owner + Owner | Decide who owns each shared site code (e.g. TND) and correct the data first; then test the controlled 409 and the editors' rights. | — | editor | — | — | 5 | 4 |
-| `policy_center_enabled` | to be named | — | — | — | — | — | 9 | 4 |
+| `policy_center_enabled` | to be named | — | — | — | — | — | 9 | 6 |
 
 ## Dossier L14 — PMO journey — portfolio intake register, data quality, register and executive dashboard, decision agenda and management alerts, lifecycle / review / audit (portfolio spec Lots 1–5)
 
@@ -345,7 +345,7 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 | `ppm_field_audit_enabled` | to be named | — | — | admin, finance-viewer | decisions, meeting_cadences, meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits +20 | — | 6 | 2 |
 | `ppm_extended_lifecycle_enabled` | to be named | once the PMO has reviewed the PROPOSED mapping: new projects start as `idea`, then `assessment`  | — | — | decisions, meeting_cadences, meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits +20 | — | 9 | 1 |
 | `ppm_review_workflow_enabled` | to be named | after `ppm_field_audit_enabled`: review panel on the Gates tab  | `ppm_field_audit_enabled`, `ppm_gate_checklist_enabled` | — | users | — | 8 | 3 |
-| `ppm_business_case_freeze_enabled` | to be named | once the PMO accepts the PROPOSED frozen list  | `ppm_change_requests_enabled` | — | decisions, meeting_cadences, meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits +19 | — | 5 | 2 |
+| `ppm_business_case_freeze_enabled` | to be named | once the PMO accepts the PROPOSED frozen list  | `ppm_change_requests_enabled` | — | decisions, meeting_cadences, meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits +19 | — | 5 | 3 |
 | `ppm_decision_agenda_enabled` | to be named | after `ppm_intake_register_enabled`: `/portfolio-decisions | `ppm_intake_register_enabled` | — | — | — | 7 | 1 |
 | `ppm_alert_actions_enabled` | to be named | after `ppm_decision_agenda_enabled`: the six management alerts of the portfolio spec  | `ppm_decision_agenda_enabled` | — | — | — | 8 | 3 |
 

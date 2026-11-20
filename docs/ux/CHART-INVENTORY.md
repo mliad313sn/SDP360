@@ -62,7 +62,7 @@ Files scanned: **149** · inline <style> blocks: **61** · hex literals: **5577*
 | `public/portfolio-phase2.html` | 2596 | 1 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/portfolio-register.html` | 5707 | 1 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/portfolio.html` | 45855 | 1 | 74 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/project.html` | 96091 | 1 | 79 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/project.html` | 96354 | 1 | 79 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/report-studio.html` | 18523 | 1 | 42 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/reports.html` | 548810 | 1 | 817 | 2 | bar×2 | 0 | 0 | yes | — | — | chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
 | `public/rfi.html` | 12560 | 1 | 40 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
@@ -137,7 +137,7 @@ Files scanned: **149** · inline <style> blocks: **61** · hex literals: **5577*
 | `public/lib/ppmReview.js` | 9129 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/ppmRoadmapNnl.js` | 3911 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/ppmVisuals.js` | 23603 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/lib/ppmWorkbench.js` | 24791 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/ppmWorkbench.js` | 24973 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/reasonDialog.js` | 6938 | 0 | 10 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/lib/reportingWeek.js` | 3959 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/reports-backups.js` | 7874 | 0 | 15 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
