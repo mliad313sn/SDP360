@@ -51,6 +51,7 @@
   /* UAT-F (S1-07) — a site card must reflow at 320 px: a 1fr track floors at its content's min width, so a long label
      pushed the card past the viewport (WCAG 1.4.10). The track may shrink to 0 and the key/value pair wraps. */
   .hm-blocks li { flex-wrap: wrap; } .hm-k, .hm-v { min-width: 0; overflow-wrap: anywhere; }
+  .hm-fresh-never { color: var(--color-warning-text); font-weight: 600; }
   body.lang-fr [data-lng="en"], body:not(.lang-fr) [data-lng="fr"] { display: none; }
 </style>
 </head>
@@ -66,6 +67,8 @@
   </div>
   <!-- E-U03 — shared page head (lib/pageHead.js): question · scope · window · freshness -->
   <div id="pageHead"></div>
+  <!-- Adoption Lot B (item 16) — data-source freshness for the admin tier (ui_home_freshness_strip, off by default) -->
+  <div id="hmFreshBox"></div>
   <div id="hmQueue"></div>
   <div id="hmSites" class="hm-sites"></div>
   <div class="hm-card">
@@ -86,6 +89,7 @@
 <script nonce="%%CSP_NONCE%%" src="lib/homeQueue.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/workspaceProfiles.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/reportingWeek.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/homeGroup.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/home-page.js"></script>
 </body>
 </html>

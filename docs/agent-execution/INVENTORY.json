@@ -15,7 +15,7 @@
   "jobs": 33,
   "jobs_without_test_reference": 0,
   "migrations": 107,
-  "test_files": 891
+  "test_files": 893
  },
  "pages": [
   {
@@ -76,6 +76,7 @@
    "bytes": 3023,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
+    "tests/adoption-lotb-landing.test.js",
     "tests/csp-headers.smoke.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/csp-report.smoke.test.js",
@@ -194,6 +195,7 @@
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/adoption-lota-truth.test.js",
+    "tests/adoption-lotb-landing.test.js",
     "tests/agent-inventory.test.js",
     "tests/asset-hygiene-visuals.test.js",
     "tests/asset-reminder-report.test.js",
@@ -236,6 +238,7 @@
    "tests": [
     "tests/a11y-static.test.js",
     "tests/adoption-lota-nav-authz.test.js",
+    "tests/adoption-lotb-landing.test.js",
     "tests/governance-c15.smoke.test.js",
     "tests/governance-links.test.js",
     "tests/home-queue.test.js",
@@ -288,7 +291,9 @@
    "entry_points": {
     "shell": true,
     "module_tab": false,
-    "linked_from": [],
+    "linked_from": [
+     "lib/homeGroup.js"
+    ],
     "redirect_to": null,
     "deep_link_only": null,
     "known_dead_end": null
@@ -382,6 +387,7 @@
    "tests": [
     "tests/a11y-static.test.js",
     "tests/adoption-lota-nav-authz.test.js",
+    "tests/adoption-lotb-landing.test.js",
     "tests/chart-annotations.test.js",
     "tests/dashboard-time-truth.test.js",
     "tests/dashboard-widget-truth.test.js",
@@ -512,6 +518,7 @@
    "tests": [
     "tests/a11y-legacy-ratchet.test.js",
     "tests/adoption-lota-nav-authz.test.js",
+    "tests/adoption-lotb-landing.test.js",
     "tests/api-key-injection.smoke.test.js",
     "tests/csp-journey-report.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
@@ -650,11 +657,13 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 0,
-   "bytes": 7062,
+   "bytes": 7352,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/adoption-lota-nav-authz.test.js",
     "tests/adoption-lota-week.test.js",
+    "tests/adoption-lotb-home.test.js",
+    "tests/adoption-lotb-landing.test.js",
     "tests/feedback.smoke.test.js",
     "tests/home-page-blocks.test.js",
     "tests/home-queue-page.test.js",
@@ -693,7 +702,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 130132,
+   "bytes": 130392,
    "tests": [
     "tests/a11y-legacy-ratchet.test.js",
     "tests/a11y-static.test.js",
@@ -701,6 +710,8 @@
     "tests/adoption-lota-nav-authz.test.js",
     "tests/adoption-lota-truth.test.js",
     "tests/adoption-lota-week.test.js",
+    "tests/adoption-lotb-home.test.js",
+    "tests/adoption-lotb-landing.test.js",
     "tests/api-key-injection.smoke.test.js",
     "tests/charts-static.test.js",
     "tests/csp-headers.smoke.test.js",
@@ -886,7 +897,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 18060,
+   "bytes": 18497,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/adoption-lota-nav-authz.test.js",
@@ -1036,8 +1047,9 @@
    "parent": "executive-report.html",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 18071,
+   "bytes": 18399,
    "tests": [
+    "tests/adoption-lotb-home.test.js",
     "tests/brand-buttons.test.js",
     "tests/csp-candidate-pages.smoke.test.js",
     "tests/csp-headers.smoke.test.js",
@@ -1435,7 +1447,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 11179,
+   "bytes": 11618,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/adoption-lota-nav-authz.test.js",
@@ -1558,6 +1570,7 @@
    "tests": [
     "tests/a11y-static.test.js",
     "tests/adoption-lota-nav-authz.test.js",
+    "tests/adoption-lotb-landing.test.js",
     "tests/allocation-contract.test.js",
     "tests/chart-a11y.test.js",
     "tests/i18n-coverage.test.js",
@@ -1646,7 +1659,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 18084,
+   "bytes": 18523,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/adoption-lota-nav-authz.test.js",
@@ -1821,6 +1834,7 @@
    "bytes": 73416,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
+    "tests/adoption-lotb-landing.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
     "tests/landing.test.js",
@@ -2763,6 +2777,7 @@
    "file": "routes/assets.js",
    "line": 348,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/assets-finance-routes.smoke.test.js",
     "tests/assets-money-scope.smoke.test.js",
     "tests/authz-matrix-json.test.js",
@@ -4747,6 +4762,7 @@
    "line": 199,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
+    "tests/adoption-lotb-home.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/governance-routes.smoke.test.js"
@@ -4864,6 +4880,7 @@
     "tests/access-denied-log.smoke.test.js",
     "tests/actuals-import.smoke.test.js",
     "tests/adoption-lota-nav-authz.test.js",
+    "tests/adoption-lotb-home.test.js",
     "tests/finance-certification.smoke.test.js",
     "tests/governance-routes.smoke.test.js",
     "tests/hostile-input-r4.smoke.test.js",
@@ -4909,6 +4926,7 @@
     "tests/access-denied-log.smoke.test.js",
     "tests/actuals-import.smoke.test.js",
     "tests/adoption-lota-nav-authz.test.js",
+    "tests/adoption-lotb-home.test.js",
     "tests/finance-certification.smoke.test.js",
     "tests/governance-routes.smoke.test.js",
     "tests/hostile-input-r4.smoke.test.js",
@@ -4954,6 +4972,7 @@
     "tests/access-denied-log.smoke.test.js",
     "tests/actuals-import.smoke.test.js",
     "tests/adoption-lota-nav-authz.test.js",
+    "tests/adoption-lotb-home.test.js",
     "tests/finance-certification.smoke.test.js",
     "tests/governance-routes.smoke.test.js",
     "tests/hostile-input-r4.smoke.test.js",
@@ -5339,6 +5358,7 @@
     "tests/access-denied-log.smoke.test.js",
     "tests/actuals-import.smoke.test.js",
     "tests/adoption-lota-nav-authz.test.js",
+    "tests/adoption-lotb-home.test.js",
     "tests/finance-certification.smoke.test.js",
     "tests/governance-routes.smoke.test.js",
     "tests/hostile-input-r4.smoke.test.js",
@@ -12166,6 +12186,7 @@
    "file": "routes/sites.js",
    "line": 97,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/server-routes-smoke.test.js",
     "tests/server-size-budget.test.js",
@@ -12179,6 +12200,7 @@
    "file": "routes/sites.js",
    "line": 46,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/server-routes-smoke.test.js",
     "tests/server-size-budget.test.js",
@@ -12202,6 +12224,7 @@
    "file": "routes/sites.js",
    "line": 32,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/server-routes-smoke.test.js",
     "tests/server-size-budget.test.js",
@@ -12215,6 +12238,7 @@
    "file": "routes/sites.js",
    "line": 82,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/server-routes-smoke.test.js",
     "tests/server-size-budget.test.js",
@@ -12920,6 +12944,7 @@
    "file": "routes/siteAwareness.js",
    "line": 414,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/site-awareness-routes.smoke.test.js"
    ]
   },
@@ -13931,6 +13956,7 @@
     "tests/engagement-routes.smoke.test.js",
     "tests/engagement-store.test.js",
     "tests/ext-api.smoke.test.js",
+    "tests/i18n-coverage.test.js",
     "tests/pg-report-engagement-store.test.js",
     "tests/publication-freshness.smoke.test.js"
    ]
@@ -13946,6 +13972,7 @@
     "tests/engagement-routes.smoke.test.js",
     "tests/engagement-store.test.js",
     "tests/ext-api.smoke.test.js",
+    "tests/i18n-coverage.test.js",
     "tests/pg-report-engagement-store.test.js",
     "tests/publication-freshness.smoke.test.js"
    ]
@@ -13959,7 +13986,8 @@
    "tests": [
     "tests/api-contract-ext.test.js",
     "tests/engagement-routes.smoke.test.js",
-    "tests/ext-api.smoke.test.js"
+    "tests/ext-api.smoke.test.js",
+    "tests/i18n-coverage.test.js"
    ]
   },
   {
@@ -13974,6 +14002,7 @@
     "tests/ext-api.smoke.test.js",
     "tests/figure-parity-all-kpis.test.js",
     "tests/figure-parity-five-surfaces.test.js",
+    "tests/i18n-coverage.test.js",
     "tests/publication-freshness.smoke.test.js"
    ]
   },
@@ -14059,6 +14088,7 @@
     "tests/adoption-lota-nav-authz.test.js",
     "tests/adoption-lota-truth.test.js",
     "tests/adoption-lota-week.test.js",
+    "tests/adoption-lotb-landing.test.js",
     "tests/api-key-injection.smoke.test.js",
     "tests/csp-headers.smoke.test.js",
     "tests/csp-journey-report.test.js",

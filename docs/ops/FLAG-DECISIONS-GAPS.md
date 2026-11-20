@@ -5,7 +5,7 @@ edit this file; fill the sidecar instead. A dark switch = a behaviour that is OF
 or a nested arm whose default is false). Turning one on is a human decision: the fields below are what that decision
 must name. The agent fills none of them (no owner, canary site, date or business threshold is ever invented).
 
-Dark switches: **156** · with every decision field filled: **0** · fields: `owner`, `risk`, `dependencies`, `canary_site`, `rollback_trigger`, `success_metric`, `decision_deadline`, `expiry`.
+Dark switches: **160** · with every decision field filled: **0** · fields: `owner`, `risk`, `dependencies`, `canary_site`, `rollback_trigger`, `success_metric`, `decision_deadline`, `expiry`.
 
 | Switch | Source | Owner role (profile) | Missing decision fields |
 |---|---|---|---|
@@ -143,7 +143,10 @@ Dark switches: **156** · with every decision field filled: **0** · fields: `ow
 | `ui_data_quality_page` | report_config | Data owner | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
 | `ui_exec_charts_v2` | report_config | Executive sponsor + data / BI owner | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
 | `ui_feedback_enabled` | report_config | PO | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
+| `ui_helpdesk_site_default` | report_config | Pilot owner (UI policy) | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
 | `ui_home_blocks` | report_config | Owner (UI policy) | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
+| `ui_home_freshness_strip` | report_config | Pilot owner (UI policy) | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
+| `ui_home_group_variant` | report_config | Pilot owner (UI policy) | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
 | `ui_home_queue` | report_config | Owner (UI policy) | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
 | `ui_i18n_pages` | report_config | Owner (D-2) | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
 | `ui_kpi_base_line` | report_config | Owner (UI policy) | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
@@ -152,6 +155,7 @@ Dark switches: **156** · with every decision field filled: **0** · fields: `ow
 | `ui_nav_active_from_url` | report_config | Owner (UI policy) | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
 | `ui_nav_carry_site` | report_config | Owner (UI policy) | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
 | `ui_role_landing` | report_config | Owner (UI policy) | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
+| `ui_role_landing_profiles` | report_config | Pilot owner (UI policy) | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
 | `ui_small_multiples` | report_config | Owner (UI policy) | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
 | `ui_url_filters` | report_config | Owner (UI policy) | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
 | `ux_event_telemetry` | report_config | Data protection officer + Owner (UI policy) | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |

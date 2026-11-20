@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (299) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (303) — services/reportConfig.js DEFAULTS
 
 Prerequisites (E-A07, services/switchPrereqs.js) are WARNINGS in plain words, never approvals: the config PUT
 answer and the `set-ui-policy.js` dry run repeat them when the switch is moved to its switched-on value.
@@ -286,7 +286,10 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `ui_exec_charts_v2` | `0` | ui policy | Executive sponsor + data / BI owner | `0` until a browser review of the Executive Scorecard with the executive sponsor and the data / BI owner (decision D5) — same figures, small multiples instead of dual axes, bars instead of rings | F-UX-12 | — |
 | `ui_exec_nav` | `full` | ui policy | Owner (D-6) | `consolidated` (PO delegated decision P1, reversible — re-examine after 30 days of `page_viewed`) | C-28 | — |
 | `ui_feedback_enabled` | `0` | ui policy | PO | `1` on the pilot once B-05 (RACI) names who answers feedback — a Feedback button in the header (problem / idea / question, page auto-filled, ≤ 2 000 characters, named or anonymous: anonymous keeps only role tier + site), triage in `/api/feedback` (admin tier), the answer shown on Home ▸ My work; no notification sent, no AI reads the text | E-B07 | Someone named to answer feedback (B-05 RACI) before the button is shown. |
+| `ui_helpdesk_site_default` | `0` | ui policy | Pilot owner (UI policy) | `1` at the pilot sites (proposal — the Helpdesk dashboard opens on the person's own site for site-scoped roles; All Sites one click away; the admin tier keeps All Sites) | Adoption Lot B (item 22) | — |
 | `ui_home_blocks` | `0` | ui policy | Owner (UI policy) | `1` (proposal — after a browser review: per-block states and per-card reload on Home; never shows a figure the server did not send) | F-UX-09 | — |
+| `ui_home_freshness_strip` | `0` | ui policy | Pilot owner (UI policy) | `1` at the pilot sites (proposal — Home for the admin tier: one line per data source with its last successful collection; never synced in amber) | Adoption Lot B (item 16) | — |
+| `ui_home_group_variant` | `0` | ui policy | Pilot owner (UI policy) | `1` at the pilot sites (proposal — Home for a person with no site: a group card with the worst sites of the Vue Groupe grid for the roles that read it, late projects and decisions due, instead of "no site"; figures from the existing routes only) | Adoption Lot B (item 11) | — |
 | `ui_home_queue` | `0` | ui policy | Owner (UI policy) | `1` (proposal — after a browser review in EN and FR at 320 px: Home shows one queue of the person's own work read from the existing per-site readers (meeting / inspection actions, report follow-ups, commitments, "Awaiting me"), each source with its own state available / unknown / stale / partial / denied, 12 sites and 150 items at most, register link when no exact page exists; grants nothing — every reader keeps its own site check) | R2-QUEUE (R3) | — |
 | `ui_i18n_pages` | `0` | ui policy | Owner (D-2) | `1` | A-09, C-26 | — |
 | `ui_inject_dash_key` | (secret — not shown) | secret | Security owner | `0` (pages no longer receive `window.__ak`; every data call rides the session cookie — proven by `tests/api-key-injection.smoke.test.js` (g)) after one browser pass on the TEST instance | E-S02 | One browser pass on the TEST instance of every page that used window.__ak. |
@@ -298,6 +301,7 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `ui_nav_carry_site` | `0` | ui policy | Owner (UI policy) | `1` (proposal — when the address carries `?site=CODE`, menu / finder / workspace links to the four site-aware pages carry it; the page still checks the right) | R2-QUEUE (R4) | — |
 | `ui_nav_profile` | `full` | ui policy | Owner (D-6) | `lean` (proposal — re-decide from the T1–T8 sessions) | A-21 | — |
 | `ui_role_landing` | `0` | ui policy | Owner (UI policy) | `1` | A-10 | — |
+| `ui_role_landing_profiles` | `0` | ui policy | Pilot owner (UI policy) | `1` at the pilot sites (proposal — accounts holding feature roles only land on the first page of their default workspace profile: committee → portfolio, finance → asset finance, audit / KPI committee → cockpit, dashboard publisher → dashboards, scorecard → executive home, field tech → field app; editors and above keep their landing; the page keeps its own gate) | Adoption Lot B (item 6) | — |
 | `ui_small_multiples` | `0` | ui policy | Owner (UI policy) | `1` (proposal — after a browser review of the widget) | E-V09 | — |
 | `ui_url_filters` | `0` | ui policy | Owner (UI policy) | `1` (proposal — shareable Analytics links; filters only, never a data value) | E-U02 | — |
 | `ui_week_labels` | `legacy` | ui policy | Owner (UI policy) | `explicit` (proposal — ISO helpdesk charts say "ISO W37 (7–13 Sep)", report rows carry their Sun→Sat range) | D-03 | — |

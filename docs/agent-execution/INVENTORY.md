@@ -20,33 +20,33 @@
 | jobs | 33 |
 | jobs without test reference | 0 |
 | migrations | 107 |
-| test files | 891 |
+| test files | 893 |
 
 ## Pages
 
 | Id | Page | Role required | In nav | Inline scripts | Tests |
 |---|---|---|---|---:|---:|
 | PG-access | public/access.html | any | no | 0 | 7 |
-| PG-activity-tracker | public/activity-tracker.html | admin / tracker-admin / tracker-editor | yes | 0 | 7 |
+| PG-activity-tracker | public/activity-tracker.html | admin / tracker-admin / tracker-editor | yes | 0 | 8 |
 | PG-analytics | public/analytics.html | admin / scorecard-viewer | yes | 1 | 10 |
 | PG-assets-finance | public/assets-finance.html | UNKNOWN | no | 1 | 2 |
 | PG-assets-hygiene | public/assets-hygiene.html | UNKNOWN | no | 1 | 3 |
-| PG-assets | public/assets.html | any | yes | 10 | 18 |
-| PG-cockpit | public/cockpit.html | any | yes | 1 | 11 |
+| PG-assets | public/assets.html | any | yes | 10 | 19 |
+| PG-cockpit | public/cockpit.html | any | yes | 1 | 12 |
 | PG-commitments | public/commitments.html | any | no | 1 | 6 |
 | PG-connector-health | public/connector-health.html | admin | yes | 0 | 3 |
 | PG-coverage | public/coverage.html | any | no | 0 | 3 |
 | PG-dashboard-composer | public/dashboard-composer.html | admin / dashboard-publisher | no | 1 | 5 |
-| PG-dashboards | public/dashboards.html | any | yes | 1 | 14 |
+| PG-dashboards | public/dashboards.html | any | yes | 1 | 15 |
 | PG-data-quality | public/data-quality.html | admin | yes | 0 | 3 |
 | PG-exec-view | public/exec-view.html | public | no | 1 | 8 |
 | PG-executive-report | public/executive-report.html | super_admin | yes | 1 | 14 |
-| PG-executive | public/executive.html | executive / scorecard-viewer | yes | 1 | 17 |
+| PG-executive | public/executive.html | executive / scorecard-viewer | yes | 1 | 18 |
 | PG-finance | public/finance.html | admin / finance-viewer | yes | 0 | 4 |
 | PG-handoffs | public/handoffs.html | any | yes | 1 | 10 |
 | PG-help | public/help.html | any | yes | 1 | 12 |
-| PG-home | public/home.html | any | yes | 0 | 17 |
-| PG-index | public/index.html | any | yes | 1 | 39 |
+| PG-home | public/home.html | any | yes | 0 | 19 |
+| PG-index | public/index.html | any | yes | 1 | 41 |
 | PG-infra-health | public/infra-health.html | any | yes | 2 | 7 |
 | PG-inspection-actions | public/inspection-actions.html | any | no | 1 | 7 |
 | PG-inspection | public/inspection.html | any | no | 2 | 9 |
@@ -56,7 +56,7 @@
 | PG-itsm-integrations-plan | public/itsm-integrations-plan.html | UNKNOWN | no | 0 | 5 |
 | PG-itsm-roadmap | public/itsm-roadmap.html | super_admin | no | 1 | 5 |
 | PG-kpi-builder | public/kpi-builder.html | any | yes | 0 | 5 |
-| PG-login | public/login.html | public | no | 1 | 13 |
+| PG-login | public/login.html | public | no | 1 | 14 |
 | PG-meeting | public/meeting.html | any | no | 1 | 14 |
 | PG-meetings-actions | public/meetings-actions.html | any | no | 2 | 10 |
 | PG-meetings-compliance | public/meetings-compliance.html | any | no | 2 | 4 |
@@ -73,13 +73,13 @@
 | PG-obligations | public/obligations.html | any | yes | 0 | 5 |
 | PG-policies | public/policies.html | admin / committee-member | yes | 1 | 6 |
 | PG-policy-center | public/policy-center.html | super_admin | yes | 0 | 5 |
-| PG-portfolio | public/portfolio.html | any | yes | 1 | 18 |
+| PG-portfolio | public/portfolio.html | any | yes | 1 | 19 |
 | PG-project | public/project.html | any | no | 1 | 22 |
 | PG-report-studio | public/report-studio.html | any | yes | 1 | 4 |
 | PG-reports | public/reports.html | any | yes | 2 | 41 |
 | PG-rfi | public/rfi.html | any | yes | 1 | 5 |
 | PG-site-actions | public/site-actions.html | any | yes | 1 | 18 |
-| PG-site-awareness | public/site-awareness.html | site-business / group-business / executive | yes | 2 | 7 |
+| PG-site-awareness | public/site-awareness.html | site-business / group-business / executive | yes | 2 | 8 |
 | PG-site-report | public/site-report.html | UNKNOWN | no | 0 | 6 |
 | PG-system-logs | public/system-logs.html | super_admin | yes | 1 | 4 |
 | PG-tracker-builder | public/tracker-builder.html | admin / tracker-admin | no | 1 | 4 |
@@ -104,7 +104,7 @@
 | public/assets.html | yes | — | assets-finance.html, assets-hygiene.html, lib/workspaceProfiles.js | — | — | shell |
 | public/cockpit.html | yes | — | lib/workspaceProfiles.js | — | — | shell |
 | public/commitments.html | — | — | lib/dashboardRender.js, site-actions.html | — | — | site-actions.html |
-| public/connector-health.html | yes | — | — | — | — | shell |
+| public/connector-health.html | yes | — | lib/homeGroup.js | — | — | shell |
 | public/coverage.html | — | — | — | — | — | **NO ENTRY POINT** — duty coverage page — no menu entry, no link from another page |
 | public/dashboard-composer.html | — | — | dashboards.html | — | — | dashboards.html |
 | public/dashboards.html | yes | — | lib/workspaceProfiles.js | — | — | shell |

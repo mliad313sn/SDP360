@@ -32,6 +32,16 @@
 //   ui_nav_carry_site     '0' = menu links as today · '1' = links to site-aware pages carry the current ?site=CODE (R2-QUEUE, R4)
 //   ui_home_blocks        '0' = Home renders in one pass, a failed call blanks it (today) · '1' = each block shows
 //                         its own state, a failed call keeps the page with a retry, each site card reloads alone (F-UX-09)
+//   Adoption Lot B ("each profile lands on its job", PROPOSED — enable per pilot site):
+//   ui_role_landing_profiles '0' = landing as above (today) · '1' = an account with feature roles only (no editor or
+//                         higher) lands on the first page of its default workspace profile instead of the Helpdesk
+//                         (committee → portfolio, finance → asset finance, governance → cockpit, analyst → dashboards…)
+//   ui_home_group_variant '0' = Home as today · '1' = a person with no site gets a group card (worst sites from the
+//                         Vue Groupe grid when their role reads it, late projects, decisions due) instead of "no site"
+//   ui_home_freshness_strip '0' = Home as today · '1' = the admin tier sees one line per data source on Home (last
+//                         successful collection; never synced = amber), read from GET /api/connector-health
+//   ui_helpdesk_site_default '0' = the Helpdesk opens on All Sites (today) · '1' = a site-scoped person (not the admin
+//                         tier) opens on their own site when the ticket data names it; All Sites stays one click away
 
 const UI_DEFAULTS = {
   ui_lang_default: '',
@@ -52,6 +62,10 @@ const UI_DEFAULTS = {
   ui_exec_charts_v2: '0',
   ui_home_queue: '0',
   ui_nav_carry_site: '0',
+  ui_role_landing_profiles: '0',
+  ui_home_group_variant: '0',
+  ui_home_freshness_strip: '0',
+  ui_helpdesk_site_default: '0',
 };
 const UI_KEYS = Object.keys(UI_DEFAULTS);
 
@@ -73,6 +87,10 @@ const ENUMS = {
   ui_exec_charts_v2: ['0', '1'],
   ui_home_queue: ['0', '1'],
   ui_nav_carry_site: ['0', '1'],
+  ui_role_landing_profiles: ['0', '1'],
+  ui_home_group_variant: ['0', '1'],
+  ui_home_freshness_strip: ['0', '1'],
+  ui_helpdesk_site_default: ['0', '1'],
 };
 // Same vocabulary as reports-db.js ROLE_HIERARCHY + FEATURE_ROLES_KNOWN (kept inline: this module stays pure).
 const KNOWN_ROLES = new Set(['super_admin', 'executive', 'admin', 'editor', 'viewer',
@@ -118,6 +136,10 @@ function uiPolicyFrom(cfg) {
     exec_charts_v2: _pick(c, 'ui_exec_charts_v2'),
     home_queue: _pick(c, 'ui_home_queue'),
     nav_carry_site: _pick(c, 'ui_nav_carry_site'),
+    role_landing_profiles: _pick(c, 'ui_role_landing_profiles'),
+    home_group_variant: _pick(c, 'ui_home_group_variant'),
+    home_freshness_strip: _pick(c, 'ui_home_freshness_strip'),
+    helpdesk_site_default: _pick(c, 'ui_helpdesk_site_default'),
     // R2-QUEUE — not a ui_* key: the shell shows the "My workspace" link only while the settings page exists
     workspace_profiles: String(c.workspace_profiles_enabled == null ? '' : c.workspace_profiles_enabled).trim() === '1' ? '1' : '0',
     // UAT-F — not a ui_* key: the Home queue skips the commitments source (no 404 probe) while the module is off

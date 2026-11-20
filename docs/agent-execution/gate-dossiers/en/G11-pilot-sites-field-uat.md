@@ -10,7 +10,7 @@
 | Decision cell in RELEASE-GATES.md | empty — this gate is **NO-GO** until the approver fills it. This dossier fills nothing. |
 | What this gate blocks | blocks the two-site pilot on the TEST instance |
 | Decide after | [G01](G01-security-access-policy.md) Security: access policy and authorization matrix · [G02](G02-threat-model-findings.md) Security: threat model and findings · [G05](G05-backup-restore-rpo-rto.md) Backup and restore (RPO/RTO) · [G12](G12-data-owner-fixtures-history.md) Data owner: anonymised data and 2026 history |
-| Target SHA | `7d3f11ea` |
+| Target SHA | `5176ec3b` |
 | Generated | 2026-11-20 |
 
 ## 1. Question to decide
@@ -21,7 +21,7 @@ Which two sites run the pilot, with which named users, and what result of the fi
 
 | Evidence | What it shows | Regenerate / re-run | Last changed (commit, date) | Content hash |
 |---|---|---|---|---|
-| `docs/ops/pilot/PILOT-PROFILE.md` | Switch values proposed for the pilot (not approved) | `manual` | b658c9a1, 2026-11-20 | `cf2ebaa9e445dd6a` |
+| `docs/ops/pilot/PILOT-PROFILE.md` | Switch values proposed for the pilot (not approved) | `manual` | b658c9a1, 2026-11-20 | `b87ad3c4d86abe14` |
 | `docs/ops/pilot/FIELD-DEVICE-UAT.md` | Field device acceptance protocol | `manual` | 123bbb9e, 2026-11-06 | `a8a6d3349b817775` |
 | `docs/ops/pilot/PILOT-MEASUREMENT.md` | What the pilot measures and how | `node tools/pilot/pilot-metrics.js` | 0cedb940, 2026-11-12 | `4379002a25bde6c2` |
 | `docs/ops/pilot/TEST-INSTANCE.md` | TEST instance description | `manual` | 247500f0, 2026-11-04 | `753ce5e6e2924cbb` |
@@ -33,7 +33,7 @@ Which two sites run the pilot, with which named users, and what result of the fi
 
 | From lot | Expected evidence | Status |
 |---|---|---|
-| P09 | Adoption and field readiness kit (runbook S1–S10, training, journeys) | delivered: `docs/agent-execution/P09-PAGE-INVENTORY.md` (7d3f11ea, `318b1cb3883d5a54`), `docs/agent-execution/P09-adoption-kit.md` (c9bab46d, `8246fb83ee6409fc`) |
+| P09 | Adoption and field readiness kit (runbook S1–S10, training, journeys) | delivered: `docs/agent-execution/P09-PAGE-INVENTORY.md` (7d3f11ea, `93988b3acb3e09f5`), `docs/agent-execution/P09-adoption-kit.md` (c9bab46d, `8246fb83ee6409fc`) |
 
 ## 3. Not evidenced, and why
 

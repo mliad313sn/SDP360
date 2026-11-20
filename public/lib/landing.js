@@ -6,6 +6,13 @@
  *   roleLanding    report_config ui_role_landing: '0' (default) = today's mapping;
  *                  '1' = role-based landing (Home for site editors, field app for field techs).
  *                  Any other value behaves as '0'.
+ *   profileLanding report_config ui_role_landing_profiles (Adoption Lot B, item 6): '0' (default) = as above;
+ *                  '1' = an account with NO hierarchical role above viewer (feature roles only — committee,
+ *                  finance, audit, KPI committee, dashboard publisher, scorecard, field tech) that would land
+ *                  on the Helpdesk dashboard lands on the first destination of its default workspace profile
+ *                  instead (public/lib/workspaceProfiles.js — the same catalogue as the shell, filtered by the
+ *                  person's real roles). Needs opts.profiles = that module; without it nothing changes.
+ *   roles          the raw role list (only read by the profile rule, for the business-only test)
  * A landing is a starting point, never a permission: the target page keeps its own gate.
  * UMD — window.Landing in the browser, module.exports in Node (tests).
  */
@@ -14,6 +21,32 @@
   function landingFor(opts) {
     var o = opts || {};
     var has = typeof o.has === 'function' ? o.has : function () { return false; };
+    var base = baseLanding(o, has);
+    if (o.profileLanding === '1' && base === 'index.html' && !has('editor')) {
+      var p = profileLanding(o.profiles, has, o.roles);
+      if (p) return p;
+    }
+    return base;
+  }
+  // Adoption Lot B (item 6) — the first destination (after Home) of the person's default workspace profile, when
+  // the person may open it. 'dashboard' IS index.html, so the reader profile keeps today's landing.
+  function profileLanding(WP, has, roles) {
+    if (!WP || typeof WP.defaultProfile !== 'function' || !Array.isArray(WP.PROFILES)) return null;
+    var ctx = { has: has, roles: Array.isArray(roles) ? roles : [] };
+    var id = WP.defaultProfile(ctx);
+    var prof = null;
+    for (var i = 0; i < WP.PROFILES.length; i++) if (WP.PROFILES[i].id === id) prof = WP.PROFILES[i];
+    if (!prof) return null;
+    for (var j = 0; j < prof.destinations.length; j++) {
+      var d = prof.destinations[j];
+      if (d === 'home') continue;
+      if (!WP.mayOpen(d, ctx)) continue;
+      var href = WP.DESTINATIONS[d] && WP.DESTINATIONS[d].href;
+      return typeof href === 'string' && href ? href : null;
+    }
+    return null;
+  }
+  function baseLanding(o, has) {
     if (o.isBusinessOnly) return 'site-awareness.html';            // GM/FM land on their site view
     if (o.roleLanding === '1') {
       if (has('super_admin'))    return 'home.html';

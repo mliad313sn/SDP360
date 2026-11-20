@@ -162,6 +162,7 @@ select.flt:focus{outline:2px solid var(--orange);border-color:transparent}
 </style>
 <script src="auth.js" data-require="any"></script>
 <script src="lib/siteAliases.js"></script>
+<script src="lib/helpdeskSiteDefault.js"></script>
 <script src="lib/slaDual.js"></script>
 <script src="lib/dashboard-shared.js"></script>
 <script src="lib/reportingWeek.js"></script>
@@ -1511,6 +1512,8 @@ function populateDrops(){
   });
   const sEl=document.getElementById('fSite'),cv1=sEl.value;
   sEl.innerHTML='<option value="all">All Sites</option>'+[...ss].sort().map(s=>'<option value="'+s+'"'+(s===cv1?' selected':'')+'>'+s+'</option>').join('');
+  // Adoption Lot B (item 22) — ui_helpdesk_site_default: a site-scoped person opens on their own site (once; off = today)
+  if(window.HelpdeskSiteDefault)window.HelpdeskSiteDefault.apply(sEl,applyFilters);
   const cEl=document.getElementById('fCat'),cv3=cEl.value;
   cEl.innerHTML='<option value="all">All Categories</option>'+[...cs].sort().map(c=>'<option value="'+c+'"'+(c===cv3?' selected':'')+'>'+c+'</option>').join('');
 

@@ -10,7 +10,7 @@
 | Case de décision dans RELEASE-GATES.md | vide — cette porte est **NO-GO** tant que l'approbateur ne l'a pas remplie. Ce dossier ne remplit rien. |
 | Ce que cette porte bloque | ne bloque que le déploiement général |
 | À décider après | [G11](G11-pilot-sites-field-uat.md) Sites pilotes et recette terrain · [G21](G21-business-witness-project.md) Projet témoin métier · [G06](G06-kpi-definitions-thresholds.md) Définitions des indicateurs, seuils et score |
-| SHA cible | `7d3f11ea` |
+| SHA cible | `5176ec3b` |
 | Généré | 2026-11-20 |
 
 ## 1. La question à trancher
@@ -30,7 +30,7 @@ Après le pilote, le produit fait-il ce dont le métier a besoin suffisamment bi
 
 | Lot | Preuve attendue | Statut |
 |---|---|---|
-| P09 | Kit d'adoption et tâches par profil | livrée: `docs/agent-execution/P09-PAGE-INVENTORY.md` (7d3f11ea, `318b1cb3883d5a54`), `docs/agent-execution/P09-adoption-kit.md` (c9bab46d, `8246fb83ee6409fc`) |
+| P09 | Kit d'adoption et tâches par profil | livrée: `docs/agent-execution/P09-PAGE-INVENTORY.md` (7d3f11ea, `93988b3acb3e09f5`), `docs/agent-execution/P09-adoption-kit.md` (c9bab46d, `8246fb83ee6409fc`) |
 | P04 | Rapport de certification PPM | livrée: `docs/agent-execution/P04-ppm-certification.md` (34acf361, `ce601c12654f688f`) |
 
 ## 3. Ce qui n'est pas prouvé, et pourquoi

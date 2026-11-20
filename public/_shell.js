@@ -367,8 +367,13 @@
   // shell pages need no new script tag). tests/landing.test.js proves the two '0' mappings agree.
   function defaultLanding() {
     const pol = window.__uiPolicy;
-    if (pol && pol.role_landing === '1' && window.Landing && typeof window.Landing.landingFor === 'function') {
-      return window.Landing.landingFor({ has: window.__userHasRole || (() => false), isBusinessOnly: !!window.__isBusinessOnly, roleLanding: '1' });
+    if (pol && (pol.role_landing === '1' || pol.role_landing_profiles === '1') && window.Landing && typeof window.Landing.landingFor === 'function') {
+      // Adoption Lot B (item 6): ui_role_landing_profiles also needs lib/workspaceProfiles.js on the page; without it
+      // the shared module keeps the role mapping (it never guesses a destination).
+      const u = window.__authUser || {};
+      return window.Landing.landingFor({ has: window.__userHasRole || (() => false), isBusinessOnly: !!window.__isBusinessOnly,
+        roleLanding: pol.role_landing === '1' ? '1' : '0', profileLanding: pol.role_landing_profiles === '1' ? '1' : '0',
+        roles: Array.isArray(u.roles) ? u.roles : (u.role ? [u.role] : []), profiles: window.WorkspaceProfiles || null });
     }
     if (window.__isBusinessOnly) return 'site-awareness.html';   // GM/FM land on their site view
     const has = window.__userHasRole || (() => false);
