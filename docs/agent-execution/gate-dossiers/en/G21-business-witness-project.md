@@ -10,7 +10,7 @@
 | Decision cell in RELEASE-GATES.md | empty — this gate is **NO-GO** until the approver fills it. This dossier fills nothing. |
 | What this gate blocks | blocks the two-site pilot on the TEST instance |
 | Decide after | [G11](G11-pilot-sites-field-uat.md) Pilot sites and field acceptance |
-| Target SHA | `9f727e4b` |
+| Target SHA | `35065f98` |
 | Generated | 2026-11-20 |
 
 ## 1. Question to decide

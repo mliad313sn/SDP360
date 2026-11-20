@@ -10,7 +10,7 @@
 | Case de décision dans RELEASE-GATES.md | vide — cette porte est **NO-GO** tant que l'approbateur ne l'a pas remplie. Ce dossier ne remplit rien. |
 | Ce que cette porte bloque | bloque le pilote sur deux sites (instance de TEST) |
 | À décider après | [G03](G03-cab-dependencies-postgres-only.md) CAB : mise à jour des dépendances et passage à PostgreSQL seul |
-| SHA cible | `9f727e4b` |
+| SHA cible | `35065f98` |
 | Généré | 2026-11-20 |
 
 ## 1. La question à trancher
@@ -24,7 +24,7 @@ Quelle perte de données (RPO) et quel délai de restauration (RTO) acceptez-vou
 | `docs/ops/restore-drills/2026-10-21.md` | Exercice de restauration : comptes de lignes égaux sur la copie restaurée (base synthétique) | `node tools/pg/restore-drill.js` | de418131, 2026-10-21 | `c6515dbb34f803de` |
 | `tools/pg/restore-drill.js` | Outil d'exercice | `node tools/pg/restore-drill.js` | 98cbb877, 2026-11-12 | `e482dcbae50733c2` |
 | `tests/restore-drill.test.js` | Comportement de l'outil d'exercice | `node --test --test-force-exit tests/restore-drill.test.js` | f001ec01, 2026-11-12 | `5df8903f7cc56426` |
-| `tests/backup-encrypt.test.js` | Comportement de la sauvegarde chiffrée | `node --test --test-force-exit tests/backup-encrypt.test.js` | f44591ae, 2026-10-28 | `7013fc06ff3c0b19` |
+| `tests/backup-encrypt.test.js` | Comportement de la sauvegarde chiffrée | `node --test --test-force-exit tests/backup-encrypt.test.js` | 6ba34945, 2026-11-20 | `048142648322741a` |
 | `docs/ops/REPLICA-RESTORE.md` | Procédure réplica et restauration | `manual` | de418131, 2026-10-21 | `7c73dcacf7dbb71c` |
 | `docs/ops/rehearsals/2026-10-29-local-pg16-g04.md` | Répétition locale avec durées | `node tools/pg/restore-rehearsal.js` | 95a84168, 2026-10-29 | `83405a53694f863a` |
 | `docs/ops/SLO-PROPOSAL.md` | Indicateurs proposés ; chaque cible INCONNUE | `manual` | 4f225458, 2026-11-19 | `332e1e07cb05be84` |
