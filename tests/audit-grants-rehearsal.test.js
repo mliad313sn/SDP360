@@ -45,11 +45,19 @@ test('harden-audit-grants.sql: the app role reads and appends, never edits, dele
     if (!su || !su.rolsuper) { t.skip('needs a superuser connection (the DBA step runs as one)'); return; }
     const schema = (await admin.query('SELECT current_schema() AS s')).rows[0].s;
     const role = 'sdp_app_rehearsal_' + crypto.randomBytes(4).toString('hex'); const pass = crypto.randomBytes(12).toString('hex');
+    const dbName = (await admin.query('SELECT current_database() AS d')).rows[0].d;
+    let datOwner = null; let nspOwner = null;
     await admin.query(`CREATE ROLE ${role} LOGIN PASSWORD '${pass}'`);
     try {
       await admin.query(`GRANT USAGE ON SCHEMA ${schema} TO ${role}`);
       // today the app role OWNS its tables: reproduce that, then run the script as written for psql
       for (const tb of TABLES) await admin.query(`ALTER TABLE ${tb} OWNER TO ${role}`);
+      // P11 r4 R4-A1 — and, as in production, it owns the DATABASE (so `public`, owned by pg_database_owner, is its
+      // schema) — or, in the schema fallback, the schema itself. A schema owner may DROP any table in it.
+      ({ datOwner, nspOwner } = (await admin.query(`SELECT pg_get_userbyid(d.datdba) AS "datOwner", pg_get_userbyid(n.nspowner) AS "nspOwner"
+        FROM pg_database d, pg_namespace n WHERE d.datname = current_database() AND n.nspname = $1`, [schema])).rows[0]);
+      await admin.query(`ALTER DATABASE "${dbName}" OWNER TO ${role}`);
+      if (nspOwner !== 'pg_database_owner') await admin.query(`ALTER SCHEMA ${schema} OWNER TO ${role}`);
       const sql = fs.readFileSync(SCRIPT, 'utf8')
         .split('\n').filter((l) => !l.startsWith('\\')).join('\n').replace(/:'app_role'/g, `'${role}'`);
       await admin.query(sql);
@@ -72,11 +80,29 @@ test('harden-audit-grants.sql: the app role reads and appends, never edits, dele
           await assert.rejects(app.query(`TRUNCATE ${tb}`), /permission denied/, `TRUNCATE ${tb}`);
           await assert.rejects(app.query(`ALTER TABLE ${tb} DISABLE TRIGGER ${tb}_append_only`), /must be owner|permission denied/, `DISABLE TRIGGER ${tb}`);
         }
+        // R4-A1 — the app role owns the database, yet no ledger can be dropped or renamed (schema handed to the owner)
+        const sOwner = (await admin.query('SELECT pg_get_userbyid(nspowner) AS o FROM pg_namespace WHERE nspname = $1', [schema])).rows[0].o;
+        assert.equal(sOwner, 'sdp_audit_owner', 'the schema holding the ledgers left the database owner');
+        for (const tb of TABLES) {
+          await assert.rejects(app.query(`DROP TABLE ${tb}`), /must be owner|permission denied/, `DROP ${tb}`);
+          await assert.rejects(app.query(`TRUNCATE ${tb}`), /permission denied/, `TRUNCATE ${tb}`);
+          await assert.rejects(app.query(`UPDATE ${tb} SET id = DEFAULT WHERE false`), /permission denied|append-only/, `UPDATE ${tb}`);
+          await assert.rejects(app.query(`DELETE FROM ${tb}`), /permission denied|append-only/, `DELETE ${tb}`);
+        }
+        await assert.rejects(app.query('ALTER TABLE ppm_events RENAME TO ppm_events_gone'), /must be owner|permission denied/);
+        await assert.rejects(app.query(`ALTER SCHEMA ${schema} OWNER TO ${role}`), /must be owner|permission denied/);
+        // the migrator (app role) still creates, alters and drops ITS OWN tables in the schema
+        await app.query('CREATE TABLE r4_app_owned (id int)');
+        await app.query('ALTER TABLE r4_app_owned ADD COLUMN x text');
+        await app.query('DROP TABLE r4_app_owned');
         // security review: the trigger functions are not the app role's to replace either
         await assert.rejects(app.query("CREATE OR REPLACE FUNCTION sdp_append_only() RETURNS trigger LANGUAGE plpgsql AS $f$ BEGIN RETURN NEW; END $f$"), /must be owner|permission denied/);
         await assert.rejects(app.query("CREATE OR REPLACE FUNCTION sdp_hash_chain() RETURNS trigger LANGUAGE plpgsql AS $f$ BEGIN RETURN NEW; END $f$"), /must be owner|permission denied/);
       } finally { await app.end(); }
     } finally {
+      if (datOwner) await admin.query(`ALTER DATABASE "${dbName}" OWNER TO "${datOwner}"`).catch(() => {});
+      if (nspOwner) await admin.query(`ALTER SCHEMA ${schema} OWNER TO "${nspOwner}"`).catch(() => {});
+      await admin.query(`DROP TABLE IF EXISTS r4_app_owned`).catch(() => {});
       for (const tb of TABLES) await admin.query(`ALTER TABLE ${tb} OWNER TO current_user`).catch(() => {});
       for (const fn of ['sdp_append_only()', 'sdp_hash_chain()', 'sdp_chain_payload(jsonb)']) await admin.query(`ALTER FUNCTION ${fn} OWNER TO current_user`).catch(() => {});
       await admin.query(`REVOKE ALL ON SCHEMA ${schema} FROM ${role}`).catch(() => {});

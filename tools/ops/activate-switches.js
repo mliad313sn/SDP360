@@ -6,14 +6,14 @@ if (require.main === module) require('dotenv').config({ quiet: true, path: requi
 // graph: there is ONE engine, this file only orders, classifies and writes.
 //
 //   node tools/ops/activate-switches.js --plan [--lots=L01,L02|all] [--db-url=URL] [--json]
-//   node tools/ops/activate-switches.js --apply --db-url=URL --lots=L01[,L02…] [--include-outbound]
-//        [--reason="…"] [--rollback-dir=DIR] [--dry-run] [--i-am-the-operator]
-//   node tools/ops/activate-switches.js --rollback=FILE --db-url=URL [--force] [--i-am-the-operator]
+//   node tools/ops/activate-switches.js --apply --db-url=URL --lots=L01[,L02…] --reason="…" [--operator=NAME]
+//        [--include-outbound] [--rollback-dir=DIR] [--dry-run] [--i-am-the-operator]
+//   node tools/ops/activate-switches.js --rollback=FILE --db-url=URL [--operator=NAME] [--reason="…"] [--force] [--i-am-the-operator]
 //
 // --db-url=env reads PG_URL (or DATABASE_URL) from the environment / the app's .env, so the password never sits on a
 // command line (process listings and shell history keep command lines). Prefer it on a real instance.
 //
-// --lots accepts L01..L13, `all` (= the 13 lots) and keep groups as pseudo-lots `K:<group>` (K:outbound,
+// --lots accepts the lot ids of docs/ops/switch-lots.json (L01..L14), `all` (= every lot) and keep groups as pseudo-lots `K:<group>` (K:outbound,
 // K:armed_in_production, K:committee_policy, K:external_precondition, K:irreversible_or_destructive). Three keep
 // groups are REFUSED whatever the flags: K:source_system_write (boundary: source systems are read-only),
 // K:kill_switch (notifications_stop on = the opposite of activation), K:not_a_switch (settings, not behaviour).
@@ -29,6 +29,14 @@ if (require.main === module) require('dotenv').config({ quiet: true, path: requi
 //    (services/configJournal, actor `cli:activate-switches`). A rollback file (JSON: key, from, to) is written
 //    BEFORE the first write; --rollback=FILE restores the `from` values in reverse order, and skips (reports) a key
 //    changed by someone else since, unless --force.
+//  - P11 r4 R4-A4: --apply (unless --dry-run) REQUIRES an explicit --lots (no implicit "all") and a --reason of at
+//    least 10 characters. The operator's identity (--operator=NAME, else the OS user) is recorded on every journal
+//    row (actor `cli:activate-switches:<operator>`), in report_config.updated_by and in the rollback file.
+//  - P11 r4 R4-A3: a rollback file carries a sha256 of its content, recorded in system_log
+//    (category config, action switch_rollback_file, target = the hash) when the tool writes it. --rollback refuses
+//    a file whose hash does not match or was never recorded, any key outside the file's own lots, any key of a
+//    refused keep group or a retired key, an entry whose `to` is not the switch's ON value, and a non-flag `from`.
+//    --force overrides only the "changed since" conflict check, never this validation.
 //  - Never reads or writes docs/ops/flag-decisions.json: owner, canary site and dates are human fields.
 // The classification below (outbound / access / money) is an AI reading of the register text and the code, written
 // to help the operator decide; it decides nothing.
@@ -38,6 +46,10 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..', '..');
 const LOTS = require(path.join(ROOT, 'tools', 'agent', 'switch-lots.js'));
 const ACTOR = 'cli:activate-switches';
+const crypto = require('crypto');
+const MIN_REASON = 10;
+const actorOf = (operator) => (operator ? `${ACTOR}:${String(operator).replace(/[^\w.@-]/g, '_').slice(0, 64)}` : ACTOR);
+function osOperator() { try { return require('os').userInfo().username || null; } catch (_) { return process.env.USERNAME || process.env.USER || null; } }
 
 // ---------------------------------------------------------------------------------------------------- classification
 // OUTBOUND: something leaves the server. kind 'send' = e-mail / Teams / webhook / publication; 'external_call' =
@@ -263,6 +275,7 @@ function parseArgs(argv) {
     else if (a.startsWith('--rollback=')) o.rollback = a.slice(11);
     else if (a.startsWith('--rollback-dir=')) o.rollbackDir = a.slice(15);
     else if (a.startsWith('--reason=')) o.reason = a.slice(9);
+    else if (a.startsWith('--operator=')) o.operatorName = a.slice(11);
     else throw new Error(`unknown argument ${a}`);
   }
   return o;
@@ -275,30 +288,92 @@ function writeRefusal(args, env) {
   return null;
 }
 
+/** Pure (R4-A4): what --apply is missing before it may write, or null. */
+function applyRefusal(args) {
+  if (args.dryRun) return null;
+  if (!args.lots || !String(args.lots).trim()) return '--apply needs an explicit --lots=L01[,L02…] (there is no implicit "all")';
+  if (String(args.reason || '').replace(/\s+/g, ' ').trim().length < MIN_REASON) return `--apply needs --reason="…" of at least ${MIN_REASON} characters (why, ticket / CAB reference)`;
+  return null;
+}
+
+// ---------------------------------------------------------------------------------------------------- rollback files
+function _canon(rb) { return JSON.stringify({ created_at: rb.created_at, actor: rb.actor, operator: rb.operator || null, lots: rb.lots, entries: rb.entries }); }
+function rollbackHash(rb) { return crypto.createHash('sha256').update(_canon(rb)).digest('hex'); }
+const FLAG_VALUE = (v) => v === null || typeof v === 'boolean' || (typeof v === 'string' && /^[\w.:-]{0,40}$/.test(v));
+
+/** Pure (R4-A3): problems with a rollback file against the plan (empty = valid content; the hash is checked apart). */
+function validateRollback(rb, plan) {
+  const out = [];
+  if (!rb || !Array.isArray(rb.entries) || !Array.isArray(rb.lots)) return ['not a rollback file written by this tool (entries / lots missing)'];
+  if (!rb.sha256 || rb.sha256 !== rollbackHash(rb)) out.push('sha256 missing or does not match the file content (edited by hand?)');
+  let lots = [];
+  try { lots = selectLots(plan, rb.lots.join(',')); } catch (e) { out.push(`lots refused: ${e.message}`); }
+  const allowed = new Set(lots.flatMap((l) => l.switches));
+  const refused = new Set(Object.keys(REFUSED_GROUPS).flatMap((g) => ((plan.keep || {})[g] || { switches: [] }).switches || []));
+  const retired = new Set((plan.retire || []).map((r) => r.key));
+  for (const e of rb.entries) {
+    const k = e && e.key;
+    if (typeof k !== 'string') { out.push('an entry has no key'); continue; }
+    if (refused.has(k)) out.push(`${k}: in a refused keep group — never written by this tool`);
+    else if (retired.has(k) || k.startsWith('frozen:')) out.push(`${k}: retired / pseudo key — never written`);
+    else if (!allowed.has(k)) out.push(`${k}: not a switch of the file's lots (${rb.lots.join(',')})`);
+    if (String(e.to) !== String(onValue(k))) out.push(`${k}: "to" ${JSON.stringify(e.to)} is not the switch's ON value`);
+    if (!FLAG_VALUE(e.from)) out.push(`${k}: "from" ${JSON.stringify(e.from)} is not a switch value`);
+  }
+  return out;
+}
+
 function redactUrl(u) {
   try { const x = new URL(String(u || '')); if (x.password) x.password = '***'; return x.toString(); } catch (_) { return '(unparsable url)'; }
 }
 
-async function defaultDeps(dbUrl) {
+async function defaultDeps(dbUrl, operator) {
   process.env.PG_URL = dbUrl;
   const rdb = require(path.join(ROOT, 'reports-db'));
   await rdb.initPgReports();
   const reportConfig = require(path.join(ROOT, 'services', 'reportConfig'));
   return {
     getConfig: () => reportConfig.getConfig(rdb.db),
-    setConfig: (patch) => reportConfig.setConfig(rdb.db, patch, ACTOR),
+    setConfig: (patch) => reportConfig.setConfig(rdb.db, patch, actorOf(operator)),
     logEvent: (ev) => rdb.logEvent(ev),
     log: (s) => process.stdout.write(s + '\n'),
+    ...storedDeps(rdb),
   };
 }
 
+// P11 r4 — which keys have a ROW in report_config (getConfig folds DEFAULTS in, so it cannot tell "stored at the
+// default" from "absent"), and how to remove a row so the key follows its default again.
+function storedDeps(rdb) {
+  return {
+    storedKeys: async () => new Set((await rdb.pgHandle().prepare('SELECT key FROM report_config').all()).map((r) => r.key)),
+    unsetConfig: async (key) => { await rdb.pgHandle().prepare('DELETE FROM report_config WHERE key = ?').run(key); },
+    rollbackKnown: async (sha) => !!(await rdb.pgHandle().prepare(
+      "SELECT 1 AS ok FROM system_log WHERE category = 'config' AND action = 'switch_rollback_file' AND target = ? LIMIT 1").get(sha)),
+  };
+}
+
+const UNSET = Symbol('unset');   // remove a nested sub-key instead of writing a value
 function patchFor(cfg, key, value) {
   if (!isNested(key)) return { [key]: String(value) };
   const [base, ...rest] = key.split('.');
   let o; try { o = JSON.parse(cfg[base] || '{}'); } catch (_) { o = {}; }
   let cur = o; for (const p of rest.slice(0, -1)) { if (cur[p] == null || typeof cur[p] !== 'object') cur[p] = {}; cur = cur[p]; }
-  cur[rest[rest.length - 1]] = value;
+  if (value === UNSET) delete cur[rest[rest.length - 1]]; else cur[rest[rest.length - 1]] = value;
   return { [base]: JSON.stringify(o) };
+}
+
+// P11 r4 — return a flat key to "absent" (it follows its default again) and journal the change.
+async function unsetOne(d, key, reason) {
+  const cfg = await d.getConfig();
+  await d.unsetConfig(key);
+  if (d.logEvent) {
+    const after = await d.getConfig();
+    const J = require(path.join(ROOT, 'services', 'configJournal'));
+    const pending = [];
+    J.journal((ev) => { pending.push(Promise.resolve().then(() => d.logEvent(ev)).catch(() => {})); },
+      J.diffConfig(cfg, { [key]: after[key] == null ? '' : after[key] }), { actor: actorOf(d.operator) }, (reason || `rollback ${key}`) + ' (returned to default)');
+    await Promise.all(pending);
+  }
 }
 
 async function writeOne(d, key, value, reason) {
@@ -309,7 +384,7 @@ async function writeOne(d, key, value, reason) {
     const J = require(path.join(ROOT, 'services', 'configJournal'));
     // logEvent is fire-and-forget in the app; a CLI exits right after, so wait for the rows to land.
     const pending = [];
-    J.journal((ev) => { pending.push(Promise.resolve().then(() => d.logEvent(ev)).catch(() => {})); }, J.diffConfig(cfg, patch), { actor: ACTOR }, reason || `activate-switches ${key}`);
+    J.journal((ev) => { pending.push(Promise.resolve().then(() => d.logEvent(ev)).catch(() => {})); }, J.diffConfig(cfg, patch), { actor: actorOf(d.operator) }, reason || `activate-switches ${key}`);
     await Promise.all(pending);
   }
 }
@@ -321,24 +396,40 @@ async function main(argv, deps) {
 
   if (args.rollback) {
     const why = writeRefusal(args, process.env); if (why) throw new Error(why);
-    const d = deps || await defaultDeps(args.dbUrl);
+    const operator = args.operatorName || osOperator();
+    const d = { ...(deps || await defaultDeps(args.dbUrl, operator)), operator };
     const rb = JSON.parse(fs.readFileSync(args.rollback, 'utf8'));
+    const problems = validateRollback(rb, plan);
+    if (!problems.length) {
+      if (typeof d.rollbackKnown !== 'function') problems.push('cannot verify the file against system_log (no verifier) — refused');
+      else if (!(await d.rollbackKnown(rb.sha256))) problems.push('this file\'s sha256 was never recorded in system_log by --apply — refused');
+    }
+    if (problems.length) throw new Error(`rollback file refused: ${problems.join('; ')}`);
     const res = { restored: [], conflicts: [] };
     for (const e of [...(rb.entries || [])].reverse()) {
       const cfg = await d.getConfig();
       const cur = currentValue(cfg, e.key);
       if (String(cur) !== String(e.to) && !args.force) { res.conflicts.push({ key: e.key, expected: e.to, found: cur == null ? null : cur }); continue; }
-      await writeOne(d, e.key, e.from == null ? (isNested(e.key) ? false : '0') : e.from, `rollback ${path.basename(args.rollback)}`);
+      const why = `rollback ${path.basename(args.rollback)}${args.reason ? ` — ${args.reason}` : ''}`;
+      // P11 r4 — a key that was ABSENT before the activation returns to absent (it follows future defaults) instead of
+      // being pinned to a literal '0'/false row. `absent` is recorded at apply time; an older rollback file without it
+      // treats from == null the same way (it means: no value was known).
+      const wasAbsent = e.absent === true || e.from == null;
+      if (wasAbsent && isNested(e.key)) await writeOne(d, e.key, UNSET, why);
+      else if (wasAbsent && typeof d.unsetConfig === 'function') await unsetOne(d, e.key, why);
+      else await writeOne(d, e.key, e.from == null ? '0' : e.from, why);
       res.restored.push(e.key);
     }
     d.log(`Rollback: restored ${res.restored.length} key(s)${res.conflicts.length ? `; ${res.conflicts.length} changed since, left alone (re-run with --force): ${res.conflicts.map((c) => c.key).join(', ')}` : ''}.`);
     return res;
   }
 
+  if (args.apply) { const miss = applyRefusal(args); if (miss) throw new Error(miss); }
   const lots = selectLots(plan, args.lots || 'all');
   if (args.apply) {
     const why = writeRefusal(args, process.env); if (why) throw new Error(why);
-    const d = deps || await defaultDeps(args.dbUrl);
+    const operator = args.operatorName || osOperator();
+    const d = { ...(deps || await defaultDeps(args.dbUrl, operator)), operator };
     const cfg = await d.getConfig();
     const act = buildActivation({ plan, register, lots, cfg, includeOutbound: args.includeOutbound, prereqText });
     d.log(renderPlan(act, { source: redactUrl(args.dbUrl) }).trimEnd());
@@ -348,8 +439,19 @@ async function main(argv, deps) {
     const dir = args.rollbackDir || path.join(ROOT, 'data', 'switch-rollbacks');
     fs.mkdirSync(dir, { recursive: true });
     const file = path.join(dir, `rollback-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
-    const entries = act.steps.map((s) => ({ key: s.key, lot: s.lot, from: s.from == null ? null : s.from, to: s.on_value }));
-    fs.writeFileSync(file, JSON.stringify({ created_at: new Date().toISOString(), actor: ACTOR, db: redactUrl(args.dbUrl), lots: lots.map((l) => l.id), entries }, null, 1) + '\n');
+    const stored = typeof d.storedKeys === 'function' ? await d.storedKeys() : null;
+    const entries = act.steps.map((s) => {
+      const e = { key: s.key, lot: s.lot, from: s.from == null ? null : s.from, to: s.on_value };
+      // flat key with no report_config row = it followed its default; nested = the sub-key was missing
+      if (isNested(s.key) ? s.from == null : (stored ? !stored.has(s.key) : false)) e.absent = true;
+      return e;
+    });
+    const rb = { created_at: new Date().toISOString(), actor: ACTOR, operator: operator || null, reason: args.reason, db: redactUrl(args.dbUrl), lots: lots.map((l) => l.id), entries };
+    rb.sha256 = rollbackHash(rb);
+    fs.writeFileSync(file, JSON.stringify(rb, null, 1) + '\n');
+    // R4-A3: the hash is the tool's signature on the file — only a recorded hash can be rolled back.
+    if (d.logEvent) await Promise.resolve(d.logEvent({ category: 'config', action: 'switch_rollback_file', actor: actorOf(operator), target: rb.sha256,
+      details: { file: path.basename(file), lots: rb.lots, keys: entries.map((e) => e.key), reason: args.reason } })).catch(() => {});
     const applied = [];
     for (const s of act.steps) { await writeOne(d, s.key, s.on_value, args.reason); applied.push(s.key); }
     d.log(`Applied ${applied.length} switch(es). Rollback file: ${file}`);
@@ -366,7 +468,7 @@ async function main(argv, deps) {
   return act;
 }
 
-module.exports = { OUTBOUND, ACCESS, MONEY, ON_VALUE, REFUSED_GROUPS, selectLots, graph, order, classify, buildActivation, renderPlan, parseArgs, writeRefusal, patchFor, currentValue, isOn, main };
+module.exports = { applyRefusal, validateRollback, rollbackHash, storedDeps, actorOf, OUTBOUND, ACCESS, MONEY, ON_VALUE, REFUSED_GROUPS, selectLots, graph, order, classify, buildActivation, renderPlan, parseArgs, writeRefusal, patchFor, currentValue, isOn, main };
 
 if (require.main === module) {
   main(process.argv.slice(2))

@@ -69,6 +69,22 @@ function deriveKey(passphrase) {
   if (s.length < MIN_KEY_CHARS) return null;
   return crypto.scryptSync(s, SCRYPT_SALT, 32, { N: 16384, r: 8, p: 1 });
 }
+/**
+ * P11 r4 — write-path key quality. A passphrase of 16 spaces passed deriveKey and was reported "encrypted".
+ * The backup refuses a key with fewer than MIN_KEY_CHARS non-whitespace characters or fewer than MIN_KEY_DISTINCT
+ * distinct characters ('aaaaaaaaaaaaaaaa'). Only the WRITE path checks it: deriveKey is unchanged, so an existing
+ * backup made with any earlier key can still be opened. Returns the problem text, or null when the key is usable.
+ */
+const MIN_KEY_DISTINCT = 5;
+function keyQualityProblem(passphrase) {
+  if (passphrase == null || passphrase === '') return 'not set';
+  const s = String(passphrase);
+  const visible = s.replace(/\s+/g, '');
+  if (visible.length < MIN_KEY_CHARS) return `too short (< ${MIN_KEY_CHARS} non-space chars)`;
+  if (new Set(visible).size < MIN_KEY_DISTINCT) return `too weak (< ${MIN_KEY_DISTINCT} distinct chars)`;
+  return null;
+}
+
 function encryptBuffer(plain, key) {
   if (!Buffer.isBuffer(key) || key.length !== 32) throw new Error('encryptBuffer: a 32-byte key is required');
   const iv = crypto.randomBytes(12);
@@ -149,8 +165,8 @@ async function runBackup({ dir, keep = 14, spawn, env = process.env, fsx = fs, o
   // plaintext by default. Missing / short SDP_BACKUP_KEY → refused BEFORE pg_dump runs (nothing lands on disk), as a
   // non-transient job failure, so the runner records it and the sync alerting raises it. An operator who must have a
   // backup anyway sets SDP_BACKUP_ALLOW_PLAINTEXT=1 (exact value) — the run then warns loudly every time.
-  const key = deriveKey(env.SDP_BACKUP_KEY);
-  const keyProblem = env.SDP_BACKUP_KEY ? 'too short (< ' + MIN_KEY_CHARS + ' chars)' : 'not set';
+  const keyProblem = keyQualityProblem(env.SDP_BACKUP_KEY);
+  const key = keyProblem ? null : deriveKey(env.SDP_BACKUP_KEY);
   const plaintextOverride = !key && String(env.SDP_BACKUP_ALLOW_PLAINTEXT || '') === '1';
   if (!key && !plaintextOverride) {
     const e = new Error(`backup refused: SDP_BACKUP_KEY is ${keyProblem} — a dump would be stored in plaintext. Set SDP_BACKUP_KEY in .env (>= ${MIN_KEY_CHARS} chars, distinct from SDP_CONFIG_KEY), or set SDP_BACKUP_ALLOW_PLAINTEXT=1 to accept plaintext backups explicitly.`);
@@ -174,7 +190,16 @@ async function runBackup({ dir, keep = 14, spawn, env = process.env, fsx = fs, o
     throw e;
   }
   let bytes = 0; try { bytes = fsx.statSync(file).size; } catch (_) {}
-  if (bytes < 1024) { const e = new Error(`backup file is suspiciously small (${bytes} bytes): ${file}`); e.transient = false; throw e; }
+  if (bytes < 1024) {
+    // P11 r4 — the rejected file kept a managed dump name, so latestDump / the restore drill could pick it. It is
+    // quarantined under `<name>.rejected` (isDumpName ignores it; kept for diagnosis, never restored or pruned).
+    let quarantined = null;
+    try { if (fsx.existsSync(file)) { fsx.renameSync(file, file + '.rejected'); quarantined = file + '.rejected'; } } catch (_) {
+      try { fsx.unlinkSync(file); } catch (_) { /* best effort */ }
+    }
+    const e = new Error(`backup file is suspiciously small (${bytes} bytes): ${file}${quarantined ? ` — quarantined as ${path.basename(quarantined)}` : ''}`);
+    e.transient = false; throw e;
+  }
   const v = verifyDumpFile(file, { fsx });
   if (!v.ok) {
     try { fsx.unlinkSync(file); } catch (_) {}    // never keep a dump that only LOOKS complete
@@ -195,5 +220,5 @@ module.exports = {
   runBackup, planBackup, prune, latestDump, isDumpName,
   deriveKey, encryptBuffer, decryptBuffer, isEncryptedBuffer,
   hasDumpTrailer, verifyDumpFile, packDump, openDump, copyOffsite,
-  TRAILER, MIN_KEY_CHARS,
+  TRAILER, MIN_KEY_CHARS, MIN_KEY_DISTINCT, keyQualityProblem,
 };

@@ -64,7 +64,7 @@ test('refusals: no db url, production without operator flag', async () => {
   const saved0 = process.env.PG_URL; process.env.PG_URL = 'postgres://u:p@h/db';
   try { assert.equal(A.parseArgs(['--db-url=env']).dbUrl, 'postgres://u:p@h/db', '--db-url=env reads PG_URL'); } finally { if (saved0 === undefined) delete process.env.PG_URL; else process.env.PG_URL = saved0; }
   const saved = process.env.NODE_ENV; process.env.NODE_ENV = 'production';
-  try { await assert.rejects(A.main(['--apply', '--db-url=postgres://x', '--lots=L01'], quiet), /operator/); }
+  try { await assert.rejects(A.main(['--apply', '--db-url=postgres://x', '--lots=L01', '--reason=production refusal test'], quiet), /operator/); }
   finally { if (saved === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = saved; }
 });
 
@@ -79,14 +79,14 @@ test('apply + journal + rollback on the throwaway database', async () => {
     const plan = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'docs', 'ops', 'switch-lots.json'), 'utf8'));
     const keys = A.selectLots(plan, 'L01,L13').flatMap((l) => l.switches);
     await rc.setConfig(rdb.db, Object.fromEntries(keys.map((k) => [k, (reg.report_config.find((r) => r.key === k) || {}).default || '0'])), 'test');
-    const res = await A.main(['--apply', `--db-url=${url}`, '--lots=L01,L13', `--rollback-dir=${dir}`, '--reason=test'], { ...quiet, ...(await liveDeps(url)) });
+    const res = await A.main(['--apply', `--db-url=${url}`, '--lots=L01,L13', `--rollback-dir=${dir}`, '--reason=test activation CAB-0001', '--operator=jdoe'], { ...quiet, ...(await liveDeps(url)) });
     assert.ok(res.applied.includes('commitments_enabled'));
     assert.ok(res.applied.indexOf('commitments_enabled') < res.applied.indexOf('mywork_awaiting_me_enabled'));
     assert.ok(!res.applied.includes('sync_drift_alerts'), 'outbound skipped by default');
     let cfg = await rc.getConfig(rdb.db);
     assert.equal(cfg.commitments_enabled, '1'); assert.equal(cfg.site_code_shared_block, '1'); assert.equal(cfg.sync_drift_alerts, '0');
     const { rows } = await rdb.listSystemLog({ category: 'config', action: 'config_changed' }, { limit: 500 });
-    assert.ok(rows.some((r) => r.target === 'commitments_enabled' && /cli:activate-switches/.test(r.actor || '')));
+    assert.ok(rows.some((r) => r.target === 'commitments_enabled' && r.actor === 'cli:activate-switches:jdoe'), 'the operator is named on the journal row');
     const rb = JSON.parse(fs.readFileSync(res.rollback_file, 'utf8'));
     assert.ok(rb.entries.find((e) => e.key === 'ui_role_landing'));
     assert.ok(!/sdptest-local-only/.test(fs.readFileSync(res.rollback_file, 'utf8')), 'password never in the rollback file');
@@ -98,7 +98,7 @@ test('apply + journal + rollback on the throwaway database', async () => {
     cfg = await rc.getConfig(rdb.db);
     assert.equal(cfg.commitments_enabled, '0'); assert.equal(cfg.mywork_awaiting_me_enabled, '0'); assert.equal(cfg.ui_role_landing, '2');
     // a second apply of an already-on lot writes nothing new
-    await A.main(['--apply', `--db-url=${url}`, '--lots=L01', `--rollback-dir=${dir}`], { ...quiet, ...(await liveDeps(url)) });
+    await A.main(['--apply', `--db-url=${url}`, '--lots=L01', `--rollback-dir=${dir}`, '--reason=second activation run'], { ...quiet, ...(await liveDeps(url)) });
     const again = await A.main(['--apply', `--db-url=${url}`, '--lots=L01', `--rollback-dir=${dir}`, '--dry-run'], { ...quiet, ...(await liveDeps(url)) });
     assert.equal(again.steps.filter((s) => s.key !== 'ui_role_landing').length, 0);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
@@ -111,5 +111,77 @@ async function liveDeps() {
     getConfig: () => rc.getConfig(rdb.db),
     setConfig: (patch) => rc.setConfig(rdb.db, patch, 'cli:activate-switches'),
     logEvent: (ev) => rdb.logEvent(ev),
+    ...A.storedDeps(rdb),
   };
 }
+
+// P11 r4 R4-A4 — `--apply` with no --lots armed all 14 lots, with no reason and no named operator.
+test('r4 A4: --apply needs explicit --lots and a real --reason; dry run does not', async () => {
+  assert.match(A.applyRefusal({ apply: true }), /explicit --lots/);
+  assert.match(A.applyRefusal({ apply: true, lots: 'L01' }), /--reason/);
+  assert.match(A.applyRefusal({ apply: true, lots: 'L01', reason: ' ok   ' }), /--reason/);
+  assert.equal(A.applyRefusal({ apply: true, lots: 'L01', reason: 'pilot of L01, CAB-123' }), null);
+  assert.equal(A.applyRefusal({ apply: true, dryRun: true }), null);
+  let wrote = 0;
+  const fake = { log: () => {}, getConfig: async () => ({}), setConfig: async () => { wrote++; } };
+  await assert.rejects(A.main(['--apply', '--db-url=postgres://x'], fake), /explicit --lots/);
+  await assert.rejects(A.main(['--apply', '--db-url=postgres://x', '--lots=L01'], fake), /--reason/);
+  assert.equal(wrote, 0);
+  assert.equal(A.actorOf('j doe;x'), 'cli:activate-switches:j_doe_x');
+});
+
+// P11 r4 R4-A3 — a hand-written rollback file armed refused / boundary keys and arbitrary settings.
+test('r4 A3: rollback refuses a hand-written, edited or unrecorded file and any key outside its lots', async () => {
+  const plan = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'docs', 'ops', 'switch-lots.json'), 'utf8'));
+  const dir = tmp();
+  let wrote = 0;
+  const fake = (known) => ({ log: () => {}, getConfig: async () => ({ sdp_api_write_enabled: '0', smtp_host: 'mail.corp' }),
+    setConfig: async () => { wrote++; }, rollbackKnown: async (sha) => known.has(sha) });
+  try {
+    const evil = { entries: [{ key: 'sdp_api_write_enabled', from: '1', to: '0' }, { key: 'smtp_host', from: 'evil.example', to: 'mail.corp' }], lots: ['L01'] };
+    const f1 = path.join(dir, 'evil.json'); fs.writeFileSync(f1, JSON.stringify(evil));
+    await assert.rejects(A.main([`--rollback=${f1}`, '--db-url=postgres://x', '--force'], fake(new Set())), /rollback file refused/);
+    const probs = A.validateRollback({ ...evil, created_at: 'x', actor: 'y', sha256: A.rollbackHash({ ...evil, created_at: 'x', actor: 'y' }) }, plan);
+    assert.ok(probs.some((p) => /sdp_api_write_enabled: in a refused keep group/.test(p)), probs.join('|'));
+    assert.ok(probs.some((p) => /smtp_host: not a switch/.test(p)));
+    // a well-formed file of the tool: valid content, but refused until its hash is recorded
+    const l01 = A.selectLots(plan, 'L01')[0].switches[0];
+    const good = { created_at: '2026-11-20T00:00:00Z', actor: 'cli:activate-switches', operator: 'jdoe', lots: ['L01'], entries: [{ key: l01, from: '0', to: '1' }] };
+    good.sha256 = A.rollbackHash(good);
+    assert.deepEqual(A.validateRollback(good, plan), []);
+    const f2 = path.join(dir, 'good.json'); fs.writeFileSync(f2, JSON.stringify(good));
+    await assert.rejects(A.main([`--rollback=${f2}`, '--db-url=postgres://x'], fake(new Set())), /never recorded/);
+    // edited after writing: hash mismatch
+    const edited = { ...good, entries: [{ key: l01, from: 'zz', to: '1' }] };
+    const f3 = path.join(dir, 'edited.json'); fs.writeFileSync(f3, JSON.stringify(edited));
+    await assert.rejects(A.main([`--rollback=${f3}`, '--db-url=postgres://x'], fake(new Set([good.sha256]))), /does not match/);
+    // a non-flag "from" value is refused even with a matching hash
+    const odd = { ...good, entries: [{ key: l01, from: 'evil host with spaces', to: '1' }] }; odd.sha256 = A.rollbackHash(odd);
+    assert.ok(A.validateRollback(odd, plan).some((p) => /not a switch value/.test(p)));
+    assert.equal(wrote, 0, 'nothing was written');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+// P11 r4 (ops) — a key absent before the activation returns to absent on rollback (follows its default), instead of
+// being pinned to a literal '0' row.
+test('r4: rollback of a key that had no report_config row deletes the row again', async () => {
+  const url = process.env.PG_URL;
+  const dir = tmp();
+  try {
+    const rdb = require('../reports-db');
+    const rc = require('../services/reportConfig');
+    const reg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'docs', 'ops', 'FLAG-REGISTER.json'), 'utf8'));
+    const plan = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'docs', 'ops', 'switch-lots.json'), 'utf8'));
+    const keys = A.selectLots(plan, 'L01').flatMap((l) => l.switches).filter((k) => !k.includes('.'));
+    await rc.setConfig(rdb.db, Object.fromEntries(keys.map((k) => [k, (reg.report_config.find((r) => r.key === k) || {}).default || '0'])), 'test');
+    await rdb.pgHandle().prepare('DELETE FROM report_config WHERE key = ?').run('commitments_enabled');
+    const res = await A.main(['--apply', `--db-url=${url}`, '--lots=L01', `--rollback-dir=${dir}`, '--reason=absent-key rollback test'], { ...quiet, ...(await liveDeps(url)) });
+    assert.ok(res.applied.includes('commitments_enabled'));
+    const rb = JSON.parse(fs.readFileSync(res.rollback_file, 'utf8'));
+    assert.equal(rb.entries.find((e) => e.key === 'commitments_enabled').absent, true);
+    await A.main([`--rollback=${res.rollback_file}`, `--db-url=${url}`, '--force'], { ...quiet, ...(await liveDeps(url)) });
+    const row = await rdb.pgHandle().prepare('SELECT value FROM report_config WHERE key = ?').get('commitments_enabled');
+    assert.equal(row, undefined, 'returned to absent, not pinned to a literal value');
+    assert.equal((await rc.getConfig(rdb.db)).commitments_enabled, rc.DEFAULTS.commitments_enabled);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});

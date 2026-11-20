@@ -38,11 +38,12 @@ function assertNotTruncated(job, fetched, stored, tolerancePct = Number(process.
 // growing by one row per run (81, 82, 83 …) or the SAME partial export repeated (a deterministic row cap:
 // 81, 81, 66, 66 …) each walked the anchor down without limit. The anchor now moves:
 //   UP or STAYS  when fetched ≥ anchor (growth, or the source confirmed the anchored size);
-//   DOWN         never automatically by default. Counts cannot tell a genuine shrink from a source stuck on a cap,
-//                so a lower count is only RECORDED as the pending candidate (pending, agree = consecutive runs that
-//                reported it). An operator confirms it (tools/sync/confirm-shrink.js), or — SRE policy, PROPOSED,
-//                env SYNC_TRUNCATION_SHRINK_CONFIRMATIONS=N ≥ 2 — N consecutive accepted exports agreeing on the same
-//                lower count lower it automatically (accepting that a repeated cap then counts as agreement).
+//   DOWN         NEVER automatically. Counts cannot tell a genuine shrink from a source stuck on a cap, so a lower
+//                count is only RECORDED as the pending candidate (pending, agree = consecutive runs that reported it).
+//                Only an operator lowers it (tools/sync/confirm-shrink.js). P11 r4: SYNC_TRUNCATION_SHRINK_CONFIRMATIONS
+//                = N ≥ 2 (SRE policy, PROPOSED) used to lower the anchor by itself after N agreeing exports, which let a
+//                repeated row cap (81, 81, 66, 66 …) re-open the ratchet. It now only ADDS a requirement: the operator
+//                can confirm the pending candidate only once N consecutive runs reported it. It never weakens the anchor.
 // A run more than the tolerance below the anchor is refused by assertNotTruncated and never reaches here, so the
 // cumulative loss since the last confirmed count stays bounded by the tolerance.
 function shrinkConfirmations(env = process.env) {
@@ -58,39 +59,75 @@ function _state(prev) {
   return { anchor: _anchorOrNull(prev), pending: null, agree: 0 };   // legacy: a bare number = the anchor
 }
 
-function nextAnchorState(prev, fetched, stored, { confirmations = shrinkConfirmations() } = {}) {
+// `confirmations` is accepted for backward compatibility and deliberately ignored: no count of agreeing runs lowers
+// the anchor on its own (P11 r4).
+// eslint-disable-next-line no-unused-vars
+function nextAnchorState(prev, fetched, stored, opts = {}) {
   const p = _state(prev);
   // Never anchored: the first confirmed count is what was stored before this run (or this run if it is larger).
   const anchor = p.anchor == null ? Math.max(stored, 0) : p.anchor;
   if (fetched >= anchor) return { anchor: fetched, pending: null, agree: 0 };
   const agree = p.pending === fetched ? p.agree + 1 : 1;
-  if (confirmations >= 2 && agree >= confirmations) return { anchor: fetched, pending: null, agree: 0 };
   return { anchor, pending: fetched, agree };
 }
 
-/** Operator confirmation of a genuine shrink: the anchor becomes `count` (default: the pending candidate). */
-function confirmShrink(prev, count) {
+/**
+ * Operator confirmation of a genuine shrink: the anchor becomes `count` (default: the pending candidate).
+ * Refused: a count ABOVE the current anchor (P11 r4 — a typo there would block every later sync; a growth needs no
+ * confirmation, the next run raises the anchor itself), and — when the SRE policy SYNC_TRUNCATION_SHRINK_CONFIRMATIONS
+ * = N is set — the pending candidate before N consecutive runs reported it.
+ */
+function confirmShrink(prev, count, { confirmations = shrinkConfirmations() } = {}) {
   const p = _state(prev);
   const n = count == null ? p.pending : _anchorOrNull(count);
   if (n == null || n < 0) throw new Error('confirmShrink: no pending count recorded — pass the confirmed count explicitly');
-  return { anchor: Math.round(n), pending: null, agree: 0 };
+  const m = Math.round(n);
+  if (p.anchor != null && m > p.anchor) {
+    throw new Error(`confirmShrink: ${m} is above the current anchor ${p.anchor} — a shrink confirmation can only lower it (check for a typo)`);
+  }
+  if (confirmations >= 2 && p.pending != null && m === p.pending && p.agree < confirmations) {
+    throw new Error(`confirmShrink: the pending count ${m} was reported by ${p.agree} run(s); the policy requires ${confirmations} consecutive runs (SYNC_TRUNCATION_SHRINK_CONFIRMATIONS)`);
+  }
+  return { anchor: m, pending: null, agree: 0 };
 }
 
 /** The anchor count after an accepted run (see nextAnchorState). */
 function nextAnchor(prev, fetched, stored, opts) { return nextAnchorState(prev, fetched, stored, opts).anchor; }
 
+function _logSync(opts, action, job, details) {
+  try {
+    const log = (opts && opts.logEvent) || require('../../reports-db').logEvent;
+    if (typeof log === 'function') log({ category: 'sync', action, target: job, details, risk: 1 });
+  } catch (_) { /* a dead log never breaks a sync */ }
+}
+
 // Read the anchor state, check, and return a commit function to call AFTER the reconcile succeeded.
-// `store` = { get(key) → {anchor,pending,agree}|number|null, set(key, state) }; absent / failing store →
-// stored-only guard (never blocks a sync because the anchor table is unreachable).
-async function guardWithAnchor(job, fetched, stored, store, tolerancePct) {
-  let prev = null;
+// `store` = { get(key) → {anchor,pending,agree}|number|null, set(key, state) }.
+// P11 r4 — an UNREADABLE anchor store fails CLOSED for shrinks: the read failure is logged to the system log
+// (category `sync`, risk) and the run is checked with a 0 % tolerance against what is stored, so growth and
+// unchanged counts still sync but no row is deleted until the anchor can be read again (the refusal is transient,
+// the runner retries). Without a store at all (callers that never wired one) the stored-only guard applies.
+async function guardWithAnchor(job, fetched, stored, store, tolerancePct, opts = {}) {
+  let prev = null; let readFailed = false;
   if (store && typeof store.get === 'function') {
-    try { prev = await store.get(job); } catch (e) { console.warn(`[sync] truncation anchor read failed for ${job}: ${e.message}`); }
+    try { prev = await store.get(job); } catch (e) {
+      readFailed = true;
+      console.warn(`[sync] truncation anchor read failed for ${job}: ${e.message} — refusing any shrink this run`);
+      _logSync(opts, 'sync_truncation_anchor_unreadable', job, { error: e.message, fetched, stored });
+    }
+  }
+  if (readFailed && stored > 0 && fetched < stored) {
+    const e = new Error(`${job}: fetched ${fetched} rows but ${stored} are stored and the truncation anchor could not be read — refusing to delete until it can`);
+    e.transient = true; e.truncation = true;
+    throw e;
   }
   assertNotTruncated(job, fetched, stored, tolerancePct, { anchor: _state(prev).anchor });
   return async () => {
-    if (!store || typeof store.set !== 'function') return;
-    try { await store.set(job, nextAnchorState(prev, fetched, stored)); } catch (e) { console.warn(`[sync] truncation anchor write failed for ${job}: ${e.message}`); }
+    if (!store || typeof store.set !== 'function' || readFailed) return;
+    try { await store.set(job, nextAnchorState(prev, fetched, stored)); } catch (e) {
+      console.warn(`[sync] truncation anchor write failed for ${job}: ${e.message}`);
+      _logSync(opts, 'sync_truncation_anchor_write_failed', job, { error: e.message });
+    }
   };
 }
 

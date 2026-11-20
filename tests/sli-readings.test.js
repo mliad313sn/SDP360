@@ -133,3 +133,34 @@ test('compose: only optional not-configured jobs besides a fresh one → the fre
   ] }, NOW);
   assert.strictEqual(r.items.sync_freshness.value, 100);
 });
+
+// P11 round 4 N-09 — a job that failed for 29 days and then succeeded once read 100 %: the history started at the
+// first ok run, so the failures before it were ignored. The history now starts at the job's first run (ok or error).
+test('compose: failures before the first ok run lower the freshness reading (N-09)', () => {
+  const firstFail = new Date(NOW.getTime() - 29 * 24 * H).toISOString();
+  const okOnce = new Date(NOW.getTime() - H).toISOString();
+  const r = S.compose({ sync: [{ job: 'zoho.requests', freshness_hours: 24, ok_times: [okOnce], errors: 696, first_run: firstFail }] }, NOW);
+  const j = r.items.sync_freshness.jobs[0];
+  assert.strictEqual(j.measured_from, firstFail);
+  assert.ok(j.fresh_pct < 1, `dead 29 days then ok once must read ~0 %, got ${j.fresh_pct}`);
+  assert.ok(r.items.sync_freshness.value < 1);
+  // a first run older than the window → measured over the whole window
+  const old = S.compose({ sync: [{ job: 'j', freshness_hours: 24, ok_times: [okOnce], errors: 3, first_run: '2026-01-01T00:00:00Z' }] }, NOW);
+  assert.strictEqual(old.items.sync_freshness.jobs[0].measured_from, new Date(NOW.getTime() - 30 * 24 * H).toISOString());
+  // no failure before the first ok → unchanged (a young database is not read as stale)
+  const young = S.compose({ sync: [{ job: 'j', freshness_hours: 2, ok_times: [okOnce], errors: 0, first_run: okOnce }] }, NOW);
+  assert.strictEqual(young.items.sync_freshness.value, 100);
+});
+
+test('gather: first_run is read from sync_runs and anchors the history (N-09)', async () => {
+  const firstFail = new Date(NOW.getTime() - 29 * 24 * H).toISOString();
+  const pg = { prepare: (sql) => ({
+    get: async () => ({ n: 0 }),
+    all: async () => (/status='error'/.test(sql)
+      ? [{ job: 'zoho.requests', errors: 696, first_run: firstFail }]
+      : [{ job: 'zoho.requests', finished_at: new Date(NOW.getTime() - H).toISOString() }]),
+  }) };
+  const r = await S.gather({ pg, now: NOW, freshness: { 'zoho.requests': 24 }, optional: new Set() });
+  assert.ok(r.items.sync_freshness.value < 1, `got ${r.items.sync_freshness.value}`);
+  assert.strictEqual(r.items.sync_freshness.jobs[0].measured_from, firstFail);
+});

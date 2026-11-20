@@ -16,6 +16,9 @@ const CODE_STATUS = Object.freeze({
   FORBIDDEN: 403, VALIDATION: 400, NOT_FOUND: 404, CONFLICT: 409, UNSAFE_URL: 400, INVALID: 400, RATE_LIMITED: 429,
 });
 const _TYPED = new Set(TYPED_CODES);
+// P11 r4 N-11 — 5xx codes that are TYPED (a known, harmless condition) but whose message still never reaches the
+// client: the body is a constant `error` + the code + the correlation id, and the client is told to retry.
+const UNAVAILABLE_CODES = Object.freeze({ DB_BUSY: { status: 503, error: 'database_busy', retryAfter: 5 } });
 
 /** Build an error whose message MAY be shown to the client. */
 function typed(code, message, status) {
@@ -77,6 +80,16 @@ function logError(e, req, status) {
  * @param {object} [extra]   fields merged into the body (e.g. `{ ok: false }`); may set a constant `error`
  */
 function fail(res, e, status, extra) {
+  const unav = e && typeof e.code === 'string' && Object.prototype.hasOwnProperty.call(UNAVAILABLE_CODES, e.code) ? UNAVAILABLE_CODES[e.code] : null;
+  if (unav && status == null) {
+    const uid = logError(e, res && res.req, unav.status);
+    if (!res || res.headersSent) return uid;
+    if (typeof res.set === 'function') res.set('Retry-After', String(unav.retryAfter));
+    const ub = { error: unav.error, code: e.code, correlation_id: uid };
+    if (extra && typeof extra === 'object') Object.assign(ub, extra);
+    res.status(unav.status).json(ub);
+    return uid;
+  }
   const st = _resolveStatus(e, status);
   const id = logError(e, res && res.req, st);
   if (!res || res.headersSent) return id;
@@ -102,4 +115,4 @@ function errorHandler(err, req, res, next) {
   fail(res, err);
 }
 
-module.exports = { TYPED_CODES, CODE_STATUS, typed, isTyped, fail, logError, errorHandler };
+module.exports = { UNAVAILABLE_CODES, TYPED_CODES, CODE_STATUS, typed, isTyped, fail, logError, errorHandler };
