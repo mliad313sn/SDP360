@@ -80,7 +80,7 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 
 | Switch | Who decides (register) | Human prerequisite (register text) | Depends on | Roles named | Tables touched | Job | Consumer files | Tests naming it |
 |---|---|---|---|---|---|---|---|---|
-| `portfolio_site_scope_reads` | Owner (access policy) | — | — | — | — | — | 7 | 9 |
+| `portfolio_site_scope_reads` | Owner (access policy) | — | — | — | — | — | 7 | 10 |
 | `portfolio_views_enabled` | PMO | once the PMO wants the portfolio read as a list or a board as well as the timeline  | — | — | — | — | 3 | 0 |
 | `portfolio_my_projects_default` | PMO | once the PMO wants the portfolio page to open on "My projects"  | — | admin, finance-viewer | — | — | 3 | 1 |
 | `ppm_project_team_enabled` | PMO | once the PMO wants a named team per project  | — | — | portfolio_deliverables, portfolio_objectives, portfolio_programmes, portfolio_projects | — | 5 | 3 |
@@ -189,7 +189,7 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 
 | Switch | Who decides (register) | Human prerequisite (register text) | Depends on | Roles named | Tables touched | Job | Consumer files | Tests naming it |
 |---|---|---|---|---|---|---|---|---|
-| `soft_delete_enabled` | Owner (retention policy) | — | — | — | decisions, meeting_cadences, meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits +19 | — | 14 | 10 |
+| `soft_delete_enabled` | Owner (retention policy) | — | — | — | decisions, meeting_cadences, meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits +19 | — | 14 | 11 |
 | `soft_delete_two_person` | Owner (retention policy) | once the retention owner wants deletions of portfolio nodes and cadences to need a reason  | `soft_delete_enabled` | admin | — | — | 4 | 4 |
 | `roadmap_publication_enabled` | Service & Support Manager | once the Service & Support Manager wants to publish the Roadmap Manager into the portfolio from the page  | `soft_delete_enabled` | — | portfolio_deliverables, portfolio_objectives, portfolio_programmes, portfolio_projects, roadmap_publications | — | 6 | 2 |
 | `roadmap_audience_publication_enabled` | PMO (publication owner) | once the PMO names the publication owner and the audiences to use: frozen roadmap snapshots per audience  | `roadmap_publication_enabled` | admin, finance-viewer | roadmap_publications | — | 7 | 2 |
@@ -378,11 +378,11 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 
 | Switch | Who decides (register) | Human prerequisite (register text) | Depends on | Roles named | Tables touched | Job | Consumer files | Tests naming it |
 |---|---|---|---|---|---|---|---|---|
-| `ppm_structured_dependencies_enabled` | to be named | after `ppm_intake_register_enabled`, for a PMO shadow period: the project page gets a Dependencies tab — each dependency is on another project OR an external category  | `ppm_intake_register_enabled` | — | decisions, meeting_cadences, meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits +19 | — | 6 | 1 |
-| `ppm_resource_demand_enabled` | to be named | once the resource owner has set `ppm_capacity_fte`  | — | — | — | — | 5 | 1 |
+| `ppm_structured_dependencies_enabled` | to be named | after `ppm_intake_register_enabled`, for a PMO shadow period: the project page gets a Dependencies tab — each dependency is on another project OR an external category  | `ppm_intake_register_enabled` | — | decisions, meeting_cadences, meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits +19 | — | 6 | 2 |
+| `ppm_resource_demand_enabled` | to be named | once the resource owner has set `ppm_capacity_fte`  | — | — | — | — | 5 | 2 |
 | `ppm_effort_scoring_enabled` | to be named | — | — | — | — | — | 5 | 1 |
-| `ppm_documents_enabled` | to be named | only after the operator has decided document storage, retention and malware scanning: typed, versioned project documents in the filesystem blob store  | — | — | — | — | 6 | 1 |
-| `ppm_scenarios_enabled` | to be named | — | `ppm_resource_demand_enabled`, `ppm_structured_dependencies_enabled` | — | — | — | 3 | 1 |
+| `ppm_documents_enabled` | to be named | only after the operator has decided document storage, retention and malware scanning: typed, versioned project documents in the filesystem blob store  | — | — | — | — | 6 | 2 |
+| `ppm_scenarios_enabled` | to be named | — | `ppm_resource_demand_enabled`, `ppm_structured_dependencies_enabled` | — | — | — | 3 | 2 |
 | `ext_api_portfolio_enabled` | dependencies | — | — | — | alert_firings, alert_rules, alert_state, api_calls, api_consumers, notification_comments +4 | — | 4 | 1 |
 
 ## Keep dark (with the reason)
