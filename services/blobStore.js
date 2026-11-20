@@ -119,9 +119,16 @@ function removeOwner(module, ownerId) {
   catch (_) { return false; }
 }
 
+/** Remove ONE blob by its ref (path-guarded like every read). Used to clean up a file whose DB row was never written. */
+function removeRef(ref) {
+  const abs = _resolve(ref);
+  if (!abs) return false;
+  try { fs.rmSync(abs, { force: true }); return true; } catch (_) { return false; }
+}
+
 module.exports = {
   BLOB_ROOT,
-  putB64, putDataUrl, getB64, getDataUrl, exists, removeOwner,
+  putB64, putDataUrl, getB64, getDataUrl, exists, removeOwner, removeRef,
   _splitDataUrl,   // exported for reuse by callers that already have a dataUrl
   _safeSeg,        // the same segment rule callers use to build an expected ref prefix
 };

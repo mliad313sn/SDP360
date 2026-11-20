@@ -93,8 +93,10 @@ test('site scope: another site\'s project and its dependencies are invisible', a
     const pv = (await send('GET', '/api/governance/ppm/portfolio/dependencies', T.viewA)).j;
     assert.ok(!pv.items.some((i) => i.project_id === P.B), 'no row of project B');
     const a = (await send('GET', `/api/governance/ppm/project/${P.A}/dependencies`, T.viewA)).j;
-    const toB = a.items.find((i) => i.predecessor_project_id === P.B);
-    assert.equal(toB.predecessor_readable, false); assert.equal(toB.predecessor_label, null, 'no name of a project the reader cannot read');
+    const toB = a.items.find((i) => i.predecessor_readable === false);
+    assert.equal(toB.predecessor_label, null, 'no name of a project the reader cannot read');
+    assert.equal(toB.predecessor_project_id, null, 'P11 N-R5-4: no id of a project the reader cannot read either');
+    assert.ok(!JSON.stringify(a).includes(`"predecessor_project_id":${P.B}`));
   } finally { await cfg.setConfig(rdb.db, { portfolio_site_scope_reads: '0' }, 'smoke'); }
 });
 
@@ -160,6 +162,8 @@ test('documents: typed upload, content check, hostile title, versions, money doc
   const list = (await send('GET', `/api/governance/ppm/project/${P.A}/documents`, T.viewA)).j;
   const ql = list.documents.find((d) => d.doc_type === 'vendor_quotation');
   assert.equal(ql.restricted, true); assert.equal(ql.download, false);
+  assert.equal(ql.title, null, 'P11 R5-6: the title of a money document is masked for a non-amount reader'); assert.equal(ql.title_masked, true);
+  assert.equal((await send('GET', `/api/governance/ppm/project/${P.A}/documents`, T.pmo)).j.documents.find((d) => d.doc_type === 'vendor_quotation').title, 'Quote', 'an amount reader sees it');
   assert.ok(list.documents.every((d) => !Object.keys(d).some((k) => /budget|amount|cost|currency|blob/.test(k))), 'money-free metadata');
   assert.equal((await send('GET', `/api/governance/ppm/project/${P.A}/documents/${q.j.document.id}/download`, T.viewA)).status, 403);
   await cfg.setConfig(rdb.db, { portfolio_site_scope_reads: '1' }, 'smoke');

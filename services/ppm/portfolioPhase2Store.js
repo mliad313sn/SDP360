@@ -34,16 +34,22 @@ function makePhase2Store(db, gov, { now = () => new Date().toISOString(), blobSt
   }
   async function dependency(id) { return depRow(await P(`SELECT * FROM ppm_project_dependencies WHERE id=? AND deleted_at IS NULL`).get(Number(id))); }
   /** Every live project→project edge (the whole portfolio: a loop through a project the reader cannot see is still a loop). */
-  async function allEdges() {
-    return (await P(`SELECT d.project_id, d.predecessor_project_id FROM ppm_project_dependencies d JOIN portfolio_projects a ON a.id = d.project_id AND a.deleted_at IS NULL
-      JOIN portfolio_projects b ON b.id = d.predecessor_project_id AND b.deleted_at IS NULL WHERE d.deleted_at IS NULL AND d.predecessor_project_id IS NOT NULL AND d.status <> 'cancelled'`).all())
+  // P11 R5-1 — { includeDeletedProjects:true } (the loop check of saveDependency) also counts the edges of a SOFT-deleted
+  // project: an admin can restore it, and restoring must never close a loop that was refused while it was live.
+  async function allEdges({ includeDeletedProjects = false } = {}) {
+    const live = includeDeletedProjects ? '' : ' AND a.deleted_at IS NULL', liveB = includeDeletedProjects ? '' : ' AND b.deleted_at IS NULL';
+    return (await P(`SELECT d.project_id, d.predecessor_project_id FROM ppm_project_dependencies d JOIN portfolio_projects a ON a.id = d.project_id${live}
+      JOIN portfolio_projects b ON b.id = d.predecessor_project_id${liveB} WHERE d.deleted_at IS NULL AND d.predecessor_project_id IS NOT NULL AND d.status <> 'cancelled'`).all())
       .map((r) => ({ from: Number(r.project_id), to: Number(r.predecessor_project_id) }));
   }
   async function saveDependency(projectId, body, { user, id = null } = {}) {
     const n = SD.normalise(body, { projectId });
     return tx(async () => {
+      // P11 R5-1 — one writer at a time on the portfolio dependency graph: two opposite links sent together would each
+      // read the graph without the other and both pass the loop check (write skew under READ COMMITTED).
+      await P('SELECT pg_advisory_xact_lock(hashtext(?))').get('ppm:project-dependency-graph');
       if (n.predecessor_project_id != null) {
-        const edges = (await allEdges()).filter((e) => !(id != null && e.from === Number(projectId)));   // an update re-checks without its own old edge
+        const edges = (await allEdges({ includeDeletedProjects: true })).filter((e) => !(id != null && e.from === Number(projectId)));   // an update re-checks without its own old edge
         if (id != null) for (const d of await listDependencies([projectId])) if (d.id !== Number(id) && d.predecessor_project_id != null && d.status !== 'cancelled') edges.push({ from: d.project_id, to: d.predecessor_project_id });
         if (n.status !== 'cancelled' && SD.wouldCreateCycle(edges, Number(projectId), n.predecessor_project_id)) throw Object.assign(new Error('this dependency would create a loop between projects'), { code: 'CONFLICT', reason: 'DEP_CYCLE', status: 409 });
       }
@@ -76,6 +82,12 @@ function makePhase2Store(db, gov, { now = () => new Date().toISOString(), blobSt
   async function listDemand(projectIds) {
     const l = ids(projectIds); if (!l.length) return [];
     return (await P(`SELECT * FROM ppm_project_demand WHERE deleted_at IS NULL AND project_id IN (${inList(l)}) ORDER BY project_id, id`).all(...l)).map(demRow);
+  }
+  /** P11 R5-3 — ids of every live project (of a live chain) that carries live demand: the group's demand, for any reader. */
+  async function demandProjectIds() {
+    return (await P(`SELECT DISTINCT d.project_id FROM ppm_project_demand d JOIN portfolio_projects p ON p.id = d.project_id AND p.deleted_at IS NULL
+      JOIN portfolio_objectives o ON o.id = p.objective_id AND o.deleted_at IS NULL JOIN portfolio_programmes g ON g.id = o.programme_id AND g.deleted_at IS NULL
+      WHERE d.deleted_at IS NULL`).all()).map((r) => Number(r.project_id));
   }
   async function demandLine(id) { return demRow(await P(`SELECT * FROM ppm_project_demand WHERE id=? AND deleted_at IS NULL`).get(Number(id))); }
   async function saveDemand(projectId, body, { user, id = null } = {}) {
@@ -142,16 +154,24 @@ function makePhase2Store(db, gov, { now = () => new Date().toISOString(), blobSt
   async function addDocument(projectId, input, { user } = {}) {
     const m = PD.validateUpload(input);
     const sha256 = crypto.createHash('sha256').update(input.buf).digest('hex');
-    return tx(async () => {
-      const v = await P(`SELECT MAX(version) AS v FROM ppm_project_documents WHERE project_id=? AND doc_type=? AND title=?`).get(Number(projectId), m.doc_type, m.title);
+    let saved = null;
+    try { return await tx(async () => {
+      // P11 R5-6 — one version allocator per (project, type, title) — the title compared case-insensitively, the same
+      // grouping as PD.latestFirst — so two uploads at once get v1 and v2, never a UNIQUE conflict
+      await P('SELECT pg_advisory_xact_lock(hashtext(?))').get(`ppm:doc:${Number(projectId)}:${m.doc_type}:${m.title.toLowerCase()}`);
+      const v = await P(`SELECT MAX(version) AS v FROM ppm_project_documents WHERE project_id=? AND doc_type=? AND lower(title)=lower(?)`).get(Number(projectId), m.doc_type, m.title);
       const version = Number((v && v.v) || 0) + 1;
       // server-chosen name in a server-chosen namespace: the client's file name never reaches the filesystem
-      const saved = blobStore.putB64('ppm-doc', `p${Number(projectId)}`, crypto.randomUUID(), m.mime, input.buf.toString('base64'));
+      saved = blobStore.putB64('ppm-doc', `p${Number(projectId)}`, crypto.randomUUID(), m.mime, input.buf.toString('base64'));
       const r = await P(`INSERT INTO ppm_project_documents (project_id, doc_type, title, version, blob_ref, mime, size_bytes, sha256, uploaded_by, uploaded_by_name, uploaded_at) VALUES (?,?,?,?,?,?,?,?,?,?,?) RETURNING id`)
         .get(Number(projectId), m.doc_type, m.title, version, saved.ref, m.mime, m.size_bytes, sha256, uid(user), who(user), now());
       await ev(projectId, 'document_added', `document:${r.id}`, null, `${m.doc_type} v${version}`, user, m.title);
       return documentRow(r.id);
-    });
+    }); } catch (e) {
+      // the row was never committed: the file must not stay behind as an orphan
+      if (saved && typeof blobStore.removeRef === 'function') blobStore.removeRef(saved.ref);
+      throw e;
+    }
   }
   async function deleteDocument(id, { user } = {}) {
     return tx(async () => { const ex = await documentRow(id); if (!ex) throw nf('document'); await P(`UPDATE ppm_project_documents SET deleted_at=?, deleted_by=? WHERE id=?`).run(now(), uid(user), Number(id)); await ev(ex.project_id, 'document_removed', `document:${id}`, `${ex.doc_type} v${ex.version}`, null, user, ex.title); return ex; });
@@ -172,7 +192,7 @@ function makePhase2Store(db, gov, { now = () => new Date().toISOString(), blobSt
       declared_effort: intake ? r.delivery_effort || null : null, declared_risk_exposure: intake ? r.risk_exposure || null : null }));
   }
 
-  return { listDependencies, dependency, allEdges, saveDependency, deleteDependency, backfillPlan, listDemand, demandLine, saveDemand, deleteDemand,
+  return { listDependencies, dependency, allEdges, saveDependency, deleteDependency, backfillPlan, listDemand, demandProjectIds, demandLine, saveDemand, deleteDemand,
     effort, effortMany, saveEffort, listRisks, riskEntry, saveResidual, listDocuments, documentRow, addDocument, deleteDocument, readDocument, extProjects };
 }
 module.exports = { makePhase2Store };

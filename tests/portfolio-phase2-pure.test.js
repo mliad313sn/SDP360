@@ -111,6 +111,8 @@ test('documents: type, mime allow-list, content must match the type, size, title
   assert.throws(() => PD.validateUpload({ doc_type: 'design', title: 'x', mime: 'application/pdf', buf: pdf }), (e) => e.reason === 'DOC_TITLE');
   const v = PD.view({ id: 1, project_id: 2, doc_type: 'vendor_quotation', title: 't', version: 1, mime: 'application/pdf', size_bytes: 9, blob_ref: 'ppm-doc/p2/x' }, { money: false });
   assert.equal(v.restricted, true); assert.equal(v.download, false); assert.equal('blob_ref' in v, false);
+  assert.equal(v.title, null); assert.equal(v.title_masked, true);   // P11 R5-6
+  assert.equal(PD.view({ id: 1, project_id: 2, doc_type: 'vendor_quotation', title: 't', version: 1 }, { money: true }).title, 't');
   assert.equal(/[\\/]/.test(PD.downloadName({ doc_type: 'design', version: 2, title: '../../etc/passwd', mime: 'application/pdf' })), false);
 });
 
@@ -125,4 +127,20 @@ test('scenario: read-only input checks and dependency conflicts after a shift', 
   const out = SC.simulate({ projects, lines: [], edges, capacity: {}, scenario: s });
   assert.equal(out.read_only, true); assert.equal(out.delta.dependency_conflicts, 1);
   assert.equal(SC.shiftDay('2027-01-31', 1), '2027-02-28');
+});
+
+test('P11 R5-5 — a demand window over 60 months is refused; a stored long line is reported as truncated', () => {
+  assert.throws(() => RD.normalise({ skill: 'Long skill', avg_fte: 1, start_month: '2030-01', finish_month: '2039-12' }), (e) => e.reason === 'DEMAND_WINDOW' && e.status === 400);
+  assert.equal(RD.normalise({ skill: 'Long skill', avg_fte: 1, start_month: '2030-01', finish_month: '2034-12' }).finish_month, '2034-12', 'exactly 60 months is fine');
+  const load = RD.monthlyLoad([{ id: 7, project_id: 1, skill: 'Long skill', avg_fte: 1, start_month: '2030-01', finish_month: '2039-12' }]);
+  assert.deepEqual(load.truncated, [{ id: 7, project_id: 1, skill: 'Long skill', months_placed: 60, months_requested: 120 }]);
+  assert.deepEqual(RD.monthlyLoad([{ project_id: 1, skill: 'x', avg_fte: 1, start_month: '2030-01', finish_month: '2030-02' }]).truncated, []);
+});
+
+test('P11 N-R5-4 — a predecessor the reader cannot read is served with neither name nor id', () => {
+  const byId = new Map([[1, { id: 1, key: 'K1', name: 'One' }]]);
+  const hidden = SD.view({ id: 5, project_id: 1, predecessor_project_id: 42, status: 'open' }, { byId });
+  assert.equal(hidden.predecessor_project_id, null); assert.equal(hidden.predecessor_label, null); assert.equal(hidden.predecessor_readable, false);
+  const seen = SD.view({ id: 6, project_id: 1, predecessor_project_id: 1, status: 'open' }, { byId });
+  assert.equal(seen.predecessor_project_id, 1); assert.equal(seen.predecessor_readable, true);
 });

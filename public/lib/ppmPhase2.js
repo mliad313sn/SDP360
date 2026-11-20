@@ -10,7 +10,7 @@
   var S = {
     en: { deps: 'Dependencies', deps_sub: 'What this project waits for: another project, or an external item (procurement, power, HSE approval…). Owner, status, target date and criticality for each. Flags and categories are proposed, not approved policy.',
       on_project: 'On project', external: 'External category', description: 'Description', owner: 'Owner', status: 'Status', target: 'Target date', criticality: 'Criticality', flags: 'Checks', source: 'Source',
-      legacy: 'old list (not yet converted)', add: 'Add', save: 'Save', remove: 'Remove', none: 'None recorded.', dependents: 'Projects waiting for this one', loop: 'This project is part of a dependency loop.',
+      legacy: 'old list (not yet converted)', hidden_project: 'a project you cannot read', add: 'Add', save: 'Save', remove: 'Remove', none: 'None recorded.', dependents: 'Projects waiting for this one', loop: 'This project is part of a dependency loop.',
       risks: 'Risk exposure', risks_sub: 'Exposure level = probability × impact on the risk register (proposed mapping: 1–2 low, 3–4 medium, 6 high, 9 critical). Residual = after mitigation.',
       risk: 'Risk', exposure: 'Exposure', residual: 'Residual', rp: 'Residual probability (1–3)', ri: 'Residual impact (1–3)', due: 'Due date', overdue: 'overdue', project_level: 'Project exposure',
       demand: 'Resource demand', demand_sub: 'One line per skill. FTE are numbers only (0.5 = half a person); a category belongs in the delivery effort field.', skill: 'Skill', avg: 'Average FTE', peak: 'Peak FTE',
@@ -22,7 +22,7 @@
       type: 'Type', title_: 'Title', version: 'Version', file: 'File', uploaded: 'Uploaded', download: 'Download', restricted: 'restricted (amounts)', upload: 'Upload', latest: 'latest', saved: 'Saved.', removed: 'Removed.', confirm_remove: 'Remove this item? It stays in the history.' },
     fr: { deps: 'Dépendances', deps_sub: 'Ce que ce projet attend : un autre projet, ou un élément externe (achats, énergie, validation HSE…). Responsable, statut, date cible et criticité pour chacune. Les contrôles et catégories sont proposés, pas une politique approuvée.',
       on_project: 'Sur le projet', external: 'Catégorie externe', description: 'Description', owner: 'Responsable', status: 'Statut', target: 'Date cible', criticality: 'Criticité', flags: 'Contrôles', source: 'Origine',
-      legacy: 'ancienne liste (pas encore convertie)', add: 'Ajouter', save: 'Enregistrer', remove: 'Retirer', none: 'Aucune saisie.', dependents: 'Projets qui attendent celui-ci', loop: 'Ce projet fait partie d’une boucle de dépendances.',
+      legacy: 'ancienne liste (pas encore convertie)', hidden_project: 'un projet que vous ne pouvez pas consulter', add: 'Ajouter', save: 'Enregistrer', remove: 'Retirer', none: 'Aucune saisie.', dependents: 'Projets qui attendent celui-ci', loop: 'Ce projet fait partie d’une boucle de dépendances.',
       risks: 'Exposition aux risques', risks_sub: 'Niveau d’exposition = probabilité × impact du registre des risques (correspondance proposée : 1–2 faible, 3–4 moyen, 6 élevé, 9 critique). Résiduel = après atténuation.',
       risk: 'Risque', exposure: 'Exposition', residual: 'Résiduel', rp: 'Probabilité résiduelle (1–3)', ri: 'Impact résiduel (1–3)', due: 'Échéance', overdue: 'en retard', project_level: 'Exposition du projet',
       demand: 'Besoin en ressources', demand_sub: 'Une ligne par compétence. Les ETP sont des nombres (0,5 = une demi-personne) ; une catégorie va dans le champ effort de réalisation.', skill: 'Compétence', avg: 'ETP moyen', peak: 'ETP de pointe',
@@ -48,7 +48,7 @@
     Promise.all([x.api(base(x) + '/dependencies'), x.api(base(x) + '/risk-exposure').catch(function () { return null; })]).then(function (r) {
       var d = r[0], rx = r[1];
       var rows = (d.items || []).map(function (i) {
-        var target = i.predecessor_project_id != null ? (i.predecessor_readable ? esc(i.predecessor_label) : '#' + esc(i.predecessor_project_id)) : esc(i.external_category);
+        var target = i.predecessor_readable === false ? esc(t('hidden_project')) : i.predecessor_project_id != null ? esc(i.predecessor_label) : esc(i.external_category);   // P11 N-R5-4: no id of a hidden project
         return '<tr><td>' + target + '</td><td>' + esc(dash(i.description)) + '</td><td>' + esc(dash(i.owner)) + '</td><td>' + esc(i.status) + '</td><td>' + esc(dash(i.target_date)) + '</td><td>' + esc(dash(i.criticality)) + '</td><td>' + esc(i.flags.join(', ') || '—') + '</td><td>' + (i.source === 'legacy' ? esc(t('legacy')) : '') + '</td><td>' + (i.id != null ? '<button type="button" class="p2-btn" data-del-dep="' + esc(i.id) + '">' + esc(t('remove')) + '</button>' : '') + '</td></tr>';
       }).join('');
       var form = '<form id="p2-dep-form" class="p2-form">' + field('p2-dep-pred', esc(t('on_project')), '<select id="p2-dep-pred"><option value="">—</option>' + (d.projects || []).map(function (p) { return '<option value="' + esc(p.id) + '">' + esc(p.label) + '</option>'; }).join('') + '</select>') +
@@ -117,7 +117,7 @@
     var host = x.$('p2-docs'); if (!host) return; var esc = x.esc;
     x.api(base(x) + '/documents').then(function (d) {
       var rows = (d.documents || []).map(function (r) {
-        return '<tr><td>' + esc(r.doc_type) + '</td><td>' + esc(r.title) + '</td><td>v' + esc(r.version) + (r.latest ? ' <small>(' + esc(t('latest')) + ')</small>' : '') + '</td><td class="p2-num">' + esc(Math.ceil(r.size_bytes / 1024)) + ' KB</td><td>' + esc(dash(r.uploaded_by_name)) + ' · ' + esc(dash((r.uploaded_at || '').slice(0, 10))) + '</td><td>' +
+        return '<tr><td>' + esc(r.doc_type) + '</td><td>' + esc(r.title_masked ? t('restricted') : r.title) + '</td><td>v' + esc(r.version) + (r.latest ? ' <small>(' + esc(t('latest')) + ')</small>' : '') + '</td><td class="p2-num">' + esc(Math.ceil(r.size_bytes / 1024)) + ' KB</td><td>' + esc(dash(r.uploaded_by_name)) + ' · ' + esc(dash((r.uploaded_at || '').slice(0, 10))) + '</td><td>' +
           (r.download ? '<a class="p2-btn" href="' + esc(base(x) + '/documents/' + encodeURIComponent(r.id) + '/download') + '">' + esc(t('download')) + '</a>' : esc(t('restricted'))) + ' <button type="button" class="p2-btn" data-del-doc="' + esc(r.id) + '">' + esc(t('remove')) + '</button></td></tr>';
       }).join('');
       host.innerHTML = '<div class="p2-panel"><h2>' + esc(t('docs')) + '</h2><p class="p2-note">' + esc(t('docs_sub')) + '</p>' +

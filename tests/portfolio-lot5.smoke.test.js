@@ -194,10 +194,38 @@ test('business-case freeze: 409 after approval without an approved change reques
   assert.equal(fz.status, 409); assert.equal(fz.j.code, 'BUSINESS_CASE_FROZEN');
   assert.equal((await put('project', T.pmo, { id, name: 'Renamed is fine' })).status, 200, 'other fields stay editable');
   assert.equal((await put('project', T.pmo, { id, budget: 1000 })).status, 200, 'same value is not a change');
-  const cr = await rdb.db.prepare(`INSERT INTO ppm_change_requests (project_id, title, reason, status, created_at) VALUES (?, 'Scope extension', 'add a site', 'proposed', ?) RETURNING id`).get(id, new Date().toISOString());
+  const cr = await rdb.db.prepare(`INSERT INTO ppm_change_requests (project_id, title, reason, impact_budget, currency, status, created_at) VALUES (?, 'Scope extension', 'add a site', 1000, 'USD', 'proposed', ?) RETURNING id`).get(id, new Date().toISOString());
   assert.equal((await put('project', T.pmo, { id, budget: 2000, change_request_id: Number(cr.id) })).j.code, 'BUSINESS_CASE_FROZEN', 'a proposed CR is not enough');
   await rdb.db.prepare(`UPDATE ppm_change_requests SET status='approved' WHERE id=?`).run(Number(cr.id));
   assert.equal((await put('project', T.pmo, { id, budget: 2000, change_request_id: Number(cr.id) })).status, 200);
   assert.equal((await events(id, 'business_case_change')).length, 1);
+  // P11 R5-2 / N-R5-3 — currency frozen, the request used once and bound to the value it approved
+  const cur = await put('project', T.pmo, { id, currency: 'XOF' });
+  assert.equal(cur.status, 409, 'currency change without CR'); assert.equal(cur.j.code, 'BUSINESS_CASE_FROZEN');
+  const cur2 = await put('project', T.pmo, { id, currency: 'XOF', change_request_id: Number(cr.id) });
+  assert.equal(cur2.status, 409, 'no change request unlocks a currency change');
+  for (const b of [{ budget: 9000000 }, { budget: 3000 }, { charter: CHARTER + ' rewritten' }]) {
+    const re = await put('project', T.pmo, { id, ...b, change_request_id: Number(cr.id) });
+    assert.equal(re.status, 409, 'reuse of an applied CR: ' + JSON.stringify(b)); assert.equal(re.j.code, 'CHANGE_REQUEST_USED');
+  }
+  const row = await rdb.db.prepare(`SELECT budget, currency, charter FROM portfolio_projects WHERE id=?`).get(id);
+  assert.deepEqual([Number(row.budget), row.currency], [2000, 'USD']);
+  // a fresh request (+100 USD) unlocks exactly +100, nothing more, once
+  const cr2 = await rdb.db.prepare(`INSERT INTO ppm_change_requests (project_id, title, reason, impact_budget, currency, status, created_at) VALUES (?, 'Top-up', 'licences', 100, 'USD', 'approved', ?) RETURNING id`).get(id, new Date().toISOString());
+  const big = await put('project', T.pmo, { id, budget: 999999, change_request_id: Number(cr2.id) });
+  assert.equal(big.status, 409); assert.equal(big.j.code, 'CHANGE_REQUEST_SCOPE');
+  assert.equal((await put('project', T.pmo, { id, budget: 5, change_request_id: Number(cr2.id) })).j.code, 'CHANGE_REQUEST_SCOPE');
+  assert.equal((await put('project', T.pmo, { id, budget: 2100, change_request_id: Number(cr2.id) })).status, 200, 'exactly old + impact');
+  assert.equal((await put('project', T.pmo, { id, charter: CHARTER + ' v9', change_request_id: Number(cr2.id) })).j.code, 'CHANGE_REQUEST_USED');
+  // a request in another currency, or with no budget impact, does not unlock the budget
+  const cr3 = await rdb.db.prepare(`INSERT INTO ppm_change_requests (project_id, title, reason, impact_budget, currency, status, created_at) VALUES (?, 'EUR', 'x', 50, 'EUR', 'approved', ?) RETURNING id`).get(id, new Date().toISOString());
+  assert.equal((await put('project', T.pmo, { id, budget: 2150, change_request_id: Number(cr3.id) })).j.code, 'CHANGE_REQUEST_SCOPE');
+  const cr4 = await rdb.db.prepare(`INSERT INTO ppm_change_requests (project_id, title, reason, status, created_at) VALUES (?, 'Text only', 'x', 'approved', ?) RETURNING id`).get(id, new Date().toISOString());
+  assert.equal((await put('project', T.pmo, { id, budget: 2150, change_request_id: Number(cr4.id) })).j.code, 'CHANGE_REQUEST_SCOPE');
+  assert.equal((await put('project', T.pmo, { id, charter: CHARTER + ' v10', change_request_id: Number(cr4.id) })).status, 200, 'a text change with an unused approved CR');
+  // two concurrent edits naming one fresh request: exactly one wins
+  const cr5 = await rdb.db.prepare(`INSERT INTO ppm_change_requests (project_id, title, reason, status, created_at) VALUES (?, 'Race', 'x', 'approved', ?) RETURNING id`).get(id, new Date().toISOString());
+  const race = await Promise.all([put('project', T.pmo, { id, charter: CHARTER + ' r1', change_request_id: Number(cr5.id) }), put('project', T.pmo, { id, charter: CHARTER + ' r2', change_request_id: Number(cr5.id) })]);
+  assert.deepEqual(race.map((r) => r.status).sort(), [200, 409]);
   await sw({ ppm_business_case_freeze_enabled: '0' });
 });
