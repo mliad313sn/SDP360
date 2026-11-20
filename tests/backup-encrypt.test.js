@@ -68,13 +68,25 @@ test('packDump → .sql.gz (no key) / .sql.gz.enc (key); openDump reads all thre
   assert.deepEqual(B.prune(dir, { keep: 1 }), ['sdp_dashboard_20261021T030000Z.sql.gz', 'sdp_dashboard_20261022T030000Z.sql.gz.enc'], 'prune sees every format');
 });
 
-test('runBackup: no key → plaintext gzip + ONE warning line; key → .enc, no warning; missing trailer → fails and removes the file', async () => {
+test('runBackup: no key → REFUSED before pg_dump runs (P11 F-05); explicit override → plaintext gzip + loud warning; key → .enc, no warning; missing trailer → fails and removes the file', async () => {
   const dir = tmp(); const warned = [];
-  const spawnOk = (c, a) => { fs.writeFileSync(a[1], TRAILED(3000)); return { status: 0 }; };
-  const out = await B.runBackup({ dir, env: { PG_URL: 'x' }, spawn: spawnOk, log: (m) => warned.push(m) });
+  let dumped = 0;
+  const spawnOk = (c, a) => { dumped++; fs.writeFileSync(a[1], TRAILED(3000)); return { status: 0 }; };
+  // no key, no override: refused, nothing dumped, nothing on disk, not retried (transient false)
+  const errs = [];
+  await assert.rejects(B.runBackup({ dir, env: { PG_URL: 'x' }, spawn: spawnOk, log: (m) => errs.push(m) }),
+    (e) => /SDP_BACKUP_KEY is not set/.test(e.message) && /SDP_BACKUP_ALLOW_PLAINTEXT=1/.test(e.message) && e.transient === false && e.code === 'BACKUP_KEY_MISSING');
+  assert.equal(errs.length, 1); assert.match(errs[0], /^\[backup\] ERROR: backup refused/);
+  assert.equal(dumped, 0, 'pg_dump never ran — no plaintext dump was written');
+  assert.deepEqual(fs.readdirSync(dir), []);
+  await assert.rejects(B.runBackup({ dir, env: { PG_URL: 'x', SDP_BACKUP_KEY: 'short' }, spawn: spawnOk, log: () => {} }), /too short/);
+  await assert.rejects(B.runBackup({ dir, env: { PG_URL: 'x', SDP_BACKUP_ALLOW_PLAINTEXT: 'yes' }, spawn: spawnOk, log: () => {} }), /not set/, 'only the exact value 1 overrides');
+
+  const out = await B.runBackup({ dir, env: { PG_URL: 'x', SDP_BACKUP_ALLOW_PLAINTEXT: '1' }, spawn: spawnOk, log: (m) => warned.push(m) });
   assert.ok(out.file.endsWith('.sql.gz') && out.encrypted === false && out.trailer_ok === true && out.compressed === true);
+  assert.equal(out.plaintext_override, true);
   assert.ok(out.bytes >= 3000 && out.stored_bytes < out.bytes, 'bytes = plain size, stored = gzip size');
-  assert.equal(warned.length, 1); assert.match(warned[0], /SDP_BACKUP_KEY is not set.*plaintext/);
+  assert.equal(warned.length, 1); assert.match(warned[0], /SDP_BACKUP_KEY is not set.*PLAINTEXT.*SDP_BACKUP_ALLOW_PLAINTEXT=1/);
 
   const warned2 = [];
   const out2 = await B.runBackup({ dir, env: { PG_URL: 'x', SDP_BACKUP_KEY: 'a-proper-backup-passphrase-2026' }, spawn: spawnOk, log: (m) => warned2.push(m) });
@@ -83,22 +95,37 @@ test('runBackup: no key → plaintext gzip + ONE warning line; key → .enc, no 
   assert.ok(B.openDump(out2.file, { key: B.deriveKey('a-proper-backup-passphrase-2026') }).toString().includes(B.TRAILER));
 
   const warned3 = [];
-  await B.runBackup({ dir, env: { PG_URL: 'x', SDP_BACKUP_KEY: 'short' }, spawn: spawnOk, log: (m) => warned3.push(m) });
+  await B.runBackup({ dir, env: { PG_URL: 'x', SDP_BACKUP_KEY: 'short', SDP_BACKUP_ALLOW_PLAINTEXT: '1' }, spawn: spawnOk, log: (m) => warned3.push(m) });
   assert.match(warned3[0], /too short/);
 
   const before = fs.readdirSync(dir).length;
-  await assert.rejects(async () => B.runBackup({ dir, env: { PG_URL: 'x' }, spawn: (c, a) => { fs.writeFileSync(a[1], 'x'.repeat(5000)); return { status: 0 }; }, log: () => {} }), /trailer missing/);
+  await assert.rejects(async () => B.runBackup({ dir, env: { PG_URL: 'x', SDP_BACKUP_ALLOW_PLAINTEXT: '1' }, spawn: (c, a) => { fs.writeFileSync(a[1], 'x'.repeat(5000)); return { status: 0 }; }, log: () => {} }), /trailer missing/);
   assert.equal(fs.readdirSync(dir).length, before, 'the truncated dump is not kept');
 });
 
 test('runBackup: off-site copy when backup_offsite_path is set; a failing copy fails the run (transient) but keeps the local file', async () => {
   const dir = tmp(); const off = path.join(tmp(), 'offsite', 'sub');
   const spawnOk = (c, a) => { fs.writeFileSync(a[1], TRAILED(3000)); return { status: 0 }; };
-  const out = await B.runBackup({ dir, env: { PG_URL: 'x' }, spawn: spawnOk, offsitePath: off, log: () => {} });
+  const out = await B.runBackup({ dir, env: { PG_URL: 'x', SDP_BACKUP_ALLOW_PLAINTEXT: '1' }, spawn: spawnOk, offsitePath: off, log: () => {} });
   assert.equal(out.offsite, path.join(off, path.basename(out.file)));
   assert.ok(fs.existsSync(out.offsite));
-  const none = await B.runBackup({ dir, env: { PG_URL: 'x' }, spawn: spawnOk, offsitePath: '   ', log: () => {} });
+  const none = await B.runBackup({ dir, env: { PG_URL: 'x', SDP_BACKUP_ALLOW_PLAINTEXT: '1' }, spawn: spawnOk, offsitePath: '   ', log: () => {} });
   assert.equal(none.offsite, null);
   const bad = { ...fs, mkdirSync: (p, o) => { if (String(p).includes('unreachable')) throw new Error('ENOENT share'); return fs.mkdirSync(p, o); } };
-  await assert.rejects(async () => B.runBackup({ dir, env: { PG_URL: 'x' }, spawn: spawnOk, offsitePath: '/unreachable/share', fsx: bad, log: () => {} }), (e) => /off-site copy failed/.test(e.message) && e.transient === true && fs.existsSync(e.file));
+  await assert.rejects(async () => B.runBackup({ dir, env: { PG_URL: 'x', SDP_BACKUP_ALLOW_PLAINTEXT: '1' }, spawn: spawnOk, offsitePath: '/unreachable/share', fsx: bad, log: () => {} }), (e) => /off-site copy failed/.test(e.message) && e.transient === true && fs.existsSync(e.file));
+});
+
+// P11 round 3 N-07 — latestDump/prune sorted every `sdp_dashboard_*` name, so an operator-named file
+// (sdp_dashboard_before-upgrade.sql — letters sort after digits) counted as the newest: prune deleted the real
+// backups and the nightly drill restored the manual file. Only the generator's exact name is managed now.
+test('latestDump / prune manage only the generator pattern sdp_dashboard_<yyyymmdd>T<hhmmss>Z', () => {
+  const dir = tmp();
+  const real = ['sdp_dashboard_20261101T030000Z.sql.gz.enc', 'sdp_dashboard_20261102T030000Z.sql.gz'];
+  const manual = ['sdp_dashboard_before-upgrade.sql', 'sdp_dashboard_20261199T999999Z_copy.sql', 'sdp_dashboard_zz.sql.gz'];
+  for (const n of [...real, ...manual]) fs.writeFileSync(path.join(dir, n), 'x');
+  assert.equal(path.basename(B.latestDump(dir)), 'sdp_dashboard_20261102T030000Z.sql.gz');
+  assert.deepEqual(B.prune(dir, { keep: 1 }), ['sdp_dashboard_20261101T030000Z.sql.gz.enc']);
+  for (const n of manual) assert.ok(fs.existsSync(path.join(dir, n)), `operator file ${n} is never touched`);
+  assert.equal(B.isDumpName('sdp_dashboard_before-upgrade.sql'), false);
+  assert.equal(B.isDumpName('sdp_dashboard_20261102T030000Z.sql'), true);
 });

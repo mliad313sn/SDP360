@@ -11,8 +11,9 @@
 //   • format     — gzip (`.sql.gz`), then AES-256-GCM with SDP_BACKUP_KEY (`.sql.gz.enc`).
 //                  SDP_BACKUP_KEY is a DIFFERENT secret from SDP_CONFIG_KEY (a dump restored
 //                  elsewhere needs the config key to read its secrets, the backup key to open
-//                  the file — losing one must not lose the other). No key → plaintext gzip AND
-//                  a one-line warning on every run, never silently;
+//                  the file — losing one must not lose the other). No key → the backup is
+//                  REFUSED (P11 F-05) unless SDP_BACKUP_ALLOW_PLAINTEXT=1, which stores plaintext
+//                  gzip with a loud warning on every run;
 //   • off-site   — copied to `backup_offsite_path` (report_config, UNC or local path) when set.
 //                  S3 / object storage is out of scope here (DECISIONS-EN-ATTENTE).
 // File layout of an encrypted dump: MAGIC(8) | iv(12) | tag(16) | ciphertext(gzip bytes).
@@ -33,8 +34,13 @@ function planBackup({ dir, now = new Date(), prefix = 'sdp_dashboard' }) {
   return { file: path.join(dir, `${prefix}_${stamp}.sql`), stamp };
 }
 
+// P11 r3 N-07 — only the generator's exact name is a managed dump: `<prefix>_<yyyymmdd>T<hhmmss>Z.sql[.gz[.enc]]`.
+// A loose `startsWith` let an operator file (`sdp_dashboard_before-upgrade.sql`) sort after every stamp, be kept as
+// "newest", get the real backups pruned and be restored by the nightly drill. With a fixed-width stamp, name order
+// IS time order; anything else in the directory is never read, kept or deleted.
+const _escRe = (x) => String(x).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 function isDumpName(name, prefix = 'sdp_dashboard') {
-  return name.startsWith(prefix + '_') && EXTENSIONS.some((e) => name.endsWith(e));
+  return new RegExp('^' + _escRe(prefix) + '_\\d{8}T\\d{6}Z\\.sql(?:\\.gz(?:\\.enc)?)?$').test(String(name || ''));
 }
 
 // Keep the newest `keep` dumps matching the prefix (any of the three formats); return the deleted names.
@@ -139,6 +145,19 @@ function copyOffsite(file, offsitePath, { fsx = fs } = {}) {
  */
 async function runBackup({ dir, keep = 14, spawn, env = process.env, fsx = fs, offsitePath = '', log = console.warn } = {}) {
   if (!env.PG_URL && !env.DATABASE_URL) return { skipped: true, reason: 'no PG_URL' };
+  // P11 F-05 — a dump carries password hashes and the (config-key-encrypted) secrets table: never write one in
+  // plaintext by default. Missing / short SDP_BACKUP_KEY → refused BEFORE pg_dump runs (nothing lands on disk), as a
+  // non-transient job failure, so the runner records it and the sync alerting raises it. An operator who must have a
+  // backup anyway sets SDP_BACKUP_ALLOW_PLAINTEXT=1 (exact value) — the run then warns loudly every time.
+  const key = deriveKey(env.SDP_BACKUP_KEY);
+  const keyProblem = env.SDP_BACKUP_KEY ? 'too short (< ' + MIN_KEY_CHARS + ' chars)' : 'not set';
+  const plaintextOverride = !key && String(env.SDP_BACKUP_ALLOW_PLAINTEXT || '') === '1';
+  if (!key && !plaintextOverride) {
+    const e = new Error(`backup refused: SDP_BACKUP_KEY is ${keyProblem} — a dump would be stored in plaintext. Set SDP_BACKUP_KEY in .env (>= ${MIN_KEY_CHARS} chars, distinct from SDP_CONFIG_KEY), or set SDP_BACKUP_ALLOW_PLAINTEXT=1 to accept plaintext backups explicitly.`);
+    e.transient = false; e.code = 'BACKUP_KEY_MISSING';
+    try { log('[backup] ERROR: ' + e.message); } catch (_) { /* log sink optional */ }
+    throw e;
+  }
   fsx.mkdirSync(dir, { recursive: true });
   // two backups in the same second (a pre-restore point right after a manual backup) must never
   // share a name — the second would silently overwrite the first
@@ -161,8 +180,7 @@ async function runBackup({ dir, keep = 14, spawn, env = process.env, fsx = fs, o
     try { fsx.unlinkSync(file); } catch (_) {}    // never keep a dump that only LOOKS complete
     const e = new Error(`backup is incomplete — pg_dump trailer missing: ${file}`); e.transient = true; throw e;
   }
-  const key = deriveKey(env.SDP_BACKUP_KEY);
-  if (!key) log(`[backup] WARNING: SDP_BACKUP_KEY is ${env.SDP_BACKUP_KEY ? 'too short (< ' + MIN_KEY_CHARS + ' chars)' : 'not set'} — the dump is stored as plaintext gzip. Set it in .env (distinct from SDP_CONFIG_KEY).`);
+  if (!key) log(`[backup] WARNING: SDP_BACKUP_KEY is ${keyProblem} — the dump is stored as PLAINTEXT gzip because SDP_BACKUP_ALLOW_PLAINTEXT=1 is set. Set SDP_BACKUP_KEY in .env (distinct from SDP_CONFIG_KEY) and remove the override.`);
   const packed = packDump(file, { key, fsx });
   let offsite = null;
   if (offsitePath && String(offsitePath).trim()) {
@@ -170,7 +188,7 @@ async function runBackup({ dir, keep = 14, spawn, env = process.env, fsx = fs, o
     catch (e2) { const e = new Error(`off-site copy failed (${String(offsitePath).trim()}): ${e2.message}`); e.transient = true; e.file = packed.file; throw e; }
   }
   const pruned = prune(dir, { keep, fsx });
-  return { file: packed.file, bytes, stored_bytes: packed.stored_bytes, encrypted: packed.encrypted, compressed: true, trailer_ok: true, offsite, pruned, rows: 1 };
+  return { file: packed.file, bytes, stored_bytes: packed.stored_bytes, encrypted: packed.encrypted, plaintext_override: plaintextOverride, compressed: true, trailer_ok: true, offsite, pruned, rows: 1 };
 }
 
 module.exports = {

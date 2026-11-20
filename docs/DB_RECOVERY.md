@@ -15,7 +15,7 @@ is about to replace, and refuses a dump that is not complete).
 
 | Protection | When | Where | Notes |
 |---|---|---|---|
-| Nightly encrypted dump | every night (job `db.backup`, `services/sync/jobs.js`) | `SDP_BACKUP_DIR` (default `data/backups`) | `pg_dump` → gzip → AES-256-GCM with `SDP_BACKUP_KEY`; 14 kept by default (`SDP_BACKUP_KEEP`) |
+| Nightly encrypted dump | every night (job `db.backup`, `services/sync/jobs.js`) | `SDP_BACKUP_DIR` (default `data/backups`) | `pg_dump` → gzip → AES-256-GCM with `SDP_BACKUP_KEY`; 14 kept by default (`SDP_BACKUP_KEEP`). No key → the backup is **refused** (job fails, alert) unless `SDP_BACKUP_ALLOW_PLAINTEXT=1` (plaintext gzip + warning every run). Only files named `sdp_dashboard_<yyyymmdd>T<hhmmss>Z.sql[.gz[.enc]]` are pruned or drilled |
 | Restore drill | monthly (job `db.restore_drill`) | throw-away schema | proves the last dump restores and that the row counts match |
 | Restore point | on demand, and before every installer upgrade / restore | `BackupDir` of the installer config | code + `.env` + a complete `sdp_dashboard.sql` |
 
