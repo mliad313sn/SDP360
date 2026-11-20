@@ -328,6 +328,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 <script src="lib/actionGroups.js"></script>
 <script src="lib/siteOnboardingCard.js"></script>
 <script src="lib/statusTransfer.js"></script>
+<script src="lib/reportingWeek.js"></script>
 <script src="lib/wanLineMatch.js"></script>
 <script src="lib/infraPrefill.js"></script>
 <!-- E-A02 — first slice of the inline script: the Backups & recovery admin cards (globals kept on window) -->
@@ -2831,24 +2832,16 @@ async function initApp() {
     populateSiteSelects();
   } catch(e) { toast('Failed to load sites', 'error'); }
 
-  // Default week = previous completed week (current week - 1)
-  // Coordinators always report on the week that just ended (full data, SLA settled).
+  // Default week = the week the report is DUE (Adoption Lot A, item 3). /api/reports/current-week already returns that
+  // week (the previous, completed one — public/lib/reportingWeek.js dueWeek); stepping back once more here used to
+  // default to the week BEFORE it (W44 while Home said W45). Same helper on Home, this picker and the Helpdesk labels.
   try {
     const w = await api('GET', '/api/reports/current-week');
-    // Step back one week; handle year-boundary (W01 → last week of previous year)
-    let defYear = w.year;
-    let defWeek = w.week - 1;
-    if (defWeek < 1) {
-      defYear -= 1;
-      // Last week of previous year = how many Sundays fit before Jan 1 of current year
-      const fsThisYear = _cwFirstSun(w.year);
-      const fsPrevYear = _cwFirstSun(defYear);
-      defWeek = Math.round((fsThisYear - fsPrevYear) / (7 * 86400000));
-    }
-    const prev = _cwWeekRange(defYear, defWeek);
+    const defYear = w.year;
+    const defWeek = w.week;
     document.getElementById('sel-year').value = defYear;
     document.getElementById('sel-week').value = defWeek;
-    document.getElementById('week-range-badge').textContent = `${prev.label} (${prev.start} → ${prev.end})`;
+    document.getElementById('week-range-badge').textContent = _weekBadge(defYear, defWeek);
     // Sync summary card week defaults (admin) — keep on current week for summary
     const sy = document.getElementById('summary-year');
     const sw = document.getElementById('summary-week');
@@ -2954,8 +2947,7 @@ function onSiteWeekChange() {
   const year = parseInt(document.getElementById('sel-year').value);
   const week = parseInt(document.getElementById('sel-week').value);
   if (year && week) {
-    const r = _cwWeekRange(year, week);
-    document.getElementById('week-range-badge').textContent = `${r.label} (${r.start} \u2192 ${r.end})`;
+    document.getElementById('week-range-badge').textContent = _weekBadge(year, week);
   }
 }
 
@@ -3206,18 +3198,19 @@ function collectAssetReview() {
 
 // ── Change Week modal ──────────────────────────────────────────────
 // Client-side Zoho Sunday-start week range calculation (mirrors reports-db.js)
-function _cwFirstSun(yr) {
-  const d = new Date(yr, 0, 1);
-  const dow = d.getDay();
-  if (dow !== 0) d.setDate(d.getDate() + (7 - dow));
-  return d;
-}
 function _cwWeekRange(year, week) {
-  const fs  = _cwFirstSun(year);
-  const s   = new Date(fs); s.setDate(fs.getDate() + (week - 1) * 7);
-  const e   = new Date(s);  e.setDate(s.getDate() + 6);
-  const fmt = d => d.toISOString().slice(0, 10);
-  return { start: fmt(s), end: fmt(e), label: `W${String(week).padStart(2,'0')} ${year}` };
+  // Adoption Lot A (item 3): the shared Zoho-week helper (UTC — the old local-date version could slip a day).
+  const r = window.ReportingWeek ? window.ReportingWeek.range(year, week) : { start: '', end: '' };
+  return { start: r.start, end: r.end, label: `W${String(week).padStart(2,'0')} ${year}` };
+}
+// "W45 2026 · W45 (08–14 Nov) · report due" — every week label carries its dates; the due week says so.
+function _weekBadge(year, week) {
+  const RW = window.ReportingWeek;
+  if (!RW) { const r = _cwWeekRange(year, week); return `${r.label} (${r.start} \u2192 ${r.end})`; }
+  const fr = (document.documentElement.lang || '').toLowerCase().startsWith('fr');
+  const due = RW.dueWeek(new Date());
+  const isDue = Number(year) === due.year && Number(week) === due.week;
+  return `${RW.label(year, week, fr ? 'fr' : 'en')} ${year}` + (isDue ? (fr ? ' · rapport dû' : ' · report due') : '');
 }
 
 function openChangeWeekModal() {

@@ -362,16 +362,9 @@ function _zFirstSun(yr) {
   return d;
 }
 
+// Adoption Lot A (item 3): the Zoho week has ONE definition, shared with the browser (public/lib/reportingWeek.js).
 function getISOWeek(date) {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  d.setUTCHours(0, 0, 0, 0);
-  let yr = d.getUTCFullYear();
-  let fs = _zFirstSun(yr);
-  if (d < fs) { yr--; fs = _zFirstSun(yr); }
-  return {
-    week: Math.floor((d - fs) / (7 * 86400000)) + 1,
-    year: yr
-  };
+  return require('./public/lib/reportingWeek').weekOf(date);
 }
 
 // AMDEC 2026-11-05 (AM-06): number of Zoho weeks (W01 = first Sunday) in a year — 52 or 53.
@@ -401,10 +394,7 @@ function ensureWeek(year, week) {
 
 // Report period = PREVIOUS week (what's being filled during the current week)
 function getPreviousWeek() {
-  const now  = new Date();
-  const prev = new Date(now);
-  prev.setDate(prev.getDate() - 7);
-  return getISOWeek(prev);
+  return require('./public/lib/reportingWeek').dueWeek(new Date());
 }
 
 // ── AUTH HELPERS ──────────────────────────────────────────────────

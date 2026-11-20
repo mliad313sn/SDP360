@@ -53,7 +53,9 @@
     const actions = !a ? nm : (a.open === 0 ? esc(T.none)
       : `${a.open} ${esc(T.open)}${a.overdue ? ` · <span class="hm-late">${a.overdue} ${esc(T.overdue)}</span>` : ''}${a.oldest_days != null ? ` · ${esc(T.oldest)} ${a.oldest_days} ${esc(T.days)}` : ''}`);
     const w = s.weekly_report;
-    const report = !w ? nm : `${esc(w.week_label || '')} — ${w.status === 'ready' ? `<span class="hm-late">${esc(T.labels[w.label] || w.label)}</span>` : esc(T.labels[w.label] || w.label)}`;
+    // Adoption Lot A (item 3): "W45 (08–14 nov.)" — the same week, labelled with its dates, as the report picker.
+    const wl = w && w.year && w.week && window.ReportingWeek ? window.ReportingWeek.label(w.year, w.week, lang === 'fr' ? 'fr' : 'en') + ' ' + w.year : (w && w.week_label) || '';
+    const report = !w ? nm : `${esc(wl)} — ${w.status === 'ready' ? `<span class="hm-late">${esc(T.labels[w.label] || w.label)}</span>` : esc(T.labels[w.label] || w.label)}`;
     const u = s.unsigned_pvs;
     const pvs = !u ? nm : (u.count === 0 ? esc(T.allSigned) : `<b>${u.count}</b><ul class="hm-pv">${u.items.map((m) => `<li><a href="meeting.html?id=${encodeURIComponent(m.id)}">${esc(m.reference || m.id)}</a> <span class="hm-muted">${esc(m.meeting_date || '')}</span></li>`).join('')}</ul>`);
     const i = s.last_inspection;

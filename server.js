@@ -1439,6 +1439,8 @@ app.get('/itsm-integrations-plan.html', async (req, res) => {
   const token = req.headers['x-report-token'] || getCookie(req, 'report_token');
   let user = null; try { user = (rdb && token) ? await rdb.validateSession(token) : null; } catch (_) { user = null; }
   if (!user) return res.redirect(302, '/login.html?next=itsm-integrations-plan.html');
+  // Adoption Lot A (item 12, ADR-ADOPTION-LOTA-01): an internal project document — admin tier only, others get the French no-access page.
+  if (!rdb.userHasRole(user, 'admin')) return res.redirect(302, '/no-access.html?page=itsm-integrations-plan&need=admin');
   sendHtmlPage(res, 'itsm-integrations-plan.html', false, 'Integrations plan unavailable');
 });
 
@@ -4001,7 +4003,9 @@ app.get('/api/reports/current-week', requireReportSession, (req, res) => {
   try {
     const prev = rdb.getPreviousWeek();
     const range = rdb.getWeekRange(prev.year, prev.week);
-    res.json({ year: prev.year, week: prev.week, ...range });
+    // Adoption Lot A (item 3): the due week, labelled with its dates (one helper for Home, picker and Helpdesk).
+    const RW = require('./public/lib/reportingWeek');
+    res.json({ year: prev.year, week: prev.week, ...range, label_dated: { en: RW.label(prev.year, prev.week, 'en'), fr: RW.label(prev.year, prev.week, 'fr') } });
   } catch(e) { fail(res, e); }
 });
 

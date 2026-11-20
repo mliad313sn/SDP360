@@ -14,6 +14,10 @@ const ALLOWED = [/^\/site-awareness(\/|$)/, /^\/reports\/auth\//, /^\/auth\//, /
 // so a business-only account got 403 and could never choose it. They are presentation-only and keyed on the SESSION's
 // user (never the body); while workspace_profiles_enabled = '0' they still answer 404, i.e. today's behaviour.
 ALLOWED.push(/^\/workspace\/(me|prefs)$/);
+// Adoption Lot A (item 17): page-view telemetry. It only writes one `page_viewed` system_log row for the CALLER
+// (actor u<id>, page id from the known-page list, role tier) and answers {ok, logged} — it reads and returns nothing,
+// so pilot usage numbers can include business users without opening any data to them.
+ALLOWED.push(/^\/ux\/page-view$/);
 function isAllowed(path) { return ALLOWED.some((re) => re.test(path)); }
 
 function _cookie(req, name) {

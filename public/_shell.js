@@ -294,7 +294,8 @@
       icon:   ICON_LIB['book-open'],
       href:   'help.html',
       target: '_blank',
-      roles:  ['any'],
+      // Adoption Lot A (item 18): business-only accounts may read the manual too (auth.js lets help.html through).
+      roles:  ['any', 'site-business', 'group-business'],
       title:  'User manual'
     }
   ];
@@ -304,9 +305,9 @@
     if (!Array.isArray(roles)) return false;
     // 'any' grants every logged-in user EXCEPT a business-only account (GM/FM): those see only
     // "Ma Vue Site" (which lists explicit business roles), never the IT-internal 'any' items.
-    if (roles.includes('any')) return !window.__isBusinessOnly;
+    if (roles.includes('any') && !window.__isBusinessOnly) return true;
     const check = window.__userHasRole || (() => false);
-    return roles.some(r => check(r));
+    return roles.some(r => r !== 'any' && check(r));
   }
   // May the user open this page? (drives the finder and workspaces)
   function mayOpen(it) {
@@ -412,8 +413,8 @@
     'Find a page — e.g. inspections, portfolio': 'Rechercher une page — ex. inspections, portefeuille',
     'Breadcrumb': "Fil d'Ariane", 'Click to log out': 'Cliquer pour se déconnecter', 'Primary': 'Navigation principale',
     'No page found': 'Aucune page trouvée', 'Language': 'Langue', 'Skip to content': 'Aller au contenu',
-    'Data quality': 'Qualité des données', 'Feedback': 'Retour', 'Send feedback on this page': 'Envoyer un retour sur cette page',
-    'My workspace': 'Mon espace', 'My workspace — profile, order of my pages, density, default site': 'Mon espace — profil, ordre de mes pages, densité, site par défaut',
+    'Data quality': 'Qualité des données', 'Feedback': 'Votre avis', 'Send feedback on this page': 'Donner votre avis sur cette page',
+    'Business': 'Métier', 'My workspace': 'Mon espace', 'My workspace — profile, order of my pages, density, default site': 'Mon espace — profil, ordre de mes pages, densité, site par défaut',
   };
   function shellLang() {
     try { const s = localStorage.getItem('sdp_lang'); if (s === 'fr' || s === 'en') return s; } catch (_) { /* storage blocked */ }
@@ -594,7 +595,8 @@
   function renderUserPill(user) {
     if (!user) return '';
     const name = user.full_name || user.username || '—';
-    const role = user.role || '—';
+    // Adoption Lot A (item 18): a business-only account reads "Métier" / "Business", not its technical tier "viewer".
+    const role = window.__isBusinessOnly ? T('Business') : (user.role || '—');
     return `<div class="shell-user-pill" title="${T('Click to log out')}">
       <span class="shell-user-initial" aria-hidden="true">${escapeHtml(String(name || '?').trim().charAt(0).toUpperCase())}</span>
       <span class="shell-user-name">${escapeHtml(name)}</span>

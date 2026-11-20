@@ -84,7 +84,9 @@ async function buildMyWork({ user, sites, asOf, readers } = {}) {
       const rep = w.report || null;
       const status = rep ? rep.status || null : null;
       return { week_label: w.week_label || (rep && rep.week_label) || (w.week ? `W${String(w.week).padStart(2, '0')} ${w.year}` : null),
-        status, label: weeklyLabel(status), report_id: rep ? rep.id : null };
+        status, label: weeklyLabel(status), report_id: rep ? rep.id : null,
+        // Adoption Lot A (item 3): the page labels the week with its dates through the shared helper.
+        year: w.year != null ? Number(w.year) : null, week: w.week != null ? Number(w.week) : null };
     });
     card.unsigned_pvs = await _block(r.unsignedPvs, s, (u) => {
       if (!u) return null;

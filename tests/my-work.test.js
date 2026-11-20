@@ -40,9 +40,9 @@ test("weekly report 'ready' reads 'Complete but not submitted'; no row reads 'No
   assert.strictEqual(weeklyLabel('submitted'), 'Submitted');
   assert.strictEqual(weeklyLabel(null), 'Not started');
   const ready = (await buildMyWork({ user: {}, sites: [S1], asOf: ASOF, readers: readers({ weeklyReport: async () => ({ year: 2026, week: 44, week_label: 'W44 2026', report: { id: 9, status: 'ready' } }) }) })).sites[0];
-  assert.deepStrictEqual(ready.weekly_report, { week_label: 'W44 2026', status: 'ready', label: 'Complete but not submitted', report_id: 9 });
+  assert.deepStrictEqual(ready.weekly_report, { week_label: 'W44 2026', status: 'ready', label: 'Complete but not submitted', report_id: 9, year: 2026, week: 44 });
   const none = (await buildMyWork({ user: {}, sites: [S1], asOf: ASOF, readers: readers({ weeklyReport: async () => ({ year: 2026, week: 44, report: null }) }) })).sites[0];
-  assert.deepStrictEqual(none.weekly_report, { week_label: 'W44 2026', status: null, label: 'Not started', report_id: null });
+  assert.deepStrictEqual(none.weekly_report, { week_label: 'W44 2026', status: null, label: 'Not started', report_id: null, year: 2026, week: 44 });
 });
 
 test('overdue = open actions past due as of asOf (injected)', async () => {

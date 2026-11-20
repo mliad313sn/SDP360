@@ -101,7 +101,8 @@
   window.__isBusinessOnly = _roles.length > 0 && _roles.every(r => r === 'site-business' || r === 'group-business');
   if (window.__isBusinessOnly) {
     const _page = (location.pathname.split('/').pop() || '').toLowerCase();
-    if (_page !== 'site-awareness.html' && _page !== 'login.html') {
+    // Adoption Lot A (item 18): the user manual is readable too (static page, no API call).
+    if (_page !== 'site-awareness.html' && _page !== 'login.html' && _page !== 'help.html') {
       location.replace('site-awareness.html');
       return;
     }
