@@ -10,7 +10,7 @@
 | Case de décision dans RELEASE-GATES.md | vide — cette porte est **NO-GO** tant que l'approbateur ne l'a pas remplie. Ce dossier ne remplit rien. |
 | Ce que cette porte bloque | ne bloque que le déploiement général |
 | À décider après | aucune |
-| SHA cible | `35065f98` |
+| SHA cible | `6457dcfa` |
 | Généré | 2026-11-20 |
 
 ## 1. La question à trancher
@@ -22,9 +22,9 @@ Quelles définitions d'indicateurs, quels seuils RAG et quel modèle de score de
 | Preuve | Ce qu'elle montre | Régénérer / rejouer | Dernière modification (commit, date) | Empreinte |
 |---|---|---|---|---|
 | `docs/ops/SCORE-METHODOLOGY.md` | Méthodologie du score générée depuis le code ; D-03 ouverte | `node tools/agent/score-methodology.js --check` | 2cad73b9, 2026-11-06 | `3aa294827b43753f` |
-| `docs/ops/METRIC-LINEAGE.md` | D'où vient chaque indicateur | `manual` | d7ff2bc1, 2026-11-13 | `bd8de3a4dfb63d0c` |
+| `docs/ops/METRIC-LINEAGE.md` | D'où vient chaque indicateur | `manual` | 6457dcfa, 2026-11-20 | `a82149157db3fe8f` |
 | `docs/sdp360/completion/KPI-DISPUTES.md` | Désaccords connus entre formules | `manual` | 3715318f, 2026-10-29 | `9fc347535aadd39a` |
-| `services/metricRegistry.js` | Dictionnaire des indicateurs | `manual` | 997bf06b, 2026-11-13 | `4c307ac5c409e316` |
+| `services/metricRegistry.js` | Dictionnaire des indicateurs | `manual` | b0d622d1, 2026-11-20 | `4a58704b516e668c` |
 | `tests/kpi-policy-engine.test.js` | Comportement du moteur de politiques de seuils | `node --test --test-force-exit tests/kpi-policy-engine.test.js` | d5a8d2e7, 2026-11-05 | `177b5e67c6d4abe4` |
 | `tests/kpi-rag.test.js` | Seuils RAG côté serveur | `node --test --test-force-exit tests/kpi-rag.test.js` | 367513cd, 2026-11-04 | `546602899c67bf56` |
 | `docs/ai-decisions/ADR-C31-kpi-policy-builder.md` | Décision technique du constructeur de politiques | `manual` | d5a8d2e7, 2026-11-05 | `9388892ea0c9939b` |

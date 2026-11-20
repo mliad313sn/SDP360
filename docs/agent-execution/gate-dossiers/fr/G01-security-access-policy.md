@@ -10,7 +10,7 @@
 | Case de décision dans RELEASE-GATES.md | vide — cette porte est **NO-GO** tant que l'approbateur ne l'a pas remplie. Ce dossier ne remplit rien. |
 | Ce que cette porte bloque | bloque le pilote sur deux sites (instance de TEST) |
 | À décider après | [G19](G19-qa-ci-green.md) QA : CI verte et tests sautés revus |
-| SHA cible | `35065f98` |
+| SHA cible | `6457dcfa` |
 | Généré | 2026-11-20 |
 
 ## 1. La question à trancher
@@ -21,7 +21,7 @@ Les règles d'accès (périmètre de site des comptes métier CG-01, plus de lec
 
 | Preuve | Ce qu'elle montre | Régénérer / rejouer | Dernière modification (commit, date) | Empreinte |
 |---|---|---|---|---|
-| `docs/ops/authz-matrix.json` | Matrice route × garde × capacité lisible par machine, régénérée depuis le code | `AUTHZ_MATRIX_UPDATE=1 node --test --test-force-exit tests/authz-matrix-json.test.js` | f8ecd313, 2026-11-19 | `49839b3bbc68e9df` |
+| `docs/ops/authz-matrix.json` | Matrice route × garde × capacité lisible par machine, régénérée depuis le code | `AUTHZ_MATRIX_UPDATE=1 node --test --test-force-exit tests/authz-matrix-json.test.js` | 6457dcfa, 2026-11-20 | `c3b2e59b09d8a0c7` |
 | `docs/ops/AUTHZ-MATRIX.md` | Matrice lisible de chaque route d'API et du rôle exigé | `AUTHZ_MATRIX_UPDATE=1 node --test --test-force-exit tests/authz-route-matrix.test.js` | a7565f27, 2026-11-20 | `7babb9014cdbd323` |
 | `tests/authz-route-matrix.test.js` | Échoue si une route est ajoutée ou si sa garde change sans régénérer la matrice | `node --test --test-force-exit tests/authz-route-matrix.test.js` | 4c7cde73, 2026-11-12 | `5af87df254c4a16d` |
 | `tests/authz-enforce.test.js` | Comportement de l'application des capacités | `node --test --test-force-exit tests/authz-enforce.test.js` | 30243287, 2026-11-12 | `9298b189390ba23a` |
@@ -34,7 +34,7 @@ Les règles d'accès (périmètre de site des comptes métier CG-01, plus de lec
 | Lot | Preuve attendue | Statut |
 |---|---|---|
 | P02 | Rapport de la sonde des résultats d'autorisation (chaque route × persona, codes observés) | livrée: `docs/agent-execution/P02-authz-outcomes.md` (9007a5c4, `1b3c7c2278a4e5d1`) |
-| P02 | Instantané des résultats utilisé par le test de la sonde | livrée: `docs/ops/authz-outcomes.json` (9f727e4b, `f632bf714bef16dc`) |
+| P02 | Instantané des résultats utilisé par le test de la sonde | livrée: `docs/ops/authz-outcomes.json` (6457dcfa, `39df4af619b8d439`) |
 
 ## 3. Ce qui n'est pas prouvé, et pourquoi
 

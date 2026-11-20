@@ -35,7 +35,8 @@ test('item 5: meetings + inspections say "No site in your scope" (not 0) and hid
 
 test('item 1: assets — never-synced register masks every count / money tile with "—" (no green 0)', () => {
   const src = read('public/assets.html');
-  assert.match(src, /_neverSynced = !!s && !s\.last_sync/);
+  assert.match(src, /if \(s && !s\.last_sync\) \{/);
+  assert.match(src, /_neverSynced = total === 0;/, 'rows loaded without a sync record are real data — never masked');
   assert.match(src, /function maskNeverSynced\(tab\)/);
   assert.match(src, /el\.textContent = '—'; el\.classList\.remove\('usd'\)/, 'the green "usd" class is withdrawn');
   assert.match(src, /maskNeverSynced\(tab\);\n  \}/, 'applied after every tab render');

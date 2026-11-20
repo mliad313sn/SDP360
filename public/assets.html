@@ -4002,8 +4002,13 @@ window.addEventListener('beforeprint', function () {
       const r = await fetch('/api/assets/sync-status', { credentials: 'same-origin', headers: authHeaders() });
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const s = await r.json();
-      _neverSynced = !!s && !s.last_sync;
-      if (_neverSynced && activeTab) maskNeverSynced(activeTab);
+      // never synced = no sync recorded AND an empty register (rows loaded another way are real data, never hidden)
+      if (s && !s.last_sync) {
+        let total = null;
+        try { const rs = await fetch('/api/assets/summary', { credentials: 'same-origin', headers: authHeaders() }); if (rs.ok) total = Number((await rs.json()).total); } catch (_) { total = null; }
+        _neverSynced = total === 0;
+        if (_neverSynced && activeTab) maskNeverSynced(activeTab);
+      }
       el.textContent = _freshnessLabel(s);
       el.classList.toggle('stale', !s || !s.last_sync);
       _assetsHead(s);
