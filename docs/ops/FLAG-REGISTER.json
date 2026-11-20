@@ -15,7 +15,7 @@
   "report_config": 295,
   "planned": 9,
   "governance_policies": 37,
-  "environment": 65,
+  "environment": 68,
   "pseudo": 4,
   "dark": 152,
   "dark_complete": 0
@@ -4424,6 +4424,17 @@
    ]
   },
   {
+   "key": "SDP_BACKUP_ALLOW_PLAINTEXT",
+   "source": "environment",
+   "kind": "switch",
+   "secret": false,
+   "default_when_unset": null,
+   "owner_role": null,
+   "read_in": [
+    "services/backup.js"
+   ]
+  },
+  {
    "key": "SDP_BACKUP_DIR",
    "source": "environment",
    "kind": "switch",
@@ -4531,6 +4542,28 @@
    "owner_role": null,
    "read_in": [
     "services/qualificationStore.js"
+   ]
+  },
+  {
+   "key": "SDP_READY_FAIL_CACHE_MS",
+   "source": "environment",
+   "kind": "switch",
+   "secret": false,
+   "default_when_unset": null,
+   "owner_role": null,
+   "read_in": [
+    "routes/health.js"
+   ]
+  },
+  {
+   "key": "SDP_READY_STATEMENT_TIMEOUT_MS",
+   "source": "environment",
+   "kind": "switch",
+   "secret": false,
+   "default_when_unset": null,
+   "owner_role": null,
+   "read_in": [
+    "routes/health.js"
    ]
   },
   {

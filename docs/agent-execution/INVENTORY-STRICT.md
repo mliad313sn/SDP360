@@ -16,7 +16,7 @@ Classes come from the declaration (method, path, guard names): `access`, `financ
 | writes without strict test | 23 |
 | jobs | 33 |
 | jobs without strict test | 0 |
-| test sources | 910 |
+| test sources | 912 |
 | without strict test access | 3 |
 | without strict test finance | 2 |
 | without strict test export | 6 |
@@ -121,4 +121,4 @@ Classes come from the declaration (method, path, guard names): `access`, `financ
 | export | 64 | 6 |
 | audit | 21 | 5 |
 | destructive | 36 | 2 |
-<!-- structure 48ee0195dceb73a0 -->
+<!-- structure 5cde1c3430fb1a27 -->
