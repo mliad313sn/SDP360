@@ -5,7 +5,7 @@ edit this file; fill the sidecar instead. A dark switch = a behaviour that is OF
 or a nested arm whose default is false). Turning one on is a human decision: the fields below are what that decision
 must name. The agent fills none of them (no owner, canary site, date or business threshold is ever invented).
 
-Dark switches: **160** · with every decision field filled: **0** · fields: `owner`, `risk`, `dependencies`, `canary_site`, `rollback_trigger`, `success_metric`, `decision_deadline`, `expiry`.
+Dark switches: **161** · with every decision field filled: **0** · fields: `owner`, `risk`, `dependencies`, `canary_site`, `rollback_trigger`, `success_metric`, `decision_deadline`, `expiry`.
 
 | Switch | Source | Owner role (profile) | Missing decision fields |
 |---|---|---|---|
@@ -101,6 +101,7 @@ Dark switches: **160** · with every decision field filled: **0** · fields: `ow
 | `ppm_mpp_import_enabled` | report_config | IT admin + PMO | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
 | `ppm_mspdi_enabled` | report_config | PMO | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
 | `ppm_offline_edit_enabled` | report_config | PMO | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
+| `ppm_portfolio_dashboard_v2_enabled` | report_config | to be named | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
 | `ppm_project_rag_enabled` | report_config | PMO | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
 | `ppm_project_report_enabled` | report_config | PMO | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
 | `ppm_project_roles_enabled` | report_config | PMO | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
