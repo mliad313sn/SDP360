@@ -4484,6 +4484,26 @@ document.addEventListener('DOMContentLoaded', init);
         if (out && Array.isArray(out.action_ids)) {
           sentActions.forEach((a, i) => { if (a && typeof a === 'object' && out.action_ids[i] != null) a.id = out.action_ids[i]; });
         }
+        // P11 r6 F-22 — refresh each action's loaded base (and the value the server kept) so the next save compares
+        // the editor's change to what is really stored; say so when a value set meanwhile was kept
+        if (out && Array.isArray(out.action_states)) {
+          const byId = new Map(out.action_states.map((x) => [Number(x.id), x]));
+          sentActions.forEach((a) => {
+            const x = a && typeof a === 'object' ? byId.get(Number(a.id)) : null;
+            if (!x) return;
+            a.status = x.status; a.owner = x.owner; a.base_status = x.status; a.base_owner = x.owner;
+          });
+        }
+        const keptN = out && Array.isArray(out.kept_server_value) ? out.kept_server_value.length : 0;
+        const ambN  = out && Array.isArray(out.kept_ambiguous) ? out.kept_ambiguous.length : 0;
+        if ((keptN || ambN) && typeof renderActions === 'function') renderActions();
+        if (keptN && typeof showToast === 'function') {
+          showToast(keptN + ' action(s) were changed meanwhile (actions register or phone): the server kept that status / owner. '
+            + 'The form now shows it — change it again and save if you still want your value.', 'warn', 9000);
+        }
+        if (ambN && typeof showToast === 'function') {
+          showToast(ambN + ' stored action(s) could not be matched safely (same text) and were kept. Reload the inspection to review them.', 'warn', 9000);
+        }
         dequeue(id);
         _promotedIds.add(id);
         _localDirty       = false;

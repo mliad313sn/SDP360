@@ -31,10 +31,10 @@ Files scanned: **149** · inline <style> blocks: **61** · hex literals: **5576*
 | `public/handoffs.html` | 19556 | 1 | 21 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/help.html` | 334985 | 1 | 85 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/home.html` | 7352 | 1 | 12 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/index.html` | 130392 | 1 | 114 | 2 | bar×2 | 0 | 0 | yes | — | yes | chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
+| `public/index.html` | 130879 | 1 | 114 | 2 | bar×2 | 0 | 0 | yes | — | yes | chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
 | `public/infra-health.html` | 33759 | 1 | 88 | 1 | line×1 | 0 | 2 | yes | — | — | doughnut/pie → ordered horizontal bars with values and population % (§5.2 "répartition de catégories"); chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
 | `public/inspection-actions.html` | 46669 | 1 | 100 | 1 | bar×2 doughnut×3 line×1 | 0 | 3 | yes | — | — | doughnut/pie → ordered horizontal bars with values and population % (§5.2 "répartition de catégories"); chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
-| `public/inspection.html` | 212420 | 1 | 200 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/inspection.html` | 213864 | 1 | 200 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/inspections.html` | 41278 | 1 | 105 | 1 | bar×2 doughnut×3 | 0 | 3 | yes | — | yes | doughnut/pie → ordered horizontal bars with values and population % (§5.2 "répartition de catégories"); chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
 | `public/integrations.html` | 18497 | 1 | 40 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/it-review.html` | 109850 | 1 | 71 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
@@ -100,7 +100,7 @@ Files scanned: **149** · inline <style> blocks: **61** · hex literals: **5576*
 | `public/lib/feedback.js` | 4691 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/ganttCore.js` | 30824 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/ganttV2.js` | 33609 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/lib/helpdeskSiteDefault.js` | 5415 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/helpdeskSiteDefault.js` | 8995 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/home-page.js` | 22012 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/homeGroup.js` | 12087 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/homeQueue.js` | 37015 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |

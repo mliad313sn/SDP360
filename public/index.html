@@ -692,11 +692,23 @@ try { localStorage.removeItem('grpTeams'); } catch(_){}
 let _activePreset = 'all'; // 'all' | 'ops' | 'app' | 'custom'
 
 // ── Row matching ───────────────────────────────────────────────────────────
+// P11 r6 F-21 — the site filter folds spellings through the shared site aliases and compares whole words
+// (lib/helpdeskSiteDefault.js siteMatches): 'Ouaga' = 'OUAGADOUGOU', and 'MANA' never matches 'MANAGEMENT'.
+let _siteOkFor=null,_siteOkFn=null;
+function _siteOk(site){
+  if(_siteOkFor!==FS){
+    _siteOkFor=FS;
+    const H=window.HelpdeskSiteDefault,SA=window.SiteAliases;
+    _siteOkFn=(H&&typeof H.matcher==='function')?H.matcher(FS,SA&&typeof SA.siteFoldKey==='function'?SA.siteFoldKey:null)
+      :(s=>(s||'').toUpperCase().includes(FS.toUpperCase()));
+  }
+  return _siteOkFn(site||'');
+}
 function matchPeriod(r,pKey){
   const dt=parseDt(r['Created Time']);if(!dt)return false;
   const s=pStart(pKey),e=pEnd(pKey);
   if(dt<s||dt>e)return false;
-  if(FS!=='all'&&!(r['Site']||'').toUpperCase().includes(FS.toUpperCase()))return false;
+  if(FS!=='all'&&!_siteOk(r['Site']))return false;
   if(FG.length&&!FG.some(g=>g.toLowerCase()===(r['Group']||'').toLowerCase()))return false;
   if(FC!=='all'){const cv=FC.toLowerCase();if(!(r['Category']||'').toLowerCase().includes(cv)&&!(r['Sub Category']||'').toLowerCase().includes(cv))return false;}
   if(FP!=='all'&&(r['Priority']||'').toLowerCase()!==FP.toLowerCase())return false;
@@ -1012,7 +1024,7 @@ function _getUnassignedRows(){
     if(!_isOpenTicket(r))return false;
     if(!_isUnassignedTicket(r))return false;
     // Apply current Site / Group / Category / Priority filters (period-independent — unassigned = current state)
-    if(FS!=='all'&&!(r['Site']||'').toUpperCase().includes(FS.toUpperCase()))return false;
+    if(FS!=='all'&&!_siteOk(r['Site']))return false;
     if(FG.length&&!FG.some(g=>g.toLowerCase()===(r['Group']||'').toLowerCase()))return false;
     if(FC!=='all'){const cv=FC.toLowerCase();if(!(r['Category']||'').toLowerCase().includes(cv)&&!(r['Sub Category']||'').toLowerCase().includes(cv))return false;}
     if(FP!=='all'&&(r['Priority']||'').toLowerCase()!==FP.toLowerCase())return false;
@@ -1129,7 +1141,7 @@ function renderAgeing(){
     if(isClosed(r))return false;                                             // Pending Status = No
     const rs=(r['Request Status']||'').toLowerCase().trim();
     if(CLOSED_STATUSES.has(rs))return false;                                 // closed by Request Status (older tickets)
-    if(FS!=='all'&&!(r['Site']||'').toUpperCase().includes(FS.toUpperCase()))return false;
+    if(FS!=='all'&&!_siteOk(r['Site']))return false;
     if(FG.length&&!FG.some(g=>g.toLowerCase()===(r['Group']||'').toLowerCase()))return false;
     if(FC!=='all'){const cv=FC.toLowerCase();if(!(r['Category']||'').toLowerCase().includes(cv)&&!(r['Sub Category']||'').toLowerCase().includes(cv))return false;}
     if(FP!=='all'&&(r['Priority']||'').toLowerCase()!==FP.toLowerCase())return false;
