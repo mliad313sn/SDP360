@@ -51,6 +51,7 @@ const CATALOGUE = Object.freeze({
   'reports.exec_pptx':          { module: 'reports',    formats: ['pptx'], amounts: 'none',  today: 'deck builder gate' },
   'reports.site_actions':       { module: 'reports',    formats: ['xlsx'], amounts: 'none',  today: 'session + site read (a viewer of the site exports the action register)',
     strict: { minTier: 'editor', why: 'action register export: editor of the site or admin tier (viewer reads on screen only)' } },
+  'reports.policy_set':         { module: 'reports',    formats: ['json', 'csv'], amounts: 'none', today: 'admin tier + policy_center_enabled (secrets exported as set / not set only)' },
   'reports.site_master':        { module: 'reports',    formats: ['csv', 'json'], amounts: 'none', today: 'super_admin' },
   'reports.studio_run':         { module: 'reports',    formats: ['html', 'pdf', 'csv', 'pptx', 'xlsx'], amounts: 'none', today: 'session + published/site visibility' },
   // ── Meetings / Inspection ──

@@ -17,7 +17,7 @@ function makePolicyChangeStore(handle, { now = () => new Date().toISOString(), d
     const c = [], p = [];
     if (status) { c.push('status = ?'); p.push(status); }
     if (key) { c.push('key = ?'); p.push(key); }
-    const lim = Math.max(1, Math.min(500, Number(limit) || 200));
+    const lim = Math.max(1, Math.min(500, Math.floor(Number(limit)) || 200));
     return ((await Q(`SELECT * FROM policy_change_requests ${c.length ? 'WHERE ' + c.join(' AND ') : ''} ORDER BY id DESC LIMIT ${lim}`).all(...p)) || []).map(row);
   }
   async function get(id) { await expireOld(); return row(await Q('SELECT * FROM policy_change_requests WHERE id = ?').get(Number(id))); }

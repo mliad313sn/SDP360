@@ -189,7 +189,7 @@ module.exports = function policyCenterRoutes(deps) {
       return { key: e.key, source: e.source, category: e.category, scope: 'global', value: v.effective !== undefined ? v.effective : e.default, default: e.default, site_values: v.sites || {} };
     });
   }
-  router.get('/api/policy-center/export', requireReportSession, requireAdmin, enabled, async (req, res) => {
+  router.get('/api/policy-center/export', requireReportSession, requireAdmin, enabled, require('../services/exportPolicy').gate('reports.policy_set'), async (req, res) => {
     try {
       const rows = await effectiveSet(); const at = new Date().toISOString();
       await log(req, { category: 'export', action: 'policy_center_export', target: 'policy_set', details: { format: req.query.format === 'csv' ? 'csv' : 'json', rows: rows.length } });
