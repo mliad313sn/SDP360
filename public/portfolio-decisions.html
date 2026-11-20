@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portfolio decisions &amp; alerts — Endeavour Mining IT</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<style nonce="%%CSP_NONCE%%">
+  body { margin: 0; background: var(--color-bg); color: var(--color-text-strong); font-family: var(--font-sans); font-size: 14px; }
+  .pd-wrap { max-width: 1280px; margin: 0 auto; padding: var(--space-6) var(--space-6) var(--space-12); }
+  .pd-card { background: var(--color-card); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: var(--space-4) var(--space-5); margin-bottom: var(--space-4); }
+  @media (max-width: 640px) { .pd-wrap { padding: var(--space-4); } .pd-card { padding: var(--space-3); } }
+  h1 { margin: 0 0 var(--space-2); font-size: 22px; } h2 { font-size: 16px; margin: 0 0 var(--space-2); }
+  .pd-muted { color: var(--color-text-muted); font-size: 12.5px; }
+  .pd-scroll { overflow-x: auto; }
+  .pd-table { border-collapse: collapse; width: 100%; }
+  .pd-table th, .pd-table td { padding: 6px 8px; border-bottom: 1px solid var(--color-border); text-align: left; font-size: 12.5px; vertical-align: top; }
+  .pd-table thead th { background: var(--color-primary-fill); color: var(--color-text-on-dark); font-weight: 700; }
+  .pd-tag { display: inline-block; padding: 1px 6px; border-radius: var(--radius-sm); border: 1px solid var(--color-border-strong); font-size: 11.5px; }
+  .pd-crit { border-color: var(--color-danger); color: var(--color-danger); } .pd-high { border-color: var(--color-warning); }
+  input, select, button { font: inherit; }
+  input, select { padding: 3px 6px; border: 1px solid var(--color-border-strong); border-radius: var(--radius-sm); background: var(--color-card); color: var(--color-text-strong); max-width: 160px; }
+  .pd-btn { border: 1px solid var(--color-border-strong); background: var(--color-card); color: var(--color-text-strong); border-radius: var(--radius-sm); padding: 3px 10px; cursor: pointer; font-size: 12.5px; }
+  .pd-form { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-top: 4px; }
+  a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--color-secondary); outline-offset: 2px; }
+  .pd-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+</style>
+</head>
+<body>
+<a class="edv-skip" href="#main">Skip to content</a>
+<div id="__shell" data-section="operations" data-current="portfolio"></div>
+<main id="main" class="pd-wrap">
+  <div class="pd-card">
+    <h1 id="pdTitle">Portfolio decisions &amp; alerts</h1>
+    <p class="pd-muted" id="pdIntro"></p>
+    <p class="pd-muted" id="pdMeta" role="status" aria-live="polite"></p>
+  </div>
+  <section class="pd-card" id="pdAgendaCard" hidden aria-labelledby="pdAgendaH"><h2 id="pdAgendaH"></h2><p class="pd-muted" id="pdAgendaSum"></p><div class="pd-scroll" id="pdAgenda"></div></section>
+  <section class="pd-card" id="pdAlertsCard" hidden aria-labelledby="pdAlertsH"><h2 id="pdAlertsH"></h2><p class="pd-muted" id="pdAlertsNote"></p><div class="pd-scroll" id="pdAlerts"></div></section>
+</main>
+<script nonce="%%CSP_NONCE%%" src="lib/portfolioDecisionsPage.js"></script>
+</body>
+</html>

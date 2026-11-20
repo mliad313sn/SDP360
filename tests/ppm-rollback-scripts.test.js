@@ -37,6 +37,8 @@ const PPM = ['010_roadmap', '011_roadmap_project', '039_native_ppm', '043_portfo
   '117_ppm_intake_register',
   // Policy Control Center — four-eyes requests for high-risk report_config rules
   '120_policy_change_requests',
+  // PORTFOLIO LOT 4 — project-linked decisions (authority / outcome / decision date) + alert → commitment link
+  '121_ppm_decision_agenda_alerts',
   // PORTFOLIO LOT 5 — created_by / updated_by + gate checklists for the extended lifecycle stages
   '125_ppm_lifecycle_audit'];
 

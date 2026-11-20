@@ -36,6 +36,7 @@ const { fail: httpFail, logError } = require('../services/httpError');
 //   PORTFOLIO LOT 5: review workflow + roles catalogue in routes/governanceReview.js (404 while ppm_review_workflow_enabled = '0');
 //   the stage route reads ppm_extended_lifecycle_enabled (extended stages), ppm_review_workflow_enabled (self-approval
 //   refusal, fail closed) and the project PUT reads ppm_field_audit_enabled / ppm_business_case_freeze_enabled
+//   PORTFOLIO LOT 4: decision agenda + management alerts in routes/governanceDecisionAgenda.js (404 while ppm_decision_agenda_enabled / ppm_alert_actions_enabled = '0')
 //
 // Committee = admin tier OR feature role `committee-member`. Runner of a session = committee, or the
 // cadence's chair/secretary, or an editor of the cadence's site (services/userSites).
@@ -985,6 +986,7 @@ module.exports = function governanceRoutes(deps) {
   require('./governancePpm')(router, { store, rdb, reportConfig, requireReportSession, json, isCommittee, canSeeMoney, viewFor, readableProject, readableHiddenProjects, refusePlanWrite, log });
   require('./governancePortfolioRegister')(router, { store, rdb, reportConfig, requireReportSession, viewFor, canSeeMoney, log });   // PORTFOLIO LOT 3 (ppm_portfolio_dashboard_v2_enabled)
   require('./governanceReview')(router, { store, rdb, reportConfig, requireReportSession, json, isCommittee, readableProject, log });   // PORTFOLIO LOT 5 (ppm_review_workflow_enabled)
+  require('./governanceDecisionAgenda')(router, { store, rdb, reportConfig, requireReportSession, json, requireCommittee, isCommittee, viewFor, visibleDecisions, canSeeMoney, log, commitments: deps.commitmentStore });   // PORTFOLIO LOT 4 (ppm_decision_agenda_enabled / ppm_alert_actions_enabled)
   // B6 (P7a) — audience-scoped roadmap publications (roadmap_audience_publication_enabled, 404 while '0')
   require('./governanceRoadmapAudience')(router, { store, rdb, reportConfig, requireReportSession, json, isCommittee, isAdmin, portfolioView, log });
   return router;

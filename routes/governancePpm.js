@@ -40,7 +40,8 @@ module.exports = function governancePpmRoutes(router, h) {
 
         xer: on(c, 'ppm_xer_enabled'), mpp_import: on(c, 'ppm_mpp_import_enabled'), jira_sync: on(c, 'ppm_jira_sync_enabled'), azdo_sync: on(c, 'ppm_azdo_sync_enabled'),   // W4-CONNECTORS (optional)
         simplified_view: on(c, 'ppm_simplified_view_enabled'), project_rag: on(c, 'ppm_project_rag_enabled'), dcma: on(c, 'ppm_dcma_enabled'), gate_checklist: on(c, 'ppm_gate_checklist_enabled'), raid: on(c, 'ppm_raid_enabled'), project_report: on(c, 'ppm_project_report_enabled'), intake_register: on(c, 'ppm_intake_register_enabled'), data_quality: on(c, 'ppm_data_quality_enabled'), dq_gate_enforced: on(c, 'ppm_dq_gate_enforced'), portfolio_dashboard_v2: on(c, 'ppm_portfolio_dashboard_v2_enabled'),
-        extended_lifecycle: on(c, 'ppm_extended_lifecycle_enabled'), review_workflow: on(c, 'ppm_review_workflow_enabled'), field_audit: on(c, 'ppm_field_audit_enabled'), business_case_freeze: on(c, 'ppm_business_case_freeze_enabled') });   // PORTFOLIO LOT 1 + LOT 2 + LOT 3 + LOT 5
+        extended_lifecycle: on(c, 'ppm_extended_lifecycle_enabled'), review_workflow: on(c, 'ppm_review_workflow_enabled'), field_audit: on(c, 'ppm_field_audit_enabled'), business_case_freeze: on(c, 'ppm_business_case_freeze_enabled'),
+        decision_agenda: on(c, 'ppm_decision_agenda_enabled'), alert_actions: on(c, 'ppm_alert_actions_enabled') });   // PORTFOLIO LOT 1-5
     } catch (e) { fail(res, e); }
   });
 

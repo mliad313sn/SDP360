@@ -5,6 +5,8 @@
 // username / full name / e-mail) and to the committee (admin tier + committee-member), one alert_firings row per new
 // item (dedup ppm_alert_state: the same item is not re-notified within 7 days; an item that disappears is cleared).
 // External channels (e-mail) only when alert_external_enabled = '1' AND notifications_stop != '1' (G16).
+// PORTFOLIO LOT 4: with ppm_alert_actions_enabled = '1' the six management kinds join the pass. A cleared item only
+// stamps cleared_at in ppm_alert_state — a commitment it was promoted to is NEVER closed here (a human verifies it).
 //
 //   node tools/governance/ppm-alerts.js            # one pass (dry run while disarmed)
 //   node tools/governance/ppm-alerts.js --dry-run  # preview only
@@ -54,7 +56,10 @@ async function run({ dryRun = false, deps = {}, log = console.log } = {}) {
   const staleDays = stop ? null : num(cfg.stale_plan_days, null);
   const planUpdated = staleDays != null && D.planUpdatedAt ? await D.planUpdatedAt((pf.projects || []).map((p) => p.id)) : null;
   const items = findExceptions(pf, { today, blockedDays: num(cfg.ppm_alert_blocked_days, 5), slipDays: num(cfg.ppm_alert_slip_days, 10), gateLeadDays: stop ? null : num(cfg.a10_gate_lead_days, null), staleDays, planUpdated,
-    capacity: resourceConflicts(pf.tasks || []) });   // F-PRODUCT-02: over-allocation reaches A11 (known allocations only)
+    capacity: resourceConflicts(pf.tasks || []),   // F-PRODUCT-02: over-allocation reaches A11 (known allocations only)
+    // PORTFOLIO LOT 4 — the six spec kinds only with ppm_alert_actions_enabled = '1'. money: false — a notice goes to the
+    // project owner, who may not read amounts, so 'unfunded' is never notified (it shows on the page to amount readers).
+    management: String(cfg.ppm_alert_actions_enabled) === '1' ? { money: false, decisions: D.store.listDecisions ? await D.store.listDecisions({ withRecord: true, limit: 2000 }) : null, decisionAgeDays: cfg.ppm_alert_decision_age_days } : null });
   const states = new Map((await D.store.alertStates()).map((s) => [s.item_key, s]));
   const due = items.filter((it) => { const s = states.get(it.key); if (!s || s.cleared_at || !s.last_notified) return true; return (Date.parse(nowIso) - Date.parse(s.last_notified)) / 86400000 >= RENOTIFY_DAYS; });
   const users = await D.listUsers();
