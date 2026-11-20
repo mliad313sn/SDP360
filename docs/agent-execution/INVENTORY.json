@@ -598,7 +598,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 330056,
+   "bytes": 334985,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/csp-strict-pages-config.test.js",
@@ -971,7 +971,7 @@
     ],
     "redirect_to": null,
     "deep_link_only": null,
-    "known_dead_end": "KPI policy builder (kpi-committee) — only named in the role help text of the Users card"
+    "known_dead_end": null
    },
    "parent": "lib/policyCenterPage.js",
    "reachable": true,
