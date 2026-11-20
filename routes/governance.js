@@ -776,6 +776,12 @@ module.exports = function governanceRoutes(deps) {
     const ctx = await accessCtx(u);
     return PA.canReadProject(u, p, { ...ctx, extraSites: await store.projectSites(p.id) }) ? p : null;
   }
+  /** P11 R3-2 — of these hidden (soft-deleted) project rows, the ones this user could read (same A-15 rule as live). */
+  async function readableHiddenProjects(u, rows) {
+    const ctx = await accessCtx(u); const out = [];
+    for (const p of rows || []) if (PA.canReadProject(u, p, { ...ctx, extraSites: await store.projectSites(p.id) })) out.push(p);
+    return out;
+  }
   router.get('/api/governance/portfolio/project/:id/baselines', requireReportSession, async (req, res) => {
     try {
       if (!(await readableProject(req.reportUser, req.params.id))) return httpFail(res, new Error('project not found'), 404, { ok: false });
@@ -926,7 +932,7 @@ module.exports = function governanceRoutes(deps) {
       res.json({ ok: true, proposed: rows.some((r) => r.status === 'proposed'), sources: S.SOURCES, not_measured: data.not_measured, ...DX.rollup(data.values, DX.makeIndex(rows, { mdNames })) });
     } catch (e) { fail(res, e); }
   });
-  require('./governancePpm')(router, { store, rdb, reportConfig, requireReportSession, json, isCommittee, canSeeMoney, viewFor, readableProject, refusePlanWrite, log });
+  require('./governancePpm')(router, { store, rdb, reportConfig, requireReportSession, json, isCommittee, canSeeMoney, viewFor, readableProject, readableHiddenProjects, refusePlanWrite, log });
   // B6 (P7a) — audience-scoped roadmap publications (roadmap_audience_publication_enabled, 404 while '0')
   require('./governanceRoadmapAudience')(router, { store, rdb, reportConfig, requireReportSession, json, isCommittee, isAdmin, portfolioView, log });
   return router;

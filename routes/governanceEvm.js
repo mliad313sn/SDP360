@@ -12,7 +12,7 @@
 const { fail: httpFail } = require('../services/httpError');
 
 module.exports = function governanceEvmRoutes(router, h) {
-  const { store, rdb, reportConfig, requireReportSession, json, viewFor, isCommittee, canSeeMoney, readableProject, log } = h;
+  const { store, rdb, reportConfig, requireReportSession, json, viewFor, isCommittee, canSeeMoney, readableProject, readableHiddenProjects, log } = h;
   const EVM = require('../services/ppm/evm');
   const fail = (res, e) => httpFail(res, e, undefined, { ok: false, ...(e && e.reason ? { code: e.reason } : {}) });
   const cfg = async () => reportConfig.getConfig(rdb().db);
@@ -42,6 +42,19 @@ module.exports = function governanceEvmRoutes(router, h) {
     }));
   }
 
+  /** P11 R3-2 — spent money of hidden projects: every time entry (no live task) + the ACTUAL budget periods only. */
+  async function computeSpent(projects, sd) {
+    if (!projects.length) return [];
+    const s = evStore(), pids = projects.map((p) => p.id);
+    const [periods, entries] = await Promise.all([s.budgetPeriodsFor(pids), s.timeEntriesFor(pids)]);
+    return projects.map((p) => {
+      const mine = entries.filter((e) => e.project_id === Number(p.id)), acts = periods.filter((r) => r.project_id === Number(p.id) && r.kind === 'actual');
+      const r = EVM.projectEvm({ project: p, tasks: [], evmFields: {}, budgetPeriods: acts, timeEntries: mine, statusDate: sd });
+      // hours ≤ status date whose task has no currency (and no ACTUAL period to replace them) cannot be placed
+      r.currencyUnknown = mine.some((e) => String(e.day).slice(0, 10) <= sd && !/^[A-Z]{3}$/.test(String(e.cost_currency || '')));
+      return r;
+    });
+  }
   router.get('/api/governance/ppm/project/:id/evm', requireReportSession, async (req, res) => {
     try {
       if (!(await evmOn(res))) return;
@@ -63,9 +76,19 @@ module.exports = function governanceEvmRoutes(router, h) {
       if (!canSeeMoney(req.reportUser)) return res.json({ ok: true, money_hidden: true, portfolio: null, certification: EVM.CERTIFICATION });
       const progOf = new Map((v.objectives || []).map((o) => [Number(o.id), o.programme_id == null ? null : Number(o.programme_id)]));
       const results = await compute(v.projects || [], v.tasks || [], sd);
-      const portfolio = EVM.portfolioEvm((v.projects || []).map((p, i) => ({ project_id: p.id, programme_id: progOf.get(Number(p.objective_id)) ?? null, rollup_input: results[i].rollup_input })), { rates: fxTable(await cfg()) });
+      // P11 R3-2 — a project hidden by a soft delete (its own, its objective's, its programme's) keeps the money it
+      // already spent in AC (its budget and work ahead leave), flagged actuals_on_deleted_projects; same read scope.
+      const live = new Set((v.projects || []).map((p) => Number(p.id)));
+      const hiddenRows = (await evStore().hiddenProjectsWithActuals()).filter((p) => !live.has(p.id));
+      const hidden = typeof readableHiddenProjects === 'function' ? await readableHiddenProjects(req.reportUser, hiddenRows) : [];
+      const hiddenRes = await computeSpent(hidden, sd);
+      const portfolio = EVM.portfolioEvm([
+        ...(v.projects || []).map((p, i) => ({ project_id: p.id, programme_id: progOf.get(Number(p.objective_id)) ?? null, rollup_input: results[i].rollup_input })),
+        ...hidden.map((p, i) => ({ project_id: p.id, programme_id: p.programme_id, rollup_input: EVM.spentOnlyContribution(hiddenRes[i].rollup_input, { currencyUnknown: hiddenRes[i].currencyUnknown }) })),
+      ], { rates: fxTable(await cfg()) });
       const projects = (v.projects || []).map((p, i) => ({ project_id: p.id, key: p.key, name: p.name, programme_id: progOf.get(Number(p.objective_id)) ?? null, currencies: results[i].currencies.map(({ s_curve, ...c }) => c) }));
-      res.json({ ok: true, money_hidden: false, status_date: sd, portfolio, projects, certification: EVM.CERTIFICATION });
+      const deleted_projects = hidden.map((p, i) => ({ project_id: p.id, key: p.key, name: p.name, programme_id: p.programme_id, deleted: true, currencies: hiddenRes[i].rollup_input.filter((x) => x.currency).map((x) => ({ currency: x.currency, ac: x.ac == null ? null : Math.round(x.ac * 100) / 100 })) }));
+      res.json({ ok: true, money_hidden: false, status_date: sd, portfolio, projects, deleted_projects, certification: EVM.CERTIFICATION });
     } catch (e) { fail(res, e); }
   });
 
