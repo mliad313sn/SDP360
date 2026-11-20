@@ -73,6 +73,12 @@ const CLASSES = {
   'export.risk_register': 'export', 'deck.weekly': 'deck_generation', 'deck.all_sites_monthly': 'deck_generation',
 };
 const classOf = (step) => CLASSES[step] || 'other';
+// P11 r5 F-07 — answers a step gives BY DESIGN in this harness (the field envelope without LOAD_FIELD_ACTION_ID is a
+// rejected test envelope, 400). They stay visible per step / route / overall, but a budget CLASS is measured on the
+// real answers only: its latency and error rate leave them out and count them apart (designed_4xx_excluded).
+// Any other 4xx (401 / 403 / 409 …) is a real error and still counts.
+const DESIGNED_4XX = Object.freeze({ 'field.envelope': [400] });
+const isDesigned = (s) => (DESIGNED_4XX[s.step] || []).includes(s.status);
 
 /** Pure aggregation: samples [{step, ms, status}] → per-step and overall statistics. */
 function aggregate(samples, { durationSec = null, rss = [], conns = [] } = {}) {
@@ -89,8 +95,16 @@ function aggregate(samples, { durationSec = null, rss = [], conns = [] } = {}) {
   const steps = {}; for (const k of Object.keys(by).sort()) steps[k] = stat(by[k]);
   const byRoute = {}; for (const x of samples) (byRoute[routeOf(x.step)] = byRoute[routeOf(x.step)] || []).push(x);
   const routes = {}; for (const k of Object.keys(byRoute).sort()) routes[k] = stat(byRoute[k]);
-  const byClass = {}; for (const x of samples) (byClass[classOf(x.step)] = byClass[classOf(x.step)] || []).push(x);
-  const classes = {}; for (const k of Object.keys(byClass).sort()) classes[k] = stat(byClass[k]);
+  const byClass = {}; const designed = {};
+  for (const x of samples) {
+    const c = classOf(x.step);
+    if (isDesigned(x)) { designed[c] = (designed[c] || 0) + 1; continue; }
+    (byClass[c] = byClass[c] || []).push(x);
+  }
+  const classes = {};
+  for (const k of [...new Set([...Object.keys(byClass), ...Object.keys(designed)])].sort()) {
+    classes[k] = { ...stat(byClass[k] || []), designed_4xx_excluded: designed[k] || 0 };
+  }
   const rssKb = rss.filter((x) => Number.isFinite(x));
   const cs = conns.filter((c) => c && Number.isFinite(c.total));
   const pool = cs.length ? { samples: cs.length, total_max: Math.max(...cs.map((c) => c.total)), active_max: Math.max(...cs.map((c) => c.active)),
@@ -228,5 +242,5 @@ async function main(argv = process.argv.slice(2)) {
   return agg;
 }
 
-module.exports = { assertTarget, parseArgs, percentile, aggregate, renderMarkdown, LOCAL, ROUTES, routeOf, CLASSES, classOf, tokenFromSetCookie, readConns, __main: main };
+module.exports = { DESIGNED_4XX, assertTarget, parseArgs, percentile, aggregate, renderMarkdown, LOCAL, ROUTES, routeOf, CLASSES, classOf, tokenFromSetCookie, readConns, __main: main };
 if (require.main === module) main().catch((e) => { console.error('[load] ' + e.message); process.exit(2); });

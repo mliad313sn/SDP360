@@ -59,3 +59,42 @@ test('load harness: session cookie, route classes, pool aggregation', () => {
   assert.deepStrictEqual(agg.pool, { samples: 2, total_max: 6, active_max: 3, active_p95: 3, waiting_lock_max: 1 });
   assert.strictEqual(L.aggregate([]).pool, null);
 });
+
+// P11 r5 F-07 — the write class read OVER (errors 50 %) only because the harness's field envelope is a 400 by design.
+test('F-07: designed 4xx leave the budget class (counted apart); a real 4xx/5xx still counts', () => {
+  const samples = [
+    { step: 'reports.save_section', ms: 100, status: 200 }, { step: 'reports.save_section', ms: 120, status: 200 },
+    { step: 'field.envelope', ms: 5000, status: 400 }, { step: 'field.envelope', ms: 5000, status: 400 },
+  ];
+  const agg = L.aggregate(samples);
+  assert.strictEqual(agg.classes.write.n, 2);
+  assert.strictEqual(agg.classes.write.error_rate_pct, 0);
+  assert.strictEqual(agg.classes.write.designed_4xx_excluded, 2);
+  assert.ok(agg.classes.write.p95 < 1000, 'the 5 s designed rejections do not drive the write p95');
+  assert.strictEqual(agg.steps['field.envelope'].errors, 2, 'still visible per step');
+  assert.strictEqual(agg.overall.errors, 2, 'and overall');
+  const rows = PB.check(agg.classes, { write: { p95_ms: 1000, error_rate_pct: 1, five_xx_max: 0 } });
+  assert.strictEqual(rows[0].status, 'within');
+  // a 403 on the same step, or a 500, is not designed: it counts
+  const bad = L.aggregate([...samples, { step: 'field.envelope', ms: 50, status: 403 }, { step: 'reports.save_section', ms: 50, status: 500 }]);
+  assert.strictEqual(bad.classes.write.errors, 2);
+  assert.strictEqual(PB.check(bad.classes, { write: { p95_ms: 1000, error_rate_pct: 1, five_xx_max: 0 } })[0].status, 'over');
+  // a class made only of designed answers has no sample, never "within"
+  const only = L.aggregate([{ step: 'field.envelope', ms: 10, status: 400 }]);
+  assert.strictEqual(only.classes.write.n, 0);
+  assert.strictEqual(PB.check(only.classes, { write: { p95_ms: 1000 } })[0].status, 'no_sample');
+});
+
+// P11 r5 F-07b — `PERF_BUDGETS_BLOCKING=1 node perf-budget-check.js <json>` printed "nothing to check" and passed.
+test('F-07b: a bare path is the load file; blocking mode with nothing to check fails', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'p05-budget-pos-'));
+  const budgets = path.join(dir, 'b.json'); const load = path.join(dir, 'l.json');
+  fs.writeFileSync(budgets, JSON.stringify({ status: 'PROPOSED', approved_by: null, api_route_classes: { page_data: { p95_ms: 10 } } }));
+  fs.writeFileSync(load, JSON.stringify({ classes: { page_data: { n: 3, p95: 50 } } }));
+  const lines = [];
+  assert.strictEqual(PB.main([`--budgets=${budgets}`, load], { PERF_BUDGETS_BLOCKING: '1' }, (s) => lines.push(s)), 1);
+  assert.ok(lines.some((l) => /OVER/.test(l)) && !lines.some((l) => /nothing to check/.test(l)));
+  assert.strictEqual(PB.main([`--budgets=${budgets}`], { PERF_BUDGETS_BLOCKING: '1' }, () => {}), 1, 'blocking + nothing to check = fail');
+  assert.strictEqual(PB.main([`--budgets=${budgets}`], {}, () => {}), 0, 'warn mode stays 0');
+  fs.rmSync(dir, { recursive: true, force: true });
+});
