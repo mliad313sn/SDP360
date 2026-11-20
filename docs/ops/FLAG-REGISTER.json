@@ -15,7 +15,7 @@
   "report_config": 319,
   "planned": 9,
   "governance_policies": 37,
-  "environment": 71,
+  "environment": 72,
   "pseudo": 4,
   "dark": 173,
   "dark_complete": 0,
@@ -4814,6 +4814,17 @@
     "services/blobStore.js",
     "services/sync/jobs.js",
     "tracker-db.js"
+   ]
+  },
+  {
+   "key": "SDP_LEDGER_SCHEMA",
+   "source": "environment",
+   "kind": "switch",
+   "secret": false,
+   "default_when_unset": null,
+   "owner_role": null,
+   "read_in": [
+    "services/auditChain.js"
    ]
   },
   {

@@ -14,8 +14,8 @@
   "routes_in_server_js": 160,
   "jobs": 33,
   "jobs_without_test_reference": 0,
-  "migrations": 110,
-  "test_files": 918
+  "migrations": 111,
+  "test_files": 919
  },
  "pages": [
   {
@@ -16530,6 +16530,10 @@
   {
    "id": "MG-reports-130-ppm-portfolio-phase2",
    "file": "db/postgres/reports/130_ppm_portfolio_phase2.sql"
+  },
+  {
+   "id": "MG-reports-131-audit-chain-anchor",
+   "file": "db/postgres/reports/131_audit_chain_anchor.sql"
   },
   {
    "id": "MG-sync-000-upgrade-from-1-11",

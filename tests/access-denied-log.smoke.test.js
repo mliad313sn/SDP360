@@ -15,8 +15,24 @@ const assert = require('node:assert');
 const http = require('http');
 
 let server, base, rdb, viewerTok;
-const wait = () => new Promise((r) => setTimeout(r, 300));   // logEvent is fire-and-forget
 const rows = async (action) => (((await rdb.listSystemLog({ action }, { limit: 200 })) || {}).rows || []);
+// logEvent is fire-and-forget: poll (bounded) for the expected row instead of sleeping a fixed time — a fixed wait
+// went red under full-suite load (P11 r5 R5-A8). The condition is the assertion's own precondition, never the result.
+async function until(fn, ms = 10000) {
+  const end = Date.now() + ms; let v;
+  for (;;) { v = await fn(); if (v) return v; if (Date.now() > end) return v; await new Promise((r) => setTimeout(r, 50)); }
+}
+// settle: the rows of one action stop changing for 250 ms (so a "only one row" assertion is not judged too early)
+async function settled(action, ms = 10000) {
+  let last = null; let stableSince = Date.now(); const end = Date.now() + ms;
+  for (;;) {
+    const cur = JSON.stringify(await rows(action));
+    if (cur !== last) { last = cur; stableSince = Date.now(); }
+    else if (Date.now() - stableSince >= 250) return;
+    if (Date.now() > end) return;
+    await new Promise((r) => setTimeout(r, 50));
+  }
+}
 
 before(async () => {
   const { app } = require('../server');
@@ -32,9 +48,9 @@ after(() => { try { server && server.close(); } catch {} });
 
 test('an anonymous call is recorded once per window, with the count', async () => {
   for (let i = 0; i < 3; i++) assert.strictEqual((await fetch(base + '/api/governance/portfolio')).status, 401);
-  await wait();
+  await until(async () => (await rows('access_unauthenticated')).some((x) => x.actor === 'anonymous'));
   for (let i = 0; i < 5; i++) await fetch(base + '/api/probe-' + i);   // a prober walking paths is still ONE source
-  await wait();
+  await settled('access_unauthenticated');
   const r = (await rows('access_unauthenticated')).filter((x) => x.actor === 'anonymous');
   assert.strictEqual(r.length, 1, 'one row per source and window, not one per call or per path');
   assert.ok(String(r[0].details).includes('/api/governance/portfolio'), 'the first path is kept in the details');
@@ -43,7 +59,8 @@ test('an anonymous call is recorded once per window, with the count', async () =
 test('a signed-in user refused by a role gate is recorded with their name and a risk flag', async () => {
   const res = await fetch(base + '/api/reports/users', { headers: { 'x-report-token': viewerTok } });
   assert.strictEqual(res.status, 403);
-  await wait();
+  await until(async () => (await rows('access_denied')).some((x) => x.actor === 'dn-viewer'));
+  await settled('access_denied');
   const r = (await rows('access_denied')).filter((x) => x.actor === 'dn-viewer');
   assert.strictEqual(r.length, 1);
   assert.strictEqual(Number(r[0].risk), 1);
@@ -53,7 +70,7 @@ test('a signed-in user refused by a role gate is recorded with their name and a 
 test('a token in the path is cut to 8 characters before it is logged', async () => {
   const tok = 'a'.repeat(8) + 'b'.repeat(56);
   assert.strictEqual((await fetch(base + '/api/reports/sessions/' + tok, { method: 'DELETE', headers: { 'x-report-token': viewerTok } })).status, 403);
-  await wait();
+  await until(async () => JSON.stringify(await rows('access_denied')).includes('/api/reports/sessions/'));
   const all = JSON.stringify(await rows('access_denied'));
   assert.ok(!all.includes(tok), 'full token never stored'); assert.ok(all.includes('aaaaaaaa…'));
 });

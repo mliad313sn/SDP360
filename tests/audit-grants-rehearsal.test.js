@@ -13,6 +13,9 @@ const { Client } = require('pg');
 // P11 round 3 R3-A1 — the list is derived from the code (services/auditChain.js), never re-typed here: the script
 // once covered 6 of the 12 hash-chained tables and this test pinned the same 6.
 const TABLES = [...require('../services/auditChain').TABLES];
+// minimal pgDb-shaped adapter over a raw pg Client (? → $n), so services/auditChain.verify runs AS the app role
+const clientDb = (c) => ({ prepare: (sql) => { let i = 0; const q = sql.replace(/\?/g, () => '$' + (++i)); return {
+  get: async (...p) => (await c.query(q, p)).rows[0], all: async (...p) => (await c.query(q, p)).rows, run: async (...p) => c.query(q, p) }; } });
 const SCRIPT = path.join(__dirname, '..', 'tools', 'pg', 'harden-audit-grants.sql');
 const scriptTables = () => {
   const m = fs.readFileSync(SCRIPT, 'utf8').match(/set_config\('sdp\.audit_tables',\s*'([^']*)'/);
@@ -95,11 +98,35 @@ test('harden-audit-grants.sql: the app role reads and appends, never edits, dele
         await app.query('CREATE TABLE r4_app_owned (id int)');
         await app.query('ALTER TABLE r4_app_owned ADD COLUMN x text');
         await app.query('DROP TABLE r4_app_owned');
+        // P11 r5 R5-A3 — no shadow ledger: the app role can no longer create a schema (the database left it), nor plant
+        // a copy in another schema, and a fresh session lands on the ledger schema (role search_path pinned)
+        const dOwner = (await admin.query('SELECT pg_get_userbyid(datdba) AS o FROM pg_database WHERE datname = current_database()')).rows[0].o;
+        assert.equal(dOwner, 'sdp_audit_owner', 'the database left the application role');
+        await assert.rejects(app.query('CREATE SCHEMA r5_shadow'), /permission denied/, 'CREATE SCHEMA refused');
+        await assert.rejects(app.query(`ALTER DATABASE "${dbName}" OWNER TO ${role}`), /must be owner|permission denied/);
+        await app.query(`GRANT CREATE ON DATABASE "${dbName}" TO ${role}`).catch(() => {}); // a non-holder's GRANT only warns
+        assert.equal((await admin.query('SELECT has_database_privilege($1, current_database(), \'CREATE\') AS c', [role])).rows[0].c, false, 'no CREATE on the database');
+        const bare = new Client({ connectionString: u.toString() }); await bare.connect();
+        try { assert.equal((await bare.query('SELECT current_schema() AS s')).rows[0].s, schema, 'search_path pinned to the ledger schema'); } finally { await bare.end(); }
+        // the anchor table: append + read only
+        await app.query("INSERT INTO audit_chain_anchors (table_name, schema_name, last_id, head, row_count) VALUES ('minutes_history', 'x', NULL, NULL, 0)");
+        await assert.rejects(app.query('DELETE FROM audit_chain_anchors'), /permission denied|append-only/);
+        await assert.rejects(app.query('TRUNCATE audit_chain_anchors'), /permission denied/);
+        // the one place left (pg_temp, session-local) is reported by the verify: a temp copy of ppm_events shadows the name
+        await app.query('CREATE TEMP TABLE ppm_events (LIKE ' + schema + '.ppm_events INCLUDING ALL)');
+        const AC = require('../services/auditChain');
+        const v = await AC.verify(clientDb(app));
+        const pe = v.tables.find((x) => x.table === 'ppm_events');
+        assert.equal(pe.ok, false); assert.equal(pe.shadowed, true); assert.equal(v.ok, false);
+        assert.equal(v.schema, schema);
+        await app.query('DROP TABLE pg_temp.ppm_events');
         // security review: the trigger functions are not the app role's to replace either
         await assert.rejects(app.query("CREATE OR REPLACE FUNCTION sdp_append_only() RETURNS trigger LANGUAGE plpgsql AS $f$ BEGIN RETURN NEW; END $f$"), /must be owner|permission denied/);
         await assert.rejects(app.query("CREATE OR REPLACE FUNCTION sdp_hash_chain() RETURNS trigger LANGUAGE plpgsql AS $f$ BEGIN RETURN NEW; END $f$"), /must be owner|permission denied/);
       } finally { await app.end(); }
     } finally {
+      await admin.query(`ALTER ROLE ${role} IN DATABASE "${dbName}" RESET ALL`).catch(() => {});
+      await admin.query('ALTER TABLE audit_chain_anchors OWNER TO current_user').catch(() => {});
       if (datOwner) await admin.query(`ALTER DATABASE "${dbName}" OWNER TO "${datOwner}"`).catch(() => {});
       if (nspOwner) await admin.query(`ALTER SCHEMA ${schema} OWNER TO "${nspOwner}"`).catch(() => {});
       await admin.query(`DROP TABLE IF EXISTS r4_app_owned`).catch(() => {});

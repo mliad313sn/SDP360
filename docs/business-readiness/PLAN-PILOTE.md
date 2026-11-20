@@ -13,7 +13,7 @@
 | Où | **Instance de TEST** uniquement (`docs/ops/pilot/TEST-INSTANCE.md`). La production n'est touchée qu'après la porte G17. |
 | Qui | Deux sites (décision HD-G11), une cohorte codée P01… (HD-U04). Les interrupteurs valent pour **toute l'instance** : le périmètre du pilote est tenu par l'instance de TEST et par les comptes de la cohorte, pas par l'interrupteur. |
 | Quoi | Le produit tel que livré (interrupteurs par défaut), puis des **lots** d'interrupteurs (`docs/ops/switch-lots.json`) en trois vagues. |
-| Comment | `node tools/ops/activate-switches.js` : plan (`--plan`), puis simulation (`--dry-run`), puis application, avec un fichier de retour arrière signé à chaque application. |
+| Comment | `node tools/ops/activate-switches.js` : plan (`--plan`), puis simulation (`--dry-run`), puis application, avec un fichier de retour arrière contrôlé à chaque application (empreinte sha256 enregistrée dans `system_log`, scellé HMAC quand `SDP_CONFIG_KEY` ou `SDP_BACKUP_KEY` est posée ; sans clé il est seulement contrôlé par empreinte, pas signé). |
 | Combien de temps | Proposition IA : 2 semaines de référence + 6 semaines de pilote (3 vagues × 2 semaines). Dates : champ humain. |
 | Ce qui reste interdit | Lot L05 (NO-GO), envois sortants (`K:outbound`), écriture dans ServiceDesk Plus (`K:source_system_write`, refusé par l'outil), Centre de contrôle des politiques (`policy_center_enabled`). |
 
@@ -58,6 +58,7 @@ dans le code » n'est pas « vérifié ».
 | L05 | PMO — temps, argent, bénéfices | **NO-GO pour le pilote** | porte Finance G14 signée + SEC-F2 tranché + R4-1 revérifié ou accepté par la Finance | HD-G14, HD-S01, HD-F01, HD-F03, HD-F04, HD-F05 | exclu |
 | L06 | Échange de plans (extras) | **CONDITIONAL**, hors pilote | porte connecteurs G13 ; Jira / Azure DevOps restent des appels sortants sautés par l'outil | HD-G13 | exclu |
 | L07 | Publication de la feuille de route, sensibilité | **CONDITIONAL**, hors pilote | test de partage avec montants semés exécuté ; à activer avec L05 seulement (corbeille) | HD-S13, HD-C05 | exclu |
+| L16 | Portefeuille phase 2 (dépendances, demande et capacité, documents, score d'effort, scénarios, export BI) | **CONDITIONAL**, hors pilote (avis panel IA du tour 5, lot fusionné après le tour 4) | non planifié dans ce pilote ; avant toute vague : revue humaine du lot ; documents supprimés en corbeille et versionnés (migration 130) mais stockés sans antivirus (décision de l'opérateur) ; l'export BI passe par l'interrupteur « quatre yeux » `ext_api_portfolio_enabled` (second opérateur ou Centre des politiques) avec une clé d'API au périmètre `portfolio:read` ; seuils de capacité, échelle d'exposition et pondérations d'effort sont PROPOSÉS | HD-P13 | exclu |
 | L13 | Résilience des opérations | **CONDITIONAL**, hors pilote ; **NO-GO** pour activer `policy_center_enabled` | R4-A2 / N-10 revérifiés ; G05 signée ; deux interrupteurs sortants (`sync_drift_alerts`, `delivery_failure_alert_enabled`) | HD-S04, HD-O02, HD-O04, HD-G05 | exclu |
 
 Groupes gardés éteints pendant tout le pilote : `K:outbound`, `K:armed_in_production` (maintien décidé à part,
@@ -82,15 +83,15 @@ tout cas `K:source_system_write`, `K:kill_switch` et `K:not_a_switch`.
 Règles communes :
 - `--db-url=env` lit `PG_URL` dans le `.env` de l'instance de TEST : le mot de passe n'apparaît jamais sur une ligne de commande.
 - `--reason` cite la référence de la décision du registre (au moins 10 caractères) ; `--operator` nomme la personne qui exécute.
-- L'outil écrit un fichier de retour arrière signé (empreinte enregistrée dans `system_log`) **avant** la première écriture,
+- L'outil écrit un fichier de retour arrière contrôlé (empreinte sha256 enregistrée dans `system_log`, scellé HMAC si une clé est posée) **avant** la première écriture,
   dans le dossier `data/switch-rollbacks` de l'instance. Conserver le chemin affiché à la fin.
 - Un lot est refusé en entier si un prérequis n'est pas allumé (exemple : L09 sans L01).
 - Le retour arrière **ne restaure que la configuration** : les données saisies pendant que l'interrupteur était allumé restent en base.
 - Ne jamais ajouter `--include-outbound` pendant le pilote.
-- Lots L03, L08, L11, L12 et L14 : ils contiennent un interrupteur « quatre yeux » (marqué `4EYES` par `--plan`,
+- Lots L03, L08, L11, L12, L14 (et L16, hors pilote) : ils contiennent un interrupteur « quatre yeux » (marqué `4EYES` par `--plan`,
   règle du catalogue `docs/ops/policy-catalogue.json`). L'application est **refusée sans rien écrire** tant que
   `--second-operator=<second opérateur>` ne nomme pas une **autre** personne, qui a relu le plan ; les deux noms sont
-  écrits dans le journal et dans le fichier de retour arrière signé. Le retour arrière de ces interrupteurs vers leur
+  écrits dans le journal et dans le fichier de retour arrière. Le retour arrière de ces interrupteurs vers leur
   côté le moins strict demande aussi `--second-operator`. Si le Centre des politiques est allumé (`policy_center_enabled`),
   l'outil n'écrit pas ces interrupteurs : il dépose une demande par interrupteur (demandeur = le compte super_admin de
   `--operator`) et un second super_admin décide dans le centre.
