@@ -10,7 +10,7 @@
 | Decision cell in RELEASE-GATES.md | empty — this gate is **NO-GO** until the approver fills it. This dossier fills nothing. |
 | What this gate blocks | blocks the pilot only if its feature is in the pilot scope |
 | Decide after | [G06](G06-kpi-definitions-thresholds.md) KPI definitions, thresholds and score |
-| Target SHA | `60d16efb` |
+| Target SHA | `8b9acc0c` |
 | Generated | 2026-11-20 |
 
 ## 1. Question to decide
@@ -26,7 +26,7 @@ Who may verify and close a commitment, who accepts residual risk, and who is tol
 | `tests/commitment-lifecycle.test.js` | Lifecycle rules | `node --test --test-force-exit tests/commitment-lifecycle.test.js` | f69d7fa2, 2026-10-28 | `9a208f003a2f7bb8` |
 | `tests/commitment-escalation.test.js` | Escalation rules | `node --test --test-force-exit tests/commitment-escalation.test.js` | 2054b544, 2026-10-28 | `f7858855a224b5c0` |
 | `tests/commitments-routes.smoke.test.js` | Routes answer 404 while the switch is off | `node --test --test-force-exit tests/commitments-routes.smoke.test.js` | 8253c5e3, 2026-11-19 | `94ba4439ac4f8225` |
-| `docs/ops/FLAG-REGISTER.json` | Switch register: default, owner (to be named) | `node tools/agent/flag-register.js` | 8081ee61, 2026-11-20 | `16642f42bc5b5acf` |
+| `docs/ops/FLAG-REGISTER.json` | Switch register: default, owner (to be named) | `node tools/agent/flag-register.js` | 8081ee61, 2026-11-20 | `e4e2a1fc74da10d5` |
 
 **Evidence awaited from parallel lots**
 
