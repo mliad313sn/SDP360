@@ -304,7 +304,10 @@ async function writeOne(d, key, value, reason) {
   await d.setConfig(patch);
   if (d.logEvent) {
     const J = require(path.join(ROOT, 'services', 'configJournal'));
-    J.journal(d.logEvent, J.diffConfig(cfg, patch), { actor: ACTOR }, reason || `activate-switches ${key}`);
+    // logEvent is fire-and-forget in the app; a CLI exits right after, so wait for the rows to land.
+    const pending = [];
+    J.journal((ev) => { pending.push(Promise.resolve().then(() => d.logEvent(ev)).catch(() => {})); }, J.diffConfig(cfg, patch), { actor: ACTOR }, reason || `activate-switches ${key}`);
+    await Promise.all(pending);
   }
 }
 
