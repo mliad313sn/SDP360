@@ -86,7 +86,9 @@ async function main() {
 
     // audit evidence: hash-chained rows written through the real trigger (migration 034)
     for (let i = 0; i < 50; i++) await q(srcUrl, "INSERT INTO governance_policy_history (scope, key, old_value, new_value, actor_id, at, reason) VALUES ('global', $1, $2, $3, 1, $4, 'rehearsal')", ['k' + (i % 5), String(i), String(i + 1), new Date(Date.UTC(2026, 9, 1) + i * 60000).toISOString()]);
-    const chainDb = (url) => ({ prepare: (sql) => ({ all: async () => (await q(url, sql)).rows }) });
+    // Minimal better-sqlite3-shaped adapter for services/auditChain: `?` placeholders → $n, .all / .get / .run.
+    const chainDb = (url) => ({ prepare: (sql) => { let n = 0; const pg = sql.replace(/\?/g, () => '$' + (++n));
+      return { all: async (...a) => (await q(url, pg, a)).rows, get: async (...a) => (await q(url, pg, a)).rows[0], run: async (...a) => { const r = await q(url, pg, a); return { changes: r.rowCount }; } }; } });
     const chainSrc = await require('../../services/auditChain').verify(chainDb(srcUrl));
     check('audit hash chain verifies on the source', chainSrc.ok && chainSrc.tables.some((t) => t.rows === 50), chainSrc.tables.map((t) => `${t.table}:${t.rows}`).join(' '));
     let tamperRefused = false;
