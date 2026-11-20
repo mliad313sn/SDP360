@@ -23,14 +23,25 @@ function createSyncStateStore({ handle }) {
     const row = await handle().prepare('SELECT anchor_count FROM sync_truncation_anchors WHERE guard_key = ?').get(key);
     return row ? Number(row.anchor_count) : null;
   }
-  async function setTruncationAnchor(key, n) {
-    const v = Number(n);
-    if (!Number.isFinite(v)) throw new Error(`setTruncationAnchor: count must be a number for ${key}`);
-    await handle().prepare(`INSERT INTO sync_truncation_anchors (guard_key, anchor_count, updated_at) VALUES (?, ?, ?)
-      ON CONFLICT (guard_key) DO UPDATE SET anchor_count = EXCLUDED.anchor_count, updated_at = EXCLUDED.updated_at`)
-      .run(key, Math.max(0, Math.round(v)), new Date().toISOString());
+  async function setTruncationAnchor(key, n) { return setTruncationAnchorState(key, { anchor: n, pending: null, agree: 0 }); }
+  // Full guard state (anchor + pending lower candidate, P11 r3 F-14, db/postgres/sync/114_*.sql).
+  async function getTruncationAnchorState(key) {
+    const row = await handle().prepare('SELECT anchor_count, pending_count, pending_agree FROM sync_truncation_anchors WHERE guard_key = ?').get(key);
+    if (!row) return null;
+    return { anchor: Number(row.anchor_count), pending: row.pending_count == null ? null : Number(row.pending_count), agree: Number(row.pending_agree) || 0 };
   }
-  const truncationAnchorStore = { get: getTruncationAnchor, set: setTruncationAnchor };
+  async function setTruncationAnchorState(key, state) {
+    const st = (state != null && typeof state === 'object') ? state : { anchor: state, pending: null, agree: 0 };
+    const v = Number(st.anchor);
+    if (!Number.isFinite(v)) throw new Error(`setTruncationAnchor: count must be a number for ${key}`);
+    const pend = st.pending == null || !Number.isFinite(Number(st.pending)) ? null : Math.max(0, Math.round(Number(st.pending)));
+    const agree = pend == null ? 0 : Math.max(0, Math.round(Number(st.agree) || 0));
+    await handle().prepare(`INSERT INTO sync_truncation_anchors (guard_key, anchor_count, pending_count, pending_agree, updated_at) VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT (guard_key) DO UPDATE SET anchor_count = EXCLUDED.anchor_count, pending_count = EXCLUDED.pending_count,
+        pending_agree = EXCLUDED.pending_agree, updated_at = EXCLUDED.updated_at`)
+      .run(key, Math.max(0, Math.round(v)), pend, agree, new Date().toISOString());
+  }
+  const truncationAnchorStore = { get: getTruncationAnchorState, set: setTruncationAnchorState };
 
   return { listStoredIds, listSurveyResultIds, getTruncationAnchor, setTruncationAnchor, truncationAnchorStore };
 }

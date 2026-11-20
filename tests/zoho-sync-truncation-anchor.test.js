@@ -8,10 +8,13 @@
 //       partial exports ratcheted a table down (100 → 81 → 66 → 54 …). Contract now: the baseline is
 //       max(stored, last confirmed count); a lossy run never lowers it; a genuine shrink is accepted
 //       once two consecutive exports agree on the lower count.
+// F-14 (P11 r3): a run with fetched ≥ stored but < anchor used to reset the anchor to that partial
+//       count, so ALTERNATING partial exports still ratcheted (1000 → 810 → 820 → 660 …). Contract
+//       now: only fetched ≥ anchor, or two consecutive exports agreeing on the same lower count, move it.
 const test = require('node:test');
 const assert = require('node:assert');
 const { truncate } = require('./_pg-fresh');
-const { assertNotTruncated, nextAnchor, guardWithAnchor } = require('../services/sync/truncationGuard');
+const { assertNotTruncated, nextAnchor, nextAnchorState, guardWithAnchor } = require('../services/sync/truncationGuard');
 
 // ── pure ─────────────────────────────────────────────────────────────────────────────────────
 test('guard baseline = max(stored, anchor); stored 0 still accepts anything', () => {
@@ -21,12 +24,40 @@ test('guard baseline = max(stored, anchor); stored 0 still accepts anything', ()
   assert.doesNotThrow(() => assertNotTruncated('j', 5, 0, 20, { anchor: 1000 }), 'empty table = rebuild');
 });
 
-test('nextAnchor: a lossy run never lowers it; a run that lost nothing confirms the source size', () => {
-  assert.equal(nextAnchor(null, 100, 0), 100);      // first run
-  assert.equal(nextAnchor(100, 81, 100), 100);      // lossy run: keeps the pre-loss count
-  assert.equal(nextAnchor(100, 81, 81), 81);        // second consecutive export agrees → genuine shrink
-  assert.equal(nextAnchor(100, 120, 100), 120);     // growth
-  assert.equal(nextAnchor(null, 81, 100), 100);     // no anchor yet: the stored count before the loss
+test('nextAnchorState: only a confirmed count moves the anchor; a lossy run never lowers it', () => {
+  const st = (anchor, pending = null, agree = 0) => ({ anchor, pending, agree });
+  assert.deepEqual(nextAnchorState(null, 100, 0), st(100));            // first run
+  assert.deepEqual(nextAnchorState(st(100), 81, 100), st(100, 81, 1));  // lossy run: keeps the pre-loss count, 81 pending
+  assert.deepEqual(nextAnchorState(st(100, 81, 1), 81, 81), st(81));    // second consecutive export agrees → genuine shrink
+  assert.deepEqual(nextAnchorState(st(100), 120, 100), st(120));        // growth
+  assert.deepEqual(nextAnchorState(null, 81, 100), st(100, 81, 1));     // no anchor yet: the stored count before the loss
+  assert.deepEqual(nextAnchorState(100, 100, 100), st(100), 'legacy numeric anchor read as a state');
+  // P11 r3 F-14: a run that lost nothing against what is STORED but sits below the anchor confirms nothing
+  assert.deepEqual(nextAnchorState(st(1000, 810, 1), 820, 810), st(1000, 820, 1));
+  assert.equal(nextAnchor(st(1000, 810, 1), 820, 810), 1000, 'nextAnchor = the anchor of nextAnchorState');
+});
+
+test('F-14: alternating partial exports can no longer ratchet the anchor (1000/810/820/660 → 660 refused)', () => {
+  let stored = 1000, state = nextAnchorState(null, 1000, 0);
+  const accepted = [];
+  for (const f of [810, 820, 660, 670, 540]) {
+    try { assertNotTruncated('j', f, stored, 20, { anchor: state.anchor }); }
+    catch (e) { assert.ok(e.truncation); continue; }
+    state = nextAnchorState(state, f, stored); stored = f; accepted.push(f);
+  }
+  assert.deepEqual(accepted, [810, 820], 'every run more than 20 % below the confirmed 1000 is refused');
+  assert.equal(state.anchor, 1000, 'the anchor never moved down without two agreeing exports');
+  assert.ok(stored >= 800, 'cumulative loss bounded by the tolerance');
+});
+
+test('F-14: pure ratchet model 100 → 81, 82, 66, 67, 54, 55, 44 stays bounded', () => {
+  let stored = 100, state = nextAnchorState(null, 100, 0);
+  for (const f of [81, 82, 66, 67, 54, 55, 44]) {
+    try { assertNotTruncated('j', f, stored, 20, { anchor: state.anchor }); } catch (_) { continue; }
+    state = nextAnchorState(state, f, stored); stored = f;
+  }
+  assert.equal(state.anchor, 100);
+  assert.ok(stored >= 80, `stored ${stored} fell below the tolerance of the confirmed count`);
 });
 
 test('guardWithAnchor: a failing anchor store never blocks a sync', async () => {
@@ -83,6 +114,21 @@ test('N-02: requests cannot ratchet — a second 81 % export of what is left is 
   const err = await run(sync.syncRequestData);
   assert.ok(err && err.truncation && err.transient, 'refused against the last confirmed count (1000)');
   assert.equal(await n('request_records'), 810, 'nothing deleted');
+});
+
+test('F-14: requests 1000 → 810 → 820 → 660 → 670 → 540 — the 660 run onwards is refused, nothing deleted', async () => {
+  await truncate(['request_records', 'sync_metadata', 'sync_truncation_anchors']);
+  feed.req = REQ; await sync.syncRequestData();
+  const out = [];
+  for (const k of [810, 820, 660, 670, 540]) {
+    feed.req = REQ.slice(0, k);
+    const err = await run(sync.syncRequestData);
+    out.push({ k, refused: !!(err && err.truncation), stored: await n('request_records') });
+  }
+  assert.deepEqual(out.map(o => o.refused), [false, false, true, true, true]);
+  assert.equal(await n('request_records'), 820, 'nothing deleted after the anchor refused the run');
+  const a = await rdb.pgHandle().prepare("SELECT anchor_count FROM sync_truncation_anchors WHERE guard_key = 'requests'").get();
+  assert.equal(Number(a.anchor_count), 1000, 'anchor still the confirmed count');
 });
 
 test('N-02: survey ratchet repro (100 → 81 → 66 …) is stopped at the second run; healthy run restores', async () => {
