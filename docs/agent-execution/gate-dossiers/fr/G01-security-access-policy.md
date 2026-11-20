@@ -22,7 +22,7 @@ Les règles d'accès (périmètre de site des comptes métier CG-01, plus de lec
 | Preuve | Ce qu'elle montre | Régénérer / rejouer | Dernière modification (commit, date) | Empreinte |
 |---|---|---|---|---|
 | `docs/ops/authz-matrix.json` | Matrice route × garde × capacité lisible par machine, régénérée depuis le code | `AUTHZ_MATRIX_UPDATE=1 node --test --test-force-exit tests/authz-matrix-json.test.js` | f8ecd313, 2026-11-19 | `49839b3bbc68e9df` |
-| `docs/ops/AUTHZ-MATRIX.md` | Matrice lisible de chaque route d'API et du rôle exigé | `AUTHZ_MATRIX_UPDATE=1 node --test --test-force-exit tests/authz-route-matrix.test.js` | a7565f27, 2026-11-20 | `7babb9014cdbd323` |
+| `docs/ops/AUTHZ-MATRIX.md` | Matrice lisible de chaque route d'API et du rôle exigé | `AUTHZ_MATRIX_UPDATE=1 node --test --test-force-exit tests/authz-route-matrix.test.js` | 6e36c227, 2026-11-20 | `7babb9014cdbd323` |
 | `tests/authz-route-matrix.test.js` | Échoue si une route est ajoutée ou si sa garde change sans régénérer la matrice | `node --test --test-force-exit tests/authz-route-matrix.test.js` | 4c7cde73, 2026-11-12 | `5af87df254c4a16d` |
 | `tests/authz-enforce.test.js` | Comportement de l'application des capacités | `node --test --test-force-exit tests/authz-enforce.test.js` | 30243287, 2026-11-12 | `9298b189390ba23a` |
 | `docs/sdp360/completion/AUTHZ-OBJECT-MATRIX.csv` | Matrice d'accès par objet (qui lit ou écrit quel objet) | `manual (object-level review)` | 040c228f, 2026-10-28 | `ed72b52d09da051b` |

@@ -259,7 +259,7 @@
   },
   "docs/ops/AUTHZ-MATRIX.md": {
    "sha256": "7babb9014cdbd323",
-   "commit": "a7565f27",
+   "commit": "6e36c227",
    "date": "2026-11-20"
   },
   "docs/ops/CAPACITY-DATA-CONTRACT.md": {
@@ -513,8 +513,8 @@
    "date": "2026-11-06"
   },
   "tests/.suite-manifest.json": {
-   "sha256": "d680f1b4a9428ea5",
-   "commit": "35065f98",
+   "sha256": "6e0b1978eb37972f",
+   "commit": "68ab4594",
    "date": "2026-11-20"
   },
   "tests/anonymize-snapshot.test.js": {

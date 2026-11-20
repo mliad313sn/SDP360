@@ -22,7 +22,7 @@ Is the continuous integration green on the target SHA, and do you accept each sk
 | Evidence | What it shows | Regenerate / re-run | Last changed (commit, date) | Content hash |
 |---|---|---|---|---|
 | `.github/workflows/ci.yml` | CI jobs (unit, browser journeys) | `manual` | a1208217, 2026-11-19 | `1e629a1b51faf736` |
-| `tests/.suite-manifest.json` | Reviewed per-file test census | `npm test -- --update-manifest` | 35065f98, 2026-11-20 | `d680f1b4a9428ea5` |
+| `tests/.suite-manifest.json` | Reviewed per-file test census | `npm test -- --update-manifest` | 68ab4594, 2026-11-20 | `6e0b1978eb37972f` |
 | `tests/.skip-allowlist.json` | Each allowed skip and its reason | `manual` | 090d541f, 2026-11-06 | `d0fb199d188863a5` |
 | `tools/test/run-all.js` | Full suite runner | `node tools/test/run-all.js` | a8a31c3e, 2026-11-19 | `b8e6013f1d72bc84` |
 | `docs/agent-execution/DELIVERY-QUALITY.md` | Delivery quality metrics | `node tools/release/delivery-metrics.js` | f5acdadf, 2026-11-06 | `1aca3f9dbc393523` |

@@ -46,7 +46,7 @@ function listFiles(root) {
     .filter((f) => !(f.endsWith('.js') && fs.existsSync(path.join(root, f.replace(/\.js$/, '.jsx')))));
 }
 // files that only declare or list switches (they would make every key "consumed")
-const NOT_A_CONSUMER = /^(services\/reportConfig\.js|services\/switchPrereqs\.js|tools\/agent\/(flag-register|switch-lots)\.js|tools\/test\/force-switches\.js)$/;
+const NOT_A_CONSUMER = /^(services\/reportConfig\.js|services\/switchPrereqs\.js|tools\/agent\/(flag-register|switch-lots)\.js|tools\/test\/force-switches\.js|tools\/ops\/activate-switches\.js|tests\/activate-switches\.test\.js)$/;
 
 /** Scan the repository once: per dark key, consumer code files and test files. */
 function scan(keys, root = ROOT) {
