@@ -271,9 +271,12 @@ function renderFullSection(full) {
  * @param {string|null} o.archiveName
  * @param {{ok:boolean,count:number|null,problems:string[],files:object|null}|null} o.verify  blobBackup.verifyArchive
  */
-function fileStoreStep({ liveRefs, liveHashes = {}, archiveName = null, verify = null }) {
+function fileStoreStep({ liveRefs, liveHashes = {}, archiveName = null, verify = null, listError = null }) {
   const live = Array.isArray(liveRefs) ? liveRefs : [];
   const base = { id: 'files', label: 'File store restorable from its archive (count + SHA-256)', archive: archiveName, live_count: liveRefs == null ? null : live.length, archive_count: verify && verify.count != null ? verify.count : null, missing: [], different: [] };
+  // P11 r6 O-2 — a store that cannot be enumerated the way the app serves it (a link outside the data directory, a
+  // link cycle) is a FAILED check, never "no file store".
+  if (listError) return { ...base, status: 'failed', detail: `the live file store cannot be listed as the application serves it: ${listError}` };
   if (!verify) {
     if (!live.length) return { ...base, status: 'ok', detail: liveRefs == null ? 'no file store on this server — nothing to restore' : 'the file store is empty — nothing to restore' };
     return { ...base, status: 'failed', detail: `${live.length} file(s) on disk and NO file-store archive in the backup directory — photos, signatures and documents are not backed up` };

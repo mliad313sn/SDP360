@@ -46,12 +46,35 @@ function isDumpName(name, prefix = 'sdp_dashboard') {
   return new RegExp('^' + _escRe(prefix) + '_\\d{8}T\\d{6}Z\\.sql(?:\\.gz(?:\\.enc)?)?$').test(String(name || ''));
 }
 
+/** child_process.spawn as a promise resolving { status, stdout, stderr } (never rejects; error → status null). */
+function spawnAsync(cmd, args, { env = process.env, timeoutMs = 0 } = {}) {
+  return new Promise((resolve) => {
+    let cp;
+    try { cp = require('child_process').spawn(cmd, args, { env, windowsHide: true }); }
+    catch (e) { resolve({ status: null, stdout: '', stderr: e.message }); return; }
+    let out = '', err = '';
+    cp.stdout.on('data', (d) => { if (out.length < 65536) out += d; });
+    cp.stderr.on('data', (d) => { if (err.length < 65536) err += d; });
+    const t = timeoutMs ? setTimeout(() => { try { cp.kill(); } catch (_) { /* gone */ } }, timeoutMs) : null;
+    cp.on('error', (e) => { err += e.message; });
+    cp.on('close', (code) => { if (t) clearTimeout(t); resolve({ status: code, stdout: out, stderr: err }); });
+  });
+}
+
 // Keep the newest `keep` dumps matching the prefix (any of the three formats); return the deleted names.
 function prune(dir, { keep = 14, prefix = 'sdp_dashboard', fsx = fs } = {}) {
   let names = [];
   try { names = fsx.readdirSync(dir).filter((n) => isDumpName(n, prefix)); } catch (_) { return []; }
   names.sort();
   const doomed = names.slice(0, Math.max(0, names.length - keep));
+  // P11 r6 O-3 — quarantined `<dump>.rejected` files were never pruned: one older than the oldest kept dump goes, and
+  // never more than `keep` of them remain.
+  const kept = names.slice(doomed.length);
+  const stampRe = /_(\d{8}T\d{6}Z)\./;
+  const oldest = kept.length ? (stampRe.exec(kept[0]) || [])[1] : null;
+  let all = []; try { all = fsx.readdirSync(dir); } catch (_) { all = []; }
+  const rejected = all.filter((n) => n.endsWith('.rejected') && isDumpName(n.slice(0, -9), prefix)).sort();
+  rejected.forEach((n, i) => { const st = (stampRe.exec(n) || [])[1]; if ((oldest && st && st < oldest) || i < rejected.length - keep) doomed.push(n); });
   for (const n of doomed) { try { fsx.unlinkSync(path.join(dir, n)); } catch (_) { /* best effort */ } }
   return doomed;
 }
@@ -182,11 +205,13 @@ async function runBackup({ dir, keep = 14, spawn, env = process.env, fsx = fs, o
   // share a name — the second would silently overwrite the first
   let { file } = planBackup({ dir });
   for (let i = 0; i < 3 && EXTENSIONS.some((e) => fsx.existsSync(file.replace(/\.sql$/, e))); i++) {
-    const until = Date.now() + 1100; while (Date.now() < until) { /* next second */ }
+    await new Promise((res) => setTimeout(res, 1100));   // next second — never a busy-wait on the server's event loop
     ({ file } = planBackup({ dir }));
   }
-  const run = spawn || ((cmd, args) => require('child_process').spawnSync(cmd, args, { env, encoding: 'utf8', timeout: 30 * 60 * 1000 }));
-  const r = run(process.execPath, [path.join(__dirname, '..', 'tools', 'pg', 'dump-db.js'), file]);
+  // P11 r6 O-1 — pg_dump runs as an ASYNC child: spawnSync froze the web server (this job runs in-process) for the
+  // whole dump. An injected spawn may still be synchronous (tests); both are awaited.
+  const run = spawn || ((cmd, args) => spawnAsync(cmd, args, { env, timeoutMs: 30 * 60 * 1000 }));
+  const r = await run(process.execPath, [path.join(__dirname, '..', 'tools', 'pg', 'dump-db.js'), file]);
   if (!r || r.status !== 0) {
     const e = new Error(`pg_dump failed (exit ${r && r.status}): ${String((r && (r.stderr || r.stdout)) || '').trim().slice(0, 300)}`);
     e.transient = true; // a locked file / busy server is worth one retry
@@ -209,7 +234,8 @@ async function runBackup({ dir, keep = 14, spawn, env = process.env, fsx = fs, o
     const e = new Error(`backup is incomplete — pg_dump trailer missing: ${file}`); e.transient = true; throw e;
   }
   if (!key) log(`[backup] WARNING: SDP_BACKUP_KEY is ${keyProblem} — the dump is stored as PLAINTEXT gzip because SDP_BACKUP_ALLOW_PLAINTEXT=1 is set. Set SDP_BACKUP_KEY in .env (distinct from SDP_CONFIG_KEY) and remove the override.`);
-  const packed = packDump(file, { key, fsx });
+  // P11 r6 O-1 — gzip + encryption of the dump runs in the file-store worker (child process), off the event loop.
+  const packed = fsx === fs ? await require('./blobBackup').runWorker('pack-dump', { rawFile: file }, { key, env: process.env }) : packDump(file, { key, fsx });
   let offsite = null;
   if (offsitePath && String(offsitePath).trim()) {
     try { offsite = copyOffsite(packed.file, String(offsitePath).trim(), { fsx }); }
@@ -221,7 +247,7 @@ async function runBackup({ dir, keep = 14, spawn, env = process.env, fsx = fs, o
   if (blobs !== false) {
     const BB = require('./blobBackup');
     const root = blobRoot || BB.defaultBlobRoot(env);
-    fileStore = BB.backupStore({ root, dir, stamp: BB.stampOf(packed.file), key, offsitePath, fsx });
+    fileStore = await BB.backupStoreAsync({ root, dir, stamp: BB.stampOf(packed.file), key, offsitePath, fsx, env: process.env });
   }
   const pruned = prune(dir, { keep, fsx }).concat(blobs !== false ? require('./blobBackup').pruneArchives(dir, { keep, fsx }) : []);
   return { file: packed.file, bytes, stored_bytes: packed.stored_bytes, encrypted: packed.encrypted, plaintext_override: plaintextOverride, compressed: true, trailer_ok: true, offsite, pruned, file_store: fileStore, rows: 1 };
@@ -230,6 +256,6 @@ async function runBackup({ dir, keep = 14, spawn, env = process.env, fsx = fs, o
 module.exports = {
   runBackup, planBackup, prune, latestDump, isDumpName,
   deriveKey, encryptBuffer, decryptBuffer, isEncryptedBuffer,
-  hasDumpTrailer, verifyDumpFile, packDump, openDump, copyOffsite,
+  hasDumpTrailer, verifyDumpFile, packDump, openDump, copyOffsite, spawnAsync,
   TRAILER, MIN_KEY_CHARS, MIN_KEY_DISTINCT, keyQualityProblem,
 };

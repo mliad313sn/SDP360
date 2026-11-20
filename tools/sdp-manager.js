@@ -223,7 +223,7 @@ async function applyPackage(zipPath, { dir, backup = true, npm = true, migrate =
   if (backup) {
     const { runBackup } = require('../services/backup');
     const bdir = backupDir || env.SDP_BACKUP_DIR || path.join(dir, 'data', 'backups');
-    const b = await runBackup({ dir: bdir, env: { ...process.env, ...env } });
+    const b = await runBackup({ dir: bdir, env: { ...process.env, ...env }, blobRoot: blobRootOf(dir, env) });
     out(b.skipped ? `[update] database backup skipped (${b.skipped === true ? b.reason : b.skipped})` : `[update] database backup: ${b.file}`);
   }
 
@@ -294,6 +294,12 @@ async function login(url, env) {
   return m ? decodeURIComponent(m[1]) : null;
 }
 function backupDirOf(dir, env) { return env.SDP_BACKUP_DIR || path.join(dir, 'data', 'backups'); }
+// P11 r6 O-3b — the file store of the TARGET install, from its own .env (SDP_BLOB_ROOT, else SDP_DATA_DIR/blobs, else
+// <install>/data/blobs), never from the tree the manager happens to run from. Relative values resolve against <install>.
+function blobRootOf(dir, env) {
+  if (env.SDP_BLOB_ROOT) return path.resolve(dir, env.SDP_BLOB_ROOT);
+  return path.join(env.SDP_DATA_DIR ? path.resolve(dir, env.SDP_DATA_DIR) : path.join(dir, 'data'), 'blobs');
+}
 function diskFree(dir) {
   try { const st = fs.statfsSync(dir); return { free_bytes: Number(st.bavail) * Number(st.bsize), total_bytes: Number(st.blocks) * Number(st.bsize) }; } catch (_) { return null; }
 }
@@ -345,7 +351,7 @@ async function restore(file, { dir, confirm, url = 'http://localhost:3456', env 
   const S = service || require('../services/serviceControl');
   R.confirmPhrase(file);
   if (String(confirm || '').trim() !== R.confirmPhrase(file)) throw Object.assign(new Error(`confirmation refused — type exactly: ${R.confirmPhrase(file)}`), { code: 'CONFIRM' });
-  const runB = backupFn || (async () => require('../services/backup').runBackup({ dir: backupDirOf(dir, env), env: { ...process.env, ...env }, keep: 30 }));
+  const runB = backupFn || (async () => require('../services/backup').runBackup({ dir: backupDirOf(dir, env), env: { ...process.env, ...env }, keep: 30, blobRoot: blobRootOf(dir, env) }));
   const pre = await runB();
   if (!pre || pre.skipped) throw new Error('the pre-restore backup could not be taken (' + ((pre && pre.reason) || 'unknown') + ') — restore refused');
   out(`[restore] pre-restore backup: ${pre.file}`);
@@ -395,9 +401,9 @@ async function main() {
     case 'backup': {
       const env = readEnv(dir);
       const { runBackup } = require('../services/backup');
-      const r = await runBackup({ dir: arg('--out', backupDirOf(dir, env)), env: { ...process.env, ...env } });
+      const r = await runBackup({ dir: arg('--out', backupDirOf(dir, env)), env: { ...process.env, ...env }, blobRoot: blobRootOf(dir, env) });
       if (json) return emit(r.skipped ? { ok: false, reason: r.reason } : { ok: true, file: r.file, encrypted: r.encrypted });
-      return log(r.skipped ? `[backup] skipped: ${r.reason}` : `[backup] ${r.file}${r.file_store ? (r.file_store.present ? `\n[backup] file store: ${r.file_store.file} (${r.file_store.count} file(s), verified)` : '\n[backup] file store: none on this server') : ''}`);
+      return log(r.skipped ? `[backup] skipped: ${r.reason}` : `[backup] ${r.file}${r.file_store ? (r.file_store.present ? `\n[backup] file store: ${r.file_store.file} (${r.file_store.count} file(s), verified)` : `\n[backup] file store: none at ${r.file_store.root}`) : ''}`);
     }
     case 'backups': {
       const env = readEnv(dir);
@@ -443,4 +449,4 @@ if (require.main === module) {
   main().catch(e => { process.stderr.write('[sdp-manager] ' + e.message + '\n'); process.exit(1); });
 }
 
-module.exports = { listTree, readEnv, installedManifest, installedVersion, openPackage, verifyPackage, loadPublicKey, auditLog, DEFAULT_PUBLIC_KEY, keepForRollback, latestRollback, restoreFrom, applyPackage, rollback, status, statusObject, restore, supportBundle, probeHealth };
+module.exports = { listTree, readEnv, blobRootOf, backupDirOf, installedManifest, installedVersion, openPackage, verifyPackage, loadPublicKey, auditLog, DEFAULT_PUBLIC_KEY, keepForRollback, latestRollback, restoreFrom, applyPackage, rollback, status, statusObject, restore, supportBundle, probeHealth };

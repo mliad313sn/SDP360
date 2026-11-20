@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 5927,
+ "total": 5936,
  "files": {
   "a11y-legacy-ratchet.test.js": 3,
   "a11y-static.test.js": 21,
@@ -836,7 +836,7 @@
   "ppm-p04-kits.test.js": 3,
   "ppm-p04-reconcile.smoke.test.js": 1,
   "ppm-p04-rollups.test.js": 4,
-  "perf-budget-check.test.js": 6,
+  "perf-budget-check.test.js": 7,
   "perf-calendar-helpdesk-scan.test.js": 1,
   "sli-readings.test.js": 9,
   "authz-handler-checks.test.js": 3,
@@ -876,7 +876,7 @@
   "adoption-lota-nav-authz.test.js": 5,
   "adoption-lota-truth.test.js": 7,
   "adoption-lota-labels.test.js": 6,
-  "activate-switches.test.js": 13,
+  "activate-switches.test.js": 14,
   "ppm-data-quality-pure.test.js": 10,
   "ppm-data-quality.smoke.test.js": 3,
   "ppm-data-quality-ui.test.js": 3,
@@ -918,8 +918,10 @@
   "auth-db-busy.smoke.test.js": 4,
   "rollback-scripts-transactional.test.js": 2,
   "blob-backup.test.js": 7,
+  "blob-backup-r6.test.js": 6,
   "field-r5-inspection-action-upsert.smoke.test.js": 4,
   "helpdesk-site-default-r5.test.js": 3,
-  "home-group-late-undated-r5.test.js": 2
+  "home-group-late-undated-r5.test.js": 2,
+  "pg-boot-force-exit.test.js": 1
  }
 }

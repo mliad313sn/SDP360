@@ -310,6 +310,26 @@ function secondOperatorRefusal(operator, second) {
   if (sk(operator) && sk(operator) === sk(second)) return `--second-operator "${second}" is the same person as --operator "${operator}"`;
   return null;
 }
+/**
+ * P11 r6 O-4 — the second operator is no longer free text: it must name an ACTIVE super_admin ACCOUNT (looked up in the
+ * database), a different account from the --operator one, and a different person by the identity rules (skeletonKey
+ * folds case, dots, look-alike letters). Returns { id, username, name } or throws — the caller has written nothing yet.
+ */
+async function resolveSecondOperator(d, operator, second) {
+  const r = secondOperatorRefusal(operator, second);
+  if (r) return { refusal: r };
+  if (typeof d.operatorAccount !== 'function') return { refusal: 'the second operator cannot be checked against the user accounts (no account lookup in this run)' };
+  const acct = await d.operatorAccount(String(second).trim());
+  if (!acct) return { refusal: `--second-operator "${second}" is not the username of an active super_admin account` };
+  const sk = require(path.join(ROOT, 'services', 'commitmentLifecycle')).skeletonKey;
+  // look-alike fold (skeletonKey) plus punctuation and an e-mail domain: "a.smith", "asmith@corp" and "ASMITH" are one person
+  const loose = (x) => sk(x).replace(/@.*$/, '').replace(/[^\p{L}\p{N}]/gu, '');
+  const first = await d.operatorAccount(String(operator).trim());
+  if ((first && Number(first.id) === Number(acct.id)) || (loose(acct.username) && loose(acct.username) === loose(operator))) {
+    return { refusal: `--second-operator "${second}" is the same person as --operator "${operator}"` };
+  }
+  return { account: acct };
+}
 const _withSecond = (reason, second) => `${reason} [four-eyes, second operator: ${String(second).replace(/[^\w.@ -]/g, '_').slice(0, 64)}]`;
 
 // ---------------------------------------------------------------------------------------------------- args + IO
@@ -354,7 +374,7 @@ function applyRefusal(args) {
 // ---------------------------------------------------------------------------------------------------- rollback files
 // The second operator (and, since P11 r5, the OS user + host) join the checksummed content only when present, so files
 // written before keep their hash.
-function _canon(rb) { return JSON.stringify({ created_at: rb.created_at, actor: rb.actor, operator: rb.operator || null, ...(rb.second_operator ? { second_operator: rb.second_operator } : {}), ...(rb.os_user !== undefined ? { os_user: rb.os_user, host: rb.host } : {}), lots: rb.lots, entries: rb.entries }); }
+function _canon(rb) { return JSON.stringify({ created_at: rb.created_at, actor: rb.actor, operator: rb.operator || null, ...(rb.second_operator ? { second_operator: rb.second_operator } : {}), ...(rb.second_operator_id != null ? { second_operator_id: rb.second_operator_id } : {}), ...(rb.os_user !== undefined ? { os_user: rb.os_user, host: rb.host } : {}), lots: rb.lots, entries: rb.entries }); }
 /** Unkeyed sha256 CHECKSUM of the content (what --apply records in system_log). An integrity check, not a signature. */
 function rollbackHash(rb) { return crypto.createHash('sha256').update(_canon(rb)).digest('hex'); }
 // P11 r5 R5-A4 — a real keyed seal when the server has a secret: HMAC-SHA256 under SDP_CONFIG_KEY (else SDP_BACKUP_KEY),
@@ -502,17 +522,19 @@ async function main(argv, deps) {
       const target = (e.absent === true || e.from == null) ? (isNested(e.key) ? null : require(path.join(ROOT, 'services', 'reportConfig')).DEFAULTS[e.key]) : e.from;
       return target != null && needsFourEyes(cfg0, e.key, target);
     }).map((e) => e.key);
+    let secondAcct = null;
     if (feBack.length) {
-      const r2 = secondOperatorRefusal(operator, args.secondOperator);
-      if (r2) throw new Error(`rollback of four-eyes key(s) ${feBack.join(', ')} needs a second person: ${r2 === 'missing' ? 'add --second-operator=NAME (a different super_admin who reviewed this rollback)' : r2}`);
+      const so = await resolveSecondOperator(d, operator, args.secondOperator);
+      if (so.refusal) throw new Error(`rollback of four-eyes key(s) ${feBack.join(', ')} needs a second person: ${so.refusal === 'missing' ? 'add --second-operator=NAME (a different super_admin who reviewed this rollback)' : so.refusal}`);
+      secondAcct = so.account;
     }
-    const res = { restored: [], conflicts: [], second_operator: feBack.length ? args.secondOperator : null };
+    const res = { restored: [], conflicts: [], second_operator: secondAcct ? secondAcct.username : null, second_operator_id: secondAcct ? Number(secondAcct.id) : null };
     for (const e of [...(rb.entries || [])].reverse()) {
       const cfg = await d.getConfig();
       const cur = currentValue(cfg, e.key);
       if (String(cur) !== String(e.to) && !args.force) { res.conflicts.push({ key: e.key, expected: e.to, found: cur == null ? null : cur }); continue; }
       const why0 = `rollback ${path.basename(args.rollback)}${args.reason ? ` — ${args.reason}` : ''}`;
-      const why = feBack.includes(e.key) ? _withSecond(why0, args.secondOperator) : why0;
+      const why = feBack.includes(e.key) ? _withSecond(why0, `${secondAcct.username} user id ${secondAcct.id}`) : why0;
       // P11 r4 — a key that was ABSENT before the activation returns to absent (it follows future defaults) instead of
       // being pinned to a literal '0'/false row. `absent` is recorded at apply time; an older rollback file without it
       // treats from == null the same way (it means: no value was known).
@@ -540,10 +562,11 @@ async function main(argv, deps) {
     // anything is written, so a refusal leaves the database untouched.
     const feSteps = act.steps.filter((x) => x.four_eyes);
     const viaCenter = feSteps.length > 0 && String(cfg.policy_center_enabled) === '1';
-    let requester = null;
+    let requester = null; let secondAcct = null;
     if (feSteps.length && !viaCenter) {
-      const r2 = secondOperatorRefusal(operator, args.secondOperator);
-      if (r2) throw new Error(`four-eyes switch(es) ${feSteps.map((x) => x.key).join(', ')} need a second super_admin: ${r2 === 'missing' ? 'add --second-operator=NAME (a different person who reviewed this activation), or turn the Policy Center on (policy_center_enabled) so the tool files requests instead' : r2} — nothing written`);
+      const so = await resolveSecondOperator(d, operator, args.secondOperator);
+      if (so.refusal) throw new Error(`four-eyes switch(es) ${feSteps.map((x) => x.key).join(', ')} need a second super_admin: ${so.refusal === 'missing' ? 'add --second-operator=NAME (a different person who reviewed this activation), or turn the Policy Center on (policy_center_enabled) so the tool files requests instead' : so.refusal} — nothing written`);
+      secondAcct = so.account;
     }
     if (viaCenter) {
       if (typeof d.operatorAccount !== 'function' || typeof d.createPolicyRequest !== 'function') throw new Error('Policy Center is on but this run cannot file requests — nothing written');
@@ -566,7 +589,8 @@ async function main(argv, deps) {
     fs.mkdirSync(dir, { recursive: true });
     const file = path.join(dir, `rollback-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
     const stored = typeof d.storedKeys === 'function' ? await d.storedKeys() : null;
-    const second = feSteps.length && !viaCenter ? String(args.secondOperator) : null;
+    const second = secondAcct ? String(secondAcct.username) : null;
+    const secondId = secondAcct ? Number(secondAcct.id) : null;
     const entries = toWrite.map((s) => {
       const e = { key: s.key, lot: s.lot, from: s.from == null ? null : s.from, to: s.on_value };
       // flat key with no report_config row = it followed its default; nested = the sub-key was missing
@@ -575,7 +599,7 @@ async function main(argv, deps) {
       return e;
     });
     const ident = (deps && deps.osIdentity) ? deps.osIdentity : osIdentity();
-    const rb = { created_at: new Date().toISOString(), actor: ACTOR, operator: operator || null, ...(second ? { second_operator: second } : {}), os_user: ident.os_user, host: ident.host, reason: args.reason, db: redactUrl(args.dbUrl), lots: lots.map((l) => l.id), entries };
+    const rb = { created_at: new Date().toISOString(), actor: ACTOR, operator: operator || null, ...(second ? { second_operator: second, second_operator_id: secondId } : {}), os_user: ident.os_user, host: ident.host, reason: args.reason, db: redactUrl(args.dbUrl), lots: lots.map((l) => l.id), entries };
     rb.sha256 = rollbackHash(rb);
     const rk = rollbackKey(process.env);
     if (rk) { rb.hmac = rollbackHmac(rb, rk); rb.integrity = `hmac-sha256 (${rk.name})`; } else { rb.integrity = 'sha256 checksum only (no SDP_CONFIG_KEY / SDP_BACKUP_KEY)'; }
@@ -583,11 +607,11 @@ async function main(argv, deps) {
     // R4-A3: only a checksum recorded here by --apply can be rolled back (R5-A4: plus the HMAC seal when a key is set).
     if (d.logEvent) await Promise.resolve(d.logEvent({ category: 'config', action: 'switch_rollback_file', actor: actorOf(operator), target: rb.sha256,
       details: { file: path.basename(file), lots: rb.lots, keys: entries.map((e) => e.key), reason: args.reason, os_user: rb.os_user, host: rb.host, sealed: !!rb.hmac,
-        ...(second ? { second_operator: second, four_eyes_keys: entries.filter((e) => e.four_eyes).map((e) => e.key) } : {}) } })).catch(() => {});
+        ...(second ? { second_operator: second, second_operator_id: secondId, four_eyes_keys: entries.filter((e) => e.four_eyes).map((e) => e.key) } : {}) } })).catch(() => {});
     const applied = [];
-    for (const s of toWrite) { await writeOne(d, s.key, s.on_value, s.four_eyes && second ? _withSecond(args.reason, second) : args.reason); applied.push(s.key); }
+    for (const s of toWrite) { await writeOne(d, s.key, s.on_value, s.four_eyes && second ? _withSecond(args.reason, `${second} user id ${secondId}`) : args.reason); applied.push(s.key); }
     d.log(`Applied ${applied.length} switch(es)${second ? ` (four-eyes, second operator: ${second})` : ''}. Rollback file: ${file}`);
-    return { ...act, applied, requested, second_operator: second, rollback_file: file };
+    return { ...act, applied, requested, second_operator: second, second_operator_id: secondId, rollback_file: file };
   }
 
   // --plan (default)
@@ -600,7 +624,7 @@ async function main(argv, deps) {
   return act;
 }
 
-module.exports = { needsFourEyes, markFourEyes, secondOperatorRefusal, applyRefusal, validateRollback, rollbackHash, rollbackHmac, rollbackKey, sealCheck, osIdentity, storedDeps, actorOf, OUTBOUND, ACCESS, MONEY, ON_VALUE, REFUSED_GROUPS, selectLots, graph, order, classify, buildActivation, renderPlan, parseArgs, writeRefusal, patchFor, currentValue, isOn, main };
+module.exports = { needsFourEyes, markFourEyes, secondOperatorRefusal, resolveSecondOperator, applyRefusal, validateRollback, rollbackHash, rollbackHmac, rollbackKey, sealCheck, osIdentity, storedDeps, actorOf, OUTBOUND, ACCESS, MONEY, ON_VALUE, REFUSED_GROUPS, selectLots, graph, order, classify, buildActivation, renderPlan, parseArgs, writeRefusal, patchFor, currentValue, isOn, main };
 
 if (require.main === module) {
   main(process.argv.slice(2))
