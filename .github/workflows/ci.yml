@@ -34,7 +34,11 @@ jobs:
           --health-retries 10
           --shm-size=1g
     steps:
+      # P11 r5 R5-A5 — full history: tests/gate-dossiers.test.js checks the dossier target SHA is an ancestor of HEAD; on
+      # a shallow clone it can only skip (and the skip guard then fails the run), it must never pass without checking.
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22

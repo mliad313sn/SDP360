@@ -231,6 +231,8 @@ const items = [
     ['Adopter des critères', 'Score provisoire'], 'Score provisoire.', ['L07'], [PROFILE]),
   d('HD-P12', 'PMO', 'Redirection de la feuille de route vers le portefeuille (`roadmap_redirect_to_portfolio`) après un cycle de parité propre ; suppression des données = CAB.',
     ['Après parité', 'Jamais'], 'Éteinte pendant le pilote.', ['K:irreversible_or_destructive'], [PROFILE]),
+  d('HD-P13', 'PMO', 'Portefeuille phase 2 (L16 : dépendances structurées, demande de ressources et capacité, documents, score d\'effort, scénarios, export BI `ext_api_portfolio_enabled`) — absent du plan de pilote tant que le PMO, la sécurité (stockage des documents sans antivirus, export vers un outil tiers) et le propriétaire des données ne l\'ont pas planifié.',
+    ['Hors pilote', 'Planifier une vague dédiée après revue'], 'Hors pilote ; à replanifier après une revue humaine (lot fusionné après le tour 4, avis panel IA du tour 5 : CONDITIONAL).', ['L16'], ['docs/ai-decisions/ADR-PORTFOLIO-LOT6-phase2.md']),
 
   // ─────────────────────────────── Finance ───────────────────────────────────────────────────────────────────────
   d('HD-F01', 'Finance', 'Règles de devise : devise par site (`asset_site_currency`), taux (`asset_currency_rates`), devise obligatoire (`finance_currency_required`), lecture des montants (`asset_amount_parser`).',

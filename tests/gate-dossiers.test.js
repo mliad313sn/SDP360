@@ -55,11 +55,13 @@ test('the critical path to the pilot is ordered by dependency and ends with gate
   for (const g of gates) if (g.blocks === 'pilot') assert.ok(pos.has(g.id), `${g.id} blocks the pilot but is not on the path`);
 });
 
-test('the target SHA is a commit of this history (full clone only)', () => {
+test('the target SHA is a commit of this history (full clone only)', (t) => {
   const manifest = JSON.parse(read(gd.MANIFEST));
   let full = false;
   try { full = execFileSync('git', ['rev-parse', '--is-shallow-repository'], { cwd: ROOT }).toString().trim() === 'false'; } catch { /* no git */ }
-  if (!full) return;
+  // P11 r5 R5-A5 — this used to `return` (a silent PASS) on CI's shallow clone. A check that cannot run SKIPS with its
+  // reason, so tools/test/guard.js judges it against tests/.skip-allowlist.json (CI now checks out full history).
+  if (!full) { t.skip('shallow clone or no git: the dossier ancestry cannot be checked here'); return; }
   assert.doesNotThrow(() => execFileSync('git', ['merge-base', '--is-ancestor', manifest.target_sha, 'HEAD'], { cwd: ROOT, stdio: 'ignore' }),
     `target SHA ${manifest.target_sha} is not an ancestor of HEAD`);
 });

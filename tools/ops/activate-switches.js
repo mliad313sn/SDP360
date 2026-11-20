@@ -9,6 +9,7 @@ if (require.main === module) require('dotenv').config({ quiet: true, path: requi
 //   node tools/ops/activate-switches.js --apply --db-url=URL --lots=L01[,L02…] --reason="…" [--operator=NAME]
 //        [--second-operator=NAME] [--include-outbound] [--rollback-dir=DIR] [--dry-run] [--i-am-the-operator]
 //   node tools/ops/activate-switches.js --rollback=FILE --db-url=URL [--operator=NAME] [--reason="…"] [--force] [--i-am-the-operator]
+//        [--accept-unsealed]   (a legacy rollback file without HMAC seal while SDP_CONFIG_KEY / SDP_BACKUP_KEY is set)
 //
 // --db-url=env reads PG_URL (or DATABASE_URL) from the environment / the app's .env, so the password never sits on a
 // command line (process listings and shell history keep command lines). Prefer it on a real instance.
@@ -31,7 +32,10 @@ if (require.main === module) require('dotenv').config({ quiet: true, path: requi
 //    changed by someone else since, unless --force.
 //  - P11 r4 R4-A4: --apply (unless --dry-run) REQUIRES an explicit --lots (no implicit "all") and a --reason of at
 //    least 10 characters. The operator's identity (--operator=NAME, else the OS user) is recorded on every journal
-//    row (actor `cli:activate-switches:<operator>`), in report_config.updated_by and in the rollback file.
+//    row (actor `cli:activate-switches:<operator>`), in report_config.updated_by and in the rollback file. The name is
+//    DECLARED: the OS account and host that ran the tool are recorded beside it (rollback file + switch_rollback_file
+//    event, P11 r5) so it can be checked. Rollback files carry a sha256 CHECKSUM (recorded in system_log) and, when
+//    SDP_CONFIG_KEY or SDP_BACKUP_KEY is set, an HMAC-SHA256 SEAL — without a key they are checksummed, not signed.
 //  - P11 r4 R4-A3: a rollback file carries a sha256 of its content, recorded in system_log
 //    (category config, action switch_rollback_file, target = the hash) when the tool writes it. --rollback refuses
 //    a file whose hash does not match or was never recorded, any key outside the file's own lots, any key of a
@@ -41,7 +45,7 @@ if (require.main === module) require('dotenv').config({ quiet: true, path: requi
 //  - P11 r5 N-15 — FOUR-EYES: a step whose change docs/ops/policy-catalogue.json marks as needing a second super_admin
 //    (policyCatalogue.needsSecondPerson — the same rule as the Policy Center) is tagged 4EYES in the plan. --apply
 //    refuses such a step unless (a) --second-operator=NAME names a DIFFERENT person (look-alike spellings fold; both are
-//    recorded on every journal row of those keys, in the switch_rollback_file event and in the signed rollback file),
+//    recorded on every journal row of those keys, in the switch_rollback_file event and in the checksummed (HMAC-sealed when a key is set) rollback file),
 //    or (b) report_config policy_center_enabled = '1': the tool then writes NOTHING for those keys and files one Policy
 //    Center request per key instead (requested by the --operator account, which must be an active super_admin); a
 //    second super_admin decides in the center. Rolling back a four-eyes key towards its weaker side needs
@@ -58,6 +62,15 @@ const crypto = require('crypto');
 const MIN_REASON = 10;
 const actorOf = (operator) => (operator ? `${ACTOR}:${String(operator).replace(/[^\w.@-]/g, '_').slice(0, 64)}` : ACTOR);
 function osOperator() { try { return require('os').userInfo().username || null; } catch (_) { return process.env.USERNAME || process.env.USER || null; } }
+// P11 r5 R5-A6 — the declared --operator is free text; the OS account and host that ran the tool are recorded beside it
+// (rollback file + journal event) so the declared name can be checked against who actually ran the command.
+function osIdentity() {
+  const os = require('os');
+  let user = null; try { user = os.userInfo().username || null; } catch (_) { user = process.env.USERNAME || process.env.USER || null; }
+  let host = null; try { host = os.hostname() || null; } catch (_) { host = null; }
+  const clean = (v) => (v == null ? null : String(v).replace(/[^\w.@ -]/g, '_').slice(0, 64));
+  return { os_user: clean(user), host: clean(host) };
+}
 
 // ---------------------------------------------------------------------------------------------------- classification
 // OUTBOUND: something leaves the server. kind 'send' = e-mail / Teams / webhook / publication; 'external_call' =
@@ -309,6 +322,7 @@ function parseArgs(argv) {
     else if (a === '--dry-run') o.dryRun = true;
     else if (a === '--include-outbound') o.includeOutbound = true;
     else if (a === '--i-am-the-operator') o.operator = true;
+    else if (a === '--accept-unsealed') o.acceptUnsealed = true;
     else if (a === '--force') o.force = true;
     else if (a.startsWith('--lots=')) o.lots = a.slice(7);
     else if (a.startsWith('--db-url=')) o.dbUrl = a.slice(9) === 'env' ? (process.env.PG_URL || process.env.DATABASE_URL || '') : a.slice(9);
@@ -338,9 +352,33 @@ function applyRefusal(args) {
 }
 
 // ---------------------------------------------------------------------------------------------------- rollback files
-// The second operator joins the signed content only when present, so files written before N-15 keep their hash.
-function _canon(rb) { return JSON.stringify({ created_at: rb.created_at, actor: rb.actor, operator: rb.operator || null, ...(rb.second_operator ? { second_operator: rb.second_operator } : {}), lots: rb.lots, entries: rb.entries }); }
+// The second operator (and, since P11 r5, the OS user + host) join the checksummed content only when present, so files
+// written before keep their hash.
+function _canon(rb) { return JSON.stringify({ created_at: rb.created_at, actor: rb.actor, operator: rb.operator || null, ...(rb.second_operator ? { second_operator: rb.second_operator } : {}), ...(rb.os_user !== undefined ? { os_user: rb.os_user, host: rb.host } : {}), lots: rb.lots, entries: rb.entries }); }
+/** Unkeyed sha256 CHECKSUM of the content (what --apply records in system_log). An integrity check, not a signature. */
 function rollbackHash(rb) { return crypto.createHash('sha256').update(_canon(rb)).digest('hex'); }
+// P11 r5 R5-A4 — a real keyed seal when the server has a secret: HMAC-SHA256 under SDP_CONFIG_KEY (else SDP_BACKUP_KEY),
+// ≥ 16 characters, domain-separated. Someone who can write system_log but does not hold the .env key cannot forge it.
+function rollbackKey(env = process.env) {
+  for (const k of ['SDP_CONFIG_KEY', 'SDP_BACKUP_KEY']) { const v = String(env[k] || ''); if (v.length >= 16) return { name: k, key: crypto.createHash('sha256').update('sdp-rollback-hmac:' + v).digest() }; }
+  return null;
+}
+function rollbackHmac(rb, key) { return crypto.createHmac('sha256', key.key).update(_canon(rb)).digest('hex'); }
+/** Pure: problems (refusals) and warnings about the keyed seal of a rollback file. */
+function sealCheck(rb, env = process.env, opts = {}) {
+  const k = rollbackKey(env);
+  if (rb.hmac) {
+    if (!k) return { problems: ['the file is HMAC-sealed but neither SDP_CONFIG_KEY nor SDP_BACKUP_KEY is configured here — cannot verify'], warnings: [] };
+    const want = rollbackHmac(rb, k);
+    const a = Buffer.from(String(rb.hmac)), b = Buffer.from(want);
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return { problems: ['HMAC does not match (edited by hand, or sealed under another key)'], warnings: [] };
+    return { problems: [], warnings: [] };
+  }
+  // a key is configured here, so this tool would have sealed the file: an unsealed one is refused unless the operator
+  // explicitly accepts a legacy file (--accept-unsealed), which is then logged as a warning
+  if (k && !opts.acceptUnsealed) return { problems: [`the file carries no HMAC seal although ${k.name} is configured (a file written before the seal existed needs --accept-unsealed)`], warnings: [] };
+  return { problems: [], warnings: ['legacy / unsealed rollback file: integrity is checked by its sha256 checksum and the system_log record only — it is NOT signed' + (k ? '' : ' (no SDP_CONFIG_KEY / SDP_BACKUP_KEY configured, so new files are checksummed only)')] };
+}
 const FLAG_VALUE = (v) => v === null || typeof v === 'boolean' || (typeof v === 'string' && /^[\w.:-]{0,40}$/.test(v));
 
 /** Pure (R4-A3): problems with a rollback file against the plan (empty = valid content; the hash is checked apart). */
@@ -450,6 +488,9 @@ async function main(argv, deps) {
     const d = { ...(deps || await defaultDeps(args.dbUrl, operator)), operator };
     const rb = JSON.parse(fs.readFileSync(args.rollback, 'utf8'));
     const problems = validateRollback(rb, plan);
+    const seal = sealCheck(rb, process.env, { acceptUnsealed: !!args.acceptUnsealed });
+    problems.push(...seal.problems);
+    for (const w of seal.warnings) d.log(`WARNING: ${w}`);
     if (!problems.length) {
       if (typeof d.rollbackKnown !== 'function') problems.push('cannot verify the file against system_log (no verifier) — refused');
       else if (!(await d.rollbackKnown(rb.sha256))) problems.push('this file\'s sha256 was never recorded in system_log by --apply — refused');
@@ -533,12 +574,15 @@ async function main(argv, deps) {
       if (s.four_eyes) e.four_eyes = true;
       return e;
     });
-    const rb = { created_at: new Date().toISOString(), actor: ACTOR, operator: operator || null, ...(second ? { second_operator: second } : {}), reason: args.reason, db: redactUrl(args.dbUrl), lots: lots.map((l) => l.id), entries };
+    const ident = (deps && deps.osIdentity) ? deps.osIdentity : osIdentity();
+    const rb = { created_at: new Date().toISOString(), actor: ACTOR, operator: operator || null, ...(second ? { second_operator: second } : {}), os_user: ident.os_user, host: ident.host, reason: args.reason, db: redactUrl(args.dbUrl), lots: lots.map((l) => l.id), entries };
     rb.sha256 = rollbackHash(rb);
+    const rk = rollbackKey(process.env);
+    if (rk) { rb.hmac = rollbackHmac(rb, rk); rb.integrity = `hmac-sha256 (${rk.name})`; } else { rb.integrity = 'sha256 checksum only (no SDP_CONFIG_KEY / SDP_BACKUP_KEY)'; }
     fs.writeFileSync(file, JSON.stringify(rb, null, 1) + '\n');
-    // R4-A3: the hash is the tool's signature on the file — only a recorded hash can be rolled back.
+    // R4-A3: only a checksum recorded here by --apply can be rolled back (R5-A4: plus the HMAC seal when a key is set).
     if (d.logEvent) await Promise.resolve(d.logEvent({ category: 'config', action: 'switch_rollback_file', actor: actorOf(operator), target: rb.sha256,
-      details: { file: path.basename(file), lots: rb.lots, keys: entries.map((e) => e.key), reason: args.reason,
+      details: { file: path.basename(file), lots: rb.lots, keys: entries.map((e) => e.key), reason: args.reason, os_user: rb.os_user, host: rb.host, sealed: !!rb.hmac,
         ...(second ? { second_operator: second, four_eyes_keys: entries.filter((e) => e.four_eyes).map((e) => e.key) } : {}) } })).catch(() => {});
     const applied = [];
     for (const s of toWrite) { await writeOne(d, s.key, s.on_value, s.four_eyes && second ? _withSecond(args.reason, second) : args.reason); applied.push(s.key); }
@@ -556,7 +600,7 @@ async function main(argv, deps) {
   return act;
 }
 
-module.exports = { needsFourEyes, markFourEyes, secondOperatorRefusal, applyRefusal, validateRollback, rollbackHash, storedDeps, actorOf, OUTBOUND, ACCESS, MONEY, ON_VALUE, REFUSED_GROUPS, selectLots, graph, order, classify, buildActivation, renderPlan, parseArgs, writeRefusal, patchFor, currentValue, isOn, main };
+module.exports = { needsFourEyes, markFourEyes, secondOperatorRefusal, applyRefusal, validateRollback, rollbackHash, rollbackHmac, rollbackKey, sealCheck, osIdentity, storedDeps, actorOf, OUTBOUND, ACCESS, MONEY, ON_VALUE, REFUSED_GROUPS, selectLots, graph, order, classify, buildActivation, renderPlan, parseArgs, writeRefusal, patchFor, currentValue, isOn, main };
 
 if (require.main === module) {
   main(process.argv.slice(2))

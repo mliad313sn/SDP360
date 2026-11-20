@@ -146,10 +146,8 @@ function buildJobs(d) {
   // A broken chain is a failed run (alerted like any job) and a risk event.
   list.push({ name: 'audit.chain_verify', cron: '45 3 * * *', freshnessHours: 30,
     job: legacyJob('audit.chain_verify', async () => {
-      const rdb = d.rdb || require('../../reports-db'); const r = await require('../auditChain').verify(rdb.pgHandle ? rdb.pgHandle() : rdb.db);
-      await rdb.logEvent({ category: 'governance', action: r.ok ? 'audit_chain_anchor' : 'audit_chain_broken', target: 'audit', details: { tables: r.tables.map((x) => ({ table: x.table, rows: x.rows, ok: x.ok, head: x.head, first_broken_id: x.first_broken_id })) }, risk: r.ok ? 0 : 1 });
-      if (!r.ok) throw new Error('audit chain broken: ' + r.tables.filter((x) => x.ok === false).map((x) => `${x.table}#${x.first_broken_id}`).join(', '));
-      return { rows: r.tables.reduce((n, x) => n + (x.rows || 0), 0) };
+      // P11 r5 R5-A3/AUD-2: verify against yesterday's anchor, then persist today's (services/auditChain.nightly)
+      const rdb = d.rdb || require('../../reports-db'); return require('../auditChain').nightly(rdb);
     }, { maxAttempts: 1 }) });
   // Step 9 — engagement + publishing through the same runner (d.engagement = { evaluate, digest, reports, publish } injected by server.js).
   const eng = d.engagement || null;

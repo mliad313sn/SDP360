@@ -6,7 +6,7 @@
 > remplissent dans la copie tenue par le comité de mise en production (et, pour une porte, dans
 > `docs/sdp360/completion/RELEASE-GATES.md`). Aucune décision, approbation ou signature n'a été prise par l'IA.
 
-Total : **109 décisions en attente**. Sources consolidées : dossiers des portes (`docs/agent-execution/gate-dossiers/`), ADR au statut PROPOSED (`docs/ai-decisions/`), journal de décisions 2027, rapport P11 (tours 1 à 4), profil pilote, revue d'adoption, plan de lots d'interrupteurs.
+Total : **110 décisions en attente**. Sources consolidées : dossiers des portes (`docs/agent-execution/gate-dossiers/`), ADR au statut PROPOSED (`docs/ai-decisions/`), journal de décisions 2027, rapport P11 (tours 1 à 4), profil pilote, revue d'adoption, plan de lots d'interrupteurs.
 
 ## Décomptes par décideur
 
@@ -21,7 +21,7 @@ Total : **109 décisions en attente**. Sources consolidées : dossiers des porte
 | Finance | 9 |
 | Comité KPI | 15 |
 | Comité de gouvernance | 7 |
-| PMO | 13 |
+| PMO | 14 |
 | CAB | 2 |
 | CAB + SRE | 1 |
 | SRE | 3 |
@@ -38,7 +38,7 @@ Total : **109 décisions en attente**. Sources consolidées : dossiers des porte
 | DPO | 1 |
 | HSE | 1 |
 | Juridique + commercial | 1 |
-| **Total** | **109** |
+| **Total** | **110** |
 
 Légende de la colonne « Bloque » : `Lnn` = lot d'interrupteurs (`docs/ops/switch-lots.json`), `Gnn` = porte de mise en production (`docs/agent-execution/gate-dossiers/INDEX.md`), `K:` suivi d'un nom = groupe gardé éteint par le plan de lots.
 
@@ -153,7 +153,7 @@ Légende de la colonne « Bloque » : `Lnn` = lot d'interrupteurs (`docs/ops/swi
 | HD-C03 | Gouvernance du re-baselining : qui peut re-baseliner et seuils d'exception (ADR-G11b). | Comité seul · Chef de projet sous seuil | Comité seul pendant le pilote. | L03 | `docs/ai-decisions/ADR-G11b-baseline-versions.md` | | | | |
 | HD-C05 | Rétention de la corbeille (`soft_delete_enabled`, 30 jours) et purge (`soft_delete_purge_enabled`). | 30 jours sans purge · Autre durée | 30 jours, purge éteinte pendant le pilote. | L07 | `docs/ai-decisions/ADR-A19-soft-delete.md` | | | | |
 
-## PMO (13)
+## PMO (14)
 
 | Id | À trancher | Options | Recommandation IA | Bloque | Source | Décision | Nom | Date | Signature |
 |---|---|---|---|---|---|---|---|---|---|
@@ -170,6 +170,7 @@ Légende de la colonne « Bloque » : `Lnn` = lot d'interrupteurs (`docs/ops/swi
 | HD-P10 | Lien des propriétaires de bénéfices aux utilisateurs (`benefit_owner_link_enabled`). | Activer · Pas maintenant | Avec L05 seulement. | L05 | `docs/ops/pilot/PILOT-PROFILE.md` | | | | |
 | HD-P11 | Critères de score des RFI nées de l'incubation (`incubation_rfi_link_enabled`). | Adopter des critères · Score provisoire | Score provisoire. | L07 | `docs/ops/pilot/PILOT-PROFILE.md` | | | | |
 | HD-P12 | Redirection de la feuille de route vers le portefeuille (`roadmap_redirect_to_portfolio`) après un cycle de parité propre ; suppression des données = CAB. | Après parité · Jamais | Éteinte pendant le pilote. | K:irreversible_or_destructive | `docs/ops/pilot/PILOT-PROFILE.md` | | | | |
+| HD-P13 | Portefeuille phase 2 (L16 : dépendances structurées, demande de ressources et capacité, documents, score d'effort, scénarios, export BI `ext_api_portfolio_enabled`) — absent du plan de pilote tant que le PMO, la sécurité (stockage des documents sans antivirus, export vers un outil tiers) et le propriétaire des données ne l'ont pas planifié. | Hors pilote · Planifier une vague dédiée après revue | Hors pilote ; à replanifier après une revue humaine (lot fusionné après le tour 4, avis panel IA du tour 5 : CONDITIONAL). | L16 | `docs/ai-decisions/ADR-PORTFOLIO-LOT6-phase2.md` | | | | |
 
 ## CAB (2)
 

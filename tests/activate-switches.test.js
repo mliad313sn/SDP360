@@ -298,3 +298,50 @@ test('r5 N-15 (pg): Policy Center on — four-eyes keys become center requests, 
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+// P11 r5 R5-A4/A6 — the rollback "signature" was an unkeyed sha256: now an HMAC seal under SDP_CONFIG_KEY / SDP_BACKUP_KEY
+// when one is set (checksum only otherwise, labelled honestly); the OS user + host are recorded beside the declared name.
+test('r5: rollback files are HMAC-sealed when a key is configured; unsealed / forged files are refused', () => {
+  const plan = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'docs', 'ops', 'switch-lots.json'), 'utf8'));
+  const l01 = A.selectLots(plan, 'L01')[0].switches[0];
+  const env = { SDP_CONFIG_KEY: 'a-long-enough-config-key-1234' };
+  const rb = { created_at: '2026-11-20T00:00:00Z', actor: 'cli:activate-switches', operator: 'jdoe', os_user: 'svc_ops', host: 'SRV01', lots: ['L01'], entries: [{ key: l01, from: '0', to: '1' }] };
+  rb.sha256 = A.rollbackHash(rb);
+  // unsealed while a key exists → refused unless explicitly accepted (then a warning, never "signed")
+  assert.match(A.sealCheck(rb, env).problems.join('|'), /no HMAC seal/);
+  const acc = A.sealCheck(rb, env, { acceptUnsealed: true });
+  assert.deepEqual(acc.problems, []); assert.match(acc.warnings[0], /NOT signed/);
+  // no key at all → checksum only, warned
+  const nok = A.sealCheck(rb, {}); assert.deepEqual(nok.problems, []); assert.match(nok.warnings[0], /checksummed only/);
+  // sealed: verifies under the same key, not under another, and an edit with a recomputed checksum breaks it
+  const sealed = { ...rb, hmac: A.rollbackHmac(rb, A.rollbackKey(env)) };
+  assert.deepEqual(A.sealCheck(sealed, env), { problems: [], warnings: [] });
+  assert.match(A.sealCheck(sealed, { SDP_CONFIG_KEY: 'another-long-key-0000000' }).problems[0], /does not match/);
+  assert.match(A.sealCheck(sealed, {}).problems[0], /cannot verify/);
+  const forged = { ...sealed, entries: [{ key: l01, from: '1', to: '1' }] }; forged.sha256 = A.rollbackHash(forged);
+  assert.match(A.sealCheck(forged, env).problems[0], /does not match/);
+  // the OS identity is inside the checksummed content
+  assert.notEqual(A.rollbackHash({ ...rb, os_user: 'someone_else' }), rb.sha256);
+  // SDP_BACKUP_KEY is the fallback key; a short key is not a key
+  assert.equal(A.rollbackKey({ SDP_BACKUP_KEY: 'backup-key-long-enough-xx' }).name, 'SDP_BACKUP_KEY');
+  assert.equal(A.rollbackKey({ SDP_CONFIG_KEY: 'short' }), null);
+  const id = A.osIdentity(); assert.ok('os_user' in id && 'host' in id);
+});
+
+test('r5: --apply writes os_user + host and the HMAC seal into the rollback file and the journal event', async () => {
+  const dir = tmp(); const events = []; const cfg = {};
+  const prev = process.env.SDP_CONFIG_KEY; process.env.SDP_CONFIG_KEY = 'a-long-enough-config-key-1234';
+  try {
+    const plan = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'docs', 'ops', 'switch-lots.json'), 'utf8'));
+    const lot = plan.lots.find((l) => l.id === 'L15') || plan.lots[0];
+    const d = { log: () => {}, getConfig: async () => ({ ...cfg }), setConfig: async (p) => Object.assign(cfg, p), logEvent: async (e) => events.push(e),
+      storedKeys: async () => new Set(Object.keys(cfg)), osIdentity: { os_user: 'svc_ops', host: 'SRV01' }, rollbackKnown: async () => true };
+    const r = await A.main(['--apply', '--db-url=postgres://x', `--lots=${lot.id}`, '--reason=pilot wave test CAB-0', `--rollback-dir=${dir}`, '--operator=jdoe', '--include-outbound', '--second-operator=asmith'], d);
+    assert.ok(r.rollback_file, 'a rollback file was written: ' + JSON.stringify(r).slice(0, 300));
+    const rb = JSON.parse(fs.readFileSync(r.rollback_file, 'utf8'));
+    assert.equal(rb.os_user, 'svc_ops'); assert.equal(rb.host, 'SRV01'); assert.equal(rb.operator, 'jdoe');
+    assert.match(rb.hmac, /^[0-9a-f]{64}$/); assert.match(rb.integrity, /hmac-sha256 \(SDP_CONFIG_KEY\)/);
+    const ev = events.find((e) => e.action === 'switch_rollback_file');
+    assert.equal(ev.details.os_user, 'svc_ops'); assert.equal(ev.details.host, 'SRV01'); assert.equal(ev.details.sealed, true);
+  } finally { if (prev === undefined) delete process.env.SDP_CONFIG_KEY; else process.env.SDP_CONFIG_KEY = prev; fs.rmSync(dir, { recursive: true, force: true }); }
+});

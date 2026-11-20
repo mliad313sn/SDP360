@@ -383,7 +383,7 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 | `ppm_effort_scoring_enabled` | to be named | — | — | — | — | — | 5 | 1 |
 | `ppm_documents_enabled` | to be named | only after the operator has decided document storage, retention and malware scanning: typed, versioned project documents in the filesystem blob store  | — | — | — | — | 6 | 3 |
 | `ppm_scenarios_enabled` | to be named | — | `ppm_resource_demand_enabled`, `ppm_structured_dependencies_enabled` | — | — | — | 3 | 2 |
-| `ext_api_portfolio_enabled` | dependencies | — | — | — | alert_firings, alert_rules, alert_state, api_calls, api_consumers, notification_comments +4 | — | 4 | 1 |
+| `ext_api_portfolio_enabled` | dependencies | — | — | — | alert_firings, alert_rules, alert_state, api_calls, api_consumers, notification_comments +4 | — | 5 | 1 |
 
 ## Keep dark (with the reason)
 
