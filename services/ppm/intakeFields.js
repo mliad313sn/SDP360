@@ -34,6 +34,7 @@ const MAX_FTE = 1000;
 const invalid = (msg, reason) => Object.assign(new Error(msg), { code: 'INVALID', reason });
 const blank = (v) => v == null || (typeof v === 'string' && v.trim() === '');
 const parse = (v, d) => { if (v == null) return d; if (typeof v !== 'string') return v; try { return JSON.parse(v); } catch (_) { return d; } };
+const BADJSON = Symbol('bad-json');   // a body string that is not JSON: refused, never read as "cleared"
 const sameName = (a, b) => !blank(a) && !blank(b) && String(a).trim().toLowerCase().replace(/\s+/g, ' ') === String(b).trim().toLowerCase().replace(/\s+/g, ' ');
 
 /** Calendar day check (YYYY-MM-DD that exists). */
@@ -81,8 +82,8 @@ function normaliseIntake(body, before, codes) {
     out.tags = list.length ? JSON.stringify(list) : null;
   }
   if (b.business_need !== undefined) {
-    const n = parse(b.business_need, undefined);
-    if (n != null && (typeof n !== 'object' || Array.isArray(n))) throw invalid('business_need has four parts: current_situation, impact, problem, required_outcome', 'BUSINESS_NEED_INVALID');
+    const n = blank(b.business_need) ? null : parse(b.business_need, BADJSON);
+    if (n === BADJSON || n != null && (typeof n !== 'object' || Array.isArray(n))) throw invalid('business_need has four parts: current_situation, impact, problem, required_outcome', 'BUSINESS_NEED_INVALID');
     const o = {}; for (const k of NEED_PARTS) if (n && !blank(n[k])) o[k] = String(n[k]).trim().slice(0, 2000);
     out.business_need = Object.keys(o).length ? JSON.stringify(o) : null;
   }
@@ -109,8 +110,8 @@ function normaliseIntake(body, before, codes) {
   const stored = before ? parse(before.value_states, {}) || {} : {};
   const states = { ...stored };
   if (b.value_states !== undefined) {
-    const sent = parse(b.value_states, undefined);
-    if (sent != null && (typeof sent !== 'object' || Array.isArray(sent))) throw invalid('value_states is a map {field: tbc | na | none_known}', 'VALUE_STATE_INVALID');
+    const sent = blank(b.value_states) ? null : parse(b.value_states, BADJSON);
+    if (sent === BADJSON || sent != null && (typeof sent !== 'object' || Array.isArray(sent))) throw invalid('value_states is a map {field: tbc | na | none_known}', 'VALUE_STATE_INVALID');
     for (const [f, s] of Object.entries(sent || {})) {
       if (!STATE_FIELDS.includes(f)) throw invalid(`${f} cannot carry a value state`, 'VALUE_STATE_FIELD');
       if (s == null || s === '') { delete states[f]; continue; }
