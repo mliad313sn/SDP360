@@ -1,6 +1,6 @@
 # Gate dossiers — index and critical path / Dossiers des portes — index et chemin critique
 
-Target SHA / SHA cible: `801c0c84` · Generated / Généré: 2026-11-20 · Source: `tools/release/gate-dossiers.source.js`
+Target SHA / SHA cible: `5043849bd461adf700c18390afbc303798460bd9` · Generated / Généré: 2026-11-20 · Source: `tools/release/gate-dossiers.source.js`
 
 **No decision cell is filled by these dossiers. Every gate below is NO-GO until its approver fills its row in `docs/sdp360/completion/RELEASE-GATES.md`.**
 **Aucune case de décision n'est remplie par ces dossiers. Chaque porte ci-dessous est NO-GO tant que son approbateur n'a pas rempli sa ligne.**
