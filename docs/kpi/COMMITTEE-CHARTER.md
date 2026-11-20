@@ -25,7 +25,7 @@ It does **not** decide operational targets per site (those are `kpi_targets`), n
 
 ## 3. Decision cycle (as the code supports it today)
 1. A member drafts a version in `/kpi-builder.html` (status `draft`).
-2. Its author proposes it (status `proposed`) — only the author may: `services/kpiPolicyStore.js:105` (`only the author of the draft proposes it`).
+2. Its author proposes it (status `proposed`) — only the author may: `services/kpiPolicyStore.js:107` (`only the author of the draft proposes it`).
 3. The committee reads the **shadow comparison** (per site Δ and RAG changes vs the adopted version, else today's code).
 4. A member who is **neither the author, nor the proposer, nor a deputy of them** records `adopt` / `reject` / `retire`.
 5. The adopted version takes effect at its `effective_from`; the previous adopted version of the metric is closed at that date.
@@ -33,7 +33,7 @@ It does **not** decide operational targets per site (those are `kpi_targets`), n
 
 ## 4. Author ≠ adopter — where the code enforces it
 - Separation rule `kpi_policy.adopt` = `no_self_approval` + `no_deputy_verification`: `services/sodPolicy.js:39` (`'kpi_policy.adopt'`).
-- The check applied at decision time: `services/kpiPolicyStore.js:115` (`function adoptCheck(p, actorId, principals)`).
+- The check applied at decision time: `services/kpiPolicyStore.js:117` (`function adoptCheck(p, actorId, principals)`).
 - Writes require the committee role: `routes/kpiPolicies.js:31` (`const requireKpiCommittee`).
 - An adopted or retired version is **immutable** (database trigger): `db/postgres/reports/065_kpi_policies.sql:65` (`immutable`).
 - Proven by `tests/kpi-policy-routes.smoke.test.js` ("governance: only the committee drafts; only the author proposes; the author cannot adopt…").
@@ -41,7 +41,7 @@ It does **not** decide operational targets per site (those are `kpi_targets`), n
 ## 5. Decision record = `committee_ref`
 Every decision row (`kpi_policy_decisions`) carries a mandatory committee reference:
 - schema: `db/postgres/reports/065_kpi_policies.sql:35` (`committee_ref TEXT NOT NULL`);
-- route check (≥ 3 characters, else 400): `services/kpiPolicyStore.js:127` (`if (ref.length < 3)`).
+- route check (≥ 3 characters, else 400): `services/kpiPolicyStore.js:129` (`if (ref.length < 3)`).
 
 **Proposed format** (to be confirmed by the committee): `KPI-PV-<YYYY>-<NN>[/<item>]`, e.g. `KPI-PV-2026-03/4` =
 session 3 of 2026, agenda item 4. The same reference is written in the PV (`PV-TEMPLATE.md`) so that each adopted
