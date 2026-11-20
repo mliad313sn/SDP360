@@ -43,6 +43,10 @@ const TRANSLATED_PAGES = {
   'meetings.html': { dict: 'I18N_FR_MEETINGS', file: 'meetings.fr.js', runtimeInSource: true },
   'meetings-actions.html': { dict: 'I18N_FR_MEETINGS_ACTIONS', file: 'meetings-actions.fr.js', runtimeInSource: true },
   'meetings-issues.html': { dict: 'I18N_FR_MEETINGS_ISSUES', file: 'meetings-issues.fr.js', runtimeInSource: true },
+  // Adoption Lot B (item 7) — three menu pages every profile meets (static markup; their JS-built rows are the next pass).
+  'notifications.html': { dict: 'I18N_FR_NOTIFICATIONS', file: 'notifications.fr.js' },
+  'report-studio.html': { dict: 'I18N_FR_REPORT_STUDIO', file: 'report-studio.fr.js' },
+  'integrations.html': { dict: 'I18N_FR_INTEGRATIONS', file: 'integrations.fr.js' },
 };
 
 // A-09b — whole regions of a translated page left out of the coverage check, with the reason. Each marker
@@ -71,6 +75,12 @@ const fr = (list) => Object.fromEntries(list.map((k) => [k, ALREADY_FR]));
 const SDP_LABEL = 'ServiceDesk Plus picklist label quoted so users can self-trace (the page says labels match SDP exactly)';
 const names = (list) => Object.fromEntries(list.map((k) => [k, 'proper name (site / IT group / product) — data']));
 const ALLOW = {
+  'notifications.html': { 'site-weekly-pack · exec-home · sla.resolution.red': 'placeholder: example target keys (data, typed as is)' },
+  'report-studio.html': { draft: CODE, reviewed: CODE, published: CODE, rejected: CODE, withdrawn: CODE, 'site-weekly-pack': 'placeholder: example template key (data)' },
+  'integrations.html': { site: CODE, fleet: CODE, 'REST:': 'protocol name', 'GET /ext/v1/metrics': 'endpoint path (code)', '/ext/v1/sites': 'endpoint path (code)',
+    '/ext/v1/values?metrics=…': 'endpoint path (code)', 'X-Api-Key: <key>': 'HTTP header (code)', 'Authorization: Bearer <key>': 'HTTP header (code)',
+    '?api_key=': 'query parameter (code)', 'engagement_*': 'configuration key prefix (code)', 'publish_*': 'configuration key prefix (code)',
+    'sharepoint_*': 'configuration key prefix (code)', 'inapp,email,teams,webhook': 'placeholder: channel codes sent to the API', 'Power BI — Group IT': 'placeholder: example consumer name (data)' },
   'site-actions.html': {},
   'meeting.html': {},
   'inspection.html': {
@@ -137,11 +147,11 @@ const SELF_TRANSLATED = ['access.html', 'cockpit.html', 'coverage.html', 'commit
 const UNTRANSLATED = {
   'finance.html': 'A1/B8 Finance certification + Pronto import (hidden by default), French only — English pending',
   'executive-report.html': 'deck builder, decks stay English (D-2)', 'it-review.html': 'faithful port of the executive dashboard, English',
-  'integrations.html': 'admin console, English', 'system-logs.html': 'admin console, English',
+  'system-logs.html': 'admin console, English',
   'data-quality.html': 'E-D07 admin data-quality board (hidden by default), English',
   'connector-health.html': 'P4/A2 admin connector-health board (admin tier only), English with French status words (désarmé)',
-  'dashboard-composer.html': 'admin authoring, English', 'report-studio.html': 'report authoring, English',
-  'tracker-builder.html': 'admin authoring, English', 'notifications.html': 'not a coordinator field page yet',
+  'dashboard-composer.html': 'admin authoring, English',
+  'tracker-builder.html': 'admin authoring, English',
   'meetings-setup.html': 'admin setup — next pass',
 };
 

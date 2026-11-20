@@ -138,8 +138,9 @@
         $('hmSites').insertAdjacentElement('afterend', sec);
       }
       head(j);
+      const groupShown = await lotB(j);
       const msg = [];
-      if (j.message) msg.push(lang === 'fr' ? "Vous n'êtes rattaché à aucun site — utilisez le registre des actions du site." : j.message);
+      if (j.message && !groupShown) msg.push(lang === 'fr' ? "Vous n'êtes rattaché à aucun site — utilisez le registre des actions du site." : j.message);
       if (j.truncated) msg.push(fill(T.more, { n: j.truncated }));
       $('hmMsg').textContent = msg.join(' ');
       window.__markFirstUsable && window.__markFirstUsable('home');   // F-UX-05
@@ -151,6 +152,21 @@
       head(null);
       $('hmMsg').textContent = lang === 'fr' && window.ErrorText ? window.ErrorText.fr(e.message) : e.message;
     }
+  }
+  // Adoption Lot B (items 11 + 16) — the group card for a person with no site (ui_home_group_variant) and the
+  // data-source freshness strip for the admin tier (ui_home_freshness_strip). Both off by default: no call, no
+  // markup, today's Home. Returns true when the group card replaced the "no site" message.
+  async function lotB(j) {
+    const HG = window.HomeGroup; const pol = window.__uiPolicy || {};
+    if (!HG || (pol.home_group_variant !== '1' && pol.home_freshness_strip !== '1')) return false;
+    const noSite = !!(j && Array.isArray(j.sites) && j.sites.length === 0);
+    try {
+      const out = await HG.compose({ has: window.__userHasRole, policy: pol, noSite, lang: lang === 'fr' ? 'fr' : 'en',
+        fetchJson: async (url) => { const r = await fetch(url, { credentials: 'same-origin' }); return { status: r.status, json: r.ok ? await r.json().catch(() => null) : null }; } });
+      const fb = $('hmFreshBox'); if (fb) fb.innerHTML = out.fresh || '';
+      if (out.group) { $('hmSites').insertAdjacentHTML('afterbegin', out.group); return true; }
+    } catch (_) { /* optional blocks: Home stays as it is */ }
+    return false;
   }
   // P5 (A3) — the person's block order (workspace prefs, presentation only): awaiting / owned / sites inside the card
   // list, and the queue before or after them. No stored order = the page order of today.

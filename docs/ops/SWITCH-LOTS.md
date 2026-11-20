@@ -12,7 +12,7 @@ or the plan breaks a rule (`tests/switch-lots.test.js`).
 
 | Dark switches in the register | In a lot | Keep dark | Retire (proposal) | Lots | Proposed count after decisions |
 |---|---|---|---|---|---|
-| 157 | 116 | 44 (of which 5 are not switches) | 3 | 14 | 149 dark entries if the 3 retirements and the 5 reclassifications are accepted (activations then lower it further, lot by lot) |
+| 160 | 119 | 44 (of which 5 are not switches) | 3 | 15 | 152 dark entries if the 3 retirements and the 5 reclassifications are accepted (activations then lower it further, lot by lot) |
 
 Plan checks: **clean** · dependency cycles: **0** · orphans (no code reads the key): **0**.
 
@@ -33,7 +33,8 @@ Plan checks: **clean** · dependency cycles: **0** · orphans (no code reads the
 | L11 | Site operations evidence — inspections, field, assets, WAN | 7 | PROPOSED |
 | L12 | Access security hardening | 10 | PROPOSED |
 | L13 | Operations resilience — sync drift, delivery failures, restore, identity | 6 | PROPOSED |
-| L14 | PMO journey — portfolio intake register, data quality, register and executive dashboard (portfolio spec Lots 1–3) | 4 | PROPOSED — New lot (portfolio reconstruction spec, Lots 1 and 2). Arm ppm_intake_register_enabled first; then ppm_data_quality_enabled (shadow) for a shadow period; ppm_dq_gate_enforced last, only after the PMO has approved the required set and the blocking checks. Lot 3: ppm_portfolio_dashboard_v2_enabled (read-only register + executive dashboard) after ppm_intake_register_enabled (and ppm_data_quality_enabled for the DQ card); its report definitions (unfunded, without owners, high risk, stalled 90 days) are PROPOSED. |
+| L14 | PMO journey — portfolio intake register and data quality (portfolio spec Lots 1–2) | 3 | PROPOSED — New lot (portfolio reconstruction spec, Lots 1 and 2). Arm ppm_intake_register_enabled first; then ppm_data_quality_enabled (shadow) for a shadow period; ppm_dq_gate_enforced last, only after the PMO has approved the required set and the blocking checks. |
+| L15 | Adoption Lot B — each profile lands on its job | 4 | PROPOSED — Adoption review 2026-11-20, Lot B. Enable per pilot site together with ui_role_landing and ui_i18n_pages (pilot owner); gate = the human first-click and SUS sessions of USABILITY-TEST-PROTOCOL.md on two pilot sites. |
 
 Run a lot's targeted tests with its switches forced on (throwaway database only):
 
@@ -56,7 +57,7 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 | Switch | Who decides (register) | Human prerequisite (register text) | Depends on | Roles named | Tables touched | Job | Consumer files | Tests naming it |
 |---|---|---|---|---|---|---|---|---|
 | `workspace_profiles_enabled` | PO | once the PO confirms the 11 profiles and their first destinations — presentation profiles  | — | — | — | — | 9 | 7 |
-| `ui_role_landing` | Owner (UI policy) | — | — | — | — | — | 5 | 2 |
+| `ui_role_landing` | Owner (UI policy) | — | — | — | — | — | 5 | 3 |
 | `ui_home_queue` | Owner (UI policy) | after a browser review in EN and FR at 320 px: Home shows one queue of the person's own work read from the existing per-site readers  | — | — | portfolio_benefits, portfolio_milestones, portfolio_objectives, portfolio_programmes, portfolio_projects, portfolio_tasks +2 | — | 8 | 6 |
 | `ui_home_blocks` | Owner (UI policy) | after a browser review: per-block states and per-card reload on Home | — | — | — | — | 2 | 2 |
 | `commitments_enabled` | to be named | — | — | — | action_items, audit_log, commitments, connector_fix_tasks, field_outbox, gov_control_tests +22 | yes | 22 | 12 |
@@ -239,7 +240,7 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 | `chart_annotations_enabled` | Owner (UI policy) | after a browser review | — | — | — | — | 4 | 1 |
 | `dashboard_red_action_links` | Owner (UI policy) + PMO | — | `commitments_enabled` | — | — | — | 4 | 2 |
 | `value_scoreboard_enabled` | Owner (UI policy) + KPI committee | once the committee agrees the value contract  | — | super_admin, admin | value_scoreboard_snapshots | — | 4 | 2 |
-| `ui_i18n_pages` | Owner (D-2) | — | — | — | — | — | 53 | 6 |
+| `ui_i18n_pages` | Owner (D-2) | — | — | — | — | — | 56 | 6 |
 
 ## Dossier L10 — Reporting rhythm — reminders, drift and deck clarity
 
@@ -324,11 +325,11 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 | `site_code_shared_block` | Data owner + Owner | Decide who owns each shared site code (e.g. TND) and correct the data first; then test the controlled 409 and the editors' rights. | — | editor | — | — | 5 | 3 |
 | `policy_center_enabled` | to be named | — | — | — | — | — | 8 | 2 |
 
-## Dossier L14 — PMO journey — portfolio intake register, data quality, register and executive dashboard (portfolio spec Lots 1–3)
+## Dossier L14 — PMO journey — portfolio intake register and data quality (portfolio spec Lots 1–2)
 
 - **Status**: PROPOSED. **Owner**: _(empty — human)_. **Canary site**: _(empty — human)_. **Decision date / expiry**: _(empty — human)_.
 - **Who sees a change**: PMO, committee members (who maintain projects), admin tier (reference lists), every project reader.
-- **What changes**: Projects carry the intake fields (type, tags, priority, structured business need, expected value, delivery lead, indicative quarter + schedule confidence, budget status / approval date / reference, decision required, delivery effort, risk exposure, FTE, skills, workload notes, explicit TBC / not applicable / none-known states); new projects get an immutable PRJ-YYYY-NNN id; the admin tier maintains the reference lists; Intake tab with field guidance on the project page. Existing projects get ids only through tools/ppm/backfill-project-ids.js (dry run first). Lot 2: data-quality score per project and per site (Σ completed ÷ Σ required), blocking errors, the 16-item submission checklist (shadow); optional refusal of the proposal → approval move on a blocking error (invalid schedule, no IT owner). Lot 3: /portfolio-register.html — register table (search, multi-filter, sort, columns, views saved in the URL, frozen ID / site / name), five KPI cards with drill-through, site / priority / status / risk / per-currency budget analyses, monthly active load, standard reports, CSV / Excel exports keeping the filters (amounts only for amount readers).
+- **What changes**: Projects carry the intake fields (type, tags, priority, structured business need, expected value, delivery lead, indicative quarter + schedule confidence, budget status / approval date / reference, decision required, delivery effort, risk exposure, FTE, skills, workload notes, explicit TBC / not applicable / none-known states); new projects get an immutable PRJ-YYYY-NNN id; the admin tier maintains the reference lists; Intake tab with field guidance on the project page. Existing projects get ids only through tools/ppm/backfill-project-ids.js (dry run first). Lot 2: data-quality score per project and per site (Σ completed ÷ Σ required), blocking errors, the 16-item submission checklist (shadow); optional refusal of the proposal → approval move on a blocking error (invalid schedule, no IT owner).
 - **Risk**: low-medium (AI estimate): additive columns, writes stay committee-only; the priority meanings, risk levels and effort bands are PROPOSED reference data the PMO must review before arming; the id backfill is permanent (ids are never reused).
 - **Metric that would show it worked** (candidate, no threshold): share of live projects with type, priority, business need, sponsor, IT owner and budget status filled; projects without an id after the backfill (should be zero).
 - **Rollback**: set every switch of the lot back to its default `0` (Admin or `setConfig`). Data written while on stays in place and is no longer shown or acted on; the rehearsal is `tests/switch-lots-rollback.test.js`. **Rollback trigger**: _(observable and threshold left to the owner)_.
@@ -336,10 +337,26 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 
 | Switch | Who decides (register) | Human prerequisite (register text) | Depends on | Roles named | Tables touched | Job | Consumer files | Tests naming it |
 |---|---|---|---|---|---|---|---|---|
-| `ppm_intake_register_enabled` | to be named | once the PMO has reviewed the PROPOSED reference lists  | — | admin | decisions, meeting_cadences, meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits +19 | — | 15 | 4 |
-| `ppm_data_quality_enabled` | to be named | once `ppm_intake_register_enabled` is on: portfolio and project reads carry the data-quality block of the portfolio reconstruction spec  | `ppm_intake_register_enabled` | — | — | — | 7 | 2 |
+| `ppm_intake_register_enabled` | to be named | once the PMO has reviewed the PROPOSED reference lists  | — | admin | decisions, meeting_cadences, meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits +19 | — | 14 | 3 |
+| `ppm_data_quality_enabled` | to be named | once `ppm_intake_register_enabled` is on: portfolio and project reads carry the data-quality block of the portfolio reconstruction spec  | `ppm_intake_register_enabled` | — | — | — | 6 | 1 |
 | `ppm_dq_gate_enforced` | to be named | only after the PMO has approved the required set and the blocking checks of `ppm_data_quality_enabled` and run it in shadow: the proposal → approval stage move is refused  | `ppm_data_quality_enabled` | — | — | — | 4 | 1 |
-| `ppm_portfolio_dashboard_v2_enabled` | to be named | after `ppm_intake_register_enabled`  | `ppm_data_quality_enabled`, `ppm_intake_register_enabled` | executive | — | — | 6 | 1 |
+
+## Dossier L15 — Adoption Lot B — each profile lands on its job
+
+- **Status**: PROPOSED. **Owner**: _(empty — human)_. **Canary site**: _(empty — human)_. **Decision date / expiry**: _(empty — human)_.
+- **Who sees a change**: Committee / PMO, finance readers, auditors, KPI committee, dashboard publishers, scorecard readers, field technicians (landing); executives and site-less admins (Home group card); the admin tier (source freshness on Home); site coordinators and readers (Helpdesk on their site).
+- **What changes**: Feature-role accounts land on the first page of their workspace profile instead of the Helpdesk; Home for a person with no site shows a group card (worst sites when the role reads the Vue Groupe grid, late projects, decisions due); Home for the admin tier lists the last collection of each data source; the Helpdesk opens on the person's own site for site-scoped roles.
+- **Risk**: low (AI estimate): presentation only — every page and route keeps its own gate (walked per persona by tests/adoption-lota-nav-authz.test.js); no new route, no write.
+- **Metric that would show it worked** (candidate, no threshold): first-click success per profile (FIRST-CLICK-SHEET); median clicks from login to the profile's value page; page_viewed of the landing page by profile.
+- **Rollback**: set every switch of the lot back to its default `0` (Admin or `setConfig`). Data written while on stays in place and is no longer shown or acted on; the rehearsal is `tests/switch-lots-rollback.test.js`. **Rollback trigger**: _(observable and threshold left to the owner)_.
+- **Needs earlier lots**: none.
+
+| Switch | Who decides (register) | Human prerequisite (register text) | Depends on | Roles named | Tables touched | Job | Consumer files | Tests naming it |
+|---|---|---|---|---|---|---|---|---|
+| `ui_role_landing_profiles` | Pilot owner (UI policy) | — | — | executive | — | — | 4 | 2 |
+| `ui_home_group_variant` | Pilot owner (UI policy) | — | — | — | — | — | 2 | 2 |
+| `ui_home_freshness_strip` | Pilot owner (UI policy) | — | — | admin | — | — | 3 | 2 |
+| `ui_helpdesk_site_default` | Pilot owner (UI policy) | — | — | admin | — | — | 2 | 2 |
 
 ## Keep dark (with the reason)
 
@@ -470,7 +487,6 @@ Edges = a switch whose register text (recommended value or prerequisite) names a
 | `ppm_dq_gate_enforced` | L14 | `ppm_data_quality_enabled` (L14) |
 | `ppm_evm_enabled` | L05 | `ppm_baseline_versions` (L03) |
 | `ppm_leveling_enabled` | L04 | `ppm_resources_enabled` (L04) |
-| `ppm_portfolio_dashboard_v2_enabled` | L14 | `ppm_data_quality_enabled` (L14), `ppm_intake_register_enabled` (L14) |
 | `ppm_project_roles_enabled` | L02 | `ppm_project_team_enabled` (L02) |
 | `ppm_report_send_enabled` | keep:outbound | `ppm_project_report_enabled` (L02) |
 | `ppm_timesheet_approval_enabled` | L05 | `ppm_time_entries_enabled` (L05) |
@@ -489,25 +505,25 @@ Orphans (dark keys no code file reads, outside `services/reportConfig.js`): none
 
 Pairs of switches in different lots that share a consumer file or a table named in that file's SQL. Hub files read by more
 than 6 lot switches (and the two monoliths) are excluded: sharing them says nothing. File-level approximation.
-Hub files excluded: `public/portfolio.html`, `public/project.html`, `routes/governance.js`, `routes/governancePpm.js`, `routes/governanceW3.js`, `routes/governanceWorkbench.js`, `routes/myWork.js`, `server.js`, `services/reportCatalogue.js`, `services/sync/jobs.js`, `services/uiPolicy.js`, `tools/agent/policy-catalogue.js`. Hub tables excluded: decisions, meeting_cadences, portfolio_objectives, portfolio_programmes, portfolio_projects, portfolio_tasks, ppm_budget_periods, ppm_events, ppm_project_members, ppm_time_entries, rfi_requests, sites.
+Hub files excluded: `public/lib/home-page.js`, `public/portfolio.html`, `public/project.html`, `routes/governance.js`, `routes/governancePpm.js`, `routes/governanceW3.js`, `routes/governanceWorkbench.js`, `routes/myWork.js`, `server.js`, `services/reportCatalogue.js`, `services/sync/jobs.js`, `services/uiPolicy.js`, `tools/agent/policy-catalogue.js`. Hub tables excluded: decisions, meeting_cadences, portfolio_objectives, portfolio_programmes, portfolio_projects, portfolio_tasks, ppm_budget_periods, ppm_events, ppm_project_members, ppm_time_entries, rfi_requests, sites.
 
 | Lot pair | Overlapping switch pairs |
 |---|---|
 | L01 × L03 | 3 |
-| L01 × L05 | 6 |
+| L01 × L05 | 3 |
 | L01 × L08 | 5 |
 | L01 × L09 | 2 |
 | L01 × L10 | 3 |
 | L01 × L11 | 3 |
 | L01 × L12 | 1 |
 | L01 × L13 | 4 |
+| L01 × L15 | 6 |
 | L02 × L03 | 9 |
 | L02 × L04 | 1 |
 | L02 × L05 | 3 |
 | L02 × L07 | 3 |
 | L02 × L12 | 2 |
 | L02 × L13 | 1 |
-| L02 × L14 | 1 |
 | L03 × L04 | 5 |
 | L03 × L05 | 8 |
 | L03 × L06 | 1 |
@@ -541,23 +557,19 @@ Hub files excluded: `public/portfolio.html`, `public/project.html`, `routes/gove
 | L08 × L14 | 1 |
 | L09 × L10 | 1 |
 | L09 × L11 | 4 |
+| L09 × L15 | 1 |
 | L10 × L11 | 8 |
 | L11 × L12 | 3 |
 | L11 × L13 | 7 |
 | L12 × L13 | 3 |
-| L12 × L14 | 2 |
-| L13 × L14 | 1 |
 
 | Lots | Switch A | Switch B | Shared files | Shared tables |
 |---|---|---|---|---|
 | L01 × L03 | `commitments_enabled` | `ppm_baseline_versions` | `public/help.html` | — |
 | L01 × L03 | `commitments_enabled` | `ppm_change_requests_enabled` | — | users |
 | L01 × L03 | `commitments_enabled` | `ppm_rebaseline_enabled` | `public/help.html` | users |
-| L01 × L05 | `benefit_owner_link_enabled` | `mywork_awaiting_me_enabled` | `public/lib/home-page.js`, `services/myWork.js` | — |
-| L01 × L05 | `benefit_owner_link_enabled` | `ui_feedback_enabled` | `public/lib/home-page.js` | — |
-| L01 × L05 | `benefit_owner_link_enabled` | `ui_home_blocks` | `public/lib/home-page.js` | — |
-| L01 × L05 | `benefit_owner_link_enabled` | `ui_home_queue` | `public/lib/home-page.js`, `services/myWork.js` | — |
-| L01 × L05 | `benefit_owner_link_enabled` | `workspace_profiles_enabled` | `public/lib/home-page.js` | — |
+| L01 × L05 | `benefit_owner_link_enabled` | `mywork_awaiting_me_enabled` | `services/myWork.js` | — |
+| L01 × L05 | `benefit_owner_link_enabled` | `ui_home_queue` | `services/myWork.js` | — |
 | L01 × L05 | `commitments_enabled` | `ppm_timesheet_approval_enabled` | — | users |
 | L01 × L08 | `commitments_enabled` | `controls_register_enabled` | `routes/policies.js`, `services/controlRegister.js` | gov_control_tests, gov_controls, site_module_codes |
 | L01 × L08 | `commitments_enabled` | `handoffs_enabled` | `public/help.html`, `routes/handoffs.js`, `routes/obligations.js`, `services/governanceValues.js`, `tools/release/gate-dossiers.source.js` | — |
@@ -577,6 +589,12 @@ Hub files excluded: `public/portfolio.html`, `public/project.html`, `routes/gove
 | L01 × L13 | `commitments_enabled` | `entra_deprovision_enabled` | — | users |
 | L01 × L13 | `commitments_enabled` | `policy_center_enabled` | `public/help.html` | — |
 | L01 × L13 | `commitments_enabled` | `restore_drill_full` | — | report_config, system_log |
+| L01 × L15 | `ui_feedback_enabled` | `ui_role_landing_profiles` | `public/_shell.js` | — |
+| L01 × L15 | `ui_home_freshness_strip` | `ui_home_queue` | `public/home.html` | — |
+| L01 × L15 | `ui_nav_active_from_url` | `ui_role_landing_profiles` | `public/_shell.js` | — |
+| L01 × L15 | `ui_nav_carry_site` | `ui_role_landing_profiles` | `public/_shell.js` | — |
+| L01 × L15 | `ui_role_landing_profiles` | `workspace_profiles_enabled` | `public/_shell.js` | — |
+| L01 × L15 | `ui_role_landing` | `ui_role_landing_profiles` | `public/_shell.js`, `public/lib/landing.js`, `public/login.html` | — |
 | L02 × L03 | `portfolio_editor_plan_writes` | `portfolio_site_scope_reads` | `db/postgres/reports/043_portfolio_scope.sql`, `db/postgres_rollback/043_portfolio_scope_drop.sql`, `services/portfolioAccess.js`, `tools/agent/portfolio-access-matrix.js` | — |
 | L02 × L03 | `portfolio_editor_plan_writes` | `ppm_project_roles_enabled` | `services/portfolioAccess.js` | — |
 | L02 × L03 | `ppm_change_requests_enabled` | `ppm_project_team_enabled` | `db/postgres/reports/085_ppm_workbench.sql` | — |
@@ -596,7 +614,6 @@ Hub files excluded: `public/portfolio.html`, `public/project.html`, `routes/gove
 | L02 × L12 | `export_policy_strict` | `ppm_project_report_enabled` | `services/exportPolicy.js` | — |
 | L02 × L12 | `export_watermark_enabled` | `ppm_project_report_enabled` | `services/exportPolicy.js` | — |
 | L02 × L13 | `policy_center_enabled` | `ppm_project_report_enabled` | `services/exportPolicy.js` | — |
-| L02 × L14 | `ppm_portfolio_dashboard_v2_enabled` | `ppm_project_report_enabled` | `services/exportPolicy.js` | — |
 | L03 × L04 | `ppm_baseline_slots_enabled` | `ppm_calendars_enabled` | `db/postgres/reports/105_ppm_engine_w2.sql`, `db/postgres_rollback/105_ppm_engine_w2_drop.sql`, `routes/ppmEngine.js` | — |
 | L03 × L04 | `ppm_baseline_slots_enabled` | `ppm_leveling_enabled` | `db/postgres/reports/105_ppm_engine_w2.sql`, `db/postgres_rollback/105_ppm_engine_w2_drop.sql`, `routes/ppmEngine.js` | — |
 | L03 × L04 | `ppm_baseline_slots_enabled` | `ppm_resources_enabled` | `db/postgres/reports/105_ppm_engine_w2.sql`, `db/postgres_rollback/105_ppm_engine_w2_drop.sql`, `routes/ppmEngine.js` | — |
@@ -664,6 +681,7 @@ Hub files excluded: `public/portfolio.html`, `public/project.html`, `routes/gove
 | L09 × L11 | `insp_repeat_findings` | `ui_i18n_pages` | `public/inspections.html` | — |
 | L09 × L11 | `ui_i18n_pages` | `wan_sla_claims_enabled` | `public/wan.html` | — |
 | L09 × L11 | `ui_i18n_pages` | `wan_sla_require_contract_evidence` | `public/reports.html` | — |
+| L09 × L15 | `ui_helpdesk_site_default` | `ui_i18n_pages` | `public/index.html` | — |
 | L10 × L11 | `alert_group_by_rule` | `field_task_timing` | — | insp_inspections, md_meetings |
 | L10 × L11 | `alert_group_by_rule` | `insp_repeat_findings` | — | insp_inspections, md_meetings |
 | L10 × L11 | `alert_group_by_rule` | `wan_sla_claims_enabled` | — | insp_inspections, md_meetings |
@@ -685,9 +703,6 @@ Hub files excluded: `public/portfolio.html`, `public/project.html`, `routes/gove
 | L12 × L13 | `access_require_approval` | `restore_drill_full` | — | system_log |
 | L12 × L13 | `export_policy_strict` | `policy_center_enabled` | `services/exportPolicy.js` | — |
 | L12 × L13 | `export_watermark_enabled` | `policy_center_enabled` | `services/exportPolicy.js` | — |
-| L12 × L14 | `export_policy_strict` | `ppm_portfolio_dashboard_v2_enabled` | `services/exportPolicy.js` | — |
-| L12 × L14 | `export_watermark_enabled` | `ppm_portfolio_dashboard_v2_enabled` | `services/exportPolicy.js` | — |
-| L13 × L14 | `policy_center_enabled` | `ppm_portfolio_dashboard_v2_enabled` | `services/exportPolicy.js` | — |
 
 ## Expiry (step 7)
 

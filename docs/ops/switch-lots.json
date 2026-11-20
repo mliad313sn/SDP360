@@ -278,6 +278,22 @@
     "ppm_dq_gate_enforced",
     "ppm_portfolio_dashboard_v2_enabled"
    ]
+  },
+  {
+   "id": "L15",
+   "title": "Adoption Lot B — each profile lands on its job",
+   "status": "PROPOSED",
+   "order_note": "Adoption review 2026-11-20, Lot B. Enable per pilot site together with ui_role_landing and ui_i18n_pages (pilot owner); gate = the human first-click and SUS sessions of USABILITY-TEST-PROTOCOL.md on two pilot sites.",
+   "profiles": "Committee / PMO, finance readers, auditors, KPI committee, dashboard publishers, scorecard readers, field technicians (landing); executives and site-less admins (Home group card); the admin tier (source freshness on Home); site coordinators and readers (Helpdesk on their site)",
+   "changes": "Feature-role accounts land on the first page of their workspace profile instead of the Helpdesk; Home for a person with no site shows a group card (worst sites when the role reads the Vue Groupe grid, late projects, decisions due); Home for the admin tier lists the last collection of each data source; the Helpdesk opens on the person's own site for site-scoped roles.",
+   "risk": "low (AI estimate): presentation only — every page and route keeps its own gate (walked per persona by tests/adoption-lota-nav-authz.test.js); no new route, no write.",
+   "metric_candidate": "first-click success per profile (FIRST-CLICK-SHEET); median clicks from login to the profile's value page; page_viewed of the landing page by profile",
+   "switches": [
+    "ui_role_landing_profiles",
+    "ui_home_group_variant",
+    "ui_home_freshness_strip",
+    "ui_helpdesk_site_default"
+   ]
   }
  ],
  "keep": {

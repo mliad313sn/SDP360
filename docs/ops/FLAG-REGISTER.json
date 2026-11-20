@@ -12,12 +12,12 @@
   "expiry"
  ],
  "counts": {
-  "report_config": 300,
+  "report_config": 303,
   "planned": 9,
   "governance_policies": 37,
   "environment": 70,
   "pseudo": 4,
-  "dark": 157,
+  "dark": 160,
   "dark_complete": 0,
   "live": 6
  },
@@ -2109,17 +2109,6 @@
    "prerequisites": null
   },
   {
-   "key": "ppm_portfolio_dashboard_v2_enabled",
-   "source": "report_config",
-   "kind": "arm switch",
-   "secret": false,
-   "default": "0",
-   "dark": true,
-   "owner_role": null,
-   "recommended": "`1` after `ppm_intake_register_enabled` (and `ppm_data_quality_enabled` for the data-quality card): `/portfolio-register.html` — read-only register table (search, multi-filter, sort, column choice, views saved in the URL, frozen ID / site / name), the five executive KPI cards with drill-through, site / priority / status / risk / per-currency budget analyses (currencies never added together), monthly active load, standard reports and CSV / Excel exports keeping the filters (portfolio spec Lot 3). Amounts, currencies and budget status only for amount readers. Report definitions (unfunded, without owners, high risk, stalled > 90 days) are PROPOSED. `0` = every register route 404s.",
-   "prerequisites": null
-  },
-  {
    "key": "ppm_project_rag_enabled",
    "source": "report_config",
    "kind": "arm switch",
@@ -3236,6 +3225,18 @@
    "prerequisites": "Someone named to answer feedback (B-05 RACI) before the button is shown."
   },
   {
+   "key": "ui_helpdesk_site_default",
+   "source": "report_config",
+   "kind": "ui policy",
+   "secret": false,
+   "default": "0",
+   "dark": true,
+   "owner_role": "Pilot owner (UI policy)",
+   "recommended": "`1` at the pilot sites (proposal — the Helpdesk dashboard opens on the person's own site for site-scoped roles; All Sites one click away; the admin tier keeps All Sites)",
+   "reference": "Adoption Lot B (item 22)",
+   "prerequisites": null
+  },
+  {
    "key": "ui_home_blocks",
    "source": "report_config",
    "kind": "ui policy",
@@ -3245,6 +3246,30 @@
    "owner_role": "Owner (UI policy)",
    "recommended": "`1` (proposal — after a browser review: per-block states and per-card reload on Home; never shows a figure the server did not send)",
    "reference": "F-UX-09",
+   "prerequisites": null
+  },
+  {
+   "key": "ui_home_freshness_strip",
+   "source": "report_config",
+   "kind": "ui policy",
+   "secret": false,
+   "default": "0",
+   "dark": true,
+   "owner_role": "Pilot owner (UI policy)",
+   "recommended": "`1` at the pilot sites (proposal — Home for the admin tier: one line per data source with its last successful collection; never synced in amber)",
+   "reference": "Adoption Lot B (item 16)",
+   "prerequisites": null
+  },
+  {
+   "key": "ui_home_group_variant",
+   "source": "report_config",
+   "kind": "ui policy",
+   "secret": false,
+   "default": "0",
+   "dark": true,
+   "owner_role": "Pilot owner (UI policy)",
+   "recommended": "`1` at the pilot sites (proposal — Home for a person with no site: a group card with the worst sites of the Vue Groupe grid for the roles that read it, late projects and decisions due, instead of \"no site\"; figures from the existing routes only)",
+   "reference": "Adoption Lot B (item 11)",
    "prerequisites": null
   },
   {
@@ -3377,6 +3402,18 @@
    "owner_role": "Owner (UI policy)",
    "recommended": "`1`",
    "reference": "A-10",
+   "prerequisites": null
+  },
+  {
+   "key": "ui_role_landing_profiles",
+   "source": "report_config",
+   "kind": "ui policy",
+   "secret": false,
+   "default": "0",
+   "dark": true,
+   "owner_role": "Pilot owner (UI policy)",
+   "recommended": "`1` at the pilot sites (proposal — accounts holding feature roles only land on the first page of their default workspace profile: committee → portfolio, finance → asset finance, audit / KPI committee → cockpit, dashboard publisher → dashboards, scorecard → executive home, field tech → field app; editors and above keep their landing; the page keeps its own gate)",
+   "reference": "Adoption Lot B (item 6)",
    "prerequisites": null
   },
   {
@@ -7475,34 +7512,6 @@
    ]
   },
   {
-   "key": "ppm_portfolio_dashboard_v2_enabled",
-   "source": "report_config",
-   "default": "0",
-   "owner_role": null,
-   "reference": null,
-   "prerequisites": null,
-   "decision": {
-    "owner": null,
-    "risk": null,
-    "dependencies": null,
-    "canary_site": null,
-    "rollback_trigger": null,
-    "success_metric": null,
-    "decision_deadline": null,
-    "expiry": null
-   },
-   "missing": [
-    "owner",
-    "risk",
-    "dependencies",
-    "canary_site",
-    "rollback_trigger",
-    "success_metric",
-    "decision_deadline",
-    "expiry"
-   ]
-  },
-  {
    "key": "ppm_project_rag_enabled",
    "source": "report_config",
    "default": "0",
@@ -8679,11 +8688,95 @@
    ]
   },
   {
+   "key": "ui_helpdesk_site_default",
+   "source": "report_config",
+   "default": "0",
+   "owner_role": "Pilot owner (UI policy)",
+   "reference": "Adoption Lot B (item 22)",
+   "prerequisites": null,
+   "decision": {
+    "owner": null,
+    "risk": null,
+    "dependencies": null,
+    "canary_site": null,
+    "rollback_trigger": null,
+    "success_metric": null,
+    "decision_deadline": null,
+    "expiry": null
+   },
+   "missing": [
+    "owner",
+    "risk",
+    "dependencies",
+    "canary_site",
+    "rollback_trigger",
+    "success_metric",
+    "decision_deadline",
+    "expiry"
+   ]
+  },
+  {
    "key": "ui_home_blocks",
    "source": "report_config",
    "default": "0",
    "owner_role": "Owner (UI policy)",
    "reference": "F-UX-09",
+   "prerequisites": null,
+   "decision": {
+    "owner": null,
+    "risk": null,
+    "dependencies": null,
+    "canary_site": null,
+    "rollback_trigger": null,
+    "success_metric": null,
+    "decision_deadline": null,
+    "expiry": null
+   },
+   "missing": [
+    "owner",
+    "risk",
+    "dependencies",
+    "canary_site",
+    "rollback_trigger",
+    "success_metric",
+    "decision_deadline",
+    "expiry"
+   ]
+  },
+  {
+   "key": "ui_home_freshness_strip",
+   "source": "report_config",
+   "default": "0",
+   "owner_role": "Pilot owner (UI policy)",
+   "reference": "Adoption Lot B (item 16)",
+   "prerequisites": null,
+   "decision": {
+    "owner": null,
+    "risk": null,
+    "dependencies": null,
+    "canary_site": null,
+    "rollback_trigger": null,
+    "success_metric": null,
+    "decision_deadline": null,
+    "expiry": null
+   },
+   "missing": [
+    "owner",
+    "risk",
+    "dependencies",
+    "canary_site",
+    "rollback_trigger",
+    "success_metric",
+    "decision_deadline",
+    "expiry"
+   ]
+  },
+  {
+   "key": "ui_home_group_variant",
+   "source": "report_config",
+   "default": "0",
+   "owner_role": "Pilot owner (UI policy)",
+   "reference": "Adoption Lot B (item 11)",
    "prerequisites": null,
    "decision": {
     "owner": null,
@@ -8908,6 +9001,34 @@
    "default": "0",
    "owner_role": "Owner (UI policy)",
    "reference": "A-10",
+   "prerequisites": null,
+   "decision": {
+    "owner": null,
+    "risk": null,
+    "dependencies": null,
+    "canary_site": null,
+    "rollback_trigger": null,
+    "success_metric": null,
+    "decision_deadline": null,
+    "expiry": null
+   },
+   "missing": [
+    "owner",
+    "risk",
+    "dependencies",
+    "canary_site",
+    "rollback_trigger",
+    "success_metric",
+    "decision_deadline",
+    "expiry"
+   ]
+  },
+  {
+   "key": "ui_role_landing_profiles",
+   "source": "report_config",
+   "default": "0",
+   "owner_role": "Pilot owner (UI policy)",
+   "reference": "Adoption Lot B (item 6)",
    "prerequisites": null,
    "decision": {
     "owner": null,

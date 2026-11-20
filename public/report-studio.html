@@ -125,5 +125,10 @@
   load().then(function () { var q = new URLSearchParams(location.search).get("run"); if (q) openRun(q); });
 })();
 </script>
+<!-- Adoption Lot B (item 7) — French dictionary, INERT unless report_config ui_i18n_pages='1' (boot.js checks window.__uiPolicy). -->
+<script nonce="%%CSP_NONCE%%" src="lib/i18nText.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/i18n/common.fr.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/i18n/report-studio.fr.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/i18n/boot.js" data-dict="I18N_FR_REPORT_STUDIO"></script>
 </body>
 </html>

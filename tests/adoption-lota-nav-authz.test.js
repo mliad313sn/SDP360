@@ -144,3 +144,47 @@ test('the "all page switches on" policy covers every policy-gated menu entry', (
   assert.ok(gated.length >= 5, 'found the gated entries');
   for (const k of gated) assert.strictEqual(POLICIES['all page switches on'][k], '1', k + ' is not switched on in the walk');
 });
+
+// Adoption Lot B — "each profile lands on its job": with the Lot B switches ON, the page each persona LANDS on
+// (ui_role_landing_profiles, with ui_role_landing '0' and '1') and every route the optional Home blocks call
+// (ui_home_group_variant, ui_home_freshness_strip) and the Helpdesk site default (ui_helpdesk_site_default) must be
+// readable by that persona — a landing page is a starting point, never a dead end.
+test('Lot B: landing pages and Home-block routes never lead a persona to a refusal (switches on)', () => {
+  const Landing = require('../public/lib/landing');
+  const WP = require('../public/lib/workspaceProfiles');
+  const HG = require('../public/lib/homeGroup');
+  const HSD = require('../public/lib/helpdeskSiteDefault');
+  const BY_HREF = Object.assign({}, PRIMARY_BY_HREF, { 'assets.html#finance': 'GET /api/assets/finance/summary' });
+  const on = { home_group_variant: '1', home_freshness_strip: '1', helpdesk_site_default: '1' };
+  const violations = [];
+  let checked = 0;
+  const route = (key, idx, r, why) => {
+    const codes = OUT.routes[r];
+    assert.ok(codes, `route ${r} is in the outcome snapshot`);
+    checked++;
+    if (codes[idx] === 'U' || codes[idx] === 'F') violations.push(`${key} · ${why}: ${r} → ${codes[idx]}`);
+  };
+  OUT.personas.forEach((key, idx) => {
+    const roles = persona(key);
+    if (!roles) return;
+    const businessOnly = roles.every((r) => BUSINESS.includes(r));
+    for (const rl of ['0', '1']) {
+      const href = Landing.landingFor({ has: has(roles), isBusinessOnly: businessOnly, roleLanding: rl, profileLanding: '1', roles, profiles: WP });
+      const page = href.split(/[?#]/)[0];
+      assert.ok(page in PRIMARY, `landing ${href} has a primary route in PRIMARY`);
+      if (businessOnly && !['site-awareness.html', 'help.html'].includes(page)) violations.push(`${key} · landing ${href}: business-only redirect`);
+      const gate = pageGate(page);
+      if (gate !== 'any' && !gate.split('|').some(has(roles))) violations.push(`${key} · landing ${href}: page gate "${gate}" refuses`);
+      const r = BY_HREF[href] !== undefined ? BY_HREF[href] : PRIMARY[page];
+      if (r) route(key, idx, r, `landing ${href} (role landing ${rl})`);
+    }
+    if (businessOnly) return;   // business accounts never reach Home or the Helpdesk
+    const b = HG.blocksFor(has(roles), on, true);
+    if (b.group) { route(key, idx, 'GET /api/governance/portfolio', 'home group'); route(key, idx, 'GET /api/governance/overview', 'home group'); }
+    if (b.worst) route(key, idx, 'GET /api/site-awareness/fleet', 'home worst sites');
+    if (b.freshness) route(key, idx, 'GET /api/connector-health', 'home freshness');
+    if (HSD.applies(on, { site_id: 1 }, has(roles))) route(key, idx, 'GET /api/reports/sites', 'helpdesk site default');
+  });
+  assert.ok(checked > 40, `walk is not vacuous (${checked})`);
+  assert.deepStrictEqual(violations, []);
+});

@@ -38,7 +38,7 @@ Pages found: **87** HTML files under `public/` (64 top-level, 21 design-system s
 | `inspection-actions.html` | any | no | — (reached from inspections.html) | translated | unknown |  | keep |
 | `inspection.html` | any | no | — (reached from inspections.html) | translated | unknown |  | keep |
 | `inspections.html` | any | yes | coordinator, field | translated | unknown |  | keep |
-| `integrations.html` | admin | yes | administrator | English (pending) | unknown |  | keep |
+| `integrations.html` | admin | yes | administrator | translated | unknown |  | keep |
 | `it-review.html` | executive, scorecard-viewer | yes | executive | English (pending) | unknown | overlaps executive.html (same audience, same KPIs) | keep (faithful port the executive reads) |
 | `itsm-integrations-plan.html` | UNKNOWN | no | — (reached from itsm-roadmap.html) | — | unknown | meeting document rendered as a page | move to docs (proposal) |
 | `itsm-roadmap.html` | super_admin | no | — (reached from ?) | — | unknown | personal tool of the service manager (outside nav by design) | keep |
@@ -56,14 +56,14 @@ Pages found: **87** HTML files under `public/` (64 top-level, 21 design-system s
 | `meetings-unsigned.html` | any | no | — (reached from meetings.html) | translated | unknown | unsigned PVs also on home.html "awaiting me" | keep (bulk signing) |
 | `meetings.html` | any | yes | coordinator, governance | translated | unknown |  | keep |
 | `no-access.html` | any | no | — (reached from auth.js) | — | unknown |  | keep |
-| `notifications.html` | any | yes | — (reached from shell) | English (pending) | unknown |  | keep |
+| `notifications.html` | any | yes | — (reached from shell) | translated | unknown |  | keep |
 | `obligations.html` | any | yes | — (reached from shell) | self-translated | unknown | governance obligations vs policies.html | keep |
 | `policies.html` | admin, committee-member | yes | governance | self-translated | unknown |  | keep |
 | `policy-center.html` | super_admin | yes | — (reached from shell) | self-translated | unknown |  | keep |
 | `portfolio-register.html` | any | no | — (reached from portfolio.html) | self-translated | unknown |  | keep |
 | `portfolio.html` | any | yes | executive, pmo, finance | translated | unknown |  | keep |
 | `project.html` | any | no | — (reached from meeting.html) | translated | unknown |  | keep |
-| `report-studio.html` | any | yes | pmo, finance, analyst | English (pending) | unknown | overlaps executive-report.html | keep |
+| `report-studio.html` | any | yes | pmo, finance, analyst | translated | unknown | overlaps executive-report.html | keep |
 | `reports.html` | any | yes | — (reached from shell) | translated | unknown |  | keep |
 | `rfi.html` | any | yes | — (reached from shell) | translated | unknown |  | keep |
 | `site-actions.html` | any | yes | operations, coordinator, field, reader | translated | unknown |  | keep |

@@ -20,6 +20,11 @@ const DEFAULTS = {
   ui_home_queue: '0',                   // R2-QUEUE (R3) '1' = Home shows the progressive queue "S1" of my authorised work, each source with its own state
   ui_nav_carry_site: '0',               // R2-QUEUE (R4) '1' = menu links to site-aware pages carry the current ?site=CODE
   ui_home_blocks: '0',                  // F-UX-09 '1' = Home blocks show their own state, retry per card, failed call keeps the page
+  // Adoption Lot B ("each profile lands on its job") — PROPOSED, enable per pilot site; '0' = today
+  ui_role_landing_profiles: '0',        // '1' = feature-role-only accounts land on their workspace profile's first page, not the Helpdesk
+  ui_home_group_variant: '0',           // '1' = Home for a person with no site: group card (worst sites, late projects, decisions due)
+  ui_home_freshness_strip: '0',         // '1' = Home for the admin tier: last collection per data source (never synced = amber)
+  ui_helpdesk_site_default: '0',        // '1' = Helpdesk opens on the person's own site (site-scoped roles), All Sites one click away
   ui_exec_charts_v2: '0',               // F-UX-12 '1' = Executive Scorecard: small multiples instead of dual axes, bars instead of rings
   ui_small_multiples: '0',              // E-V09 '1' = the `multiples` widget type (one panel per metric) is creatable
   csp_strict_pages: '',                 // F-ARCH-06 comma list of extra pages served with the nonce-only script-src ('' = today: login, Exec View, share links)

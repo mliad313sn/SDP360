@@ -10,7 +10,7 @@
 | Case de décision dans RELEASE-GATES.md | vide — cette porte est **NO-GO** tant que l'approbateur ne l'a pas remplie. Ce dossier ne remplit rien. |
 | Ce que cette porte bloque | bloque le pilote sur deux sites (instance de TEST) |
 | À décider après | [G02](G02-threat-model-findings.md) Sécurité : modèle de menace et constats |
-| SHA cible | `962ff523` |
+| SHA cible | `5176ec3b` |
 | Généré | 2026-11-20 |
 
 ## 1. La question à trancher
