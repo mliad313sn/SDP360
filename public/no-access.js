@@ -19,6 +19,13 @@
     'A dashboard administrator (Admin ▸ Users). For a site page, your site IT coordinator can ask for it on your behalf. Copy the line below into your request.':
       'Un administrateur du tableau de bord (Admin ▸ Utilisateurs). Pour une page de site, votre coordinateur IT de site peut la demander pour vous. Copiez la ligne ci-dessous dans votre demande.',
     'Missing capability': 'Capacité manquante',
+    // Adoption Lot A (item 4 / review #20): a page whose feature switch is off lands here instead of a raw JSON 404.
+    'This feature is not enabled': 'Cette fonction n’est pas activée',
+    'This page belongs to a feature that is switched off on this installation. Nothing is wrong with your account.':
+      'Cette page appartient à une fonction désactivée sur cette installation. Votre compte n’est pas en cause.',
+    'Who can turn it on': 'Qui peut l’activer',
+    'A super administrator, in Admin ▸ Settings, after the decision of the feature owner.':
+      'Un super administrateur, dans Admin ▸ Paramètres, après la décision du responsable de la fonction.',
     'Request this access': 'Demander cet accès', 'Copy': 'Copier', 'Copied': 'Copié', 'Back to my home page': 'Retour à ma page d’accueil', 'none': 'aucun', 'or': 'ou',
   };
   const clean = (s, max) => String(s || '').replace(/[^\w.\-|]/g, '').slice(0, max);
@@ -32,8 +39,18 @@
   const fr = () => window.I18nText && window.I18nText.lang() === 'fr';
   const label = (r) => (LABELS[r] ? LABELS[r][fr() ? 1 : 0] : r);
   const $ = (id) => document.getElementById(id);
+  const off = q.get('reason') === 'off';
   function render() {
     const t = (s) => (window.I18nText ? window.I18nText.t(s) : s);
+    if (off) {
+      $('naTitle').textContent = t('This feature is not enabled');
+      $('naLead').textContent = t('This page belongs to a feature that is switched off on this installation. Nothing is wrong with your account.');
+      $('naPage').textContent = page;
+      for (const id of ['naNeed', 'naHave', 'naCap', 'naCapT']) { const n = $(id); if (n) { n.hidden = true; if (n.previousElementSibling && n.previousElementSibling.tagName === 'DT') n.previousElementSibling.hidden = true; } }
+      const who = $('naWho'); if (who) { who.textContent = t('A super administrator, in Admin ▸ Settings, after the decision of the feature owner.'); if (who.previousElementSibling) who.previousElementSibling.textContent = t('Who can turn it on'); }
+      $('naRequest').hidden = true; const cp = $('naLine'); if (cp && cp.parentElement) cp.parentElement.hidden = true;
+      return;
+    }
     $('naPage').textContent = page;
     $('naNeed').textContent = need.length ? need.map(label).join(' ' + t('or') + ' ') : '—';
     if (capInfo && capInfo.id) {

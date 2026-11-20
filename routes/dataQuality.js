@@ -15,7 +15,9 @@ module.exports = function dataQualityRoutes(deps) {
   }
   const gate = async (req, res, next) => ((await enabled()) ? next() : fail(res, new Error('Not found'), 404));
 
-  router.get('/data-quality.html', gate, (req, res) => deps.sendHtmlPage(res, 'data-quality.html', false, 'Data quality unavailable'));
+  // Adoption Lot A (item 4 / review #20): switch off → the French "feature not enabled" page, not a raw {"error":"Not found"}.
+  const pageGate = async (req, res, next) => ((await enabled()) ? next() : res.redirect(302, '/no-access.html?page=data-quality&reason=off'));
+  router.get('/data-quality.html', pageGate, (req, res) => deps.sendHtmlPage(res, 'data-quality.html', false, 'Data quality unavailable'));
 
   router.get('/api/data-quality', requireReportSession, gate, async (req, res) => {
     try {

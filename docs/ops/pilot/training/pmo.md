@@ -14,8 +14,8 @@ Rôles : committee-member. Page d’arrivée : **Accueil** (`home.html`), raccou
    - Aide : help.html#fr-25 — §25 Cockpit de réunion, portefeuille & demandes d'amélioration (étape 8)
 2. **Conduire le comité depuis le cockpit** — Accueil ▸ raccourci → `cockpit.html` (1 clic), puis l’action dans la page.
    - Aide : help.html#fr-25 — §25 Cockpit de réunion, portefeuille & demandes d'amélioration (étape 8)
-3. **Contrôler le suivi des activités du mois** — Accueil ▸ raccourci → `activity-tracker.html` (1 clic), puis l’action dans la page.
-   - Aide : help.html#fr-10 — §10 Suivi des Activités IT
+3. **Produire le rapport mensuel du portefeuille** — Accueil ▸ raccourci → `report-studio.html` (1 clic), puis l’action dans la page.
+   - Aide : help.html#fr-26 — §26 Studio de rapports, notifications & intégrations (étape 9)
 
 À l’issue de la formation, la personne sait faire ces trois tâches seule. Le facilitateur ne note **aucun** résultat ici : les mesures vont dans les fiches du pilote (`T1-T8-SHEET.csv`, `SUS-SHEET.csv`).
 
@@ -27,7 +27,7 @@ Roles: committee-member. Landing page: **Home** (`home.html`), profile shortcuts
    - Help: help.html#en-25 — §25 Meeting Cockpit, Portfolio & Requests for improvement (Step 8)
 2. **Run the committee meeting from the cockpit** — Home ▸ shortcut → `cockpit.html` (1 click), then the action inside the page.
    - Help: help.html#en-25 — §25 Meeting Cockpit, Portfolio & Requests for improvement (Step 8)
-3. **Check the activity tracker of the month** — Home ▸ shortcut → `activity-tracker.html` (1 click), then the action inside the page.
-   - Help: help.html#en-10 — §10 IT Activity Tracker
+3. **Produce the monthly portfolio report** — Home ▸ shortcut → `report-studio.html` (1 click), then the action inside the page.
+   - Help: help.html#en-26 — §26 Report Studio, Notifications & Integrations (Step 9)
 
 After the session the person can do these three tasks alone. The facilitator records **no** result here: measures go to the pilot sheets (`T1-T8-SHEET.csv`, `SUS-SHEET.csv`).

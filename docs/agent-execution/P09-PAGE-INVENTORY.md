@@ -61,7 +61,7 @@ Pages found: **85** HTML files under `public/` (62 top-level, 21 design-system s
 | `policies.html` | admin, committee-member | yes | governance | self-translated | unknown |  | keep |
 | `portfolio.html` | any | yes | executive, pmo, finance | translated | unknown |  | keep |
 | `project.html` | any | no | — (reached from meeting.html) | translated | unknown |  | keep |
-| `report-studio.html` | any | yes | finance, analyst | English (pending) | unknown | overlaps executive-report.html | keep |
+| `report-studio.html` | any | yes | pmo, finance, analyst | English (pending) | unknown | overlaps executive-report.html | keep |
 | `reports.html` | any | yes | — (reached from shell) | translated | unknown |  | keep |
 | `rfi.html` | any | yes | — (reached from shell) | translated | unknown |  | keep |
 | `site-actions.html` | any | yes | operations, coordinator, field, reader | translated | unknown |  | keep |

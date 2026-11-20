@@ -12,7 +12,7 @@ const assert = require('node:assert');
 const http = require('http');
 let server, base, superToken, viewerToken;
 const get = (p, token) => new Promise((resolve, reject) => {
-  http.get(base + p, { headers: token ? { 'x-report-token': token } : {} }, (res) => { let b = ''; res.on('data', (d) => (b += d)); res.on('end', () => resolve({ status: res.statusCode, text: b, json: (() => { try { return JSON.parse(b); } catch { return null; } })() })); }).on('error', reject);
+  http.get(base + p, { headers: token ? { 'x-report-token': token } : {} }, (res) => { let b = ''; res.on('data', (d) => (b += d)); res.on('end', () => resolve({ status: res.statusCode, location: res.headers.location, text: b, json: (() => { try { return JSON.parse(b); } catch { return null; } })() })); }).on('error', reject);
 });
 const setOn = async (v) => { const rdb = require('../reports-db'); await require('../services/reportConfig').setConfig(rdb.db, { ui_data_quality_page: v }, 'test'); };
 before(async () => {
@@ -28,9 +28,11 @@ before(async () => {
 });
 after(() => { try { server && server.close(); } catch {} });
 
-test('switch 0 (default) → page and API 404', async () => {
+test('switch 0 (default) → page redirects to the French "not enabled" page (Adoption Lot A), API 404', async () => {
   assert.equal(require('../services/reportConfig').DEFAULTS.ui_data_quality_page, '0');
-  assert.equal((await get('/data-quality.html', superToken)).status, 404);
+  const pg = await get('/data-quality.html', superToken);
+  assert.equal(pg.status, 302);
+  assert.match(String(pg.location), /no-access\.html\?page=data-quality&reason=off/);
   assert.equal((await get('/api/data-quality', superToken)).status, 404);
 });
 

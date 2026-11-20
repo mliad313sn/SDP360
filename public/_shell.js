@@ -193,7 +193,9 @@
         { id: 'inspections', group: 'Governance',  label: 'Inspections',        icon: ICON_LIB['clipboard-check'], href: 'inspections.html',      roles: ['any'] },
         { id: 'meetings', group: 'Governance',     label: 'Meetings Decisions', icon: ICON_LIB.users,              href: 'meetings.html',         roles: ['any'] },
         { id: 'site-actions', group: 'Governance', label: 'Site Actions',       icon: ICON_LIB.check,              href: 'site-actions.html',     roles: ['any'] },
-        { id: 'tracker', group: 'Plan & track',      label: 'Activity Tracker',   icon: ICON_LIB.target,             href: 'activity-tracker.html', roles: ['any'] },
+        // Adoption Lot A (item 4): menu roles = the route's roles (routes/tracker.js GET /api/tracker/load requireRole) —
+        // the entry used to show for every profile and 10 of 15 then read a raw English "Forbidden".
+        { id: 'tracker', group: 'Plan & track',      label: 'Activity Tracker',   icon: ICON_LIB.target,             href: 'activity-tracker.html', roles: ['admin', 'tracker-admin', 'tracker-editor'] },
         { id: 'trackers', group: 'Plan & track',     label: 'Trackers',           icon: ICON_LIB.activity,            href: 'trackers.html',         roles: ['any'],
           lean_roles: ['admin', 'tracker-admin', 'dashboard-publisher'], lean_group: 'Configure' },
         { id: 'dashboards', group: 'Report & share',   label: 'Dashboards',         icon: ICON_LIB.gauge,              href: 'dashboards.html',       roles: ['any'] },
@@ -204,11 +206,15 @@
         { id: 'rfi', group: 'Plan & track',          label: 'RFI register',       icon: ICON_LIB.lightbulb,          href: 'rfi.html',              roles: ['any'], lean_hidden: true },
         { id: 'report-studio', group: 'Report & share', label: 'Report studio',     icon: ICON_LIB['file-text'],       href: 'report-studio.html',    roles: ['any'],
           lean_roles: ['editor', 'report-author', 'committee-member', 'finance-viewer', 'scorecard-viewer'] },
-        { id: 'finance', group: 'Report & share',  label: 'Finance certification', icon: ICON_LIB['clipboard-check'], href: 'finance.html',         roles: ['admin', 'finance-viewer', 'finance-verifier'], policy: 'finance_page', lean_hidden: true },
+        // Adoption Lot A (item 4): GET /api/finance/certifications reads money (admin / finance-viewer); a finance-verifier who
+        // cannot read the amounts cannot certify either (routes/finance.js) — the entry follows the read rule.
+        { id: 'finance', group: 'Report & share',  label: 'Finance certification', icon: ICON_LIB['clipboard-check'], href: 'finance.html',         roles: ['admin', 'finance-viewer'], policy: 'finance_page', lean_hidden: true },
         { id: 'notifications', group: 'Report & share', label: 'Notifications',     icon: ICON_LIB['alert-circle'],    href: 'notifications.html',    roles: ['any'], lean_hidden: true },
         { id: 'handoffs', group: 'Governance',     label: 'Handoffs',           icon: ICON_LIB.users,              href: 'handoffs.html',         roles: ['any'], lean_hidden: true },
         { id: 'obligations', group: 'Governance',  label: 'Site obligations',   icon: ICON_LIB['clipboard-check'], href: 'obligations.html',      roles: ['any'], lean_hidden: true },
         { id: 'policies', group: 'Configure',     label: 'Governance policies', icon: ICON_LIB['clipboard-check'], href: 'policies.html',        roles: ['admin', 'committee-member'] },
+        // Adoption Lot A (item 6): the KPI committee's tool had no entry point (URL or Ctrl+K only).
+        { id: 'kpi-builder', group: 'Configure',  label: 'KPI policies',       icon: ICON_LIB['clipboard-check'], href: 'kpi-builder.html',      roles: ['admin', 'kpi-committee'] },
         { id: 'integrations', group: 'Configure', label: 'Integrations',       icon: ICON_LIB.zap,                href: 'integrations.html',     roles: ['admin'] },
         { id: 'connector-health', group: 'Configure', label: 'Connector health', icon: ICON_LIB.zap,              href: 'connector-health.html', roles: ['admin'], policy: 'connector_health_page', lean_hidden: true },
         { id: 'data-quality', group: 'Configure', label: 'Data quality',       icon: ICON_LIB['clipboard-check'], href: 'data-quality.html',     roles: ['admin'], policy: 'data_quality_page' },
@@ -396,7 +402,7 @@
     'Deck Builder': 'Générateur de présentations', 'Executive Home': 'Accueil direction', 'Executive Scorecard': 'Tableau de bord direction',
     'Field app': 'Application terrain', 'Governance policies': 'Règles de gouvernance', 'Group IT': 'IT Groupe',
     'Handoffs': 'Demandes inter-services', 'IT Review': 'Revue IT', 'Infrastructure Health': 'Santé des infrastructures',
-    'Inspections': 'Inspections', 'Integrations': 'Intégrations', 'Meeting Cockpit': 'Cockpit de réunion',
+    'Inspections': 'Inspections', 'Integrations': 'Intégrations', 'KPI policies': 'Politiques KPI', 'Meeting Cockpit': 'Cockpit de réunion',
     'Meetings Decisions': 'Réunions et décisions', 'Notifications': 'Notifications', 'Portfolio & projects': 'Portefeuille et projets',
     'Portfolio': 'Portefeuille', 'RFI register': 'Registre des demandes', 'Report studio': 'Studio de rapports', 'Settings': 'Paramètres',
     'Site Actions': 'Actions du site', 'Site IT': 'IT du site', 'Site Overview': 'Vue du site', 'Site Reports': 'Rapports de site',
