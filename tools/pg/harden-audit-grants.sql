@@ -96,6 +96,7 @@ END $$;
 DO $$ DECLARE app TEXT := current_setting('sdp.app_role');
 BEGIN
   IF to_regclass('audit_chain_anchors') IS NOT NULL THEN
+    ALTER TABLE audit_chain_anchors ADD COLUMN IF NOT EXISTS sig TEXT;   -- R6-A2: HMAC signature (migration 135)
     ALTER TABLE audit_chain_anchors OWNER TO sdp_audit_owner;
     EXECUTE format('REVOKE ALL ON audit_chain_anchors FROM %I', app);
     EXECUTE format('GRANT SELECT, INSERT ON audit_chain_anchors TO %I', app);

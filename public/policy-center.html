@@ -64,6 +64,12 @@
     <h2 data-i18n="requests">Changes awaiting a second super_admin</h2>
     <div id="pcReqs"></div>
   </div>
+  <div class="pc-card" id="pcTokCard">
+    <h2 data-i18n="tokTitle">CLI operator token</h2>
+    <p class="pc-muted" data-i18n="tokIntro">For tools/ops/activate-switches.js: issue a one-time token (valid 10 minutes) for YOUR account. The tool files four-eyes changes as a request in your name; another super_admin approves them here. Never hand your token to someone else.</p>
+    <div class="pc-bar"><button type="button" id="pcTokBtn" data-i18n="tokBtn">Issue a token for me</button></div>
+    <pre class="pc-json" id="pcTokOut" hidden></pre>
+  </div>
   <div id="pcRules"></div>
   <div class="pc-card" id="pcImportCard">
     <h2 data-i18n="importTitle">Environment profile</h2>

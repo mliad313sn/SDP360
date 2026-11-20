@@ -7,8 +7,8 @@ if (require.main === module) require('dotenv').config({ quiet: true, path: requi
 //
 //   node tools/ops/activate-switches.js --plan [--lots=L01,L02|all] [--db-url=URL] [--json]
 //   node tools/ops/activate-switches.js --apply --db-url=URL --lots=L01[,L02…] --reason="…" [--operator=NAME]
-//        [--second-operator=NAME] [--include-outbound] [--rollback-dir=DIR] [--dry-run] [--i-am-the-operator]
-//   node tools/ops/activate-switches.js --rollback=FILE --db-url=URL [--operator=NAME] [--reason="…"] [--force] [--i-am-the-operator]
+//        [--operator-token=env|env:VAR|file:PATH] [--include-outbound] [--rollback-dir=DIR] [--dry-run] [--i-am-the-operator]
+//   node tools/ops/activate-switches.js --rollback=FILE --db-url=URL [--operator=NAME] [--operator-token=…] [--reason="…"] [--force] [--i-am-the-operator]
 //        [--accept-unsealed]   (a legacy rollback file without HMAC seal while SDP_CONFIG_KEY / SDP_BACKUP_KEY is set)
 //
 // --db-url=env reads PG_URL (or DATABASE_URL) from the environment / the app's .env, so the password never sits on a
@@ -50,6 +50,18 @@ if (require.main === module) require('dotenv').config({ quiet: true, path: requi
 //    Center request per key instead (requested by the --operator account, which must be an active super_admin); a
 //    second super_admin decides in the center. Rolling back a four-eyes key towards its weaker side needs
 //    --second-operator too. Lots without four-eyes steps behave exactly as before.
+//  - P11 r6 R6-A1 — SUPERSEDES the paragraph above for four-eyes steps: a typed name is not an authenticated person
+//    (one super_admin filed a request "as" a colleague with --operator=<colleague> and approved it himself). Now:
+//    (a) --second-operator is REFUSED — the tool never applies a four-eyes change itself, whatever the names;
+//    (b) four-eyes steps need policy_center_enabled = '1' AND --operator-token: a one-time token (10 minutes) that the
+//        logged-in super_admin issues for HIS OWN account in /policy-center.html ("CLI operator token"). The tool
+//        consumes it and files one Policy Center request per four-eyes key with THAT account as requester (the reason
+//        records the token id, OS user and host). --operator, when given, must be the token's account.
+//    (c) the approval stays an act of ANOTHER logged-in super_admin in the web Policy Center, which already refuses the
+//        requester and any account that is not independent of it (services/approverProvenance.js).
+//    The token is read from the environment (SDP_OPERATOR_TOKEN, or env:VAR) or a file (file:PATH), never from the
+//    command line itself. Rolling back a four-eyes key towards its weaker side goes through the same path (a request,
+//    not a write). Lots without four-eyes steps behave exactly as before (single operator, OS user + host recorded).
 // The classification below (outbound / access / money) is an AI reading of the register text and the code, written
 // to help the operator decide; it decides nothing.
 const fs = require('fs');
@@ -330,6 +342,43 @@ async function resolveSecondOperator(d, operator, second) {
   }
   return { account: acct };
 }
+// ---- P11 r6 R6-A1: authenticated requester (operator token) ---------------------------------------------------------
+/** Pure-ish: read the token named by --operator-token (env | env:VAR | file:PATH). A literal token is refused. */
+function readOperatorToken(spec, env = process.env) {
+  if (!spec) return { refusal: 'missing' };
+  const s = String(spec);
+  if (s === 'env' || s.startsWith('env:')) {
+    const name = s === 'env' ? 'SDP_OPERATOR_TOKEN' : s.slice(4);
+    if (!/^[A-Z_][A-Z0-9_]*$/.test(name)) return { refusal: `--operator-token=env:${name}: not an environment variable name` };
+    const v = String(env[name] || '').trim();
+    return v ? { token: v } : { refusal: `--operator-token: ${name} is empty` };
+  }
+  if (s.startsWith('file:')) {
+    try { const v = fs.readFileSync(s.slice(5), 'utf8').trim(); return v ? { token: v } : { refusal: '--operator-token: the file is empty' }; }
+    catch (e) { return { refusal: `--operator-token: cannot read ${s.slice(5)} (${e.code || e.message})` }; }
+  }
+  return { refusal: '--operator-token takes env, env:VAR or file:PATH — never the token itself (command lines are kept in process listings and shell history)' };
+}
+/**
+ * Authenticate the person running the tool from the operator token. Returns { account, token_id } or { refusal }.
+ * consume:false (dry run) checks without burning the token.
+ */
+async function authenticateOperator(d, args, { consume = true, consumedBy = null } = {}) {
+  const t = readOperatorToken(args.operatorToken);
+  if (t.refusal) return { refusal: t.refusal === 'missing' ? 'add --operator-token=env (issue a one-time token for YOUR account in /policy-center.html, "CLI operator token", and put it in SDP_OPERATOR_TOKEN)' : t.refusal };
+  if (typeof d.checkOperatorToken !== 'function' || typeof d.operatorAccountById !== 'function') return { refusal: 'this run cannot verify operator tokens' };
+  const c = await d.checkOperatorToken(t.token, { consume, consumedBy });
+  if (!c || c.refusal) return { refusal: (c && c.refusal) || 'operator token refused' };
+  const acct = await d.operatorAccountById(c.user_id);
+  if (!acct) return { refusal: `the operator token belongs to "${c.username}", which is no longer an active super_admin` };
+  if (args.operatorName && String(args.operatorName).trim().toLowerCase() !== String(acct.username).toLowerCase()) {
+    return { refusal: `--operator "${args.operatorName}" is not the account that issued the operator token ("${acct.username}") — the requester of record is the authenticated account` };
+  }
+  return { account: acct, token_id: c.id };
+}
+const SECOND_OPERATOR_REFUSED = '--second-operator is no longer accepted (P11 r6 R6-A1): a typed name is not a second person. Turn the Policy Center on, run with --operator-token=env, and let another super_admin approve the request in /policy-center.html';
+const _filedReason = (reason, tokenId, ident) => `${reason} [filed by activate-switches; authenticated by operator token #${tokenId}; os ${ident.os_user || '?'}@${ident.host || '?'}]`;
+
 const _withSecond = (reason, second) => `${reason} [four-eyes, second operator: ${String(second).replace(/[^\w.@ -]/g, '_').slice(0, 64)}]`;
 
 // ---------------------------------------------------------------------------------------------------- args + IO
@@ -351,6 +400,7 @@ function parseArgs(argv) {
     else if (a.startsWith('--reason=')) o.reason = a.slice(9);
     else if (a.startsWith('--operator=')) o.operatorName = a.slice(11);
     else if (a.startsWith('--second-operator=')) o.secondOperator = a.slice(18);
+    else if (a.startsWith('--operator-token=')) o.operatorToken = a.slice(17);
     else throw new Error(`unknown argument ${a}`);
   }
   return o;
@@ -456,6 +506,14 @@ function storedDeps(rdb) {
       const roles = await rdb.getUserRoles(u.id);
       return roles.includes('super_admin') ? { id: Number(u.id), username: u.username, name: u.full_name } : null;
     },
+    // P11 r6 R6-A1 — operator tokens (services/operatorTokens.js) and the account behind them
+    checkOperatorToken: async (token, opts) => require(path.join(ROOT, 'services', 'operatorTokens')).check(rdb.pgHandle(), token, opts),
+    operatorAccountById: async (id) => {
+      const u = await rdb.pgHandle().prepare('SELECT id, username, full_name, active FROM users WHERE id = ?').get(Number(id));
+      if (!u || Number(u.active) === 0) return null;
+      const roles = await rdb.getUserRoles(u.id);
+      return roles.includes('super_admin') ? { id: Number(u.id), username: u.username, name: u.full_name } : null;
+    },
     createPolicyRequest: async (req) => require(path.join(ROOT, 'services', 'policyChangeStore')).makePolicyChangeStore(() => rdb.pgHandle()).create(req),
   };
 }
@@ -522,19 +580,31 @@ async function main(argv, deps) {
       const target = (e.absent === true || e.from == null) ? (isNested(e.key) ? null : require(path.join(ROOT, 'services', 'reportConfig')).DEFAULTS[e.key]) : e.from;
       return target != null && needsFourEyes(cfg0, e.key, target);
     }).map((e) => e.key);
-    let secondAcct = null;
+    // P11 r6 R6-A1 — a four-eyes key is never written back by the tool: it becomes a Policy Center request filed by the
+    // authenticated operator; another super_admin decides in the web center.
+    const res = { restored: [], conflicts: [], requested: [], second_operator: null, second_operator_id: null };
     if (feBack.length) {
-      const so = await resolveSecondOperator(d, operator, args.secondOperator);
-      if (so.refusal) throw new Error(`rollback of four-eyes key(s) ${feBack.join(', ')} needs a second person: ${so.refusal === 'missing' ? 'add --second-operator=NAME (a different super_admin who reviewed this rollback)' : so.refusal}`);
-      secondAcct = so.account;
+      if (args.secondOperator) throw new Error(`rollback of four-eyes key(s) ${feBack.join(', ')}: ${SECOND_OPERATOR_REFUSED} — nothing restored`);
+      if (String(cfg0.policy_center_enabled) !== '1') throw new Error(`rollback of four-eyes key(s) ${feBack.join(', ')} needs a second super_admin: turn the Policy Center on (policy_center_enabled) — the tool files requests, another super_admin approves them in /policy-center.html — nothing restored`);
+      if (typeof d.createPolicyRequest !== 'function') throw new Error('Policy Center is on but this run cannot file requests — nothing restored');
+      const ident = (deps && deps.osIdentity) ? deps.osIdentity : osIdentity();
+      const au = await authenticateOperator(d, args, { consume: true, consumedBy: `activate-switches rollback ${ident.os_user || '?'}@${ident.host || '?'}` });
+      if (au.refusal) throw new Error(`rollback of four-eyes key(s) ${feBack.join(', ')}: ${au.refusal} — nothing restored`);
+      for (const e of rb.entries.filter((x) => feBack.includes(x.key))) {
+        const target = (e.absent === true || e.from == null) ? require(path.join(ROOT, 'services', 'reportConfig')).DEFAULTS[e.key] : e.from;
+        const { base, cur, next } = _baseValues(cfg0, e.key, target);
+        const req = await d.createPolicyRequest({ key: base, oldValue: cur, newValue: next, reason: _filedReason(`rollback ${path.basename(args.rollback)}${args.reason ? ` — ${args.reason}` : ''}`, au.token_id, ident), actor: au.account });
+        res.requested.push({ key: base, request_id: req && req.id != null ? req.id : null, requested_by: au.account.username });
+      }
+      d.log(`Policy Center: ${res.requested.length} four-eyes rollback request(s) filed by ${au.account.username} (authenticated) — another super_admin decides in /policy-center.html.`);
     }
-    const res = { restored: [], conflicts: [], second_operator: secondAcct ? secondAcct.username : null, second_operator_id: secondAcct ? Number(secondAcct.id) : null };
     for (const e of [...(rb.entries || [])].reverse()) {
+      if (feBack.includes(e.key)) continue;
       const cfg = await d.getConfig();
       const cur = currentValue(cfg, e.key);
       if (String(cur) !== String(e.to) && !args.force) { res.conflicts.push({ key: e.key, expected: e.to, found: cur == null ? null : cur }); continue; }
       const why0 = `rollback ${path.basename(args.rollback)}${args.reason ? ` — ${args.reason}` : ''}`;
-      const why = feBack.includes(e.key) ? _withSecond(why0, `${secondAcct.username} user id ${secondAcct.id}`) : why0;
+      const why = why0;
       // P11 r4 — a key that was ABSENT before the activation returns to absent (it follows future defaults) instead of
       // being pinned to a literal '0'/false row. `absent` is recorded at apply time; an older rollback file without it
       // treats from == null the same way (it means: no value was known).
@@ -562,16 +632,17 @@ async function main(argv, deps) {
     // anything is written, so a refusal leaves the database untouched.
     const feSteps = act.steps.filter((x) => x.four_eyes);
     const viaCenter = feSteps.length > 0 && String(cfg.policy_center_enabled) === '1';
-    let requester = null; let secondAcct = null;
-    if (feSteps.length && !viaCenter) {
-      const so = await resolveSecondOperator(d, operator, args.secondOperator);
-      if (so.refusal) throw new Error(`four-eyes switch(es) ${feSteps.map((x) => x.key).join(', ')} need a second super_admin: ${so.refusal === 'missing' ? 'add --second-operator=NAME (a different person who reviewed this activation), or turn the Policy Center on (policy_center_enabled) so the tool files requests instead' : so.refusal} — nothing written`);
-      secondAcct = so.account;
-    }
-    if (viaCenter) {
-      if (typeof d.operatorAccount !== 'function' || typeof d.createPolicyRequest !== 'function') throw new Error('Policy Center is on but this run cannot file requests — nothing written');
-      requester = await d.operatorAccount(operator);
-      if (!requester) throw new Error(`Policy Center is on: --operator "${operator}" must be the username of an active super_admin account (the requester of record) — nothing written`);
+    let requester = null; let tokenId = null; const secondAcct = null;
+    const ident = (deps && deps.osIdentity) ? deps.osIdentity : osIdentity();
+    if (feSteps.length) {
+      const keys = feSteps.map((x) => x.key).join(', ');
+      if (args.secondOperator) throw new Error(`four-eyes switch(es) ${keys}: ${SECOND_OPERATOR_REFUSED} — nothing written`);
+      if (!viaCenter) throw new Error(`four-eyes switch(es) ${keys} need a second super_admin: turn the Policy Center on (policy_center_enabled) — the tool then files requests as the authenticated operator (--operator-token=env) and another super_admin approves them in /policy-center.html — nothing written`);
+      if (typeof d.createPolicyRequest !== 'function') throw new Error('Policy Center is on but this run cannot file requests — nothing written');
+      const au = await authenticateOperator(d, args, { consume: !args.dryRun, consumedBy: `activate-switches ${ident.os_user || '?'}@${ident.host || '?'}` });
+      if (au.refusal) throw new Error(`four-eyes switch(es) ${keys}: ${au.refusal} — nothing written`);
+      requester = au.account; tokenId = au.token_id;
+      d.operator = requester.username;   // the authenticated account is the operator of record for this run
     }
     if (args.dryRun) { d.log('DRY RUN — nothing written.'); return { ...act, applied: [], requested: [], rollback_file: null }; }
     const toWrite = viaCenter ? act.steps.filter((x) => !x.four_eyes) : act.steps;
@@ -579,10 +650,12 @@ async function main(argv, deps) {
     if (viaCenter) {
       for (const st of feSteps) {
         const { base, cur, next } = _baseValues(cfg, st.key, st.on_value);
-        const req = await d.createPolicyRequest({ key: base, oldValue: cur, newValue: next, reason: `${args.reason} (activate-switches ${st.lot})`, actor: requester });
-        requested.push({ key: base, request_id: req && req.id != null ? req.id : null });
+        const req = await d.createPolicyRequest({ key: base, oldValue: cur, newValue: next, reason: _filedReason(`${args.reason} (activate-switches ${st.lot})`, tokenId, ident), actor: requester });
+        requested.push({ key: base, request_id: req && req.id != null ? req.id : null, requested_by: requester.username });
+        if (d.logEvent) await Promise.resolve(d.logEvent({ category: 'config', action: 'policy_change_requested', actor: actorOf(requester.username), target: base,
+          details: { request: req && req.id, from: cur, to: next, via: 'activate-switches', operator_token: tokenId, os_user: ident.os_user, host: ident.host }, risk: 1 })).catch(() => {});
       }
-      d.log(`Policy Center: ${requested.length} four-eyes request(s) filed by ${requester.username} — a second super_admin decides in /policy-center.html: ${requested.map((r) => `${r.key}#${r.request_id}`).join(', ')}`);
+      d.log(`Policy Center: ${requested.length} four-eyes request(s) filed by ${requester.username} (authenticated by operator token) — another super_admin decides in /policy-center.html: ${requested.map((r) => `${r.key}#${r.request_id}`).join(', ')}`);
     }
     if (!toWrite.length) { d.log('Nothing to apply.'); return { ...act, applied: [], requested, rollback_file: null }; }
     const dir = args.rollbackDir || path.join(ROOT, 'data', 'switch-rollbacks');
@@ -598,14 +671,13 @@ async function main(argv, deps) {
       if (s.four_eyes) e.four_eyes = true;
       return e;
     });
-    const ident = (deps && deps.osIdentity) ? deps.osIdentity : osIdentity();
-    const rb = { created_at: new Date().toISOString(), actor: ACTOR, operator: operator || null, ...(second ? { second_operator: second, second_operator_id: secondId } : {}), os_user: ident.os_user, host: ident.host, reason: args.reason, db: redactUrl(args.dbUrl), lots: lots.map((l) => l.id), entries };
+    const rb = { created_at: new Date().toISOString(), actor: ACTOR, operator: d.operator || operator || null, ...(second ? { second_operator: second, second_operator_id: secondId } : {}), os_user: ident.os_user, host: ident.host, reason: args.reason, db: redactUrl(args.dbUrl), lots: lots.map((l) => l.id), entries };
     rb.sha256 = rollbackHash(rb);
     const rk = rollbackKey(process.env);
     if (rk) { rb.hmac = rollbackHmac(rb, rk); rb.integrity = `hmac-sha256 (${rk.name})`; } else { rb.integrity = 'sha256 checksum only (no SDP_CONFIG_KEY / SDP_BACKUP_KEY)'; }
     fs.writeFileSync(file, JSON.stringify(rb, null, 1) + '\n');
     // R4-A3: only a checksum recorded here by --apply can be rolled back (R5-A4: plus the HMAC seal when a key is set).
-    if (d.logEvent) await Promise.resolve(d.logEvent({ category: 'config', action: 'switch_rollback_file', actor: actorOf(operator), target: rb.sha256,
+    if (d.logEvent) await Promise.resolve(d.logEvent({ category: 'config', action: 'switch_rollback_file', actor: actorOf(d.operator), target: rb.sha256,
       details: { file: path.basename(file), lots: rb.lots, keys: entries.map((e) => e.key), reason: args.reason, os_user: rb.os_user, host: rb.host, sealed: !!rb.hmac,
         ...(second ? { second_operator: second, second_operator_id: secondId, four_eyes_keys: entries.filter((e) => e.four_eyes).map((e) => e.key) } : {}) } })).catch(() => {});
     const applied = [];
@@ -624,7 +696,7 @@ async function main(argv, deps) {
   return act;
 }
 
-module.exports = { needsFourEyes, markFourEyes, secondOperatorRefusal, resolveSecondOperator, applyRefusal, validateRollback, rollbackHash, rollbackHmac, rollbackKey, sealCheck, osIdentity, storedDeps, actorOf, OUTBOUND, ACCESS, MONEY, ON_VALUE, REFUSED_GROUPS, selectLots, graph, order, classify, buildActivation, renderPlan, parseArgs, writeRefusal, patchFor, currentValue, isOn, main };
+module.exports = { readOperatorToken, authenticateOperator, SECOND_OPERATOR_REFUSED, needsFourEyes, markFourEyes, secondOperatorRefusal, resolveSecondOperator, applyRefusal, validateRollback, rollbackHash, rollbackHmac, rollbackKey, sealCheck, osIdentity, storedDeps, actorOf, OUTBOUND, ACCESS, MONEY, ON_VALUE, REFUSED_GROUPS, selectLots, graph, order, classify, buildActivation, renderPlan, parseArgs, writeRefusal, patchFor, currentValue, isOn, main };
 
 if (require.main === module) {
   main(process.argv.slice(2))

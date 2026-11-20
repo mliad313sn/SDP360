@@ -66,12 +66,14 @@ test('the register counts every decision once, under a known decider, with no de
 });
 
 // P11 r5 N-15 — a real apply of a lot carrying a four-eyes switch must name the second operator in the pack.
-test('an --apply of a four-eyes lot without --second-operator is refused; dry run and L01 are not', () => {
+// P11 r6 R6-A1 — and since round 6 it must carry an operator token (authenticated requester); --second-operator is refused.
+test('an --apply of a four-eyes lot without --operator-token (or with --second-operator) is refused; dry run and L01 are not', () => {
   assert.ok(known.fourEyesLots.has('L12') && known.fourEyesLots.has('L03') && !known.fourEyesLots.has('L01'));
   const cmd = 'node tools/ops/activate-switches.js --apply --lots=L12 --db-url=env --reason="vague 3 — réf. comité X" --operator=<op>';
   const bad = br.scanText(`${LABEL}\n${cmd}`, known, 'x.md');
-  assert.ok(bad.some((s) => /four-eyes switch\) without --second-operator/.test(s)), bad.join('\n'));
-  assert.deepStrictEqual(br.scanText(`${LABEL}\n${cmd} --second-operator=<second>`, known, 'x.md'), []);
+  assert.ok(bad.some((s) => /four-eyes switch\) without --operator-token/.test(s)), bad.join('\n'));
+  assert.ok(br.scanText(`${LABEL}\n${cmd} --second-operator=<second>`, known, 'x.md').some((s) => /refused by the tool/.test(s)));
+  assert.deepStrictEqual(br.scanText(`${LABEL}\n${cmd} --operator-token=env`, known, 'x.md'), []);
   assert.deepStrictEqual(br.scanText(`${LABEL}\n${cmd.replace('--apply', '--apply --dry-run')}`, known, 'x.md'), []);
   assert.deepStrictEqual(br.scanText(`${LABEL}\n${cmd.replace('L12', 'L01')}`, known, 'x.md'), []);
 });

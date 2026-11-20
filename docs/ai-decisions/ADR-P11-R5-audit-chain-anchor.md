@@ -34,3 +34,25 @@
   `docs/ops/EXPLOITATION.md`.
 - Rollback: the rollback script drops the anchors (the check is blind again); the hardening script header lists the
   ownership rollback commands.
+
+## Round 6 (R6-A2) — the verify no longer fails open (2026-11-20, AI decision, reversible)
+
+The round-6 audit seat showed three gaps in the default (unhardened, no `SDP_LEDGER_SCHEMA`) configuration: a missing
+anchor table was skipped silently, an unverifiable ledger still counted as ok, and the application role could INSERT a
+forged anchor (a reset baseline or a false alarm). Decisions:
+
+1. **Unverifiable is not ok.** `verify()` returns `status: ok | broken | unverifiable`; `ok` is true only for `ok`. A
+   ledger whose read fails (`ok:null`) and anchors that are expected but cannot be resolved in the ledger schema
+   (migration 131 recorded in `schema_migrations`, or an `audit_chain_anchors` table in any schema) make the result
+   `unverifiable`. `nightly()` throws on it (event `audit_chain_unverifiable`) so the sync runner alerts.
+2. **Signed anchors.** Migration 135 adds `audit_chain_anchors.sig` (the hardening script adds it too, for a table
+   already handed to `sdp_audit_owner`). `recordAnchors()` writes `HMAC-SHA256(key, [table, schema, last_id, head,
+   row_count])` with a key derived from `SDP_CONFIG_KEY`. With the key: an invalid signature, or an unsigned row written
+   after the first signed one, is flagged as forged (ok:false); unsigned rows before the first signed one are legacy
+   and tolerated; the baseline is the correctly signed row with the highest anchored id (replay-proof).
+3. **Advisory without key.** Without `SDP_CONFIG_KEY` (or with the `sig` column missing) the anchors are reported as
+   advisory in `anchor_integrity`: they still catch an accidental truncate or tail delete, not a deliberate forgery
+   by someone holding the application role. The key lives in `.env`, never in a dump.
+
+Rollback: `db/postgres_rollback/135_audit_chain_anchor_sig_drop.sql` (anchors advisory again). Tests:
+`tests/audit-chain-r6.test.js`.

@@ -93,10 +93,19 @@ test('apply + journal + rollback on the throwaway database', async () => {
     // someone changes one switch after the activation: rollback leaves it alone unless --force
     await rc.setConfig(rdb.db, { ui_role_landing: '0' }, 'someone');
     await rc.setConfig(rdb.db, { ui_role_landing: '2' }, 'someone');
-    // N-15: L13 turned policy_center_enabled on; rolling it back to '0' is the weaker side → a second person is needed
-    await assert.rejects(A.main([`--rollback=${res.rollback_file}`, `--db-url=${url}`, '--operator=jdoe'], { ...quiet, ...(await liveDeps(url)) }), /policy_center_enabled[^]*second person/);
-    const back = await A.main([`--rollback=${res.rollback_file}`, `--db-url=${url}`, '--operator=jdoe', '--second-operator=asmith'], { ...quiet, ...(await liveDeps(url)) });
+    // N-15 / R6-A1: L13 turned policy_center_enabled on; rolling it back to '0' is the weaker side → never written by the
+    // tool: a Policy Center request filed by the AUTHENTICATED operator (token), another super_admin decides
+    await assert.rejects(A.main([`--rollback=${res.rollback_file}`, `--db-url=${url}`, '--operator=jdoe'], { ...quiet, ...(await liveDeps(url)) }), /policy_center_enabled[^]*operator-token[^]*nothing restored/);
+    await assert.rejects(A.main([`--rollback=${res.rollback_file}`, `--db-url=${url}`, '--operator=jdoe', '--second-operator=asmith'], { ...quiet, ...(await liveDeps(url)) }), /--second-operator is no longer accepted/);
+    const tokSmith = await issueToken('asmith');
+    const ldeps = { ...quiet, ...(await liveDeps(url)) };
+    const back = await withToken(tokSmith, () => A.main([`--rollback=${res.rollback_file}`, `--db-url=${url}`, '--operator-token=env'], ldeps));
     assert.ok(back.conflicts.some((c) => c.key === 'ui_role_landing'));
+    assert.ok(back.requested.some((r) => r.key === 'policy_center_enabled'), JSON.stringify(back.requested));
+    assert.ok(back.requested.every((r) => r.requested_by === 'asmith'));
+    assert.ok(!back.restored.some((k) => back.requested.some((r) => r.key === k)), 'a four-eyes key is requested, never written back');
+    assert.equal((await rc.getConfig(rdb.db)).policy_center_enabled, '1', 'the four-eyes key awaits a second super_admin');
+    await rc.setConfig(rdb.db, { policy_center_enabled: '0' }, 'test');
     cfg = await rc.getConfig(rdb.db);
     assert.equal(cfg.commitments_enabled, '0'); assert.equal(cfg.mywork_awaiting_me_enabled, '0'); assert.equal(cfg.ui_role_landing, '2');
     // a second apply of an already-on lot writes nothing new
@@ -113,6 +122,16 @@ async function ensureAccount(username, { role = 'super_admin', active = 1 } = {}
   if (!u) u = await H.prepare("INSERT INTO users (username, full_name, password_hash, salt, active) VALUES (?, ?, 'x', 'y', ?) RETURNING id").get(username, username.toUpperCase(), active);
   if (role) await H.prepare('INSERT INTO user_roles (user_id, role) VALUES (?, ?) ON CONFLICT DO NOTHING').run(u.id, role);
   return Number(u.id);
+}
+
+// P11 r6 R6-A1 — an operator token issued for an account (what /policy-center.html does for the logged-in user)
+async function issueToken(username) {
+  const id = await ensureAccount(username);
+  return (await require('../services/operatorTokens').issue(require('../reports-db').pgHandle(), { id, username })).token;
+}
+async function withToken(token, fn) {
+  const prev = process.env.SDP_OPERATOR_TOKEN; process.env.SDP_OPERATOR_TOKEN = token;
+  try { return await fn(); } finally { if (prev === undefined) delete process.env.SDP_OPERATOR_TOKEN; else process.env.SDP_OPERATOR_TOKEN = prev; }
 }
 
 async function liveDeps() {
@@ -234,7 +253,7 @@ async function resetLot(lotIds) {
   return keys;
 }
 
-test('r5 N-15 (pg): L12 without --second-operator is refused and writes NOTHING; with it, both names are recorded', async () => {
+test('r6 R6-A1 (pg): center OFF — four-eyes steps are refused and NOTHING is written; --second-operator is refused', async () => {
   const url = process.env.PG_URL;
   const dir = tmp();
   try {
@@ -244,69 +263,75 @@ test('r5 N-15 (pg): L12 without --second-operator is refused and writes NOTHING;
     const keys = await resetLot('L12');
     const before = await rc.getConfig(rdb.db);
     await assert.rejects(A.main(['--apply', `--db-url=${url}`, '--lots=L12', `--rollback-dir=${dir}`, '--reason=L12 activation CAB-0042', '--operator=jdoe'], { ...quiet, ...(await liveDeps(url)) }),
-      /emergency_access_enabled[^]*second super_admin[^]*--second-operator[^]*nothing written/);
+      /emergency_access_enabled[^]*second super_admin[^]*Policy Center on[^]*nothing written/);
+    await assert.rejects(A.main(['--apply', `--db-url=${url}`, '--lots=L12', `--rollback-dir=${dir}`, '--reason=L12 activation CAB-0042', '--operator=jdoe', '--second-operator=asmith'], { ...quiet, ...(await liveDeps(url)) }),
+      /--second-operator is no longer accepted[^]*nothing written/);
+    // even an authenticated operator cannot apply a four-eyes change alone while the center is off
+    const tok = await issueToken('asmith');
+    const ldeps = { ...quiet, ...(await liveDeps(url)) };
+    await assert.rejects(withToken(tok, () => A.main(['--apply', `--db-url=${url}`, '--lots=L12', `--rollback-dir=${dir}`, '--reason=L12 activation CAB-0042', '--operator-token=env'], ldeps)),
+      /Policy Center on[^]*nothing written/);
     const mid = await rc.getConfig(rdb.db);
-    for (const k of keys) assert.equal(mid[k], before[k], `${k} untouched after the refusal`);
+    for (const k of keys) assert.equal(mid[k], before[k], `${k} untouched after the refusals`);
     assert.equal(fs.readdirSync(dir).length, 0, 'no rollback file written');
-    await assert.rejects(A.main(['--apply', `--db-url=${url}`, '--lots=L12', `--rollback-dir=${dir}`, '--reason=L12 activation CAB-0042', '--operator=jdoe', '--second-operator= JDoe '], { ...quiet, ...(await liveDeps(url)) }),
-      /same person/);
-
-    const res = await A.main(['--apply', `--db-url=${url}`, '--lots=L12', `--rollback-dir=${dir}`, '--reason=L12 activation CAB-0042', '--operator=jdoe', '--second-operator=asmith'], { ...quiet, ...(await liveDeps(url)) });
-    assert.ok(res.applied.includes('emergency_access_enabled'));
-    assert.equal(res.second_operator, 'asmith');
-    assert.equal((await rc.getConfig(rdb.db)).emergency_access_enabled, '1');
-    const rb = JSON.parse(fs.readFileSync(res.rollback_file, 'utf8'));
-    assert.equal(rb.operator, 'jdoe'); assert.equal(rb.second_operator, 'asmith');
-    assert.equal(rb.sha256, A.rollbackHash(rb), 'the second operator is inside the signed content');
-    assert.equal(A.rollbackHash({ ...rb, second_operator: 'mallory' }) === rb.sha256, false, 'changing the second operator breaks the signature');
-    assert.equal(rb.entries.find((e) => e.key === 'emergency_access_enabled').four_eyes, true);
-    const { rows } = await rdb.listSystemLog({ category: 'config', action: 'config_changed' }, { limit: 500 });
-    const row = rows.find((r) => r.target === 'emergency_access_enabled' && r.actor === 'cli:activate-switches:jdoe');
-    assert.ok(row, 'journal row names the first operator');
-    assert.match(JSON.stringify(row), /second operator: asmith/, 'journal row names the second operator');
-    const { rows: files } = await rdb.listSystemLog({ category: 'config', action: 'switch_rollback_file' }, { limit: 50 });
-    assert.ok(files.some((f) => f.target === rb.sha256 && /asmith/.test(JSON.stringify(f))), 'the rollback-file event records the second operator');
-
-    // rolling the four-eyes keys back to their weaker side needs a second person too
-    await assert.rejects(A.main([`--rollback=${res.rollback_file}`, `--db-url=${url}`, '--operator=jdoe'], { ...quiet, ...(await liveDeps(url)) }), /second person/);
-    assert.equal((await rc.getConfig(rdb.db)).emergency_access_enabled, '1', 'refused rollback wrote nothing');
-    const back = await A.main([`--rollback=${res.rollback_file}`, `--db-url=${url}`, '--operator=jdoe', '--second-operator=asmith'], { ...quiet, ...(await liveDeps(url)) });
-    assert.ok(back.restored.includes('emergency_access_enabled'));
-    assert.equal((await rc.getConfig(rdb.db)).emergency_access_enabled, rc.DEFAULTS.emergency_access_enabled);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('r5 N-15 (pg): Policy Center on — four-eyes keys become center requests, the rest is written', async () => {
+test('r6 R6-A1 (pg): Policy Center on — requests are filed as the AUTHENTICATED account only; the rest is written', async () => {
   const url = process.env.PG_URL;
   const dir = tmp();
   const rdb = require('../reports-db');
   const rc = require('../services/reportConfig');
   try {
-    const keys = await resetLot('L12');
+    await resetLot('L12');
     await rc.setConfig(rdb.db, { policy_center_enabled: '1' }, 'test');
-    // the requester of record must be an active super_admin account
-    await assert.rejects(A.main(['--apply', `--db-url=${url}`, '--lots=L12', `--rollback-dir=${dir}`, '--reason=L12 via policy center', '--operator=nobody-here'], { ...quiet, ...(await liveDeps(url)) }),
-      /active super_admin[^]*nothing written/);
+    const deps = { ...quiet, ...(await liveDeps(url)) };
+    const go = (extra) => A.main(['--apply', `--db-url=${url}`, '--lots=L12', `--rollback-dir=${dir}`, '--reason=L12 via policy center', ...extra], deps);
+    // a typed name is not enough any more (the round-6 impersonation): no token → refused, nothing written
+    await assert.rejects(go(['--operator=pc-super']), /operator-token[^]*nothing written/);
+    // a literal token on the command line is refused (process listings)
+    await assert.rejects(go(['--operator-token=sdpop_' + 'a'.repeat(43)]), /never the token itself/);
     const H = rdb.pgHandle();
-    const u = await H.prepare("INSERT INTO users (username, full_name, password_hash, salt, active) VALUES ('pc-super', 'PC Super', 'x', 'y', 1) RETURNING id").get();
-    await H.prepare("INSERT INTO user_roles (user_id, role) VALUES (?, 'super_admin')").run(u.id);
-    const res = await A.main(['--apply', `--db-url=${url}`, '--lots=L12', `--rollback-dir=${dir}`, '--reason=L12 via policy center', '--operator=pc-super'], { ...quiet, ...(await liveDeps(url)) });
+    const uid = await ensureAccount('pc-super');
+    await ensureAccount('pc-other');
+    const tok = await issueToken('pc-super');
+    // --operator naming ANOTHER account than the token's → refused (the token was consumed by that check: issue a new one)
+    await assert.rejects(withToken(tok, () => go(['--operator-token=env', '--operator=pc-other'])), /not the account that issued the operator token/);
+    await assert.rejects(withToken(tok, () => go(['--operator-token=env'])), /already used or expired/, 'a token works once');
+    const tok2 = await issueToken('pc-super');
+    // dry run checks the token without burning it
+    const dry = await withToken(tok2, () => go(['--operator-token=env', '--dry-run']));
+    assert.deepEqual(dry.requested, []);
+    const res = await withToken(tok2, () => go(['--operator-token=env']));
     const fe = ['access_grant_expiry_job', 'access_recert_enabled', 'emergency_access_enabled', 'login_limit_failures_only'];
     assert.deepEqual(res.requested.map((r) => r.key).sort(), fe);
+    assert.ok(res.requested.every((r) => r.requested_by === 'pc-super'));
     const cfg = await rc.getConfig(rdb.db);
     for (const k of fe) assert.equal(cfg[k], rc.DEFAULTS[k], `${k} NOT written — awaiting a second super_admin`);
     assert.equal(cfg.access_require_approval, '1', 'a non-four-eyes switch of the same lot is written');
-    assert.ok(!res.applied.some((k) => fe.includes(k)));
-    const reqs = await H.prepare("SELECT key, new_value, requested_by, status FROM policy_change_requests WHERE status = 'pending' ORDER BY key").all();
+    const reqs = (await H.prepare("SELECT key, new_value, requested_by, reason, status FROM policy_change_requests WHERE status = 'pending' ORDER BY key").all()).filter((r) => fe.includes(r.key));
     assert.deepEqual(reqs.map((r) => r.key), fe);
-    assert.ok(reqs.every((r) => Number(r.requested_by) === Number(u.id) && r.new_value === '1'));
+    assert.ok(reqs.every((r) => Number(r.requested_by) === uid && r.new_value === '1'));
+    assert.ok(reqs.every((r) => /authenticated by operator token #\d+; os /.test(r.reason)), 'the request records the token and the OS identity');
     const rb = JSON.parse(fs.readFileSync(res.rollback_file, 'utf8'));
     assert.ok(!rb.entries.some((e) => fe.includes(e.key)), 'the rollback file lists only what was written');
-    void keys;
+    assert.equal(rb.operator, 'pc-super', 'the authenticated account is the operator of record');
   } finally {
     await rc.setConfig(rdb.db, { policy_center_enabled: '0' }, 'test');
     fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('r6 R6-A1: readOperatorToken accepts env / env:VAR / file:PATH and refuses a literal', () => {
+  assert.equal(A.readOperatorToken(undefined).refusal, 'missing');
+  assert.equal(A.readOperatorToken('env', { SDP_OPERATOR_TOKEN: ' sdpop_x ' }).token, 'sdpop_x');
+  assert.equal(A.readOperatorToken('env:MY_TOK', { MY_TOK: 'sdpop_y' }).token, 'sdpop_y');
+  assert.match(A.readOperatorToken('env', {}).refusal, /empty/);
+  assert.match(A.readOperatorToken('env:bad name', {}).refusal, /not an environment variable/);
+  assert.match(A.readOperatorToken('sdpop_zzz').refusal, /never the token itself/);
+  const f = path.join(tmp(), 'tok'); fs.writeFileSync(f, 'sdpop_file\n');
+  assert.equal(A.readOperatorToken('file:' + f).token, 'sdpop_file');
+  assert.equal(A.parseArgs(['--operator-token=env']).operatorToken, 'env');
 });
 
 // P11 r5 R5-A4/A6 — the rollback "signature" was an unkeyed sha256: now an HMAC seal under SDP_CONFIG_KEY / SDP_BACKUP_KEY
@@ -357,34 +382,5 @@ test('r5: --apply writes os_user + host and the HMAC seal into the rollback file
   } finally { if (prev === undefined) delete process.env.SDP_CONFIG_KEY; else process.env.SDP_CONFIG_KEY = prev; fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
-// P11 r6 O-4 — `--second-operator=x` was accepted as free text: any one-character name satisfied four-eyes.
-test('r6 O-4 (pg): the second operator must be an existing ACTIVE super_admin account, distinct from --operator', async () => {
-  const url = process.env.PG_URL;
-  const dir = tmp();
-  try {
-    const rdb = require('../reports-db');
-    const rc = require('../services/reportConfig');
-    await rc.setConfig(rdb.db, { policy_center_enabled: '0' }, 'test');
-    await resetLot('L12');
-    const deps = { ...quiet, ...(await liveDeps(url)) };
-    const run = (second, op = 'jdoe') => A.main(['--apply', `--db-url=${url}`, '--lots=L12', `--rollback-dir=${dir}`, '--reason=L12 activation CAB-0099', `--operator=${op}`, `--second-operator=${second}`], deps);
-    await assert.rejects(run('x'), /"x" is not the username of an active super_admin account[^]*nothing written/, 'free text refused');
-    await ensureAccount('plain-editor', { role: 'editor' });
-    await assert.rejects(run('plain-editor'), /not the username of an active super_admin/, 'an editor is not a valid second operator');
-    await ensureAccount('gone-super', { active: 0 });
-    await assert.rejects(run('gone-super'), /not the username of an active super_admin/, 'an inactive account is refused');
-    const aid = await ensureAccount('asmith');
-    await assert.rejects(run('ASMITH', 'asmith'), /same person/, 'the same account, any case, is refused');
-    await assert.rejects(run('asmith', 'a.smith'), /same person/, 'a look-alike spelling of the operator is refused');
-    assert.equal(fs.readdirSync(dir).length, 0, 'nothing written by the refusals');
-    assert.equal((await rc.getConfig(rdb.db)).emergency_access_enabled, rc.DEFAULTS.emergency_access_enabled);
-    const res = await run('asmith');
-    assert.equal(res.second_operator, 'asmith'); assert.equal(res.second_operator_id, aid);
-    const rb = JSON.parse(fs.readFileSync(res.rollback_file, 'utf8'));
-    assert.equal(rb.second_operator_id, aid);
-    assert.equal(rb.sha256, A.rollbackHash(rb));
-    assert.notEqual(A.rollbackHash({ ...rb, second_operator_id: aid + 1 }), rb.sha256, 'the account id is inside the checksummed content');
-    const { rows } = await rdb.listSystemLog({ category: 'config', action: 'config_changed' }, { limit: 500 });
-    assert.ok(rows.some((r) => r.target === 'emergency_access_enabled' && new RegExp(`user id ${aid}`).test(JSON.stringify(r))), 'journal row carries the account id');
-  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
-});
+// P11 r6 O-4 → superseded by R6-A1: the second operator is no longer a CLI input at all (see the tests above and
+// tests/activate-switches-r6-impersonation.smoke.test.js).

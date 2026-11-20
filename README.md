@@ -53,12 +53,12 @@ Figures below are generated from the code by `node tools/agent/inventory.js` (`-
 | Size (counted from the code) | Count |
 |---|---:|
 | HTML pages (`public/*.html`) | 66 |
-| API routes (method + path) | 809 |
+| API routes (method + path) | 810 |
 | — of which still declared in `server.js` | 160 |
 | Scheduled jobs | 33 |
-| PostgreSQL migration files (`db/postgres/**/*.sql`) | 112 |
-| Test files (`tests/*.test.js`) | 925 |
-| Tests expected by `tests/.suite-manifest.json` | 5961 |
+| PostgreSQL migration files (`db/postgres/**/*.sql`) | 114 |
+| Test files (`tests/*.test.js`) | 927 |
+| Tests expected by `tests/.suite-manifest.json` | 5970 |
 <!-- inventory:end -->
 
 ## Repository layout

@@ -9,13 +9,13 @@
   "pages_deep_link_only": 9,
   "pages_without_entry_point": 2,
   "pages_with_inline_scripts": 46,
-  "routes": 809,
+  "routes": 810,
   "routes_without_test_reference": 30,
   "routes_in_server_js": 160,
   "jobs": 33,
   "jobs_without_test_reference": 0,
-  "migrations": 112,
-  "test_files": 925
+  "migrations": 114,
+  "test_files": 927
  },
  "pages": [
   {
@@ -1538,9 +1538,10 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 0,
-   "bytes": 6515,
+   "bytes": 7068,
    "tests": [
     "tests/a11y-static.test.js",
+    "tests/activate-switches.test.js",
     "tests/adoption-lota-nav-authz.test.js",
     "tests/i18n-coverage.test.js",
     "tests/no-native-dialogs.test.js",
@@ -10011,7 +10012,7 @@
    "method": "GET",
    "path": "/api/policy-center/catalogue",
    "file": "routes/policyCenter.js",
-   "line": 99,
+   "line": 101,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/p11-r5-security.smoke.test.js",
@@ -10024,7 +10025,7 @@
    "method": "GET",
    "path": "/api/policy-center/export",
    "file": "routes/policyCenter.js",
-   "line": 205,
+   "line": 219,
    "tests": [
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
@@ -10035,9 +10036,19 @@
    "method": "POST",
    "path": "/api/policy-center/import",
    "file": "routes/policyCenter.js",
-   "line": 256,
+   "line": 270,
    "tests": [
     "tests/policy-center-routes.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-POST-api-policy-center-operator-tokens",
+   "method": "POST",
+   "path": "/api/policy-center/operator-tokens",
+   "file": "routes/policyCenter.js",
+   "line": 200,
+   "tests": [
+    "tests/activate-switches-r6-impersonation.smoke.test.js"
    ]
   },
   {
@@ -10045,8 +10056,9 @@
    "method": "POST",
    "path": "/api/policy-center/requests/:id/approve",
    "file": "routes/policyCenter.js",
-   "line": 191,
+   "line": 193,
    "tests": [
+    "tests/activate-switches-r6-impersonation.smoke.test.js",
     "tests/p11-r5-security.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
@@ -10057,8 +10069,9 @@
    "method": "POST",
    "path": "/api/policy-center/requests/:id/cancel",
    "file": "routes/policyCenter.js",
-   "line": 193,
+   "line": 195,
    "tests": [
+    "tests/activate-switches-r6-impersonation.smoke.test.js",
     "tests/p11-r5-security.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
@@ -10069,8 +10082,9 @@
    "method": "POST",
    "path": "/api/policy-center/requests/:id/reject",
    "file": "routes/policyCenter.js",
-   "line": 192,
+   "line": 194,
    "tests": [
+    "tests/activate-switches-r6-impersonation.smoke.test.js",
     "tests/p11-r5-security.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
@@ -10081,8 +10095,9 @@
    "method": "GET",
    "path": "/api/policy-center/requests",
    "file": "routes/policyCenter.js",
-   "line": 144,
+   "line": 146,
    "tests": [
+    "tests/activate-switches-r6-impersonation.smoke.test.js",
     "tests/p11-r5-security.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
@@ -10093,7 +10108,7 @@
    "method": "GET",
    "path": "/api/policy-center/rules/:key/history",
    "file": "routes/policyCenter.js",
-   "line": 118,
+   "line": 120,
    "tests": [
     "tests/p11-r5-security.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
@@ -10105,7 +10120,7 @@
    "method": "PUT",
    "path": "/api/policy-center/rules/:key",
    "file": "routes/policyCenter.js",
-   "line": 135,
+   "line": 137,
    "tests": [
     "tests/p11-r5-security.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
@@ -15664,8 +15679,9 @@
    "method": "GET",
    "path": "/policy-center.html",
    "file": "routes/policyCenter.js",
-   "line": 97,
+   "line": 99,
    "tests": [
+    "tests/activate-switches.test.js",
     "tests/policy-center-routes.smoke.test.js"
    ]
   },
@@ -16552,6 +16568,14 @@
   {
    "id": "MG-reports-132-audit-chain-anchor-truncate",
    "file": "db/postgres/reports/132_audit_chain_anchor_truncate.sql"
+  },
+  {
+   "id": "MG-reports-135-audit-chain-anchor-sig",
+   "file": "db/postgres/reports/135_audit_chain_anchor_sig.sql"
+  },
+  {
+   "id": "MG-reports-136-operator-tokens",
+   "file": "db/postgres/reports/136_operator_tokens.sql"
   },
   {
    "id": "MG-sync-000-upgrade-from-1-11",

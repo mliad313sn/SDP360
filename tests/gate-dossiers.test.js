@@ -71,7 +71,7 @@ test('the freshness check fails when cited evidence changes or awaited evidence 
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'gate-dossiers-'));
   try {
     const manifest = JSON.parse(read(gd.MANIFEST));
-    const files = new Set([gd.SOURCE, gd.GATES_MD, gd.MANIFEST, ...Object.keys(manifest.evidence)]);
+    const files = new Set([gd.SOURCE, gd.GATES_MD, gd.MANIFEST, ...Object.keys(manifest.evidence), ...Object.keys(manifest.scripts || {})]);
     for (const lang of ['en', 'fr']) for (const n of fs.readdirSync(path.join(ROOT, gd.OUT_DIR, lang))) files.add(`${gd.OUT_DIR}/${lang}/${n}`);
     files.add(`${gd.OUT_DIR}/INDEX.md`);
     for (const rel of files) {
@@ -88,6 +88,29 @@ test('the freshness check fails when cited evidence changes or awaited evidence 
       fs.writeFileSync(path.join(tmp, glob.replace('*', 'delivered')), '# delivered by a parallel lot\n');
       assert.ok(gd.checkStale(tmp).some((r) => r.includes('awaited evidence changed')), 'newly delivered lot evidence must be reported');
     }
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+// P11 r6 R6-A3 — a dossier cites tools as COMMANDS ("node tools/pg/restore-rehearsal.js"): a change to that script after
+// generation was invisible to --check. The script's content hash is now in the manifest.
+test('the freshness check fails when a script a cited command runs changes or disappears', () => {
+  assert.deepStrictEqual(gd.scriptsInCommand('node tools/pg/restore-rehearsal.js --keep && node --test tests/x.test.js'), ['tools/pg/restore-rehearsal.js', 'tests/x.test.js']);
+  const manifest = JSON.parse(read(gd.MANIFEST));
+  assert.ok(manifest.scripts && Object.keys(manifest.scripts).length > 0, 'the manifest records the cited scripts');
+  const script = Object.keys(manifest.scripts).find((p) => p.startsWith('tools/')) || Object.keys(manifest.scripts)[0];
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'gate-dossiers-scripts-'));
+  try {
+    const files = new Set([gd.SOURCE, gd.GATES_MD, gd.MANIFEST, ...Object.keys(manifest.evidence), ...Object.keys(manifest.scripts)]);
+    for (const lang of ['en', 'fr']) for (const n of fs.readdirSync(path.join(ROOT, gd.OUT_DIR, lang))) files.add(`${gd.OUT_DIR}/${lang}/${n}`);
+    files.add(`${gd.OUT_DIR}/INDEX.md`);
+    for (const rel of files) { fs.mkdirSync(path.dirname(path.join(tmp, rel)), { recursive: true }); fs.copyFileSync(path.join(ROOT, rel), path.join(tmp, rel)); }
+    assert.deepStrictEqual(gd.checkStale(tmp), [], 'the copy must start fresh');
+    fs.appendFileSync(path.join(tmp, script), '\n// changed after generation\n');
+    assert.ok(gd.checkStale(tmp).some((r) => r.includes('script a cited command runs changed') && r.includes(script)), 'a changed command script must be reported');
+    fs.rmSync(path.join(tmp, script));
+    assert.ok(gd.checkStale(tmp).some((r) => r.includes('script missing') && r.includes(script)), 'a vanished command script must be reported');
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
