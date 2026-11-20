@@ -137,6 +137,7 @@ module.exports = function fieldRoutes(deps) {
   });
 
   // ── applying one envelope, exactly once ───────────────────────────────────────────
+  const FIELD_INSPECTION_ID = /^EM-IT-\d{8}-F[0-9A-F]{12}$/;
   const APPLY = {
     async inspection(u, p) {
       if (!p.meta || !p.meta.f_site) throw Object.assign(new Error('inspection payload needs meta.f_site'), { code: 'INVALID', reason: 'inspection_invalid' });
@@ -165,13 +166,20 @@ module.exports = function fieldRoutes(deps) {
       // not only its meta: a different payload would un-submit or rewrite findings, and a record edited since (a
       // coordinator's review) is no longer the field's capture. Both are 409, the row untouched.
       const existing = idb().getInspectionForFieldReplay ? await idb().getInspectionForFieldReplay(p.meta.f_id) : null;
+      // P11 r5 (R2-N3 residual) — the field path is not an oracle on inspection ids of other sites: an id that exists
+      // out of the caller's scope and an UNUSED id that is not a field-app id (EM-IT-<date>-F + 12 hex, public/field/app.js
+      // fieldInspectionId — 48 random bits, not enumerable) get ONE identical refusal. Only a field-format id creates
+      // an inspection; a legacy id still queued on an old phone gets the same 409 and the phone's "copy as a new
+      // inspection" action re-keys it (nothing is lost). The caller's own replay and in-scope ids keep their answers.
+      const generic = () => Object.assign(new Error('this inspection id cannot be used from the field app — capture a new inspection'), { code: 'CONFLICT', reason: 'inspection_exists' });
+      if (p.meta.f_id != null && String(p.meta.f_id) !== '' && !existing && !FIELD_INSPECTION_ID.test(String(p.meta.f_id))) throw generic();
       if (existing) {
         const sameCapture = existing.created_by === Number(u.id) && existing.state
           && F.stableJson(existing.state) === F.stableJson(p) && String(existing.status || 'draft') === String(p.status || 'draft');
         // P11 r3 R2-N3 — an id of ANOTHER site's inspection gets the same refusal without its status (no oracle on
         // a record the caller may not read); within the caller's scope the status helps them understand the 409
         const ownScope = codes === null || userSites.inScope(existing.site_code, codes);
-        if (!sameCapture && !ownScope) throw Object.assign(new Error('this inspection id is already used on the server — it is not changed from the field app; capture a new inspection'), { code: 'CONFLICT', reason: 'inspection_exists' });
+        if (!sameCapture && !ownScope) throw generic();
         if (!sameCapture) throw Object.assign(new Error(`inspection ${String(p.meta.f_id).slice(0, 60)} already exists on the server (${existing.status}) — it is not changed from the field app; capture a new inspection`), { code: 'CONFLICT', reason: 'inspection_exists', detail: { status: String(existing.status || '').slice(0, 40) } });
       }
       const r = await idb().saveInspection(p, codes, u.id, { allowRefs });

@@ -132,7 +132,7 @@ module.exports = function policyRoutes(deps) {
       const mode = raw === true || raw === '1' || raw === 1 ? '1' : String(raw) === 'shadow' ? 'shadow' : '0';
       const on = mode === '1';
       const gaps = await SCR.diff(rdb(), hardMaps());
-      await require('../services/reportConfig').setConfig(rdb().db, { site_codes_from_registry: mode }, req.reportUser.username);
+      await require('../services/fourEyesGuard').guardedSetConfig(rdb().db, { site_codes_from_registry: mode }, req.reportUser.username);
       await SCR.refresh(rdb());
       // switching it on with disagreements left is allowed (the committee decides), but recorded as a risk
       const action = on ? 'site_registry_enabled' : mode === 'shadow' ? 'site_registry_shadow' : 'site_registry_disabled';

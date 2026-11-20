@@ -123,7 +123,13 @@ router.put('/api/reports/users/emails', requireReportSession, requireSuperAdmin,
     for (const u of updates) {
       const id = parseInt(u && u.id, 10);
       if (!Number.isFinite(id)) continue;
+      const before = await _snapshot(id);
       await rdb.setUserEmail(id, (u.email || '').trim());
+      // N-R5-2 — the e-mail is the Entra SSO match key: a change is credential control, journalled (awaited) for
+      // the approver-independence check
+      if (before && String(before.email || '') !== String((u.email || '').trim())) {
+        try { await rdb.logEvent({ category: 'identity', action: 'user_email_changed', target: before.username, details: { user_id: id, changed: ['email'] }, ...rdb._logCtx(req) }); } catch {}
+      }
       n++;
     }
     console.log(`[SSO] bulk email map: ${n} user(s) updated by ${req.reportUser?.username || 'admin'}`);
@@ -146,9 +152,16 @@ router.put('/api/reports/users/:id', requireReportSession, requireSuperAdmin, js
     const diff = _diff(before, after);
     _log(req, 'user_updated', target, { user_id: id, changed: Object.keys(diff), diff, password_reset: !!password });
     if (diff.roles) _log(req, 'user_role_changed', target, { user_id: id, before: diff.roles.before, after: diff.roles.after });
-    if (password) _log(req, 'password_reset', target, { user_id: id, by_admin: true });
+    let revoked = null;
+    if (password) {
+      // N-R5-2 — awaited (not fire-and-forget): the approver-independence check (services/approverProvenance) reads this
+      // row, so it must exist before the reset account can be used to approve anything.
+      try { await rdb.logEvent({ category: 'identity', action: 'password_reset', target, details: { user_id: id, by_admin: true, actor_is_target: Number(req.reportUser.id) === id }, risk: 1, ...rdb._logCtx(req) }); } catch {}
+      // N-R5-5 — an admin reset revokes every session of the target (self-reset keeps the caller's current session)
+      try { revoked = (await rdb.revokeUserSessions(id, { exceptToken: Number(req.reportUser.id) === id ? require('../services/sessionAuth').sessionToken(req) : null })).deleted; } catch (e) { console.error('[users] session revocation failed:', e.message); }
+    }
     const emergency = await _recordBreakGlass(req, id);
-    res.json({ ok: true, ...(emergency ? { emergency } : {}) });
+    res.json({ ok: true, ...(password ? { sessions_revoked: revoked } : {}), ...(emergency ? { emergency } : {}) });
   } catch(e) { _failRoles(res, e); }
 });
 

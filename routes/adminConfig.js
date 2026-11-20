@@ -115,16 +115,14 @@ router.put('/api/reports/config', requireReportSession, requireSuperAdmin, async
     // N-R4-1 (P11 round 4): while the Policy Center is on, a four-eyes rule changes only through its request flow —
     // this legacy door would otherwise let one super_admin change it instantly. Only a key whose value actually
     // CHANGES is refused (admin cards re-send unchanged fields); with the center off nothing changes here.
-    if (String(cur.policy_center_enabled) === '1') {
-      const PC = require('../services/policyCatalogue');
-      const fe = Object.keys(body).filter((k) => { const e = PC.build().by.get(k); return e && e.source === 'report_config' && e.four_eyes && String(body[k] == null ? '' : body[k]) !== String(cur[k] == null ? '' : cur[k]); });
-      if (fe.length) {
-        return fail(res, typed('CONFLICT', `four-eyes rule${fe.length > 1 ? 's' : ''} ${fe.join(', ')}: the Policy Center is on — change ${fe.length > 1 ? 'them' : 'it'} through PUT /api/policy-center/rules/<key> (a second super_admin approves when needed)`, 409), undefined, { four_eyes_keys: fe, policy_center: '/policy-center.html' });
-      }
+    {
+      const FE = require('../services/fourEyesGuard');
+      const fe = FE.blockedKeys(cur, body, { anyChange: true });
+      if (fe.length) return fail(res, FE.refusal(fe), undefined, { four_eyes_keys: fe, policy_center: '/policy-center.html' });
     }
     const denied = await checkOutboundUrls(body, cur);
     if (denied) return res.status(400).json({ error: denied });
-    const out = await reportConfig.setConfig(rdb.db, body, req.reportUser?.username);
+    const out = await require('../services/fourEyesGuard').guardedSetConfig(rdb.db, body, req.reportUser?.username, { current: cur, anyChange: true });
     require('../services/ssoSettings')._invalidate();   // config changed → re-read next request
     require('../services/dashKeyScope')._invalidate();
     logUrlChanges(req, body, cur);
@@ -158,7 +156,7 @@ router.put('/api/integrations/analytics', requireReportSession, requireSuperAdmi
     const patch = {};
     for (const [k, key] of Object.entries(map)) if (k in b) patch[key] = String(b[k] == null ? '' : b[k]).trim();
     if (patch.analytics_accounts_url && !/^https:\/\/\S+$/i.test(patch.analytics_accounts_url)) return res.status(400).json({ error: 'Serveur OAuth : https:// requis' });
-    await reportConfig.setConfig(rdb.db, patch, req.reportUser?.username);
+    await require('../services/fourEyesGuard').guardedSetConfig(rdb.db, patch, req.reportUser?.username);
     require('../services/analyticsSettings')._invalidate();
     await _applyAnalyticsSettings();
     tokenState.accessToken = null; tokenState.expiresAt = 0;   // next Analytics call refreshes with the new credentials

@@ -132,7 +132,7 @@ module.exports = function trackersRoutes(deps) {
   router.put('/api/trackers/legacy/cutover', requireReportSession, requireSuper, async (req, res) => {
     try {
       const on = !!(req.body && req.body.cutover);
-      await reportConfig.setConfig(rdb().db, { tracker_engine_cutover: on ? '1' : '0' }, req.reportUser && req.reportUser.username);
+      await require('../services/fourEyesGuard').guardedSetConfig(rdb().db, { tracker_engine_cutover: on ? '1' : '0' }, req.reportUser && req.reportUser.username);
       rdb().logEvent({ category: 'trackers', action: 'tracker_cutover', target: on ? 'engine' : 'legacy', ...rdb()._logCtx(req) });
       res.json({ ok: true, cutover: on });
     } catch (e) { fail(res, e); }

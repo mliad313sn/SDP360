@@ -255,7 +255,7 @@ module.exports = function governanceWorkbenchRoutes(router, h) {
       if (reason.length < 10) return httpFail(res, new Error('a reason of at least 10 characters is required'), 400, { ok: false, code: 'NOTE_REQUIRED' });
       const suffix = await PUB.freeKeys(rdb, sub);
       await store.removePortfolio('programme', sub.programme.id, { soft: true, user: req.reportUser, reason });
-      if (on(c, 'roadmap_redirect_to_portfolio')) await reportConfig.setConfig(rdb().db, { roadmap_redirect_to_portfolio: '0' }, req.reportUser.username);
+      if (on(c, 'roadmap_redirect_to_portfolio')) await require('../services/fourEyesGuard').guardedSetConfig(rdb().db, { roadmap_redirect_to_portfolio: '0' }, req.reportUser.username);
       await store.ppmEvent({ entity: 'programme', entity_id: sub.programme.id, action: 'roadmap_rollback', field: 'key', old_value: sub.programme.key, new_value: sub.programme.key + suffix, note: reason }, req.reportUser);
       log(req, 'roadmap_rollback', `programme:${sub.programme.id}`, { objectives: plan.objectives, deliverables: plan.deliverables });
       res.json({ ok: true, dry_run: false, plan, renamed_suffix: suffix, read_only: false });
@@ -267,7 +267,7 @@ module.exports = function governanceWorkbenchRoutes(router, h) {
       const sub = await PUB.subtree(rdb); if (!sub) return httpFail(res, new Error('publish the roadmap first: there is no migrated programme'), 409, { ok: false, code: 'NOT_MIGRATED' });
       if (req.body == null || req.body.confirm !== true) return httpFail(res, new Error('archive needs an explicit confirmation'), 400, { ok: false, code: 'CONFIRM_REQUIRED' });
       const verdict = await parity(req.reportUser.id); const was = on(await cfg(), 'roadmap_redirect_to_portfolio') ? '1' : '0';
-      await reportConfig.setConfig(rdb().db, { roadmap_redirect_to_portfolio: '1' }, req.reportUser.username);
+      await require('../services/fourEyesGuard').guardedSetConfig(rdb().db, { roadmap_redirect_to_portfolio: '1' }, req.reportUser.username);
       await store.ppmEvent({ entity: 'programme', entity_id: sub.programme.id, action: 'published', field: 'roadmap_redirect_to_portfolio', old_value: was, new_value: '1', note: `parity: ${verdict}` }, req.reportUser);
       log(req, 'roadmap_published', `programme:${sub.programme.id}`, { parity: verdict });
       res.json({ ok: true, read_only: true, parity: verdict });

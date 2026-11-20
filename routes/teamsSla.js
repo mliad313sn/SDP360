@@ -97,7 +97,7 @@ module.exports = function teamsSlaRoutes(deps) {
         // An empty list must be able to clear the channels: write a non-blank JSON value.
         patch.teams_sla_channels = JSON.stringify(next);
       }
-      await reportConfig.setConfig(rdb.db, patch, req.reportUser && req.reportUser.username);
+      await require('../services/fourEyesGuard').guardedSetConfig(rdb.db, patch, req.reportUser && req.reportUser.username);
       for (const [target, from, to] of urlLog) {
         try { rdb.logEvent({ category: 'config', action: 'config_url_changed', target, details: { from: from ? safeUrl.redactUrl(from) : '', to: safeUrl.redactUrl(to) }, ...rdb._logCtx(req) }); } catch (_) { /* best-effort */ }
       }
