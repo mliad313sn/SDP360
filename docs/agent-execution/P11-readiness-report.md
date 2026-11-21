@@ -210,3 +210,25 @@ serialised) merged; fix 27 (O-1, O-2) and fix 28 (F-22) merged; fix 29 (R6-A1..A
 L02, L03, L10, L11, L15, L16 and the business-readiness pack; L14 pending committee confirmation of the
 freeze/change-request policy; L13 conditional; NO-GO for four-eyes CLI activation until R6-A1 lands and for L05
 until Finance gate G14 is signed. All 21 RELEASE-GATES rows and the ~110 human decisions remain empty.
+
+## Round 7 — frozen SHA 7ea49070 (2026-11-21) — AI panel, not an independent human review
+
+Seat reports: `docs/agent-execution/p11/round7-7ea49070/r7-<seat>.md`. CI green at 7ea49070 (6 007 tests + PG17 rehearsal).
+
+| Seat | P0 | P1 | New P2 | Round-6 re-check |
+|---|---|---|---|---|
+| security | 0 | 0 (R1-F2 policy; fix 26 extended its exception to 2 routes — pending Finance + InfoSec) | N-R7-1 numeric four-eyes keys accepted out-of-range "stricter" values the readers reject | N-R6-1, N-R6-2, T-R6-1 fixed; CLI gap partial |
+| data-kpi | 0 | 0 | F-29 project RAG risk input still inherent P×I | F-26, F-27, F-28, F-25 fixed |
+| ppm | 0 | 0 | — (P3: R7-1 own-demand overload greyed, R7-2 sharing flag, R7-3 card counts, R7-4 closure-gate rule needs committee) | R6-1..R6-4 fixed |
+| operations | 0 | 0 | O-7 restore drill false mismatch on a live server; O-8 key rotation breaks signed anchors | O-1..O-4, O-6 fixed; O-5 partial |
+| ux-field | 0 | 0 | — (P3: F-25 id-less action history, F-26 site filter moves counts, F-27 retry backoff, F-28 i18n) | F-22, F-21, F-24 fixed; F-23 partial |
+| audit | 0 | 0 | — (P3, P2 in context: R7-A1 operator token forgeable by direct INSERT; R7-A2 audit chain ok in a shadow schema / after sig column drop before hardening) | R6-A1/A2 partial, R6-A3 partial, R6-A4 fixed |
+
+**Second consecutive round with P0 = 0 and P1 = 0 on every seat.** Corrections: fix 30 (data/PPM) and fix 31
+(security) merged; fix 32 (field/UX) and fix 33 (audit/ops: drill snapshot, anchor key ids, token binding,
+strict ledger schema, dependency hashing) in progress.
+
+**AI panel recommendation (advisory, not an approval):** GO PILOT for the default product, L01 (French on D-2),
+L02, L09, L10, L11, L15; CONDITIONAL for L03, L06–L08, L12–L14, L16 (out of pilot) and for CLI `--apply` of
+four-eyes lots; NO-GO for L05 until Finance gate G14 is signed. All 21 RELEASE-GATES rows and every register
+decision cell remain empty.
