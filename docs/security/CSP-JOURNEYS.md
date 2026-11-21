@@ -13,7 +13,7 @@ of the pages it renders: treat it as a candidate only after a report-only run sh
 
 Violations: not measured in this file (“—”). Run with `--violations <export.json>` after a report-only period to add observed counts.
 
-Journeys: 46 — strict 0, enforceable 11, blocked 35, unknown 0.
+Journeys: 47 — strict 0, enforceable 11, blocked 36, unknown 0.
 
 ## Journeys
 
@@ -28,6 +28,7 @@ Journeys: 46 — strict 0, enforceable 11, blocked 35, unknown 0.
 | Site editor | Switch the interface to French and open the manual | `/site-actions.html`, `/help.html` | blocked | `/site-actions.html`, `/help.html` |
 | Site editor | Reach Portfolio using only the keyboard | `/login.html`, `/portfolio.html` | blocked | `/portfolio.html` |
 | Field technician | Record a quick inspection with a photo offline, then sync | `/field/index.html`, `/inspection.html` | blocked | `/inspection.html` |
+| Site editor | Save an inspection after a failed save was queued and later sent, with no false "someone else saved" conflict, including after a reload (P11 | `/inspection.html` | blocked | `/inspection.html` |
 | Field technician | Sync the queue on a bad network without losing anything: 800 ms latency + offline/online flaps, captive-portal HTML page, session expiry mid | `/field/index.html` | enforceable | — |
 | Admin (Group IT) | See the helpdesk backlog and SLA across sites | `/index.html` | blocked | `/index.html` |
 | Admin (Group IT) | Check infrastructure and WAN health of a site | `/infra-health.html`, `/wan.html` | blocked | `/infra-health.html`, `/wan.html` |
