@@ -9,6 +9,7 @@
     'Unassigned Open Tickets': 'Tickets ouverts non assignés',
     'Loading dashboard data…': 'Chargement des données du tableau de bord…', '⟳ Retry': '⟳ Réessayer',
     'Helpdesk · IT Operations Center': 'Helpdesk · Centre des opérations IT', 'Helpdesk — IT Operations Center': 'Helpdesk — Centre des opérations IT', 'Connecting…': 'Connexion…',
+    'More filters': 'Plus de filtres', 'Export': 'Exporter', 'Active filters': 'Filtres actifs',
     '⟳ Refresh': '⟳ Actualiser', 'Force Sync': 'Forcer la synchronisation', 'Export Risk Register': 'Exporter le registre des risques',
     'Unassigned (—)': 'Non assignés (—)', '👤 Unassigned Open Tickets': '👤 Tickets ouverts non assignés',
     'Tickets not yet assigned to a technician · sorted oldest first': 'Tickets pas encore assignés à un technicien · les plus anciens d’abord',

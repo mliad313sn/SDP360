@@ -75,3 +75,22 @@ for (const f of ['dashboards.html', 'site-actions.html', 'lib/homeQueue.js', 'as
     assert.match(code, /ReasonDialog/);
   });
 }
+
+test('helpdesk (visual F15): secondary filters fold behind "More filters"; the controls and their handlers are unchanged', () => {
+  const src = read('index.html');
+  const bar = src.slice(src.indexOf('<div class="filter-bar">'), src.indexOf('<div class="page">'));
+  const panel = bar.slice(bar.indexOf('id="fltMorePanel"'));
+  const primary = bar.slice(0, bar.indexOf('id="fltMorePanel"'));
+  for (const id of ['fSite', 'fPeriod', 'grpWidget']) assert.ok(primary.includes(`id="${id}"`), id + ' stays in the first row');
+  for (const id of ['fCat', 'fPri', 'mfStatus', 'mfType', 'mfImpact', 'mfMode', 'fTrend']) assert.ok(panel.includes(`id="${id}"`), id + ' is inside the disclosure');
+  assert.match(primary, /id="fltMoreBtn" aria-expanded="false" aria-controls="fltMorePanel"/);
+  assert.match(primary, /id="fltChips"/);
+  // every control keeps its own change handler — the chips only call them
+  assert.match(panel, /id="fCat" aria-label="Category" onchange="applyFilters\(\)"/);
+  const chips = fnSource(src, '_activeSecondaryFilters');
+  assert.match(chips, /applyFilters\(\)/);
+  assert.match(chips, /mfAll\(wid,true\)/);
+  // the two exports are one menu, same ids
+  const menu = src.slice(src.indexOf('<details class="pb-menu"'), src.indexOf('</details>', src.indexOf('<details class="pb-menu"')));
+  assert.ok(menu.includes('id="btnExport"') && menu.includes('id="btnRiskRegister"'));
+});
