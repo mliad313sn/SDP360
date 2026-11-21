@@ -119,6 +119,6 @@ test('F-25: the inspection form merges the kept rows and names the actions the u
   assert.deepStrictEqual(st.actions.map((a) => a.id), [7, 5]);
   assert.strictEqual(st.actions[1].base_status, 'Open');
   assert.strictEqual(mergeKeptRows(st, [{ id: 5 }]), 0, 'idempotent');
-  assert.match(page, /mergeKeptRows\(state, out && out\.kept_rows\)/);
+  assert.match(page, /mergeKeptRows\(st, out\.kept_rows\)/);   // P11 r9 F-32: in applySaveOutcome (Save now + queue drain)
   assert.match(grab(page, 'removeAction'), /removed_action_ids/);
 });

@@ -904,7 +904,11 @@ async function _saveInspectionPg(state, userSiteCode, createdBy, { allowRefs = n
     // re-INSERT every row: each save gave the actions new ids, deleted their comment / status history
     // (insp_action_updates, ON DELETE CASCADE) and turned a phone close queued against the old id into a final 403.
     if (!Array.isArray(state.actions)) state.actions = [];
-    const up = await _upsertActionsPg(H, id, state.actions, existing && existing.state_json, removedIds, knownIds);
+    // P11 r9 F-33 — a save of an EXISTING inspection without server_version (a tab opened before fix 35, an old
+    // offline draft) cannot be checked for staleness: it never deletes a stored action by omission, and an
+    // explicit removal deletes only an action nobody else has commented on / changed in the register.
+    const up = await _upsertActionsPg(H, id, state.actions, existing && existing.state_json, removedIds, knownIds,
+      { versionless: !!existing && !baseVersion, actor: createdBy == null ? null : Number(createdBy) });
     actionIds = up.ids; keptServer = up.kept; actionStates = up.states; keptAmbiguous = up.keptIds; keptRows = up.keptRows;
     if (Array.isArray(state.actions) && state.actions.length) {
       await H.prepare('UPDATE insp_inspections SET state_json = ? WHERE id = ?').run(JSON.stringify(state), id);
@@ -988,10 +992,12 @@ const _actNorm = (v) => String(v == null ? '' : v).trim().toLowerCase();
  *  - updated_at moves only on a real edit (the field replay reads it as "changed on the server").
  *  - rows absent from the payload are deleted (their history goes with them, as the user removed the action) —
  *    except a row kept as "not matched safely" (deleted only when named in removed_action_ids) and, for a payload
- *    with no id at all, a row with history (P11 r7 F-25).
+ *    with no id at all, a row with history (P11 r7 F-25). A save of an existing inspection WITHOUT server_version
+ *    (P11 r9 F-33: tab opened before fix 35, old offline draft) deletes nothing by omission and deletes a named
+ *    removal only when no other author has history on it; the rows it keeps come back in kept_rows.
  * Returns the stored ids in form order.
  */
-async function _upsertActionsPg(H, inspectionId, incoming, prevStateJson, removedIds, knownIds) {
+async function _upsertActionsPg(H, inspectionId, incoming, prevStateJson, removedIds, knownIds, { versionless = false, actor = null } = {}) {
   const rows = await H.prepare(`SELECT id, ord, description, linked_item, priority, owner, due_date, status, notes,
       closed_at, closed_by FROM insp_actions WHERE inspection_id = ? ORDER BY ord, id`).all(inspectionId);
   let prevActions = [];
@@ -1045,8 +1051,21 @@ async function _upsertActionsPg(H, inspectionId, incoming, prevStateJson, remove
     const h = await H.prepare('SELECT DISTINCT action_id FROM insp_action_updates WHERE action_id = ANY(?)').all(unmatched.map((r) => Number(r.id)));
     withHistory = new Set(h.map((x) => Number(x.action_id)));
   }
+  // P11 r9 F-33 — versionless save: an explicitly removed action with history written by someone else (or by an
+  // unknown author) is kept, never deleted with that history
+  let otherHistory = new Set();
+  if (versionless && unmatched.some((r) => removed.has(Number(r.id)))) {
+    const h = await H.prepare('SELECT DISTINCT action_id FROM insp_action_updates WHERE action_id = ANY(?) AND (author_id IS NULL OR author_id <> ?)')
+      .all(unmatched.filter((r) => removed.has(Number(r.id))).map((r) => Number(r.id)), Number.isInteger(actor) ? actor : -1);
+    otherHistory = new Set(h.map((x) => Number(x.action_id)));
+  }
   for (const r of unmatched) {
     const rid = Number(r.id);
+    if (versionless) {
+      // P11 r9 F-33 — no deletion by omission; a named removal goes only when no one else's history is attached
+      if (!removed.has(rid) || otherHistory.has(rid)) keepAmbiguous.add(rid);
+      continue;
+    }
     if (removed.has(rid)) continue;   // the user deleted it in the form: goes
     // P11 r8 F-29 — a row the client never loaded (absent from known_action_ids) is never deleted by omission
     if (knownIds instanceof Set && !knownIds.has(rid)) { keepAmbiguous.add(rid); continue; }

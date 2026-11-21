@@ -102,10 +102,11 @@ test('flushQueue keeps an id in the queue when its draft is missing (does not de
     state: { meta: { f_id: 'EM-OTHER' } },
     showToast: (m) => toasts.push(m),
     _missingIds: new Set(),
+    _promotedIds: new Set(), _localDirty: true, _lastServerError: null,
     console: { warn() {}, log() {} },
   };
   const names = Object.keys(env);
-  const flushQueue = build(names, env, fnSource(SRC, 'flushQueue'), 'flushQueue');
+  const flushQueue = build(names, env, ['applySaveOutcome', 'announceSaveOutcome', 'flushQueueOnce'].map(n => fnSource(SRC, n)).join('\n'), 'flushQueueOnce');   // P11 r9 F-32: the drain body
   await flushQueue();
   assert.deepEqual(queue, ['EM-GONE'], 'the missing draft stays queued, the good one is sent');
   assert.deepEqual(posted, ['EM-OK']);
@@ -126,10 +127,11 @@ test('flushQueue sends the live in-memory state for the current inspection even 
     state: { meta: { f_id: 'EM-CUR' } },
     showToast: () => {},
     _missingIds: new Set(),
+    _promotedIds: new Set(), _localDirty: true, _lastServerError: null,
     console: { warn() {}, log() {} },
   };
   const names = Object.keys(env);
-  const flushQueue = build(names, env, fnSource(SRC, 'flushQueue'), 'flushQueue');
+  const flushQueue = build(names, env, ['applySaveOutcome', 'announceSaveOutcome', 'flushQueueOnce'].map(n => fnSource(SRC, n)).join('\n'), 'flushQueueOnce');   // P11 r9 F-32: the drain body
   await flushQueue();
   assert.deepEqual(posted, ['EM-CUR']);
   assert.deepEqual(queue, []);
