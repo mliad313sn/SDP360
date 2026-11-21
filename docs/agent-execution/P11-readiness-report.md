@@ -232,3 +232,25 @@ strict ledger schema, dependency hashing) in progress.
 L02, L09, L10, L11, L15; CONDITIONAL for L03, L06–L08, L12–L14, L16 (out of pilot) and for CLI `--apply` of
 four-eyes lots; NO-GO for L05 until Finance gate G14 is signed. All 21 RELEASE-GATES rows and every register
 decision cell remain empty.
+
+## Round 8 — frozen SHA 7afb9536 (2026-11-21) — AI panel, not an independent human review
+
+Seat reports: `docs/agent-execution/p11/round8-7afb9536/r8-<seat>.md`. CI green at 7afb9536 (6 046 tests + PG17 rehearsal).
+
+| Seat | P0 | P1 | New P2 | Round-7 re-check |
+|---|---|---|---|---|
+| security | 0 | 0 (R1-F2 policy, now covering four route patterns) | — (P3: N-R8-1 failed apply leaves a request "approved"; N-R8-2 key + DB credentials together forge tokens — G01) | N-R7-1 fixed (40+ encodings) |
+| data-kpi | 0 | 0 | — (P3: partial project risk score, assumptions-only list scores 0, case-sensitive exposure total, unknown-kid resume) | F-29, F-31, F-32 fixed; F-30 residual |
+| ppm | 0 | 0 | R8-1 an unscored risk is stored 2×2 (schema default) | R7-1, R7-2, R7-3 fixed; R7-4 partial (policy) |
+| operations | 0 | 0 | — (P3: O-11 unknown-kid rotation, O-12 runbook re-hardening, O-13 counts file not bound to its dump) | O-7, O-8, O-5 fixed |
+| ux-field | 0 | 0 | F-29 a stale editor's save deletes another editor's actions (pre-existing; pilot rule: one editor per inspection) | F-25, F-26, F-27, F-28 fixed |
+| audit | 0 | 0 | — (P3, P2 until hardening: R8-A2 rotation resume on a truncated ledger; R8-A1 source=cli request without token approvable) | R7-A1..A4 fixed |
+
+**Third consecutive round with P0 = 0 and P1 = 0 on every seat.** Corrections in progress: fix 34 (data/PPM/security),
+fix 35 (field/UX: inspection optimistic concurrency, 503 instead of 401 on a DB outage), fix 36 (audit/ops: no resume on
+an unknown key id or a shortened ledger, token evidence for every CLI request, counts bound to the dump).
+
+**AI panel recommendation (advisory, not an approval):** GO PILOT for the default product, L01 (French conditional on
+D-2), L02, L09, L10, L11 (one editor per inspection until F-29 lands), L15, and L13 operations resilience; CONDITIONAL
+for L03, L06–L08, L12, L14, L16 (out of pilot) and CLI `--apply` on four-eyes lots; NO-GO for L05 until Finance gate G14
+is signed. All 21 RELEASE-GATES rows and every register decision cell remain empty.
