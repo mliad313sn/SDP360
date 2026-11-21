@@ -674,6 +674,7 @@
   }
   var fl = function (v) { return v == null ? "—" : v < 0 ? "<b>" + n(v, " d") + " (late)</b>" : n(v, " d"); };
   function renderPlan() {
+    planSubs();   // the sub-views follow the switches and the plan (Quality needs at least one task)
     var rows = taskOrder(V.tasks), anchor = V.plan && V.plan.anchor;
     renderBaselines();
     var assumed = rows.filter(function (r) { var pl = planOf(r.t.id); return pl && pl.assumed_duration; }).length;
@@ -853,7 +854,7 @@
   var PLANSUB = "schedule", SEG = null;
   function planSubs() {
     var seg = $("plan-seg");
-    seg.querySelector("[data-sub=quality]").hidden = !FEAT.dcma;
+    seg.querySelector("[data-sub=quality]").hidden = !FEAT.dcma || !(V && V.tasks && V.tasks.length);   // no task = nothing to check: no 14-row "not measurable" table
     seg.querySelector("[data-sub=time]").hidden = !FEAT.time_entries;
     if (!SEG && UX) SEG = UX.segmented(seg, function (name) { PLANSUB = name; Array.prototype.forEach.call(document.querySelectorAll("#pane-plan [data-plan-sub]"), function (x) { x.classList.toggle("ppm-sub-off", x.getAttribute("data-plan-sub") !== name); }); });
     if (SEG) SEG.pick(seg.querySelector("[data-sub=" + PLANSUB + "]:not([hidden])") ? PLANSUB : "schedule");
