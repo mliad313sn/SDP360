@@ -264,7 +264,7 @@
 <aside class="ppm-drawer" id="task-edit" role="dialog" aria-labelledby="t-head" hidden>
   <div class="ppm-drawer-head"><h2 id="t-head">Task</h2><button type="button" class="ppm-drawer-x" data-drawer-close="task-edit" aria-label="Close">×</button></div>
   <div class="ppm-drawer-body">
-    <input type="hidden" id="t-id" value="">
+    <input type="hidden" id="t-id" value="" aria-label="Record id">
     <div class="row">
       <label style="grid-column:1/-1">Name <input id="t-name" required aria-required="true"></label>
       <label>WBS code <input id="t-wbs" placeholder="1.2"></label>
@@ -287,7 +287,7 @@
       <label>Task type <select id="t-ttype"><option value="">none</option><option value="fixed_units">fixed units</option><option value="fixed_duration">fixed duration</option><option value="fixed_work">fixed work</option></select></label>
       <label>Effort-driven <select id="t-ed"><option value="">default (on)</option><option value="1">on</option><option value="0">off</option></select></label>
       <fieldset style="grid-column:1/-1"><legend>Link types (one row per predecessor; finish-to-start with no lag needs no row)</legend><div class="ppm-grid-rows" id="t-links-rows"></div>
-        <button type="button" class="btn" id="t-link-add">+ Link type</button><input type="hidden" id="t-links"></fieldset>
+        <button type="button" class="btn" id="t-link-add">+ Link type</button><input type="hidden" id="t-links" aria-label="Record id"></fieldset>
     </div>
   </div>
   <div class="ppm-drawer-foot"><button class="btn primary" id="t-save" type="button">Save task</button><button class="btn danger" id="t-del" type="button">Delete task</button><button class="btn" type="button" data-drawer-close="task-edit">Cancel</button><div class="form-msg" id="t-msg" role="status" aria-live="polite"></div></div>
@@ -300,7 +300,7 @@
 </aside>
 <aside class="ppm-drawer" id="raid-edit" role="dialog" aria-labelledby="r-head" hidden>
   <div class="ppm-drawer-head"><h2 id="r-head">RAID entry</h2><button type="button" class="ppm-drawer-x" data-drawer-close="raid-edit" aria-label="Close">×</button></div>
-  <div class="ppm-drawer-body"><input type="hidden" id="r-id" value="">
+  <div class="ppm-drawer-body"><input type="hidden" id="r-id" value="" aria-label="Record id">
     <div class="row">
       <label>Kind <select id="r-kind"><option value="risk">Risk</option><option value="issue">Issue</option><option value="assumption">Assumption</option></select></label>
       <label>Status <select id="r-status"><option value="open">Open</option><option value="closed">Closed</option></select></label>
@@ -315,7 +315,7 @@
 <!-- W3-GOVERNANCE begin (RAID log form, ppm_raid_enabled) -->
 <aside class="ppm-drawer" id="w3-raid-drawer" role="dialog" aria-labelledby="w3-r-head" hidden>
   <div class="ppm-drawer-head"><h2 id="w3-r-head">RAID log entry</h2><button type="button" class="ppm-drawer-x" data-drawer-close="w3-raid-drawer" aria-label="Close">×</button></div>
-  <div class="ppm-drawer-body"><input type="hidden" id="w3-r-id" value="">
+  <div class="ppm-drawer-body"><input type="hidden" id="w3-r-id" value="" aria-label="Record id">
     <div class="row">
       <label>Kind <select id="w3-r-kind"><option value="risk">Risk</option><option value="issue">Issue</option><option value="assumption">Assumption</option><option value="dependency">Dependency</option></select></label>
       <label>Status <select id="w3-r-status"><option value="open">Open</option><option value="closed">Closed</option></select></label>
@@ -335,7 +335,7 @@
 <!-- W3-GOVERNANCE end -->
 <aside class="ppm-drawer" id="ms-edit" role="dialog" aria-labelledby="m-head" hidden>
   <div class="ppm-drawer-head"><h2 id="m-head">Milestone</h2><button type="button" class="ppm-drawer-x" data-drawer-close="ms-edit" aria-label="Close">×</button></div>
-  <div class="ppm-drawer-body"><input type="hidden" id="m-id" value="">
+  <div class="ppm-drawer-body"><input type="hidden" id="m-id" value="" aria-label="Record id">
     <div class="row">
       <label style="grid-column:1/-1">Name <input id="m-name"></label>
       <label>Owner <input id="m-owner"></label>
@@ -347,7 +347,7 @@
 </aside>
 <aside class="ppm-drawer" id="ben-edit" role="dialog" aria-labelledby="b-head" hidden><div class="ppm-drawer-head"><h2 id="b-head">Expected benefit</h2><button type="button" class="ppm-drawer-x" data-drawer-close="ben-edit" aria-label="Close">×</button></div><div class="ppm-drawer-body">
       <div class="row">
-        <input type="hidden" id="b-id" value="">
+        <input type="hidden" id="b-id" value="" aria-label="Record id">
         <label style="grid-column:1/-1">Description <textarea id="b-desc" rows="2"></textarea></label>
         <label>Measure <input id="b-measure" placeholder="e.g. unplanned downtime"></label>
         <label>Unit <input id="b-unit" placeholder="e.g. hours / month"></label>
@@ -374,7 +374,7 @@
     <div class="ppm-drawer-foot"><button class="btn primary" id="b-save" type="button">Save benefit</button><button class="btn danger" id="b-del" type="button">Delete benefit</button><button class="btn" type="button" data-drawer-close="ben-edit">Cancel</button><div class="form-msg" id="b-msg" role="status" aria-live="polite"></div></div></aside>
     <aside class="ppm-drawer" id="ben-real" role="dialog" aria-labelledby="br-head" hidden><div class="ppm-drawer-head"><h2 id="br-head">Record a realised value</h2><button type="button" class="ppm-drawer-x" data-drawer-close="ben-real" aria-label="Close">×</button></div><div class="ppm-drawer-body">
       <div class="row">
-        <input type="hidden" id="br-id" value=""><p id="br-name" class="muted"></p>
+        <input type="hidden" id="br-id" value="" aria-label="Record id"><p id="br-name" class="muted"></p>
         <label>Realised value <input id="br-value" type="number" step="any"></label>
         <label style="grid-column:1/-1">Evidence link (http or https) <input id="br-link" type="url" placeholder="https://…"></label>
         <label style="grid-column:1/-1">Note <textarea id="br-note" rows="2"></textarea></label>
@@ -392,7 +392,7 @@
     </div>
     <fieldset id="cr-sim-box" hidden><legend>Task changes to simulate (optional — one row per task; empty cells keep the task as it is)</legend><div class="ppm-grid-rows ppm-sim" id="cr-sim-rows"></div><button type="button" class="btn" id="cr-sim-add">+ Task</button></fieldset>
     <fieldset><legend>Business-case fields this change may rewrite (the budget follows the money impact)</legend><div id="cr-scope">
-      <label class="ppm-inline"><input type="checkbox" value="charter"> Charter</label><label class="ppm-inline"><input type="checkbox" value="business_need"> Business need</label><label class="ppm-inline"><input type="checkbox" value="expected_value"> Expected value</label><label class="ppm-inline"><input type="checkbox" value="budget_reference"> Budget reference</label><label class="ppm-inline"><input type="checkbox" value="budget_approval_date"> Budget approval date</label>
+      <label class="ppm-inline"><input type="checkbox" id="cr-sc-charter" value="charter"> Charter</label><label class="ppm-inline"><input type="checkbox" id="cr-sc-business_need" value="business_need"> Business need</label><label class="ppm-inline"><input type="checkbox" id="cr-sc-expected_value" value="expected_value"> Expected value</label><label class="ppm-inline"><input type="checkbox" id="cr-sc-budget_reference" value="budget_reference"> Budget reference</label><label class="ppm-inline"><input type="checkbox" id="cr-sc-budget_approval_date" value="budget_approval_date"> Budget approval date</label>
     </div></fieldset>
   </div>
   <div class="ppm-drawer-foot"><button class="btn primary" id="cr-save" type="button">Propose the change</button><button class="btn" type="button" data-drawer-close="cr-new">Cancel</button><div class="form-msg" id="cr-msg" role="status" aria-live="polite"></div></div>

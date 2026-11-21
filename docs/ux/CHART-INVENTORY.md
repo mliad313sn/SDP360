@@ -7,7 +7,7 @@ records a per-page budget for hex literals, dual axes and doughnuts: those can o
 The "substitution to consider" column is a **proposal** worded from the audit's measure → chart matrix (§5.2).
 Choosing and approving a substitution is a person's decision after a browser review; nothing here is decided.
 
-Files scanned: **159** · inline <style> blocks: **60** · hex literals: **5199** · `new Chart(` call sites: **44** · dual axes (`yAxisID`): **27** · doughnut/pie: **29**
+Files scanned: **161** · inline <style> blocks: **60** · hex literals: **5194** · `new Chart(` call sites: **44** · dual axes (`yAxisID`): **27** · doughnut/pie: **29**
 
 | File | Bytes | <style> | Hex | new Chart( | Chart types | Dual axis | Doughnut/pie | chartTheme.js | ChartTable | pageStates.js | Substitution to consider |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -60,11 +60,11 @@ Files scanned: **159** · inline <style> blocks: **60** · hex literals: **5199*
 | `public/obligations.html` | 3741 | 1 | 13 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/policies.html` | 25419 | 1 | 15 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/policy-center.html` | 7678 | 1 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/portfolio-decisions.html` | 3677 | 1 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/portfolio-phase2.html` | 2596 | 1 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/portfolio-register.html` | 5707 | 1 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/portfolio.html` | 47129 | 1 | 19 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/project.html` | 97664 | 1 | 33 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/portfolio-decisions.html` | 4184 | 1 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/portfolio-phase2.html` | 3119 | 1 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/portfolio-register.html` | 6268 | 1 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/portfolio.html` | 72380 | 1 | 19 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/project.html` | 122993 | 1 | 28 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/report-studio.html` | 19599 | 1 | 10 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/reports.html` | 551273 | 1 | 817 | 2 | bar×2 | 0 | 0 | yes | — | — | chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
 | `public/rfi.html` | 13620 | 1 | 10 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
@@ -103,8 +103,8 @@ Files scanned: **159** · inline <style> blocks: **60** · hex literals: **5199*
 | `public/lib/execDeckPayload.js` | 5238 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/feedback.js` | 4691 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/format.js` | 6924 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/lib/ganttCore.js` | 30824 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/lib/ganttV2.js` | 33609 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/ganttCore.js` | 32211 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/ganttV2.js` | 35906 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/help-page.js` | 7207 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/helpdeskSiteDefault.js` | 8995 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/home-page.js` | 23120 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
@@ -126,27 +126,29 @@ Files scanned: **159** · inline <style> blocks: **60** · hex literals: **5199*
 | `public/lib/parse-actions-csv.js` | 8439 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/policiesRoles.js` | 16086 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/policyCenterPage.js` | 24717 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/lib/portfolioDecisionsPage.js` | 10493 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/portfolioDecisionsPage.js` | 11081 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/portfolioMine.js` | 2023 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/lib/portfolioPhase2Page.js` | 10243 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/lib/portfolioRegister.js` | 13204 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/lib/portfolioRegisterPage.js` | 9466 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/portfolioPhase2Page.js` | 10698 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/portfolioRegister.js` | 16610 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/portfolioRegisterPage.js` | 11154 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/portfolioViews.js` | 3669 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/lib/ppmBoard.js` | 5556 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/lib/ppmCollabUi.js` | 16333 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/ppmBoard.js` | 6718 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/ppmCollabUi.js` | 16595 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/ppmConnectorsUi.js` | 5604 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/lib/ppmExtras.js` | 8858 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/ppmExtras.js` | 8855 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/ppmFieldHelp.js` | 8790 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/lib/ppmGovernanceW3.js` | 20108 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/ppmGovernanceW3.js` | 23826 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/ppmIntake.js` | 15168 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/ppmIntakeAdmin.js` | 9357 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/ppmLabels.js` | 12233 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/ppmOfflineQueue.js` | 11711 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/lib/ppmPhase2.js` | 23906 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/ppmPhase2.js` | 25202 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/ppmRaidForm.js` | 2084 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/ppmReview.js` | 9129 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/ppmRoadmapNnl.js` | 3911 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/lib/ppmVisuals.js` | 23603 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/lib/ppmWorkbench.js` | 24986 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/ppmUx.js` | 17895 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/ppmVisuals.js` | 24225 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/ppmWorkbench.js` | 29349 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/reasonDialog.js` | 8091 | 0 | 10 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/lib/reportingWeek.js` | 4038 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/reports-backups.js` | 7874 | 0 | 15 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |

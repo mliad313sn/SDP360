@@ -209,6 +209,7 @@
     'More schedule actions': 'Autres actions du planning',
     'Checklist definition (JSON)': 'Définition de la liste de contrôle (JSON)',
     'Depends on': 'Dépend de',
+    'Record id': 'Identifiant de l’enregistrement',
   });
   root.I18N_FR_PROJECT = Object.assign({}, STATIC, RUNTIME_KEYS);
   root.I18N_FR_PROJECT_RUNTIME = Object.keys(RUNTIME_KEYS);
