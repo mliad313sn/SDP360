@@ -85,6 +85,9 @@
     'Entering stage': 'Étape d’entrée',
     'Definition (JSON: items [{key, label, kind: artifact | check}], approvers [{user_id} | {role}], rule all | quorum, quorum)': 'Définition (JSON : items [{key, label, kind: artifact | check}], approvers [{user_id} | {role}], rule all | quorum, quorum)',
     'Save checklist': 'Enregistrer la liste de contrôle', 'Redefining a checklist asks for fresh sign-offs.': 'Redéfinir une liste de contrôle demande de nouvelles validations.',
+    'Business-case fields this change may rewrite (comma-separated; the budget follows the money impact)': 'Champs du dossier d’affaires que ce changement peut réécrire (séparés par des virgules ; le budget suit l’impact financier)',
+    // field identifiers sent to the API, kept as typed
+    'charter, business_need, expected_value, budget_reference, budget_approval_date': 'charter, business_need, expected_value, budget_reference, budget_approval_date',
   };
   // Texts built in JS (lib/ppmCollabUi.js, lib/ppmBoard.js) — translated when they appear on the page.
   const RUNTIME_KEYS = {
