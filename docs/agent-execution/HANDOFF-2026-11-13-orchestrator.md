@@ -239,3 +239,25 @@ node tools/test/run-all.js > /home/user/suite.log 2>&1     # full suite, ~18 min
   pending at deployment must be re-filed; reload open inspection tabs after deploy.
 - Still human: G01 key/DB separation, DBA hardening (now also owns system_log), KPI committee items, HD-P14/P15, HD-S04/S14,
   versionless-save cut-off, French glossary D-2, field UAT, Finance G14, the 21 RELEASE-GATES rows.
+
+## Update 2026-11-21 14:10 UTC (orchestrator)
+
+- CI green at 7d827402 (full unit suite + 44 journeys ×2).
+- **AI proposals for the 113 register decisions** (owner delegated; rule: no approval may be invented):
+  `docs/business-readiness/PROPOSITIONS-IA.md` (labelled not approved, human cells untouched), final-test profile
+  `PROFIL-TEST-FINAL.json` + `tools/release/final-test-profile.js` (dry run by default, test databases only, never a
+  four-eyes key). 40 items still need a physical human/authority act. The owner validates during his final test; record
+  "accepted by" only on his explicit instruction.
+- **UX committee (AI review, not user research), 8 seats, reports in /home/user/ux-committee (not in the repo):** visual
+  4.5/10, site coordinator 5, executive 5, admin 4, accessibility + French 4, PMO 4, navigation/value 4, field 4.5.
+- **UX chantiers merged:** help manual rewrite (by profile/module, stable anchors, strict CSP page); French quality
+  (status vs verb, whole-sentence swap, glossary `docs/i18n/GLOSSAIRE-FR.md` as an AI proposal for D-2, SDPFormat,
+  SDPLabels, plain EN/FR server errors); visual polish 1–3 (navigation by intent, account menu, Admin home, shared
+  buttons/tables/badges, Lucide icons instead of emoji, shared confirmation dialog, executive KPI component + print,
+  field app and inspection on a phone, unknown tiles carry no verdict colour); PMO UX (project areas, task drawer, Gantt
+  whole-plan zoom, one RAID table/form, labels, portfolio filter bar). Progress docs: `docs/ux/VISUAL-POLISH-2026-11.md`,
+  `docs/ux/PMO-UX-2026-11.md`, shots in `docs/ux/polish-shots/`.
+- Not done on purpose: last sign-in date (API does not return it), exec home default "Group" (server never mixes sites in a
+  tile), in-page tab bars of assets/tracker/admin, PV editor compact rows, new navigation features (bottom bar, drawer).
+- Human: `ui_i18n_pages` default, French glossary review (D-2), the register decisions, the 21 RELEASE-GATES rows.
+- Environment: the container restarts silently (sometimes every ~40 min) and kills background agents and test runs.
