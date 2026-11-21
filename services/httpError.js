@@ -18,7 +18,31 @@ const CODE_STATUS = Object.freeze({
 const _TYPED = new Set(TYPED_CODES);
 // P11 r4 N-11 — 5xx codes that are TYPED (a known, harmless condition) but whose message still never reaches the
 // client: the body is a constant `error` + the code + the correlation id, and the client is told to retry.
-const UNAVAILABLE_CODES = Object.freeze({ DB_BUSY: { status: 503, error: 'database_busy', retryAfter: 5 } });
+const UNAVAILABLE_CODES = Object.freeze({
+  DB_BUSY: { status: 503, error: 'database_busy', retryAfter: 5 },
+  // P11 r8 F-30 — PostgreSQL unreachable / shutting down: never "unauthorised" (the phone said "Session expired")
+  DB_UNAVAILABLE: { status: 503, error: 'database_unavailable', retryAfter: 5 },
+});
+
+// Connection-level failures (node-pg / libpq / socket) — the database could not be reached, which says nothing about
+// the caller's session. SQLSTATE class 08 (connection exception), 57P01-57P03 (shutdown / cannot connect now),
+// 53300 (too many connections).
+const _CONN_ERRNO = new Set(['ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', 'EHOSTUNREACH', 'ENETUNREACH', 'ENOTFOUND', 'EAI_AGAIN', 'EPIPE']);
+const _CONN_SQLSTATE = new Set(['57P01', '57P02', '57P03', '53300']);
+function isDbConnectionError(e) {
+  if (!e || typeof e !== 'object') return false;
+  const c = typeof e.code === 'string' ? e.code : '';
+  if (_CONN_ERRNO.has(c) || _CONN_SQLSTATE.has(c) || /^08\d{3}$/.test(c)) return true;
+  return /Connection terminated unexpectedly|connect ECONNREFUSED/i.test(String(e.message || ''));
+}
+/** A session / database lookup error that must answer 503 (busy or unavailable), else null (the caller decides). */
+function asUnavailable(e) {
+  if (e && (e.code === 'DB_BUSY' || e.code === 'DB_UNAVAILABLE')) return e;
+  if (!isDbConnectionError(e)) return null;
+  const u = new Error('database unavailable: ' + String((e && e.message) || e).slice(0, 200));
+  u.code = 'DB_UNAVAILABLE'; u.status = 503; u.cause = e;
+  return u;
+}
 
 /** Build an error whose message MAY be shown to the client. */
 function typed(code, message, status) {
@@ -115,4 +139,4 @@ function errorHandler(err, req, res, next) {
   fail(res, err);
 }
 
-module.exports = { UNAVAILABLE_CODES, TYPED_CODES, CODE_STATUS, typed, isTyped, fail, logError, errorHandler };
+module.exports = { UNAVAILABLE_CODES, isDbConnectionError, asUnavailable, TYPED_CODES, CODE_STATUS, typed, isTyped, fail, logError, errorHandler };

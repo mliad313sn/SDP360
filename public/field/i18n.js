@@ -13,6 +13,9 @@
     'Server error — the entry is kept and will be sent again automatically.': 'Erreur du serveur — la saisie est conservée et sera renvoyée automatiquement.',
     'The server could not take the entry right now — it is kept and will be sent again automatically.': 'Le serveur n’a pas pu prendre la saisie pour le moment — elle est conservée et sera renvoyée automatiquement.',
     'reference': 'référence',
+    // P11 r8 F-30 — database unreachable (never read as an expired session)
+    'The server database is unavailable — the entry is kept and will be sent again automatically. You are still signed in.': 'La base de données du serveur est indisponible — la saisie est conservée et sera renvoyée automatiquement. Vous êtes toujours connecté.',
+    'The server database is unavailable — try again in a moment. You are still signed in; nothing was lost.': 'La base de données du serveur est indisponible — réessayez dans un instant. Vous êtes toujours connecté ; rien n’a été perdu.',
     // E-F03 — review step
     'Check before queueing': 'Vérifier avant la mise en file', 'Queue it': 'Mettre en file', 'Correct': 'Corriger',
     'Items addressed': 'Points traités', 'Photos': 'Photos',

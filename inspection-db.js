@@ -52,6 +52,7 @@ const fs       = require('fs');
 const INIT = require('./inspection-init.json');
 const blobStore = require('./services/blobStore');
 const softDelete = require('./services/softDelete');   // A-19a
+const { typed } = require('./services/httpError');   // P11 r8 F-29 (409 inspection_changed)
 const BLOB_MODULE = 'inspection';
 
 // ── DB path resolution + auto-migration from legacy root location ──────────
@@ -782,6 +783,11 @@ async function _getInspectionPg(id, { includeDeleted = false } = {}) {
     return s;
   });
 
+  // P11 r8 F-29 — the version and the action ids this read hands to the form (sent back on the next save)
+  if (stateBlob && typeof stateBlob === 'object') {
+    stateBlob.server_version = await _versionPg(H, id, false);
+    stateBlob.known_action_ids = actions.map((a) => Number(a.id));
+  }
   return { header, findings, actions, photos, signatures, state: stateBlob };
 }
 
@@ -802,6 +808,12 @@ async function _saveInspectionPg(state, userSiteCode, createdBy, { allowRefs = n
   const removedIds = new Set((Array.isArray(state.removed_action_ids) ? state.removed_action_ids : [])
     .map(Number).filter((n) => Number.isInteger(n) && n > 0));
   delete state.removed_action_ids;
+  // P11 r8 F-29 — optimistic concurrency. server_version = the version the form LOADED (read or last save);
+  // known_action_ids = the stored action ids the form has seen. Neither is ever stored in the form state.
+  const baseVersion = (typeof state.server_version === 'string' && state.server_version) ? state.server_version : null;
+  const knownIds = Array.isArray(state.known_action_ids)
+    ? new Set(state.known_action_ids.map(Number).filter((n) => Number.isInteger(n) && n > 0)) : null;
+  delete state.server_version; delete state.known_action_ids; delete state.base_fp;
 
   const siteCode = parseSiteCode(meta.f_site);
   // RBAC audit 2026-10-02 (lot 4b): a scoped user must name THEIR site (an empty site
@@ -827,13 +839,16 @@ async function _saveInspectionPg(state, userSiteCode, createdBy, { allowRefs = n
   if (userSiteCode && existing && !_inScope(existing.site_code, userSiteCode)) {
     throw new Error(`Cross-site save blocked: inspection ${id} belongs to ${existing.site_code}`);
   }
+  if (existing && baseVersion) await _assertVersionPg(H, id, baseVersion, false);
   // FS writes AFTER the ownership checks (they used to run first: reusing another site's f_id overwrote its photo
   // files before the cross-site refusal), pre-tx (not transactional)
   const allowed = new Set([...(existing ? _storedRefs(existing.state_json) : []), ...(allowRefs || [])]);
   _externalizeBlobs(state, id, allowed);
 
   let actionIds = [], keptServer = [], actionStates = [], keptAmbiguous = [], keptRows = [];
+  let version = null;
   await H.runTransaction(async () => {
+    if (existing && baseVersion) await _assertVersionPg(H, id, baseVersion, true);   // re-checked under the row lock
     if (existing) {
       await H.prepare(`
         UPDATE insp_inspections SET
@@ -889,7 +904,7 @@ async function _saveInspectionPg(state, userSiteCode, createdBy, { allowRefs = n
     // re-INSERT every row: each save gave the actions new ids, deleted their comment / status history
     // (insp_action_updates, ON DELETE CASCADE) and turned a phone close queued against the old id into a final 403.
     if (!Array.isArray(state.actions)) state.actions = [];
-    const up = await _upsertActionsPg(H, id, state.actions, existing && existing.state_json, removedIds);
+    const up = await _upsertActionsPg(H, id, state.actions, existing && existing.state_json, removedIds, knownIds);
     actionIds = up.ids; keptServer = up.kept; actionStates = up.states; keptAmbiguous = up.keptIds; keptRows = up.keptRows;
     if (Array.isArray(state.actions) && state.actions.length) {
       await H.prepare('UPDATE insp_inspections SET state_json = ? WHERE id = ?').run(JSON.stringify(state), id);
@@ -932,6 +947,7 @@ async function _saveInspectionPg(state, userSiteCode, createdBy, { allowRefs = n
     if (sigInsp) await _runSig('inspector', meta.sign_insp_name || meta.f_inspector || '', meta.sign_insp_date || null, sigInsp);
     const sigSite = state.signatures && state.signatures.sig_site;
     if (sigSite) await _runSig('site', meta.sign_site_name || '', meta.sign_site_date || null, sigSite);
+    version = await _versionPg(H, id, false);
   });
 
   // kept_server_value: actions whose status / owner the save did not apply because the editor left the loaded
@@ -939,7 +955,24 @@ async function _saveInspectionPg(state, userSiteCode, createdBy, { allowRefs = n
   // action_states: what each sent action now holds (the form's next base). kept_ambiguous: stored actions an
   // id-less save could not match unambiguously, kept rather than deleted (P11 r6 F-23); kept_rows: those rows with
   // their values (and ids), so the form adds them and its next save names them instead of dropping them (P11 r7 F-25).
-  return { id, created: !existing, action_ids: actionIds, kept_server_value: keptServer, action_states: actionStates, kept_ambiguous: keptAmbiguous, kept_rows: keptRows };
+  return { id, created: !existing, action_ids: actionIds, kept_server_value: keptServer, action_states: actionStates, kept_ambiguous: keptAmbiguous, kept_rows: keptRows, version };
+}
+
+// P11 r8 F-29 — the inspection version: its updated_at to the microsecond (text, compared as text). A register /
+// phone action update touches insp_actions only, so it never makes the form stale.
+const _VERSION_SQL = `to_char(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
+async function _versionPg(H, id, lock) {
+  const r = await H.prepare(`SELECT ${_VERSION_SQL} AS v FROM insp_inspections WHERE id = ?${lock ? ' FOR UPDATE' : ''}`).get(id);
+  return r ? r.v : null;
+}
+function inspectionChangedError(current) {
+  const e = typed('CONFLICT', 'This inspection was changed by someone else since you opened it. Your changes were not saved: reload the latest version and reapply them.');
+  e.reason = 'inspection_changed'; e.server_version = current || null;
+  return e;
+}
+async function _assertVersionPg(H, id, base, lock) {
+  const cur = await _versionPg(H, id, lock);
+  if (cur && cur !== base) throw inspectionChangedError(cur);
 }
 
 const _ACTION_TERMINAL = new Set(['Closed', 'Cancelled']);
@@ -958,7 +991,7 @@ const _actNorm = (v) => String(v == null ? '' : v).trim().toLowerCase();
  *    with no id at all, a row with history (P11 r7 F-25).
  * Returns the stored ids in form order.
  */
-async function _upsertActionsPg(H, inspectionId, incoming, prevStateJson, removedIds) {
+async function _upsertActionsPg(H, inspectionId, incoming, prevStateJson, removedIds, knownIds) {
   const rows = await H.prepare(`SELECT id, ord, description, linked_item, priority, owner, due_date, status, notes,
       closed_at, closed_by FROM insp_actions WHERE inspection_id = ? ORDER BY ord, id`).all(inspectionId);
   let prevActions = [];
@@ -1015,6 +1048,8 @@ async function _upsertActionsPg(H, inspectionId, incoming, prevStateJson, remove
   for (const r of unmatched) {
     const rid = Number(r.id);
     if (removed.has(rid)) continue;   // the user deleted it in the form: goes
+    // P11 r8 F-29 — a row the client never loaded (absent from known_action_ids) is never deleted by omission
+    if (knownIds instanceof Set && !knownIds.has(rid)) { keepAmbiguous.add(rid); continue; }
     if (idlessTexts.has(nt(r.description)) || flagged.has(rid) || withHistory.has(rid)) keepAmbiguous.add(rid);
   }
   for (const r of rows) {

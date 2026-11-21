@@ -34,7 +34,7 @@ Files scanned: **149** · inline <style> blocks: **61** · hex literals: **5576*
 | `public/index.html` | 130879 | 1 | 114 | 2 | bar×2 | 0 | 0 | yes | — | yes | chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
 | `public/infra-health.html` | 33759 | 1 | 88 | 1 | line×1 | 0 | 2 | yes | — | — | doughnut/pie → ordered horizontal bars with values and population % (§5.2 "répartition de catégories"); chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
 | `public/inspection-actions.html` | 46669 | 1 | 100 | 1 | bar×2 doughnut×3 line×1 | 0 | 3 | yes | — | — | doughnut/pie → ordered horizontal bars with values and population % (§5.2 "répartition de catégories"); chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
-| `public/inspection.html` | 216524 | 1 | 200 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/inspection.html` | 225551 | 1 | 200 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/inspections.html` | 41278 | 1 | 105 | 1 | bar×2 doughnut×3 | 0 | 3 | yes | — | yes | doughnut/pie → ordered horizontal bars with values and population % (§5.2 "répartition de catégories"); chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
 | `public/integrations.html` | 18497 | 1 | 40 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/it-review.html` | 109850 | 1 | 71 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
@@ -67,7 +67,7 @@ Files scanned: **149** · inline <style> blocks: **61** · hex literals: **5576*
 | `public/reports.html` | 548810 | 1 | 817 | 2 | bar×2 | 0 | 0 | yes | — | — | chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
 | `public/rfi.html` | 12560 | 1 | 40 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/site-actions.html` | 41652 | 1 | 76 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/site-awareness.html` | 75591 | 1 | 131 | 7 | bar×5 doughnut×3 line×3 | 4 | 5 | yes | — | — | dual axis → small multiples, one unit per panel (§5.2 "comparaison à plusieurs séries"); doughnut/pie → ordered horizontal bars with values and population % (§5.2 "répartition de catégories"); chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
+| `public/site-awareness.html` | 76441 | 1 | 131 | 7 | bar×5 doughnut×3 line×3 | 4 | 5 | yes | — | — | dual axis → small multiples, one unit per panel (§5.2 "comparaison à plusieurs séries"); doughnut/pie → ordered horizontal bars with values and population % (§5.2 "répartition de catégories"); chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
 | `public/site-report.html` | 17707 | 1 | 75 | 0 | — | 0 | 0 | yes | — | — | hex literals → _tokens.css variables |
 | `public/system-logs.html` | 19348 | 1 | 57 | 1 | — | 0 | 0 | yes | — | — | chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
 | `public/tracker-builder.html` | 24708 | 1 | 30 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |

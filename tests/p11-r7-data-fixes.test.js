@@ -145,7 +145,7 @@ test('F-31: a closed base below the PROPOSED minimum is shown but not judged —
   assert.equal(r6.rag, 'red'); assert.equal(r6.cap, 'red');
   // the route carries the flag; the page tooltip says it
   assert.match(read('routes/siteAwareness.js'), /cell\.insufficient = true/);
-  assert.match(read('public/site-awareness.html'), /fewer than 5 closed tickets/);
+  assert.match(read('public/site-awareness.html'), /fewer than \{min\} closed tickets/);   // r8 F-31: the number comes from the policy
 });
 
 // ---- R7-1 / R7-2 (static; the HTTP behaviour is pinned by tests/p11-r7-ppm.smoke.test.js) -------------------------

@@ -13,7 +13,7 @@ const cron    = require('node-cron');
 const fs      = require('fs');
 const path    = require('path');
 const crypto  = require('crypto');
-const { fail, logError } = require('./services/httpError'); // M9 — generic 5xx bodies + correlation id
+const { fail, logError, asUnavailable } = require('./services/httpError'); // M9 — generic 5xx bodies + correlation id
 
 // ── STARTUP VALIDATION — fail closed if secrets are missing ───────
 // SECURITY: We refuse to start rather than silently running open.
@@ -1105,7 +1105,7 @@ app.use('/api/', async (req, res, next) => {
   if (rdb && token) {
     let user;
     try { user = await rdb.validateSession(token); }
-    catch (e) { if (e && e.code === 'DB_BUSY') return fail(res, e); user = null; }   // P11 r5 N-12: a DB stall is 503 busy, never "unauthorised"
+    catch (e) { const u = asUnavailable(e); if (u) return fail(res, u); user = null; }   // P11 r5 N-12 / r8 F-30: a DB stall or outage is 503, never "unauthorised"
     if (user) return next();
   }
   return res.status(401).json({ error: 'Unauthorized' });
@@ -3258,7 +3258,7 @@ async function requireReportSession(req, res, next) {
   let user;
   try { user = await rdb.validateSession(token); }
   catch (e) {
-    if (e && e.code === 'DB_BUSY') return fail(res, e);   // P11 r5 N-12: 503 database_busy + Retry-After — the browser must not log out
+    { const u = asUnavailable(e); if (u) return fail(res, u); }   // P11 r5 N-12 / r8 F-30: 503 busy|unavailable + Retry-After — never log out
     console.error('[auth] validateSession failed:', e.message); return res.status(500).json({ error: 'Auth check failed' });
   }
   if (!user) return res.status(401).json({ error: 'Not authenticated' });

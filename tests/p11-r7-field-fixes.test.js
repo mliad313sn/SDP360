@@ -91,7 +91,7 @@ test('F-28: inspection toasts with a number go through a {n} template that has a
   assert.ok(!/showToast\(keptN \+|showToast\(ambN \+/.test(page), 'no number-prefixed English toast left');
   // the template helper substitutes after the lookup, in French when the dictionary answers
   const { uiF } = load(page, ['uiF'], { window: { I18nText: { t: (s) => dict[s] || s } } });
-  assert.match(uiF(tpls[0], { n: 3 }), /^3 action\(s\) ont été modifiée/);
+  assert.match(uiF(tpls.find((t) => /^\{n\} action\(s\) were/.test(t)), { n: 3 }), /^3 action\(s\) ont été modifiée/);
 });
 
 test('F-28: the change-request "May rewrite:" label is its own text node with a French entry', () => {
@@ -105,7 +105,7 @@ test('F-28: the change-request "May rewrite:" label is its own text node with a 
 test('F-28: the site-awareness helpdesk colour rule is visible text (EN/FR), referenced by each helpdesk cell', () => {
   const page = read('public/site-awareness.html');
   assert.match(page, /<p class="sa-sub" id="sa-fleet-hd-note"/, 'a visible note under the fleet grid');
-  assert.match(page, /hdNote\.textContent = T\('g_hd_note_lbl'\) \+ ' ' \+ T\('g_hd_tip'\)/);
+  assert.match(page, /hdNote\.textContent = T\('g_hd_note_lbl'\) \+ ' ' \+ hdTip\(\)/);   // r8 F-31: the rule quotes the policy minimum
   assert.match(page, /aria-describedby="sa-fleet-hd-note"/);
   assert.match(page, /g_hd_note_lbl:\s*\{ fr: '[^']+', en: '[^']+' \}/);
 });
