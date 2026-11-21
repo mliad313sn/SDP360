@@ -84,16 +84,29 @@
       </ul></section>`;
   }
 
+  // field F25 — for a field technician the field app is THE task: it comes first and is the one primary button of the
+  // list. Display only (the link was already in the list; the menu and the server decide who may open it).
+  function fieldFirst(items) {
+    let tech = false;
+    try { tech = !!(window.__authUser && (window.__authUser.roles || []).includes('field-tech')); } catch (_) { tech = false; }
+    if (!tech) return items;
+    const i = items.findIndex((e) => /^field\//.test(String(e.href)));
+    if (i < 0) return items;
+    const out = items.slice(); const f = out.splice(i, 1)[0];
+    out.unshift(Object.assign({}, f, { primary: true }));
+    return out;
+  }
+  const cls = (e) => (e.primary ? ' class="edv-btn edv-btn--primary hm-primary"' : '');
   function shortcuts() {
     if (profile && Array.isArray(profile.visible)) {
-      const items = profile.visible.filter((d) => d.href !== 'home.html' && /^[a-z/-]+\.html(?:[?#][A-Za-z0-9_=&#-]*)?$/i.test(String(d.href)));
-      $('hmShortcuts').innerHTML = items.map((d) => `<li><a href="${esc(d.href)}">${esc(d.label)}</a></li>`).join('');
+      const items = fieldFirst(profile.visible.filter((d) => d.href !== 'home.html' && /^[a-z/-]+\.html(?:[?#][A-Za-z0-9_=&#-]*)?$/i.test(String(d.href))));
+      $('hmShortcuts').innerHTML = items.map((d) => `<li><a href="${esc(d.href)}"${cls(d)}>${esc(d.label)}</a></li>`).join('');
       return;
     }
     let ws = null;
     try { ws = window.__shell && window.__shell.workspaceFor ? window.__shell.workspaceFor() : null; } catch (_) { ws = null; }
-    const items = ((ws && ws.items) || []).filter((e) => e.href !== 'home.html');
-    $('hmShortcuts').innerHTML = items.map((e) => `<li><a href="${esc(e.href)}"${e.target ? ` target="${esc(e.target)}" rel="noopener"` : ''}>${esc(e.label)}</a></li>`).join('');
+    const items = fieldFirst(((ws && ws.items) || []).filter((e) => e.href !== 'home.html'));
+    $('hmShortcuts').innerHTML = items.map((e) => `<li><a href="${esc(e.href)}"${cls(e)}${e.target ? ` target="${esc(e.target)}" rel="noopener"` : ''}>${esc(e.label)}</a></li>`).join('');
   }
 
   // E-U03 — shared page head. Freshness = the time the server computed this inbox (generated_at); a failed

@@ -15,7 +15,11 @@ let pw = null; try { pw = require('playwright'); } catch (_) { pw = null; }
 const PUB = path.join(__dirname, '..', 'public');
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json' };
 const BOOT = { ok: true, user: { username: 'tech', name: 'Tech' }, sites: [{ id: 1, name: 'Hounde', inspection_code: 'HGO' }], trackers: [], lookups: { areas: [], categories: [] }, features: {}, limits: {},
-  actions: [{ source: 'inspection', id: 11, site: 'HGO', description: 'Insp action', status: 'Open', due_date: '2026-01-10' },
+  // field F11 (2026-11-21): the list is sorted by due date, so the fixture sends an undated and a later action FIRST —
+  // the two original rows (same due date, order kept) must still come out on top
+  actions: [{ source: 'meetings', id: 33, site: 'HGO', description: 'Undated action', status: 'open', due_date: null },
+    { source: 'meetings', id: 44, site: 'HGO', description: 'Later action', status: 'open', due_date: '2026-03-01' },
+    { source: 'inspection', id: 11, site: 'HGO', description: 'Insp action', status: 'Open', due_date: '2026-01-10' },
     { source: 'meetings', id: 22, site: 'HGO', description: 'Meeting action', status: 'open', due_date: '2026-01-10' }] };
 
 function serve(puts) {
@@ -51,7 +55,8 @@ test('inspection action buttons, dialog Cancel with an empty comment, French ref
     await page.goto('http://127.0.0.1:' + srv.address().port + '/field/index.html');
     await page.waitForFunction(() => document.getElementById('site').options.length > 0);
     await page.click('nav.tabs button[data-view="actions"]');
-    await page.waitForFunction(() => document.querySelectorAll('#a-list .item').length === 2);
+    await page.waitForFunction(() => document.querySelectorAll('#a-list .item').length === 4);
+    assert.deepStrictEqual(await page.$$eval('#a-list .item .it-t', (els) => els.map((e) => e.textContent)), ['Insp action', 'Meeting action', 'Later action', 'Undated action'], 'most overdue first, undated last');
     const rows = await page.$$eval('#a-list .item', (els) => els.map((e) => [...e.querySelectorAll('button')].map((b) => b.dataset.st)));
     assert.deepStrictEqual(rows[0], ['Closed', 'Cancelled'], 'inspection action: Close + Cancel only');
     assert.deepStrictEqual(rows[1], ['resolved', 'helpdesk_ticket', 'demand', 'cancelled'], 'meeting action keeps the transfer buttons');

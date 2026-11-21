@@ -516,6 +516,9 @@
   var TRANSFER = ['demand', 'helpdesk_ticket', 'cancelled', 'Cancelled'];   // a justification is asked for each
   function renderActions() {
     var s = curSite(), acts = (B.actions || []).filter(function (a) { return !s || a.site === s.inspection_code; });
+    // field F11 — the most overdue first: by due date (oldest first), an action with no due date last; equal dates
+    // keep the order the server sent (Array.prototype.sort is stable)
+    acts = acts.slice().sort(function (x, y) { var a = x.due_date || '9999-12-31', b = y.due_date || '9999-12-31'; return a < b ? -1 : a > b ? 1 : 0; });
     $('a-list').innerHTML = acts.length ? acts.map(function (a, i) {
       var closeVal = a.source === 'inspection' ? 'Closed' : 'resolved';
       // P11 r2 F-5 — an inspection action is closed or cancelled ('Cancelled', its own vocabulary); the transfer

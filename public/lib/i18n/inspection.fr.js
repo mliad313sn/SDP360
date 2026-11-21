@@ -65,7 +65,7 @@
     'Endeavour Mining · IT Operations · Site Inspection Form v1.0': 'Endeavour Mining · Opérations IT · Formulaire d’inspection de site v1.0',
     'Share inspection report · Partager le rapport': 'Partager le rapport d’inspection', 'WhatsApp': 'WhatsApp', 'Share': 'Partager', 'PDF': 'PDF',
     'Report': 'Rapport', 'Backup': 'Sauvegarde', '(JSON)': '(JSON)', 'Switch inspection': 'Changer d’inspection', 'New inspection': 'Nouvelle inspection',
-    'Dictation language / Langue de dictée': 'Langue de dictée', 'Rename current': 'Renommer l’actuelle', 'Delete current': 'Supprimer l’actuelle',
+    'Dictation language / Langue de dictée': 'Langue de dictée', 'Rename current': 'Renommer l’actuelle', 'Delete current': 'Supprimer l’actuelle', 'More actions': 'Autres actions', 'Rename': 'Renommer', 'Delete': 'Supprimer',
     'Push the latest changes to the server. Keystrokes only save to this device — click Save now (or Submit) to sync to the dashboard. Useful right before you go offline.':
       'Envoyer les dernières modifications au serveur. La saisie n’est enregistrée que sur cet appareil — cliquez sur Enregistrer maintenant (ou Soumettre) pour synchroniser. Utile juste avant de passer hors ligne.',
     'e.g. Building B-2, Rack R-04': 'ex. Bâtiment B-2, baie R-04', 'Tap to dictate / Appuyer pour dicter': 'Appuyer pour dicter',

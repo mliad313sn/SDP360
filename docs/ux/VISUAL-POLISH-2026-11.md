@@ -133,3 +133,16 @@ screenshots, not re-tested one by one. Nothing here is user research or field ac
 
 `docs/ux/polish-shots/` — before (commit `5588a2ba`) and after, desktop 1440 px and phone 390 px, and the contact
 sheet `before-after.png`. Screenshots are for a person to look at; nothing is compared automatically.
+
+## Visual polish 3 — log (branch `feat/visual-polish-3`, based on trunk `b09825fb`)
+
+Scope: every row above marked "not done" or "partial". One line per finished item, committed as it lands. Helper scripts
+used while working (not committed): `/tmp/claude-0/polish3/ut.sh <test files>` and `/tmp/claude-0/polish3/shoot.sh`
+(screenshots through the e2e harness).
+
+| Item | State |
+|---|---|
+| Field F25 | done-3 — for a field technician the field app is the first shortcut on Home and the one primary button (`lib/home-page.js` `fieldFirst`); other roles unchanged |
+| Field F11 (sort) | done-3 — open actions sorted by due date, most overdue first, undated last (stable). The browser test now sends an undated and a later action first and asserts the order; its two original rows keep their place (same due date) |
+| Field F13 ("⋯" menu) | done-3 — Rename and Delete of `inspection.html` sit behind one "More actions" menu |
+| Inspection Type blank after reload | fixed — the default option is stored when the type was never changed (`_defaultType`, called after the form is filled and after the lookups replace the options) |

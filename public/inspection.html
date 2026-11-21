@@ -116,6 +116,13 @@ body{
 .brand-title{font-weight:700;font-size:15px;letter-spacing:.3px}
 .brand-sub{font-size:11px;color:#9aa3ad;text-transform:uppercase;letter-spacing:1.2px;margin-top:2px}
 .header-actions{display:flex;gap:8px;flex-wrap:wrap}
+.hdr-more{position:relative}
+.hdr-more > summary{list-style:none}
+.hdr-more > summary::-webkit-details-marker{display:none}
+.hdr-more__menu{position:absolute;right:0;top:calc(100% + 6px);z-index:60;min-width:180px;padding:6px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-md);box-shadow:var(--shadow-md);display:flex;flex-direction:column;gap:2px}
+.hdr-more__menu button{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 12px;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--color-text-strong);font:inherit;font-weight:600;text-align:left;cursor:pointer}
+.hdr-more__menu button:hover,.hdr-more__menu button:focus-visible{background:var(--gray-50)}
+.hdr-more__menu button.is-danger{color:var(--rag-red)}
 .btn{
   border:1px solid transparent;background:transparent;
   padding:8px 14px;border-radius:6px;cursor:pointer;
@@ -1060,8 +1067,14 @@ body.submission-locked .submit-row::before{
       <select id="savedSelect" onchange="switchInspection(this.value)" title="Switch inspection" aria-label="Switch inspection"></select>
       <button class="btn btn-ghost" onclick="newInspection()" title="New inspection">+ New</button>
       <button class="btn btn-ghost" id="langToggleBtn" onclick="toggleDictLang()" title="Dictation language / Langue de dictée" style="font-size:13px;min-width:62px"><i class="icon icon-mic"></i>EN</button>
-      <button class="btn btn-ghost" onclick="renameInspection()" title="Rename current" aria-label="Rename current"><i class="icon icon-edit"></i></button>
-      <button class="btn btn-ghost" onclick="deleteInspection()" title="Delete current" aria-label="Delete current"><i class="icon icon-trash"></i></button>
+      <!-- field F13: the rarely used tools sit behind one "more" menu, so the first field comes sooner on a phone -->
+      <details class="hdr-more" id="hdrMore">
+        <summary class="btn btn-ghost" title="More actions" aria-label="More actions"><i class="icon icon-more-horizontal"></i></summary>
+        <div class="hdr-more__menu" role="group" aria-label="More actions">
+          <button type="button" onclick="document.getElementById('hdrMore').open=false;renameInspection()" title="Rename current"><i class="icon icon-edit"></i><span>Rename</span></button>
+          <button type="button" class="is-danger" onclick="document.getElementById('hdrMore').open=false;deleteInspection()" title="Delete current"><i class="icon icon-trash"></i><span>Delete</span></button>
+        </div>
+      </details>
     </div>
     <button class="btn btn-primary" onclick="openShareMenu()"><i class="icon icon-upload"></i>Share</button>
   </div>
@@ -3137,12 +3150,22 @@ document.addEventListener('visibilitychange', () => {
 });
 window.addEventListener('pagehide', _flushPendingAutosave);
 
+function _defaultType(){
+  const el = document.getElementById('f_type');
+  if (!el || !el.options || !el.options.length) return;
+  if (state.meta.f_type && el.value === state.meta.f_type) return;
+  if (!state.meta.f_type) { el.selectedIndex = 0; state.meta.f_type = el.value; }
+}
+
 function applyStateToUI(){
   // restore meta
   META_FIELDS.forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = state.meta[id] || '';
   });
+  // Type has no empty choice: an inspection whose type was never changed stored nothing, so the list came back
+  // blank after a reload. The default option is what the form shows, so it is also what the record holds.
+  _defaultType();
 
   // reset all status buttons & item visibility
   document.querySelectorAll('.status-btn').forEach(b => b.classList.remove('active'));
@@ -4112,6 +4135,7 @@ document.addEventListener('DOMContentLoaded', init);
       if (!res.ok) return;
       const lk = await res.json();
       _hydrateSelect('f_type', lk.types || [], t => t.code, t => t.label_en + ' / ' + t.label_fr);
+      if (typeof _defaultType === 'function') _defaultType();
       _hydrateSiteSelect(lk.sites  || []);
       _hydrateAreaSelect(lk.areas  || []);
     } catch(e) { /* offline — fall back to the hard-coded options */ }
