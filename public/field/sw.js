@@ -5,8 +5,9 @@
    owns retries). Bump CACHE_VERSION on every deploy of the field app: activating a new version also drops
    the caches of older versions, /api/ entries included. */
 'use strict';
-const CACHE_VERSION = 'field-v13';  // P11 r6 F-24: transient server answers in FR/EN, retried. P11 r4: a French text for every refusal reason (r2: inspection action buttons, dialog Cancel; F-3: /api/ never cached)
-const SHELL = ['/field/index.html', '/field/app.js', '/field/styles.css', '/field/manifest.webmanifest', '/field/icon.svg', '/field/i18n.js', '/field/storage.js', '/lib/i18nText.js', '/_tokens.css'];
+const CACHE_VERSION = 'field-v14';  // visual polish 2: stacked status buttons, sheets, photo buttons, FR lookups (+ lib/format.js, lib/codeLabels.js)
+// v13:  // P11 r6 F-24: transient server answers in FR/EN, retried. P11 r4: a French text for every refusal reason (r2: inspection action buttons, dialog Cancel; F-3: /api/ never cached)
+const SHELL = ['/field/index.html', '/field/app.js', '/field/styles.css', '/field/manifest.webmanifest', '/field/icon.svg', '/field/i18n.js', '/field/storage.js', '/lib/i18nText.js', '/lib/codeLabels.js', '/lib/format.js', '/_tokens.css'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE_VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

@@ -14,18 +14,18 @@
 <a class="edv-skip" href="#main">Skip to content</a>
 <header class="top">
   <h1>IT Field</h1>
-  <div class="row"><span class="lang"><button type="button" id="lang-fr" class="lang-b">FR</button><button type="button" id="lang-en" class="lang-b">EN</button></span><span id="net" class="net" role="status" aria-live="polite">…</span><span id="queue" class="pill slate" aria-label="items waiting to sync">…</span></div>
+  <div class="row"><span id="net" class="net" role="status" aria-live="polite">…</span><button type="button" id="queue-btn" class="qbtn" aria-label="items waiting to sync"><span id="queue" class="pill slate">…</span><span class="q-l">waiting</span></button></div>
 </header>
 <main id="main">
-  <div id="msg" class="status hidden" role="status" aria-live="polite"></div>
   <div id="storage-warn" class="status hidden" role="status" aria-live="polite"></div>
   <section id="v-home" class="view">
     <div class="card"><h2>My site</h2><div class="row"><label class="grow">Site <select id="site" aria-label="Site"></select></label><button id="sync" type="button" class="primary">Sync now</button></div>
       <div class="asof" id="asof">Data as of —</div>
-      <label class="row" style="flex-direction:row;align-items:center"><input type="checkbox" id="lowbw" style="min-height:24px;width:24px"> Low-bandwidth mode (no photos, fewer refreshes)</label>
+      <label class="check"><input type="checkbox" id="lowbw"> <span>Low-bandwidth mode (no photos, fewer refreshes)</span></label>
+      <div class="row langrow"><span class="muted" id="lang-l">Language</span><span class="lang" role="group" aria-labelledby="lang-l"><button type="button" id="lang-fr" class="lang-b">Français</button><button type="button" id="lang-en" class="lang-b">English</button></span><a class="back" href="../home.html">Back to SDP360</a></div>
     </div>
-    <div class="card"><h2>Today</h2><div id="tiles"></div></div>
-    <div class="card"><h2>Pending on this phone</h2><div id="outbox-list" class="muted">Nothing queued.</div></div>
+    <div class="card"><h2>Today</h2><div id="tiles" class="tiles"></div></div>
+    <div class="card" id="outbox-card"><h2>Pending on this phone</h2><div id="outbox-list" class="muted">Nothing queued.</div></div>
   </section>
   <section id="v-inspect" class="view hidden">
     <div class="card"><h2>Quick inspection</h2>
@@ -33,39 +33,52 @@
       <label>Category <select id="i-cat" aria-label="Category"></select></label>
       <label>Inspector <input id="i-insp" placeholder="Your name"></label>
       <div class="checklist" id="i-items"></div>
-      <label>Photo (≤ 300 KB after compression) <input type="file" id="i-photo" accept="image/*" capture="environment"></label>
-      <div class="photos" id="i-photos"></div>
+      <div class="photo-block">
+        <div class="lbl" id="i-photo-l">Photos</div>
+        <input type="file" id="i-photo" class="sr-only" accept="image/*" capture="environment" aria-labelledby="i-photo-l" tabindex="-1">
+        <input type="file" id="i-gallery" class="sr-only" accept="image/*" multiple aria-labelledby="i-photo-l" tabindex="-1">
+        <div class="row photo-btns"><button type="button" id="i-cam" class="big"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg><span>Take a photo</span></button><button type="button" id="i-gal" class="big"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg><span>Gallery</span></button></div>
+        <div class="photos" id="i-photos"></div>
+        <p class="muted" id="i-photo-help">Each photo is compressed on the phone (300 KB at most).</p>
+      </div>
       <label>Observations <textarea id="i-notes" rows="3"></textarea></label>
-      <div class="row"><button id="i-save" type="button" class="accent">Queue inspection</button><button id="i-reset" type="button">Clear</button></div>
+      <button id="i-save" type="button" class="accent wide">Queue inspection</button>
+      <button id="i-reset" type="button" class="textbtn">Clear</button>
     </div>
   </section>
   <section id="v-tracker" class="view hidden">
     <div class="card"><h2>Tracker entry</h2>
+      <p id="t-empty" class="muted hidden">No tracker to fill for this site.</p>
+      <div id="t-form">
       <label>Tracker <select id="t-key" aria-label="Tracker"></select></label>
       <label>Unit <select id="t-unit" aria-label="Unit"></select></label>
       <label>Period <select id="t-slot" aria-label="Period"></select></label>
       <div id="t-items"></div>
-      <div class="row"><button id="t-save" type="button" class="accent">Queue entries</button></div>
+      <button id="t-save" type="button" class="accent wide">Queue entries</button>
       <p class="muted">A closed month is kept as stored on the server (the entry is reported as blocked, never lost silently).</p>
+      </div>
     </div>
   </section>
   <section id="v-actions" class="view hidden">
     <div class="card"><h2>Open actions</h2><div id="a-list" class="muted">—</div></div>
     <div class="card"><h2>Report to the helpdesk</h2><div id="ticket-off" class="muted hidden">Ticket creation from the field is not enabled by the administrator.</div>
       <label>Subject <input id="k-subject" maxlength="250"></label><label>Details <textarea id="k-desc" rows="3"></textarea></label>
-      <div class="row"><button id="k-send" type="button" class="primary">Queue ticket</button></div></div>
+      <button id="k-send" type="button" class="primary wide">Queue ticket</button></div>
   </section>
   <section id="v-dash" class="view hidden"><div class="card"><h2>My site — field</h2><div id="d-widgets" class="muted">—</div></div></section>
 </main>
+<div id="msg" class="status hidden" role="status" aria-live="polite"></div>
 <nav class="tabs" aria-label="Sections">
-  <button type="button" data-view="home" aria-current="page">Home</button>
-  <button type="button" data-view="inspect">Inspect</button>
-  <button type="button" data-view="tracker">Tracker</button>
-  <button type="button" data-view="actions">Actions</button>
-  <button type="button" data-view="dash">Dashboard</button>
+  <button type="button" data-view="home" aria-current="page"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/></svg><span id="nav-badge" class="nav-badge hidden" aria-hidden="true"></span><span>Home</span></button>
+  <button type="button" data-view="inspect"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1"/><path d="m9 13 2 2 4-4"/></svg><span>Inspect</span></button>
+  <button type="button" data-view="tracker"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg><span>Entry</span></button>
+  <button type="button" data-view="actions"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h12"/><path d="M9 12h12"/><path d="M9 18h12"/><path d="m3 6 1 1 2-2"/><path d="m3 12 1 1 2-2"/><path d="m3 18 1 1 2-2"/></svg><span>Actions</span></button>
+  <button type="button" data-view="dash"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20H2"/></svg><span>Site</span></button>
 </nav>
-<dialog id="dlg" aria-labelledby="dlg-title"><form method="dialog"><h2 id="dlg-title" style="margin-top:0">Justification</h2><label>Comment <textarea id="dlg-note" rows="3" required></textarea></label><label id="dlg-ticket-l" class="hidden">SDP ticket number <input id="dlg-ticket" inputmode="numeric"></label><div class="row"><button type="submit" value="ok" class="primary">Confirm</button><button type="submit" value="cancel" formnovalidate>Cancel</button></div></form></dialog>
+<dialog id="dlg" aria-labelledby="dlg-title"><form method="dialog"><h2 id="dlg-title">Justification</h2><label>Comment <textarea id="dlg-note" rows="3" aria-required="true" aria-describedby="dlg-err"></textarea></label><label id="dlg-ticket-l" class="hidden">SDP ticket number <input id="dlg-ticket" inputmode="numeric" aria-describedby="dlg-err"></label><p id="dlg-err" class="field-err hidden" role="alert"></p><div class="row sheet-acts"><button type="submit" value="cancel" formnovalidate>Cancel</button><button type="submit" value="ok" class="primary">Confirm</button></div></form></dialog>
 <script src="../lib/i18nText.js"></script>
+<script src="../lib/codeLabels.js"></script>
+<script src="../lib/format.js"></script>
 <script src="i18n.js"></script>
 <script src="storage.js"></script>
 <script src="app.js"></script>

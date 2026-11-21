@@ -21,6 +21,25 @@
   var PORTAL_MSG = 'The network answered with a web page instead of the server (Wi-Fi sign-in page?) — the entry is kept and will be sent again.';   // the server session is not the person this phone's profile names: send nothing
   var ageDays = function (iso) { var t = Date.parse(iso || ''); return isFinite(t) ? Math.floor((Date.now() - t) / 864e5) : null; };
   var H = function (extra) { return Object.assign({}, extra || {}); };
+  // VISUAL POLISH 2 (field seat F4/F7/F17) — language, human dates and labels. The lookups already carry French
+  // (name_fr, items[].fr, statuses[].label_fr): the phone shows the language chosen here, never both.
+  var LANG = function () { return window.I18nText && window.I18nText.lang ? window.I18nText.lang() : 'fr'; };
+  var L2 = function (en, fr) { return LANG() === 'fr' && fr ? fr : en; };
+  var SF = window.SDPFormat || null;
+  var fmtDT = function (iso) { if (!iso) return '—'; if (SF) return SF.dateTime(iso, { lang: LANG() }); var d = new Date(iso); return isFinite(d) ? d.toLocaleString() : '—'; };
+  var fmtD = function (iso) { if (!iso) return '—'; return SF ? SF.date(iso, { lang: LANG() }) : String(iso); };
+  // relative time for something that happened on this phone ("5 min ago"); older than a day = the date and time
+  function ago(iso) {
+    var t = Date.parse(iso || ''); if (!isFinite(t)) return '—';
+    var m = Math.floor((Date.now() - t) / 60000);
+    if (m < 1) return FT('just now');
+    if (m < 60) return LANG() === 'fr' ? 'il y a ' + m + ' min' : m + ' min ago';
+    if (m < 1440) { var h = Math.floor(m / 60); return LANG() === 'fr' ? 'il y a ' + h + ' h' : h + ' h ago'; }
+    return fmtDT(iso);
+  }
+  var statusLabel = function (code) { if (code == null || code === '') return '—'; var SL = window.SDPLabels; var l = SL && SL.label ? SL.label('status', String(code), LANG()) : null; return l || String(code); };
+  var KIND = { inspection: 'Inspection', tracker: 'Tracker', action: 'Action', ticket: 'Ticket' };
+  var short = function (t, n) { t = String(t == null ? '' : t); return t.length > n ? t.slice(0, n - 1) + '…' : t; };
   function api(path, o) {
     o = o || {};
     return fetch(path, { method: o.method || 'GET', credentials: 'same-origin', headers: H(o.body ? { 'content-type': 'application/json' } : {}), body: o.body ? JSON.stringify(o.body) : undefined })
@@ -54,7 +73,27 @@
 
   // ── state / UI helpers ─────────────────────────────────────────────────────────────
   var B = null, site = null, lowbw = false, draftPhotos = [];
-  function msg(text, cls) { var m = $('msg'); if (!text) { m.className = 'status hidden'; m.textContent = ''; return; } m.className = 'status ' + (cls || ''); m.textContent = text; }
+  var msgTimer = null;
+  function msg(text, cls) {
+    var m = $('msg'); if (msgTimer) { clearTimeout(msgTimer); msgTimer = null; }
+    if (!text) { m.className = 'status hidden'; m.textContent = ''; return; }
+    m.className = 'status ' + (cls || ''); m.textContent = text;
+    if (cls === 'ok') msgTimer = setTimeout(function () { m.classList.add('faded'); }, 5000);
+  }
+  // one styled confirmation sheet for every "are you sure" of the app (replaces the browser's confirm box). It NAMES
+  // its target; resolves true only on the explicit confirm button (Escape / backdrop / Keep = false).
+  function confirmSheet(title, target, okLabel, danger) {
+    var d = $('confirm-dlg');
+    if (!d) {
+      d = document.createElement('dialog'); d.id = 'confirm-dlg'; d.setAttribute('aria-labelledby', 'confirm-title');
+      d.innerHTML = '<form method="dialog"><h2 id="confirm-title"></h2><p id="confirm-target" class="sheet-target"></p><div class="row sheet-acts"><button type="submit" value="cancel" id="confirm-no"></button><button type="submit" value="ok" id="confirm-yes"></button></div></form>';
+      document.body.appendChild(d);
+    }
+    $('confirm-title').textContent = title; $('confirm-target').textContent = target || '';
+    $('confirm-no').textContent = FT('Keep'); $('confirm-yes').textContent = okLabel || FT('Confirm');
+    $('confirm-yes').className = danger ? 'danger' : 'primary';
+    return new Promise(function (res) { d.returnValue = ''; d.onclose = function () { res(d.returnValue === 'ok'); }; d.showModal(); $('confirm-no').focus(); });
+  }
   function setNet() { var n = $('net'); var on = navigator.onLine; n.textContent = on ? FT('Online') : FT('Offline'); n.className = 'net ' + (on ? 'on' : 'off'); renderOutbox(); }
   function show(view) { document.querySelectorAll('.view').forEach(function (v) { v.classList.add('hidden'); }); $('v-' + view).classList.remove('hidden'); document.querySelectorAll('nav.tabs button').forEach(function (b) { if (b.dataset.view === view) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); }); if (view === 'dash') loadDash(); if (view === 'inspect' || view === 'tracker' || view === 'actions') timerStart(); }
   function opt(sel, items, val, lab) { var s = $(sel); s.innerHTML = ''; (items || []).forEach(function (it) { var o = document.createElement('option'); o.value = val(it); o.textContent = lab(it); s.appendChild(o); }); }
@@ -87,10 +126,11 @@
     opt('site', B.sites, function (s) { return s.id; }, function (s) { return s.name; });
     if (site) $('site').value = site;
     site = $('site').value;
-    kvGet('bootstrap_at:' + me).then(function (at) { var d = ageDays(at); $('asof').textContent = FT('Data as of') + ' ' + (at ? new Date(at).toLocaleString() : '—') + (B.__stale ? ' ' + FT('(cached)') : '') + (d != null && d >= STALE_DAYS ? ' — ' + FT('cached data is') + ' ' + d + ' ' + FT('days old, sync when you can') : ''); $('asof').classList.toggle('warn', d != null && d >= STALE_DAYS); });
+    kvGet('bootstrap_at:' + me).then(function (at) { var d = ageDays(at); $('asof').textContent = FT('Data as of') + ' ' + (at ? fmtDT(at) : '—') + (B.__stale ? ' ' + FT('(cached)') : '') + (d != null && d >= STALE_DAYS ? ' — ' + FT('cached data is') + ' ' + d + ' ' + FT('days old, sync when you can') : ''); $('asof').classList.toggle('warn', d != null && d >= STALE_DAYS); });
     var s = curSite(), acts = (B.actions || []).filter(function (a) { return !s || a.site === s.inspection_code; });
     var overdue = acts.filter(function (a) { return a.due_date && a.due_date < new Date().toISOString().slice(0, 10); }).length;
-    $('tiles').innerHTML = '<div class="tile"><div class="n">' + acts.length + '</div><div class="l">' + FT('open actions') + '</div></div><div class="tile"><div class="n">' + overdue + '</div><div class="l">' + FT('overdue') + '</div></div><div class="tile"><div class="n">' + (B.trackers || []).length + '</div><div class="l">' + FT('trackers to fill') + '</div></div>';
+    var tile = function (n, l, alert) { return '<button type="button" class="tile' + (alert ? ' alert' : '') + '" data-go="actions"><div class="n">' + n + '</div><div class="l">' + esc(FT(l)) + '</div></button>'; };
+    $('tiles').innerHTML = tile(acts.length, 'Open actions', false) + tile(overdue, 'Overdue', overdue > 0) + '<button type="button" class="tile" data-go="tracker"><div class="n">' + (B.trackers || []).length + '</div><div class="l">' + esc(FT('Trackers to fill')) + '</div></button>';
     renderOutbox(); renderInspect(); renderTracker(); renderActions();
     $('ticket-off').classList.toggle('hidden', !!(B.features && B.features.ticket)); $('k-send').disabled = !(B.features && B.features.ticket);
   }
@@ -110,21 +150,29 @@
     obAll().then(function (items) {
       $('queue').textContent = String(items.length);
       var stuck = items.filter(function (e) { var st = stateOf(e); return st === 'rejected' || st === 'conflict' || st === 'server_error'; }).length;
-      $('queue').className = 'pill ' + (stuck ? 'red' : 'slate');
+      $('queue').className = 'pill ' + (stuck ? 'red' : items.length ? 'amber' : 'slate');
+      var qb = $('queue-btn'); if (qb) qb.classList.toggle('zero', !items.length);
+      var nb = $('nav-badge'); if (nb) { nb.textContent = String(items.length); nb.classList.toggle('hidden', !items.length); }
+      $('outbox-list').classList.toggle('muted', !items.length);
       $('outbox-list').innerHTML = items.length ? items.map(function (e) {
         var st = stateOf(e), d = ageDays(e.client_ts);
         // a refused entry can be sent again (nothing was written); a conflict whose original was applied, or an
         // entry of unknown author, can only be discarded — re-sending would apply it a second time
-        var again = (st === 'rejected' || st === 'conflict' || st === 'unknown_author') ? ' <button type="button" data-ob-again="' + esc(e.uuid) + '">' + FT(st === 'unknown_author' ? 'Send as me' : 'Send again') + '</button>' : '';
+        var again = (st === 'rejected' || st === 'conflict' || st === 'unknown_author') ? '<button type="button" data-ob-again="' + esc(e.uuid) + '">' + FT(st === 'unknown_author' ? 'Send as me' : 'Send again') + '</button>' : '';
         // P11 r7 F-27 — a server error after the retries: "Try again" re-sends the SAME entry (same id: the server
         // applies it at most once), never a copy
-        if (st === 'server_error') again = ' <button type="button" data-ob-retry="' + esc(e.uuid) + '">' + FT('Try again') + '</button>';
-        var drop = (st === 'rejected' || st === 'server_error' || st === 'conflict' || st === 'applied_before' || st === 'unknown_author' || st === 'unknown_outcome' || st === 'needs_review') ? ' <button type="button" class="danger" data-ob-drop="' + esc(e.uuid) + '">' + FT('Discard') + '</button>' : '';
-        var acts = again + drop + (st === 'rejected' ? ' <span class="muted">' + FT('(sending it unchanged will be refused again)') + '</span>' : '');
+        if (st === 'server_error') again = '<button type="button" data-ob-retry="' + esc(e.uuid) + '">' + FT('Try again') + '</button>';
+        var drop = (st === 'rejected' || st === 'server_error' || st === 'conflict' || st === 'applied_before' || st === 'unknown_author' || st === 'unknown_outcome' || st === 'needs_review') ? '<button type="button" class="danger" data-ob-drop="' + esc(e.uuid) + '">' + FT('Discard') + '</button>' : '';
+        var acts = (again || drop) ? '<div class="row ob-acts">' + again + drop + '</div>' + (st === 'rejected' ? '<div class="muted">' + FT('(sending it unchanged will be refused again)') + '</div>' : '') : '';
         // another person's entry: its content stays private (only its kind and date are shown)
         var label = st === 'other_user' ? FT('entry of another person') : (e.label || '');
-        return '<div class="item"><span class="pill ' + STATE_PILL[st] + '">' + esc(FT(STATE_LABEL[st])) + '</span> <span class="pill slate">' + esc(e.kind) + '</span> ' + esc(label) +
-          ' <span class="muted">' + esc(e.client_ts) + (d != null && d >= OLD_DAYS ? ' · ' + FT('waiting for') + ' ' + d + ' ' + FT('days') : '') + (st === 'other_user' ? ' · ' + FT('sign in as') + ' ' + esc(e.user) + ' ' + FT('to send it') : '') + (e.last_error ? ' · ' + esc(e.last_error) : '') + '</span>' + acts + '</div>';
+        var fid = st !== 'other_user' && e.payload && e.payload.meta && e.payload.meta.f_id ? e.payload.meta.f_id : '';
+        // the entry id and the exact timestamp stay available (support, idempotent resend) but secondary
+        return '<div class="item ob"><div><span class="pill ' + STATE_PILL[st] + '">' + esc(FT(STATE_LABEL[st])) + '</span> <span class="pill slate">' + esc(FT(KIND[e.kind] || e.kind)) + '</span></div>' +
+          '<div class="it-t">' + esc(label) + '</div>' +
+          '<div class="it-m">' + esc(ago(e.client_ts)) + (d != null && d >= OLD_DAYS ? ' · ' + FT('waiting for') + ' ' + d + ' ' + FT('days') : '') + (st === 'other_user' ? ' · ' + FT('sign in as') + ' ' + esc(e.user) + ' ' + FT('to send it') : '') + '</div>' +
+          (e.last_error ? '<div class="ob-why">' + esc(e.last_error) + '</div>' : '') + acts +
+          '<details class="ob-d"><summary>' + esc(FT('Details')) + '</summary><code>' + (fid ? esc(fid) + ' · ' : '') + esc(e.uuid) + ' · ' + esc(e.client_ts) + '</code></details></div>';
       }).join('') : FT('Nothing queued.');
     }).catch(function () { /* outbox unreadable: the badge keeps its last value */ });
   }
@@ -344,16 +392,41 @@
   }
 
   // ── inspection quick capture ─────────────────────────────────────────────────────
+  var STATUS = ['ok', 'minor', 'major', 'critical', 'na'];
+  var ST_SHORT = { ok: 'OK', minor: 'Min.', major: 'Maj.', critical: 'Crit.', na: 'N/A' };
   function renderInspect() {
-    var L = B.lookups || {};
-    opt('i-area', L.areas || [], function (a) { return a.code; }, function (a) { return a.name_en; });
-    opt('i-cat', L.categories || [], function (c) { return c.id; }, function (c) { return c.name_en; });
+    var L = B.lookups || {}, keepA = $('i-area').value, keepC = $('i-cat').value;
+    opt('i-area', L.areas || [], function (a) { return a.code; }, function (a) { return L2(a.name_en, a.name_fr); });
+    opt('i-cat', L.categories || [], function (c) { return c.id; }, function (c) { return L2(c.name_en, c.name_fr); });
+    if (keepA) $('i-area').value = keepA; if (keepC) $('i-cat').value = keepC;
+    // F22 — the inspector is the signed-in person (name from the server session of THIS user), editable
+    if (!$('i-insp').value && B.user && B.user.name) $('i-insp').value = B.user.name;
     renderItems();
   }
-  function renderItems() {
+  // the status labels come from the inspection lookups (label_fr / label_en), the dictionary is the fallback
+  function stLabel(code) {
+    var row = ((B && B.lookups && B.lookups.statuses) || []).find(function (x) { return x.code === code; });
+    return row ? L2(row.label_en, row.label_fr) : FT(code);
+  }
+  function renderItems(keep) {
     var cat = ((B.lookups || {}).categories || []).find(function (c) { return c.id === $('i-cat').value; });
-    var STATUS = ['ok', 'minor', 'major', 'critical', 'na'];
-    $('i-items').innerHTML = cat ? cat.items.map(function (it, i) { return '<div class="ci"><span>' + esc(it.l) + '</span><div class="seg" role="group" aria-label="' + esc(it.l) + '">' + STATUS.map(function (s) { return '<button type="button" data-ix="' + i + '" data-st="' + s + '" aria-pressed="false">' + esc(FT(s)) + '</button>'; }).join('') + '</div></div>'; }).join('') : '';
+    $('i-items').classList.remove('invalid');
+    $('i-items').innerHTML = cat ? cat.items.map(function (it, i) {
+      var lab = L2(it.l, it.fr), sel = keep && keep[i] ? keep[i] : '';
+      return '<div class="ci"' + (sel ? ' data-sel="' + sel + '"' : '') + '><span>' + esc(lab) + '</span><div class="seg" role="group" aria-label="' + esc(lab) + '">' + STATUS.map(function (s) { var full = stLabel(s); return '<button type="button" data-ix="' + i + '" data-st="' + s + '" aria-pressed="' + (sel === s ? 'true' : 'false') + '" aria-label="' + esc(full) + '"><span class="f">' + esc(full) + '</span><span class="s" aria-hidden="true">' + ST_SHORT[s] + '</span></button>'; }).join('') + '</div></div>';
+    }).join('') : '';
+  }
+  function pressed() { var k = {}; document.querySelectorAll('#i-items button[aria-pressed="true"]').forEach(function (b) { k[b.dataset.ix] = b.dataset.st; }); return k; }
+  // photos: thumbnails with their size and a remove button (a wrong photo no longer forces "Clear")
+  function renderPhotos() {
+    var kb = function (p) { return Math.round((p.size || 0) / 1024) + (LANG() === 'fr' ? ' Ko' : ' KB'); };
+    $('i-photos').innerHTML = draftPhotos.map(function (p, i) { return '<figure><img alt="' + esc(FT('Photo')) + ' ' + (i + 1) + '" src="data:image/jpeg;base64,' + p.b64 + '"><figcaption>' + esc(FT('Photo')) + ' ' + (i + 1) + ' · ' + kb(p) + '</figcaption><button type="button" class="ph-x" data-ph="' + esc(p.ref) + '" aria-label="' + esc(FT('Remove photo')) + ' ' + (i + 1) + '"><span aria-hidden="true">×</span></button></figure>'; }).join('');
+  }
+  function addPhotos(files) {
+    var cap = (B.limits && B.limits.photo_max_bytes) || 300 * 1024;
+    return Array.prototype.slice.call(files || []).reduce(function (p, f) {
+      return p.then(function () { return compress(f, cap).then(function (ph) { ph.ref = uuid(); draftPhotos.push(ph); renderPhotos(); msg(FT('Photo added') + ' (' + Math.round(ph.size / 1024) + ' KB)', 'ok'); }); });
+    }, Promise.resolve()).catch(function (e) { msg(e.message, 'err'); });
   }
   function compress(file, cap) {
     return new Promise(function (res, rej) {
@@ -385,13 +458,13 @@
     var s = curSite(); if (!s || !s.inspection_code) return msg(FT('Pick a site with an inspection code first.'), 'err');
     var cat = $('i-cat').value, items = {}, n = 0;
     document.querySelectorAll('#i-items button[aria-pressed="true"]').forEach(function (b) { items[cat + '__' + b.dataset.ix] = { status: b.dataset.st, notes: '' }; n++; });
-    if (!n && !draftPhotos.length) return msg(FT('Mark at least one item or add a photo.'), 'err');
+    if (!n && !draftPhotos.length) { $('i-items').classList.add('invalid'); try { $('i-items').scrollIntoView({ block: 'center' }); } catch (_) { /* old browser */ } return msg(FT('Mark at least one item or add a photo.'), 'err'); }
     var d = new Date(), id = fieldInspectionId(d);
     var firstKey = Object.keys(items)[0] || (cat + '__0'); items[firstKey] = items[firstKey] || { status: 'ok', notes: '' };
     items[firstKey].photos = draftPhotos.map(function (p) { return { upload_ref: p.ref, caption: '' }; });
     var uploads = draftPhotos.map(function (p) { return { ref: p.ref, b64: p.b64, mime: p.mime, size: p.size, name: p.name, item: firstKey }; });
     var meta = { f_id: id, f_site: s.name + ' (' + s.inspection_code + ')', f_date: d.toISOString().slice(0, 10), f_time: d.toTimeString().slice(0, 5), f_area: $('i-area').value, f_inspector: $('i-insp').value || (B.user && B.user.name) || '', f_type: 'routine', f_obs: $('i-notes').value || '', f_label: 'Field quick capture' };
-    var go = function () { return queue('inspection', { meta: meta, items: items, actions: [], status: 'submitted' }, 'Inspection ' + id + ' · ' + s.name, uploads).then(resetInspect); };
+    var go = function () { return queue('inspection', { meta: meta, items: items, actions: [], status: 'submitted' }, 'Inspection — ' + ($('i-area').selectedOptions[0] ? $('i-area').selectedOptions[0].textContent : $('i-area').value) + ' · ' + s.name, uploads).then(resetInspect); };
     if (!(B.features && B.features.review_step)) return go();
     return review({ site: s.name, items: items, photos: draftPhotos }).then(function (ok) { if (ok) return go(); msg(FT('Not queued — correct the entry, then queue it again.'), ''); });
   }
@@ -401,23 +474,25 @@
     var d = $('review');
     if (!d) {
       d = document.createElement('dialog'); d.id = 'review';
-      d.innerHTML = '<form method="dialog"><h2 style="margin-top:0">' + esc(FT('Check before queueing')) + '</h2><div id="review-body"></div><div class="row"><button type="submit" value="ok" class="primary" id="review-ok">' + esc(FT('Queue it')) + '</button><button type="submit" value="cancel" id="review-fix">' + esc(FT('Correct')) + '</button></div></form>';
+      d.innerHTML = '<form method="dialog"><h2>' + esc(FT('Check before queueing')) + '</h2><div id="review-body"></div><div class="row sheet-acts"><button type="submit" value="cancel" id="review-fix">' + esc(FT('Correct')) + '</button><button type="submit" value="ok" class="primary" id="review-ok">' + esc(FT('Queue it')) + '</button></div></form>';
       document.body.appendChild(d);
     }
     var by = {}; Object.keys(sum.items).forEach(function (k) { var st = sum.items[k].status; by[st] = (by[st] || 0) + 1; });
     var kb = Math.round(sum.photos.reduce(function (t, p) { return t + (p.size || 0); }, 0) / 1024);
-    var findings = Object.keys(by).map(function (k) { return esc(FT(k)) + ' ' + by[k]; }).join(' · ') || '—';
+    var findings = Object.keys(by).map(function (k) { return esc(stLabel(k)) + ' ' + by[k]; }).join(' · ') || '—';
     $('review-body').innerHTML = '<p><b>' + esc(FT('Site')) + '</b> : ' + esc(sum.site) + '</p>'
       + '<p><b>' + esc(FT('Items addressed')) + '</b> : ' + Object.keys(sum.items).length + ' — ' + findings + '</p>'
       + '<p><b>' + esc(FT('Photos')) + '</b> : ' + sum.photos.length + ' (' + kb + ' KB)</p>'
       + '<p class="muted">' + esc(navigator.onLine ? FT('Online: it will be sent now.') : FT('Offline: it stays on this phone and is sent at the next connection.')) + '</p>';
     return new Promise(function (res) { d.returnValue = ''; d.onclose = function () { res(d.returnValue === 'ok'); }; d.showModal(); });
   }
-  function resetInspect() { draftPhotos = []; $('i-photos').innerHTML = ''; $('i-notes').value = ''; $('i-photo').value = ''; renderItems(); }
+  function resetInspect() { draftPhotos = []; $('i-photos').innerHTML = ''; $('i-notes').value = ''; $('i-photo').value = ''; if ($('i-gallery')) $('i-gallery').value = ''; renderItems(); }
 
   // ── tracker entry ────────────────────────────────────────────────────────────────
   function renderTracker() {
     opt('t-key', B.trackers || [], function (t) { return t.key; }, function (t) { return t.title; });
+    var none = !(B.trackers || []).length;
+    $('t-empty').classList.toggle('hidden', !none); $('t-form').classList.toggle('hidden', none);
     renderTrackerUnits();
   }
   function curTracker() { return (B.trackers || []).find(function (t) { return t.key === $('t-key').value; }); }
@@ -447,12 +522,36 @@
       // statuses (→ Ticket / → Demand) exist for meeting actions only
       var transfer = a.source === 'inspection' ? '' : '<button type="button" data-a="' + i + '" data-st="helpdesk_ticket">' + FT('→ Ticket') + '</button><button type="button" data-a="' + i + '" data-st="demand">' + FT('→ Demand') + '</button>';
       var cancelVal = a.source === 'inspection' ? 'Cancelled' : 'cancelled';
-      return '<div class="item"><div><span class="pill ' + (a.due_date && a.due_date < new Date().toISOString().slice(0, 10) ? 'red' : 'slate') + '">' + esc(a.source) + '</span> ' + esc(a.description) + ' <span class="muted">' + esc(a.owner || '') + ' · ' + FT('due') + ' ' + esc(a.due_date || '—') + ' · ' + esc(a.status) + '</span></div><div class="row"><button type="button" data-a="' + i + '" data-st="' + closeVal + '">' + FT('Close') + '</button>' + transfer + '<button type="button" data-a="' + i + '" data-st="' + cancelVal + '" class="danger">' + FT('Cancel') + '</button></div></div>';
+      var today = new Date().toISOString().slice(0, 10), late = !!(a.due_date && a.due_date < today);
+      var lateDays = late ? Math.max(1, Math.round((Date.parse(today) - Date.parse(a.due_date)) / 864e5)) : 0;
+      var due = FT('due') + ' ' + esc(a.due_date ? fmtD(a.due_date) : '—') + (late ? ' · ' + (LANG() === 'fr' ? 'en retard de ' + lateDays + ' j' : lateDays + ' d late') : '');
+      return '<div class="item"><div><span class="pill slate">' + esc(FT(a.source === 'inspection' ? 'Inspection' : 'Meeting')) + '</span> <span class="pill ' + (late ? 'red' : 'slate') + '" data-i18n-ctx="status">' + esc(statusLabel(a.status)) + '</span></div>' +
+        '<div class="it-t">' + esc(a.description) + '</div>' +
+        '<div class="it-m">' + esc(a.owner || '—') + '</div><div class="due' + (late ? ' late' : '') + '">' + due + '</div>' +
+        '<div class="row a-acts"><button type="button" class="primary" data-a="' + i + '" data-st="' + closeVal + '">' + FT('Close') + '</button>' + transfer + '</div>' +
+        '<button type="button" class="textbtn" data-a="' + i + '" data-st="' + cancelVal + '">' + FT('Cancel this action') + '</button></div>';
     }).join('') : FT('No open action for this site.');
     $('a-list').querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () { actionChange(acts[Number(b.dataset.a)], b.dataset.st); }); });
   }
+  // the justification sheet validates in the page language (no browser bubble): an empty comment, or a missing
+  // ticket number, keeps the sheet open with the message under the field
+  var askWired = false;
   function ask(needTicket) {
-    return new Promise(function (res) { var d = $('dlg'); $('dlg-note').value = ''; $('dlg-ticket').value = ''; $('dlg-ticket-l').classList.toggle('hidden', !needTicket); d.returnValue = ''; d.onclose = function () { res(d.returnValue === 'ok' ? { note: $('dlg-note').value.trim(), ticket: $('dlg-ticket').value.replace(/\D/g, '') } : null); }; d.showModal(); });
+    var d = $('dlg'), err = $('dlg-err');
+    if (!askWired) {
+      askWired = true;
+      d.querySelector('button[value="ok"]').addEventListener('click', function (ev) {
+        var note = $('dlg-note').value.trim(), needT = !$('dlg-ticket-l').classList.contains('hidden'), tk = $('dlg-ticket').value.replace(/\D/g, '');
+        var bad = !note ? FT('A justification is required for this status.') : (needT && !tk ? FT('The SDP ticket number is required.') : '');
+        $('dlg-note').setAttribute('aria-invalid', !note ? 'true' : 'false'); $('dlg-ticket').setAttribute('aria-invalid', note && needT && !tk ? 'true' : 'false');
+        if (bad) { ev.preventDefault(); err.textContent = bad; err.classList.remove('hidden'); (!note ? $('dlg-note') : $('dlg-ticket')).focus(); }
+      });
+    }
+    return new Promise(function (res) {
+      $('dlg-note').value = ''; $('dlg-ticket').value = ''; $('dlg-ticket-l').classList.toggle('hidden', !needTicket);
+      err.textContent = ''; err.classList.add('hidden'); $('dlg-note').removeAttribute('aria-invalid'); $('dlg-ticket').removeAttribute('aria-invalid');
+      d.returnValue = ''; d.onclose = function () { res(d.returnValue === 'ok' ? { note: $('dlg-note').value.trim(), ticket: $('dlg-ticket').value.replace(/\D/g, '') } : null); }; d.showModal();
+    });
   }
   function actionChange(a, st) {
     var p = TRANSFER.indexOf(st) >= 0 ? ask(st === 'helpdesk_ticket') : Promise.resolve({ note: '', ticket: '' });
@@ -462,7 +561,7 @@
       var payload = { source: a.source, id: a.id, base_status: a.status == null ? null : a.status, status_change: st, body: j.note || 'Closed from the field app' };
       if (j.ticket) payload.helpdesk_ticket = j.ticket;
       if (busy) return; busy = true;
-      return queue('action', payload, (a.source === 'inspection' ? 'Inspection' : 'Meeting') + ' action #' + a.id + ' → ' + st)
+      return queue('action', payload, FT(st === 'Closed' || st === 'resolved' ? 'Close' : (st === 'Cancelled' || st === 'cancelled') ? 'Cancel this action' : st === 'helpdesk_ticket' ? '→ Ticket' : '→ Demand') + ' — ' + short(a.description || ('#' + a.id), 70) + ' (#' + a.id + ')')
         .then(function () { B.actions = (B.actions || []).filter(function (x) { return x !== a; }); renderActions(); })
         .catch(function (err) { msg(FT('Could not queue: ') + err.message, 'err'); })
         .then(function () { busy = false; });
@@ -486,20 +585,38 @@
     }).then(function (j) {
       if (!j.ok) { $('d-widgets').textContent = j.error || FT('unavailable'); return; }
       var html = '', asOf = null;
-      Object.keys(j.widgets || {}).forEach(function (k) { var w = j.widgets[k]; if (w.as_of && (!asOf || w.as_of > asOf)) asOf = w.as_of; var v = w.value == null ? '—' : (w.display || w.value); html += '<div class="tile"><div class="n">' + esc(v) + (w.unit ? '<small> ' + esc(w.unit) + '</small>' : '') + '</div><div class="l">' + esc(w.title || k) + (w.rag ? ' <span class="pill ' + esc(String(w.rag).toLowerCase()) + '">' + esc(w.rag) + '</span>' : '') + '</div></div>'; });
-      $('d-widgets').innerHTML = (html || FT('No widget')) + '<div class="asof">' + FT('Data as of') + ' ' + (asOf ? new Date(asOf).toLocaleString() : FT('— (not measured)')) + (j.__stale ? ' · ' + FT('cached') : '') + '</div>';
+      // data rule: a value the reader could not measure (null) is "—", a measured zero stays 0. The unit word "count"
+      // says nothing and is dropped; a RAG pill is shown only when a threshold gave a verdict (NA = no threshold on
+      // this metric — it is NOT "data not available", so no pill beside a measured figure).
+      Object.keys(j.widgets || {}).forEach(function (k) {
+        var w = j.widgets[k]; if (w.as_of && (!asOf || w.as_of > asOf)) asOf = w.as_of;
+        var measured = w.value != null, v = measured ? (w.display || w.value) : '—';
+        var unit = measured && w.unit && w.unit !== 'count' ? '<small> ' + esc(w.unit) + '</small>' : '';
+        var rag = String(w.rag || '').toUpperCase(), pill = measured && (rag === 'GREEN' || rag === 'AMBER' || rag === 'RED') ? ' <span class="pill ' + rag.toLowerCase() + '" data-i18n-ctx="status">' + esc(statusLabel(rag)) + '</span>' : '';
+        html += '<div class="tile"><div class="n">' + esc(v) + unit + '</div><div class="l">' + esc(FT(w.title || k)) + pill + '</div></div>';
+      });
+      $('d-widgets').innerHTML = (html || FT('No widget')) + '<div class="asof">' + FT('Data as of') + ' ' + (asOf ? fmtDT(asOf) : FT('— (not measured)')) + (j.__stale ? ' · ' + FT('cached') : '') + '</div>';
     }).catch(function (e) { $('d-widgets').textContent = FT('Offline') + ' — ' + e.message; });
   }
 
   // ── wiring ───────────────────────────────────────────────────────────────────────
   document.querySelectorAll('nav.tabs button').forEach(function (b) { b.addEventListener('click', function () { show(b.dataset.view); }); });
   $('site').addEventListener('change', function () { site = $('site').value; kvSet('site', site); renderHome(); });
-  $('sync').addEventListener('click', function () { msg(''); bootstrap().then(renderHome).then(function () { return flush({ force: true, rearm: true }); }).catch(function (e) { msg(e.message, 'err'); }); });
+  function syncBusy(on) { var b = $('sync'); if (on) { b.setAttribute('aria-busy', 'true'); b.textContent = FT('Syncing…'); } else { b.removeAttribute('aria-busy'); b.textContent = FT('Sync now'); } }
+  $('sync').addEventListener('click', function () { if ($('sync').getAttribute('aria-busy') === 'true') return; msg(''); syncBusy(true); bootstrap().then(renderHome).then(function () { return flush({ force: true, rearm: true }); }).catch(function (e) { msg(e.message, 'err'); }).then(function () { syncBusy(false); }); });
+  $('tiles').addEventListener('click', function (ev) { var t = ev.target.closest('[data-go]'); if (t) show(t.dataset.go); });
+  $('queue-btn').addEventListener('click', function () { show('home'); try { $('outbox-card').scrollIntoView({ block: 'start' }); } catch (_) { /* old browser */ } });
+  // the lists built from the lookups follow the language switch (static texts are swapped by i18nText itself)
+  if (window.I18nText && window.I18nText.onChange) window.I18nText.onChange(function () { if (!B) return; var keep = pressed(); renderInspect(); renderItems(keep); renderPhotos(); renderActions(); renderOutbox(); setNet(); });
   $('lowbw').addEventListener('change', function () { lowbw = $('lowbw').checked; document.body.classList.toggle('lowbw', lowbw); kvSet('lowbw', lowbw); });
   $('i-cat').addEventListener('change', renderItems);
-  $('i-items').addEventListener('click', function (ev) { var b = ev.target.closest('button[data-ix]'); if (!b) return; b.parentNode.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', 'false'); }); b.setAttribute('aria-pressed', 'true'); });
-  $('i-photo').addEventListener('change', function () { var f = $('i-photo').files[0]; if (!f) return; compress(f, (B.limits && B.limits.photo_max_bytes) || 300 * 1024).then(function (p) { p.ref = uuid(); draftPhotos.push(p); var img = document.createElement('img'); img.alt = 'photo ' + draftPhotos.length; img.src = 'data:image/jpeg;base64,' + p.b64; $('i-photos').appendChild(img); msg(FT('Photo added') + ' (' + Math.round(p.size / 1024) + ' KB).', 'ok'); }).catch(function (e) { msg(e.message, 'err'); }); });
-  $('i-save').addEventListener('click', once($('i-save'), queueInspection)); $('i-reset').addEventListener('click', resetInspect);
+  // a second tap on the pressed status clears it (a mis-tap can be undone without "Clear")
+  $('i-items').addEventListener('click', function (ev) { var b = ev.target.closest('button[data-ix]'); if (!b) return; var was = b.getAttribute('aria-pressed') === 'true'; b.parentNode.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', 'false'); }); var row = b.closest('.ci'); if (was) { if (row) row.removeAttribute('data-sel'); } else { b.setAttribute('aria-pressed', 'true'); if (row) row.setAttribute('data-sel', b.dataset.st); } $('i-items').classList.remove('invalid'); });
+  $('i-photo').addEventListener('change', function () { addPhotos($('i-photo').files).then(function () { $('i-photo').value = ''; }); });
+  $('i-gallery').addEventListener('change', function () { addPhotos($('i-gallery').files).then(function () { $('i-gallery').value = ''; }); });
+  $('i-cam').addEventListener('click', function () { $('i-photo').click(); }); $('i-gal').addEventListener('click', function () { $('i-gallery').click(); });
+  $('i-photos').addEventListener('click', function (ev) { var b = ev.target.closest('button[data-ph]'); if (!b) return; draftPhotos = draftPhotos.filter(function (p) { return p.ref !== b.dataset.ph; }); renderPhotos(); });
+  $('i-save').addEventListener('click', once($('i-save'), queueInspection)); $('i-reset').addEventListener('click', function () { var n = Object.keys(pressed()).length; if (!n && !draftPhotos.length && !$('i-notes').value) return resetInspect(); confirmSheet(FT('Clear this inspection?'), n + ' ' + FT('Items addressed').toLowerCase() + ' · ' + draftPhotos.length + ' ' + FT('Photos').toLowerCase(), FT('Clear'), true).then(function (ok) { if (ok) resetInspect(); }); });
   $('t-key').addEventListener('change', renderTrackerUnits); $('t-save').addEventListener('click', once($('t-save'), queueTracker));
   $('k-send').addEventListener('click', once($('k-send'), queueTicket));
   // refused / conflicting entries: "Send again" re-queues a copy under a new id (the server keeps the refusal of the
@@ -510,9 +627,10 @@
     obAll().then(function (items) {
       var e = items.find(function (x) { return x.uuid === id; }); if (!e) return;
       if (b.hasAttribute('data-ob-retry')) { e.state = 'failed'; e.attempts = 0; e.next_try_at = null; return obPut(e).then(function () { renderOutbox(); return flush({ force: true }); }); }
-      if (b.hasAttribute('data-ob-drop')) { if (!window.confirm(FT('Discard this entry for good?') + '\n' + (e.label || e.kind))) return; return obDel(id).then(renderOutbox); }
+      if (b.hasAttribute('data-ob-drop')) { return confirmSheet(FT('Discard this entry for good?'), (e.label || e.kind), FT('Discard'), true).then(function (ok) { if (ok) return obDel(id).then(renderOutbox); }); }
       if (['applied_before', 'unknown_outcome', 'needs_review'].indexOf(stateOf(e)) >= 0) return;
-      if (stateOf(e) === 'unknown_author' && !window.confirm(FT('Send this entry under your own name? Its original author is unknown.') + '\n' + (e.label || e.kind))) return;
+      var sure = stateOf(e) === 'unknown_author' ? confirmSheet(FT('Send this entry under your own name? Its original author is unknown.'), (e.label || e.kind), FT('Send as me'), false) : Promise.resolve(true);
+      return sure.then(function (go) { if (!go) return;
       var copy = Object.assign({}, e, { uuid: uuid(), state: 'pending', last_error: null, resent_from: e.uuid, user: me });
       // P11 F-1/F-2 — "Send again" on a conflict is the user's decision after reading the reason: an action change
       // is re-sent against the server's current status (no base_status, queued now); an inspection whose id already
@@ -520,6 +638,7 @@
       if (stateOf(e) === 'conflict' && e.kind === 'action') { copy.payload = Object.assign({}, e.payload); delete copy.payload.base_status; copy.client_ts = new Date().toISOString(); }
       if (stateOf(e) === 'conflict' && e.kind === 'inspection' && e.payload && e.payload.meta) { copy.payload = Object.assign({}, e.payload, { meta: Object.assign({}, e.payload.meta, { f_id: fieldInspectionId(new Date()) }) }); copy.label = String(e.label || '').replace(String(e.payload.meta.f_id), copy.payload.meta.f_id); }
       return obSwap(id, copy).then(function () { renderOutbox(); flush(); });
+      });
     });
   });
   ['input', 'click', 'keydown', 'change'].forEach(function (ev) { document.addEventListener(ev, timerTick, true); });
