@@ -120,6 +120,8 @@
     'As a contributor you update only the tasks you own.': 'En tant que contributeur, vous ne mettez à jour que vos propres tâches.',
     'The committee or the project manager assigns project roles.': 'Le comité ou le chef de projet attribue les rôles projet.',
     'A project role needs a team member linked to a user account.': 'Un rôle projet demande un membre de l’équipe lié à un compte utilisateur.',
+    // P11 r7 F-28 — change-request scope label (lib/ppmWorkbench.js): its own text node, the field names follow
+    'May rewrite:': 'Peut réécrire :',
   };
   root.I18N_FR_PROJECT = Object.assign({}, STATIC, RUNTIME_KEYS);
   root.I18N_FR_PROJECT_RUNTIME = Object.keys(RUNTIME_KEYS);

@@ -104,10 +104,12 @@ test('R6-N2 (F-23): id-less save with repeated action text never cross-matches n
   assert.ok(!after.some((x) => x.id === before[0].id && x.owner === 'Bob'), "Alice's row never takes Bob's values");
   const hist = await rdb.db.prepare('SELECT action_id, body FROM insp_action_updates WHERE action_id = ?').all(before[1].id);
   assert.deepEqual(hist.map((h) => h.body), ['Bob comment'], "Bob's history survives");
-  assert.deepEqual(out.kept_ambiguous.sort(), before.map((x) => x.id).sort(), 'the ambiguous stored rows are reported as kept');
+  // P11 r7 F-25 — Bob's row matches on text + owner + due (unambiguous); Alice's row shares the text of an id-less
+  // row, so it is kept (never deleted on a guess) and reported
+  assert.deepEqual(out.kept_ambiguous, [before[0].id], 'the ambiguous stored row is reported as kept');
   const rec = await read(id);
   assert.equal(rec.state.actions.length, after.length, 'every stored action is visible in the form (none orphaned)');
-  // equal counts stay unambiguous: two id-less rows for two stored rows match in order
+  // the same rows with the same values stay unambiguous (text + owner + due) and keep their ids
   const id2 = 'EM-IT-20261102-R6N5';
   await save({ meta: meta(id2), items: {}, actions: [A, B] });
   const b2 = await rows(id2);

@@ -1,0 +1,32 @@
+# P11 round 7 — fix lot fix/p11-r7-field (UX / field seat)
+
+AI-authored engineering evidence — not an independent human review. No approval, signature, production readiness or
+field acceptance is claimed, and no human cell of the business-readiness pack was filled. Base `7ea49070`. Findings from
+`/home/user/qual/out/r7-ux-field.md` (repro `r7-ux-field-attack.test.js` R7-N1 / R7-N4, `r7-ux-field-hd.js`). The new
+tests (`tests/p11-r7-field-fixes.test.js` 7, `tests/p11-r7-field-fixes.smoke.test.js` 4) were run against a detached
+worktree of the base tree and seen FAILING (10 of 11 — the 11th is the "unambiguous saves still match" guard, green on
+both), then passing on this branch.
+
+| Finding | Sev | Cause | Fix | Regression test |
+|---|---|---|---|---|
+| F-25 (R7-N1) rows kept as "could not be matched safely" were deleted by the next save from the same tab | P3 | the form never received the kept rows (toast only), so its next payload omitted them and the id-based delete removed them | `inspection-db.js` `_upsertActionsPg`: the save returns **`kept_rows`** (id + values); kept rows are flagged `kept_unmatched` in the stored form state and are only deleted when the form names them in **`state.removed_action_ids`** (never stored). `public/inspection.html`: `mergeKeptRows` adds them to the form after the save (each once, by id, with their stored values as base), `removeAction` records the server id of a deleted action, the list is cleared once sent. A payload carrying no id at all (an old copy) never deletes a row that has history | smoke: second save from the same tab without merge keeps the rows and Bob's comment; a merged form deletes one explicitly by id; `removed_action_ids` never stored. Static: `mergeKeptRows` idempotent, `removeAction` records ids |
+| F-25 (R7-N4) equal counts with a reordered / replaced id-less list cross-attached history | P3 | equal counts per text were matched in order | id-less rows match only on an **unambiguous key**: text + owner + due, then text alone, each unique among the whole id-less pool AND every stored row not matched by id (a sibling matched first never makes a repeated text "unique"); otherwise a new row, and a stored row sharing the text of an id-less row is kept and reported | smoke: [A,B(comment)] → id-less [B,C]: Bob keeps his id and comment, Carol is a new row, Alice kept and reported; unchanged id-less re-save keeps ids; a unique text with an edited owner still matches. `field-r6-inspection-action-merge.smoke` updated: Bob now matches on text+owner+due, only Alice is reported |
+| F-27 persistent server 500 retried every 5 s for ever | P3 | `scheduleRetry` floor 5 s, no backoff, no attempt counter | `public/field/app.js` pure **`retryPlan(attempts, status, code, retryAfter)`**: database_busy / rate_limited / 429 keep the previous pace (Retry-After 5–120 s, no attempt counted); any other server error backs off 5 → 10 → 20 → 40 → 80 → 160 → 300 s (Retry-After honoured within the cap) and gives up at the 8th attempt → state **`server_error`** ("server error — needs attention", red, counted in the badge's stuck colour) with **Try again** (re-sends the SAME entry id, so the server applies it at most once) and Discard. Each failed entry keeps its own `next_try_at`; an automatic flush skips entries not yet due; Sync now, back online and page load force a send. FR texts added | `p11-r7-field-fixes.test.js` (sequence, cap, give-up, busy unchanged, wiring, FR); `field-r6-transient-errors`, `field-no-silent-loss` re-pinned to the new code |
+| F-28 number-prefixed English toasts (inspection), "May rewrite:" (project change requests), tooltip-only site-awareness colour rule | P3 | the exact-text dictionary cannot match a text with a number or a label glued to data | `uiF(template, {n})` in `inspection.html` (lookup of the `{n}` template, substitution after) + 2 FR templates in `inspection.fr.js`; `ppmWorkbench.js` puts `May rewrite:` in its own text node + FR entry in `project.fr.js`; `site-awareness.html` shows the helpdesk colour rule as visible text under the fleet grid (`#sa-fleet-hd-note`, EN/FR via the page's own `T()`), each helpdesk cell `aria-describedby` it (tooltip kept) | `p11-r7-field-fixes.test.js` (templates with `{n}` have FR entries and render French; label node + FR; visible note + aria) ; `i18n-coverage` green |
+| F-26 Helpdesk site filter changes per-site numbers for everyone on deployment | P3 | fix 28 replaced the substring filter unconditionally (not reverted — it is a correction) | release note `docs/ops/RELEASE-NOTE-HELPDESK-SITE-FILTER.md` (table of spellings checked with the shipped code: HGO/Houndé now counted under HOUNDE, `SABODALA - MASSAWA` folds into Sabodala, `Ouaga` no longer counts `Ouaga2000`, `MANA` no longer `MANAGEMENT`); CHANGELOG entry; business-readiness item **HD-O15** (Coordination de site — warn coordinators; alias-table owner decides combined labels), AI recommendation only | `business-readiness-check --write` then `--check` green |
+
+No route, migration or authorisation change (no authz snapshot regenerated). Commands run (PostgreSQL, `SDP_TEST_RUN_ID=fix32`,
+prescribed NODE_OPTIONS): the two new files; `inspection*`, `pg-inspection`, `soft-delete-inspection`, all non-browser
+`field-*`, `i18n-coverage`, `ui-design-ratchet`, `a11y-*`, `home-queue*`, `p11-r6-*`, `helpdesk-site-*`, `site-awareness*`,
+`ppm-workbench*`, `kpi-docs-links`, `business-readiness`, `readme-truth`, `agent-inventory`, `traceability` (387 + meta tests,
+0 fail); the 5 `field-*-browser` tests (7/7); the e2e journeys (`npm run test:e2e -- --runs=1`: 43/43 journeys
+and 8/8 browser unit tests, GREEN). `npx eslint .` clean. Regenerated: UI inventory, inventory (+ strict), evidence manifest,
+`tests/.suite-manifest.json` (+11 tests, two new files), README counts, business-readiness register + checklist, gate
+dossiers (last). `docs/kpi/DECISION-KPIS-PROPOSAL.md` citation re-anchored (`inspection-db.js:1155`).
+
+Left open / human:
+- HD-O15: warn the pilot-site coordinators before deployment; the alias-table owner decides whether `SABODALA - MASSAWA`
+  (and other combined labels) fold into one site; check the pilot sites' real ticket spellings.
+- Rows already kept by a round-6 save in a production database carry no `kept_unmatched` flag (that flag starts with this
+  fix); they are protected by the text rule while an old id-less copy is replayed, not after.
+- Carried over: F-3 residual (IndexedDB after expiry without logout), F-5 prod ops step, F-12 Policy Center FR content (D-2).

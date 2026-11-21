@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 5979,
+ "total": 5990,
  "files": {
   "a11y-legacy-ratchet.test.js": 3,
   "a11y-static.test.js": 21,
@@ -420,6 +420,7 @@
   "p06-reports-db-surface.test.js": 1,
   "p11-r5-data-fixes.test.js": 14,
   "p11-r6-data-fixes.test.js": 12,
+  "p11-r7-field-fixes.test.js": 7,
   "p6-decisions-access.smoke.test.js": 8,
   "page-head.test.js": 20,
   "page-states-adoption.test.js": 5,
@@ -928,6 +929,7 @@
   "field-r6-transient-errors.test.js": 3,
   "helpdesk-site-match-r6.test.js": 5,
   "p11-r6-security.smoke.test.js": 4,
+  "p11-r7-field-fixes.smoke.test.js": 4,
   "report-config-switch-canonical.test.js": 5,
   "audit-chain-r6.test.js": 6,
   "activate-switches-r6-impersonation.smoke.test.js": 2

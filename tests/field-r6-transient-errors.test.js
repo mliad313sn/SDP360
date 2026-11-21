@@ -54,12 +54,13 @@ test('a 5xx or 429 is transient (kept, retried later), a 4xx refusal is not', ()
   const i = app.indexOf('if (isTransient(j.__status)) {');
   assert.ok(i > 0);
   const block = app.slice(i, i + 600);
-  assert.match(block, /e\.state = 'failed'/);
-  assert.match(block, /scheduleRetry\(j\.__retryAfter\)/);
+  // P11 r7 F-27 — the plan marks it failed (or "needs attention" after the cap) and schedules the retry
+  assert.match(block, /applyServerError\(e, j\.__status, j\.error, j\.__retryAfter\)/);
+  assert.match(app, /e\.state = 'failed'; e\.next_try_at = /);
   assert.match(block, /database_busy/);
   assert.ok(!/e\.last_error = j\.error/.test(app), 'the raw server code is never stored as the phone text');
   assert.match(app, /j\.__retryAfter = r\.headers\.get\('retry-after'\)/);
-  assert.match(app, /setTimeout\(function \(\) \{ retryTimer = null; flush\(\); \}/);
+  assert.match(app, /setTimeout\(function \(\) \{ retryTimer = null; retryAt = 0; flush\(\); \}/);
 });
 
 test('every FT() text of the field app has a French entry', () => {

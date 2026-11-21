@@ -15,7 +15,7 @@
   "jobs": 33,
   "jobs_without_test_reference": 0,
   "migrations": 115,
-  "test_files": 929
+  "test_files": 931
  },
  "pages": [
   {
@@ -831,7 +831,7 @@
    "parent": "inspections.html",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 213864,
+   "bytes": 216524,
    "tests": [
     "tests/adoption-lota-labels.test.js",
     "tests/csp-journey-report.test.js",
@@ -840,6 +840,7 @@
     "tests/inspection-delete-client.test.js",
     "tests/inspection-local-draft.test.js",
     "tests/module-tabs.test.js",
+    "tests/p11-r7-field-fixes.test.js",
     "tests/rbac-ui-gates.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
@@ -1923,7 +1924,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 74808,
+   "bytes": 75340,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/adoption-lotb-landing.test.js",
@@ -1932,6 +1933,7 @@
     "tests/landing.test.js",
     "tests/p11-r5-data-fixes.test.js",
     "tests/p11-r6-data-fixes.test.js",
+    "tests/p11-r7-field-fixes.test.js",
     "tests/shell-navigation.test.js",
     "tests/site-awareness-sla-parity.test.js",
     "tests/ui-design-ratchet.test.js"
@@ -8859,6 +8861,7 @@
     "tests/inspection-verify.smoke.test.js",
     "tests/inventory-strict.test.js",
     "tests/multi-site-editor.smoke.test.js",
+    "tests/p11-r7-field-fixes.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/read-scope-express5.smoke.test.js",
     "tests/soft-delete-routes.smoke.test.js",
@@ -8890,6 +8893,7 @@
     "tests/inspection-verify.smoke.test.js",
     "tests/inventory-strict.test.js",
     "tests/multi-site-editor.smoke.test.js",
+    "tests/p11-r7-field-fixes.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/read-scope-express5.smoke.test.js",
     "tests/soft-delete-routes.smoke.test.js",
@@ -8921,6 +8925,7 @@
     "tests/inspection-verify.smoke.test.js",
     "tests/inventory-strict.test.js",
     "tests/multi-site-editor.smoke.test.js",
+    "tests/p11-r7-field-fixes.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/read-scope-express5.smoke.test.js",
     "tests/soft-delete-routes.smoke.test.js",
@@ -8952,6 +8957,7 @@
     "tests/inspection-verify.smoke.test.js",
     "tests/inventory-strict.test.js",
     "tests/multi-site-editor.smoke.test.js",
+    "tests/p11-r7-field-fixes.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/read-scope-express5.smoke.test.js",
     "tests/soft-delete-routes.smoke.test.js",
@@ -8974,7 +8980,8 @@
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
     "tests/inspection-routes.test.js",
-    "tests/inspection-verify.smoke.test.js"
+    "tests/inspection-verify.smoke.test.js",
+    "tests/p11-r7-field-fixes.smoke.test.js"
    ]
   },
   {
@@ -8993,7 +9000,8 @@
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
     "tests/inspection-routes.test.js",
-    "tests/inspection-verify.smoke.test.js"
+    "tests/inspection-verify.smoke.test.js",
+    "tests/p11-r7-field-fixes.smoke.test.js"
    ]
   },
   {
@@ -9012,7 +9020,8 @@
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
     "tests/inspection-routes.test.js",
-    "tests/inspection-verify.smoke.test.js"
+    "tests/inspection-verify.smoke.test.js",
+    "tests/p11-r7-field-fixes.smoke.test.js"
    ]
   },
   {
@@ -9124,6 +9133,7 @@
     "tests/inspection-routes.test.js",
     "tests/inspection-site-scope.smoke.test.js",
     "tests/inspection-verify.smoke.test.js",
+    "tests/p11-r7-field-fixes.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/read-scope-express5.smoke.test.js",
     "tests/soft-delete-routes.smoke.test.js",
@@ -15569,6 +15579,7 @@
    "line": 1380,
    "tests": [
     "tests/csp-journey-report.test.js",
+    "tests/p11-r7-field-fixes.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
   },
@@ -15883,6 +15894,7 @@
    "line": 1339,
    "tests": [
     "tests/p11-r6-data-fixes.test.js",
+    "tests/p11-r7-field-fixes.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
   },

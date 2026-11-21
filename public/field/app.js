@@ -95,8 +95,8 @@
   }
   // G19 — explicit states on the phone. Only 'applied' / 'duplicate' answers remove an entry; a refusal or a
   // conflict is KEPT and shown, and only the user discards it (with a confirmation) — no silent data loss.
-  var STATE_LABEL = { pending: 'waiting', failed: 'will retry', rejected: 'refused', conflict: 'conflict', applied_before: 'already applied (earlier version)', other_user: 'other user', unknown_author: 'unknown author — review', unknown_outcome: 'outcome unknown — check ServiceDesk Plus', needs_review: 'stuck on the server — ask Group IT' };
-  var STATE_PILL = { pending: 'slate', failed: 'amber', rejected: 'red', conflict: 'red', applied_before: 'amber', other_user: 'slate', unknown_author: 'amber', unknown_outcome: 'red', needs_review: 'red' };
+  var STATE_LABEL = { pending: 'waiting', failed: 'will retry', rejected: 'refused', conflict: 'conflict', applied_before: 'already applied (earlier version)', other_user: 'other user', unknown_author: 'unknown author — review', unknown_outcome: 'outcome unknown — check ServiceDesk Plus', needs_review: 'stuck on the server — ask Group IT', server_error: 'server error — needs attention' };
+  var STATE_PILL = { pending: 'slate', failed: 'amber', rejected: 'red', conflict: 'red', applied_before: 'amber', other_user: 'slate', unknown_author: 'amber', unknown_outcome: 'red', needs_review: 'red', server_error: 'red' };
   function stateOf(e) {
     if (!e.user) return 'unknown_author';                          // queued before authors were recorded: review, never auto-send
     if (me && e.user !== me) return 'other_user';
@@ -108,14 +108,17 @@
   function renderOutbox() {
     obAll().then(function (items) {
       $('queue').textContent = String(items.length);
-      var stuck = items.filter(function (e) { var st = stateOf(e); return st === 'rejected' || st === 'conflict'; }).length;
+      var stuck = items.filter(function (e) { var st = stateOf(e); return st === 'rejected' || st === 'conflict' || st === 'server_error'; }).length;
       $('queue').className = 'pill ' + (stuck ? 'red' : 'slate');
       $('outbox-list').innerHTML = items.length ? items.map(function (e) {
         var st = stateOf(e), d = ageDays(e.client_ts);
         // a refused entry can be sent again (nothing was written); a conflict whose original was applied, or an
         // entry of unknown author, can only be discarded — re-sending would apply it a second time
         var again = (st === 'rejected' || st === 'conflict' || st === 'unknown_author') ? ' <button type="button" data-ob-again="' + esc(e.uuid) + '">' + FT(st === 'unknown_author' ? 'Send as me' : 'Send again') + '</button>' : '';
-        var drop = (st === 'rejected' || st === 'conflict' || st === 'applied_before' || st === 'unknown_author' || st === 'unknown_outcome' || st === 'needs_review') ? ' <button type="button" class="danger" data-ob-drop="' + esc(e.uuid) + '">' + FT('Discard') + '</button>' : '';
+        // P11 r7 F-27 — a server error after the retries: "Try again" re-sends the SAME entry (same id: the server
+        // applies it at most once), never a copy
+        if (st === 'server_error') again = ' <button type="button" data-ob-retry="' + esc(e.uuid) + '">' + FT('Try again') + '</button>';
+        var drop = (st === 'rejected' || st === 'server_error' || st === 'conflict' || st === 'applied_before' || st === 'unknown_author' || st === 'unknown_outcome' || st === 'needs_review') ? ' <button type="button" class="danger" data-ob-drop="' + esc(e.uuid) + '">' + FT('Discard') + '</button>' : '';
         var acts = again + drop + (st === 'rejected' ? ' <span class="muted">' + FT('(sending it unchanged will be refused again)') + '</span>' : '');
         // another person's entry: its content stays private (only its kind and date are shown)
         var label = st === 'other_user' ? FT('entry of another person') : (e.label || '');
@@ -161,12 +164,15 @@
     });
   }
   var flushing = false;
-  function flush() {
+  function flush(opts) {
     if (flushing || !navigator.onLine) return Promise.resolve();
+    var force = !!(opts && opts.force === true);
     flushing = true;
     return obAll().then(function (items) {
       if (!me || sessionMismatch) return;                        // no known author or a mismatched session: send nothing
-      items = items.filter(function (e) { var st = stateOf(e); return st === 'pending' || st === 'failed'; });
+      // P11 r7 F-27 — a failed entry waits for its own next try (backoff); Sync now / back online send it at once
+      var now = Date.now();
+      items = items.filter(function (e) { var st = stateOf(e); if (st === 'pending') return true; if (st !== 'failed') return false; return force || !e.next_try_at || Date.parse(e.next_try_at) <= now; });
       items.sort(function (a, b) { return a.client_ts < b.client_ts ? -1 : 1; });
       var n = items.length;
       return items.reduce(function (p, e, i) { return p.then(function (stop) { if (stop) return stop; if (n > 1) msg(FT('Sending') + ' ' + (i + 1) + '/' + n + '…', ''); return sendOne(e).catch(function (err) { return entryError(e, err); }); }); }, Promise.resolve());
@@ -227,11 +233,41 @@
     else t = FT('The server could not take the entry right now — it is kept and will be sent again automatically.');
     return ref ? t + ' (' + FT('reference') + ' ' + String(ref).slice(0, 40) + ')' : t;
   }
-  var retryTimer = null;
+  // P11 r7 F-27 — retry plan (pure). A busy database / too many requests keeps the server's pace (Retry-After, 5 s to
+  // 120 s, no attempt counted). Any other server error backs off 5 s → 10 → 20 → 40 → 80 → 160 → 300 s (cap) and, after
+  // 8 attempts, gives up: the entry is kept as "server error — needs attention" and is only sent again when the user
+  // asks (Try again). A persistent 500 is no longer replayed every 5 s for ever.
+  function retryPlan(prevAttempts, status, code, retryAfter) {
+    var BASE = 5, CAP = 300, MAX = 8;
+    var prev = Number(prevAttempts); if (!isFinite(prev) || prev < 0) prev = 0;
+    var ra = Number(retryAfter);
+    if (code === 'database_busy' || code === 'rate_limited' || status === 429) {
+      var b = isFinite(ra) && ra >= 5 ? ra : 5; if (b > 120) b = 120;
+      return { delaySec: b, attempts: prev, giveUp: false };
+    }
+    var n = prev + 1;
+    if (n >= MAX) return { delaySec: null, attempts: n, giveUp: true };
+    var d = BASE * Math.pow(2, n - 1); if (d > CAP) d = CAP;
+    if (isFinite(ra) && ra > d) d = Math.min(ra, CAP);
+    return { delaySec: d, attempts: n, giveUp: false };
+  }
+  var retryTimer = null, retryAt = 0;
   function scheduleRetry(afterSec) {
-    if (retryTimer) return;
-    var sec = Number(afterSec); if (!isFinite(sec) || sec < 5) sec = 5; if (sec > 120) sec = 120;
-    retryTimer = setTimeout(function () { retryTimer = null; flush(); }, sec * 1000);
+    var sec = Number(afterSec); if (!isFinite(sec) || sec < 5) sec = 5; if (sec > 300) sec = 300;
+    var at = Date.now() + sec * 1000;
+    if (retryTimer && retryAt <= at) return;                   // an earlier retry is already planned
+    if (retryTimer) clearTimeout(retryTimer);
+    retryAt = at;
+    retryTimer = setTimeout(function () { retryTimer = null; retryAt = 0; flush(); }, sec * 1000);
+  }
+  // a server error: plan the next try for THIS entry (backoff) or park it as "needs attention"
+  function applyServerError(e, status, code, retryAfter) {
+    var plan = retryPlan(e.attempts, status, code, retryAfter);
+    e.attempts = plan.attempts;
+    if (plan.giveUp) { e.state = 'server_error'; e.next_try_at = null; e.last_error = FT('The server kept failing on this entry — it is kept on this phone. Tap Try again later, or ask Group IT.') + (e.last_error ? ' (' + e.last_error + ')' : ''); return plan; }
+    e.state = 'failed'; e.next_try_at = new Date(Date.now() + plan.delaySec * 1000).toISOString();
+    scheduleRetry(plan.delaySec);
+    return plan;
   }
   function entryError(e, err) {
     if (err && err.status === 401) { msg(FT('Session expired — sign in again. Nothing was lost: your entries are kept on this phone.'), 'err'); return true; }
@@ -239,7 +275,8 @@
     var transient = !(err && err.status >= 400 && err.status < 500) || (err && err.status === 429);
     e.state = transient ? 'failed' : 'rejected';
     e.last_error = String((err && err.message) || err || 'error').slice(0, 300);
-    if (transient) scheduleRetry(err && err.retryAfter);
+    if (transient && err && err.status >= 500) applyServerError(e, err.status, err.code, err.retryAfter);   // F-27 backoff
+    else if (transient) scheduleRetry(err && err.retryAfter);
     return obPut(e).then(function () {});
   }
   function sendOne(e) {
@@ -257,8 +294,8 @@
       }
       if ((j.result && j.result.outcome_unknown) || j.outcome_unknown) { e.state = 'unknown_outcome'; e.last_error = String((j.result && j.result.error) || 'outcome unknown').slice(0, 300); msg(FT('Check ServiceDesk Plus before recording this ticket again: ') + (e.label || e.kind), 'err'); return obPut(e).then(function () {}); }
       if (isTransient(j.__status)) {
-        e.state = 'failed'; e.last_error = serverErrorText(j.__status, j.error, j.correlation_id);
-        scheduleRetry(j.__retryAfter);
+        e.last_error = serverErrorText(j.__status, j.error, j.correlation_id);
+        applyServerError(e, j.__status, j.error, j.__retryAfter);   // F-27: backoff + attempt cap (busy: server's pace)
         // the database is busy: stop this round (the others would get the same answer) and retry later
         var stopRound = j.error === 'database_busy' || j.__status === 429;
         if (stopRound) msg(e.last_error, '');
@@ -276,7 +313,7 @@
   // inspection payload references {upload_id} (server turns it into a blob ref).
   function upErr(j) {
     var text = !j.__notjson && isTransient(j.__status) ? serverErrorText(j.__status, j.error, j.correlation_id) : (j.error || ('HTTP ' + j.__status));
-    var er = new Error(FT('Photo upload: ') + text); er.status = j.__status; er.notJson = !!j.__notjson; er.retryAfter = j.__retryAfter; return er;
+    var er = new Error(FT('Photo upload: ') + text); er.status = j.__status; er.code = j.error; er.notJson = !!j.__notjson; er.retryAfter = j.__retryAfter; return er;
   }
   function uploadPhotos(e) {
     if (!e.uploads || !e.uploads.length) return Promise.resolve();
@@ -446,7 +483,7 @@
   // ── wiring ───────────────────────────────────────────────────────────────────────
   document.querySelectorAll('nav.tabs button').forEach(function (b) { b.addEventListener('click', function () { show(b.dataset.view); }); });
   $('site').addEventListener('change', function () { site = $('site').value; kvSet('site', site); renderHome(); });
-  $('sync').addEventListener('click', function () { msg(''); bootstrap().then(renderHome).then(flush).catch(function (e) { msg(e.message, 'err'); }); });
+  $('sync').addEventListener('click', function () { msg(''); bootstrap().then(renderHome).then(function () { return flush({ force: true }); }).catch(function (e) { msg(e.message, 'err'); }); });
   $('lowbw').addEventListener('change', function () { lowbw = $('lowbw').checked; document.body.classList.toggle('lowbw', lowbw); kvSet('lowbw', lowbw); });
   $('i-cat').addEventListener('change', renderItems);
   $('i-items').addEventListener('click', function (ev) { var b = ev.target.closest('button[data-ix]'); if (!b) return; b.parentNode.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', 'false'); }); b.setAttribute('aria-pressed', 'true'); });
@@ -458,9 +495,10 @@
   // old one); "Discard" removes it only after a confirmation that names it
   $('outbox-list').addEventListener('click', function (ev) {
     var b = ev.target.closest('button'); if (!b) return;
-    var id = b.getAttribute('data-ob-again') || b.getAttribute('data-ob-drop'); if (!id) return;
+    var id = b.getAttribute('data-ob-again') || b.getAttribute('data-ob-drop') || b.getAttribute('data-ob-retry'); if (!id) return;
     obAll().then(function (items) {
       var e = items.find(function (x) { return x.uuid === id; }); if (!e) return;
+      if (b.hasAttribute('data-ob-retry')) { e.state = 'failed'; e.attempts = 0; e.next_try_at = null; return obPut(e).then(function () { renderOutbox(); return flush({ force: true }); }); }
       if (b.hasAttribute('data-ob-drop')) { if (!window.confirm(FT('Discard this entry for good?') + '\n' + (e.label || e.kind))) return; return obDel(id).then(renderOutbox); }
       if (['applied_before', 'unknown_outcome', 'needs_review'].indexOf(stateOf(e)) >= 0) return;
       if (stateOf(e) === 'unknown_author' && !window.confirm(FT('Send this entry under your own name? Its original author is unknown.') + '\n' + (e.label || e.kind))) return;
@@ -474,7 +512,7 @@
     });
   });
   ['input', 'click', 'keydown', 'change'].forEach(function (ev) { document.addEventListener(ev, timerTick, true); });
-  window.addEventListener('online', function () { setNet(); flush(); }); window.addEventListener('offline', setNet); setNet();
+  window.addEventListener('online', function () { setNet(); flush({ force: true }); }); window.addEventListener('offline', setNet); setNet();
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () { /* app still works without it */ });
 
   // drop the pre-G19 cache that was not keyed by user (it could show one person's sites to the next)
@@ -482,5 +520,5 @@
   // the pending-count badge comes from this phone's outbox, not from the server: show it even when offline with no cache
   checkStorage();
   Promise.all([kvGet('site'), kvGet('lowbw')]).then(function (r) { site = r[0] || null; lowbw = !!r[1]; $('lowbw').checked = lowbw; document.body.classList.toggle('lowbw', lowbw); return bootstrap(); })
-    .then(renderHome).then(flush).catch(function (e) { msg(e.message, 'err'); });
+    .then(renderHome).then(function () { return flush({ force: true }); }).catch(function (e) { msg(e.message, 'err'); });
 })();
