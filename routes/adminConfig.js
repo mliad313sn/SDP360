@@ -60,7 +60,11 @@ module.exports = function adminConfigRoutes(deps) {
 function redactSecrets(c) {
   if (!c || typeof c !== 'object') return c;
   c.opmanager_ca_bundle_set = !!c.opmanager_ca_bundle;
-  for (const k of reportConfig._SECRET_BLANK_KEEP) if (c[k]) c[k] = '';
+  // UX committee admin P2-4: the page shows "Set" / "Not set" beside each secret field. Presence only — a boolean per
+  // key, computed before the value is blanked; no part of a secret (not its length, not its last characters) leaves.
+  const set = {};
+  for (const k of reportConfig._SECRET_BLANK_KEEP) { set[k] = !!c[k] || !!(c.secrets_set && c.secrets_set[k]); if (c[k]) c[k] = ''; }
+  c.secrets_set = set;
   return c;
 }
 router.get('/api/reports/config', requireReportSession, requireSuperAdmin, async (req, res) => {

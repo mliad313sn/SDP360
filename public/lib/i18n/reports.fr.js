@@ -9,6 +9,8 @@
 (function (root) {
   'use strict';
   const STATIC = {
+    // VISUAL POLISH 3 — admin: users facets, secret state, four-eyes badge, phone section fold
+    'Section:': 'Section :', 'All roles': 'Tous les rôles', 'All sites': 'Tous les sites', 'No site': 'Sans site', 'Any status': 'Tout statut', 'Sign-in': 'Connexion', 'Password': 'Mot de passe', 'Microsoft SSO': 'SSO Microsoft', 'Set': 'Défini', 'Not set': 'Non défini', 'Needs a second approver': 'Nécessite un second approbateur', 'Save change': 'Enregistrer la modification', 'Filter by role': 'Filtre par rôle', 'Filter by site': 'Filtre par site', 'Filter by status': 'Filtre par statut', 'Disabled': 'Désactivé',
     // VISUAL POLISH 3 — report editor action row, save signal, landing lead card
     'Weekly report due': 'Rapport hebdomadaire dû', 'Status:': 'Statut :', 'Save now': 'Enregistrer maintenant', 'Import': 'Importer', 'Open actions from a previous week': 'Actions ouvertes d’une semaine précédente', 'From Meetings / Inspections': 'Depuis Réunions / Inspections', 'From a CSV file': 'Depuis un fichier CSV', 'Download the CSV template': 'Télécharger le modèle CSV', 'CSV allowed values': 'Valeurs autorisées du CSV', 'More actions': 'Autres actions', 'Merge duplicates': 'Fusionner des doublons', 'Group duplicate actions of the site (all weeks)': 'Regrouper des actions en double du site (toutes semaines)', 'Continue': 'Continuer',
     // VISUAL POLISH 2 — admin rail and group tabs written in English (were French-only labels)

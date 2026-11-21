@@ -157,9 +157,11 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 .role-pill{padding:2px 8px;border-radius:10px;font-size:0.74rem;font-weight:700}
 .role-admin{background:#1c3a5e22;color:var(--dark-blue)}
 .role-executive{background:#7c3aed22;color:#5b21b6}
+.role-super_admin{background:var(--color-text-strong);color:var(--color-text-on-dark)}
 .role-editor{background:#e8730022;color:#c55a00}
 .role-viewer{background:#27ae6022;color:#1a7a44}
 .status-active{color:var(--green);font-weight:600;font-size:0.82rem}
+tr.is-dirty > td:first-child{box-shadow:inset 3px 0 0 var(--color-primary-fill)}
 .status-inactive{color:#bbb;font-weight:600;font-size:0.82rem}
 
 /* ── Report list ─────────────────────────────────────────────── */
@@ -295,6 +297,10 @@ body.rl-has-lead #btn-open-create{background:var(--light-bg);color:var(--dark-bl
 
 /* ── Admin left-rail (settings-style two-column layout) ─────────── */
 .admin-layout{display:flex;gap:22px;align-items:flex-start}
+.admin-rail-toggle{display:none;align-items:center;gap:6px;min-height:44px;padding:0 14px;border:1px solid var(--color-border-strong);border-radius:8px;background:var(--color-surface);color:var(--color-text-strong);font:inherit;font-size:0.9rem;cursor:pointer}
+.admin-rail-toggle .icon{margin-left:auto;width:16px;height:16px}
+.fe-badge{text-decoration:none;margin-left:4px}
+.fe-badge:hover{text-decoration:underline}
 .admin-rail{flex:0 0 210px;position:sticky;top:16px;display:flex;flex-direction:column;gap:4px;
   background:#fff;border:1px solid var(--border);border-radius:10px;padding:8px}
 .admin-rail__item{display:flex;align-items:center;gap:10px;width:100%;text-align:left;
@@ -339,6 +345,8 @@ body.rl-has-lead #btn-open-create{background:var(--light-bg);color:var(--dark-bl
   .admin-content{width:100%}
   .admin-panel.active{overflow-x:auto;-webkit-overflow-scrolling:touch}
   .admin-rail{flex:1 1 auto;position:static;flex-direction:row;flex-wrap:wrap;width:100%}
+  .admin-rail:not(.is-open){display:none}
+  .admin-rail-toggle{display:flex}
   .admin-rail__group{flex:1 1 100%}
   .admin-rail__item{width:auto;flex:1 1 auto;justify-content:flex-start}
   .admin-rail__item small{display:none}
@@ -1202,6 +1210,8 @@ body.rl-has-lead #btn-open-create{background:var(--light-bg);color:var(--dark-bl
     <div class="page-subtitle">Users, sites, departments, sessions &amp; integrations</div>
 
     <div class="admin-layout">
+      <!-- admin P2-10: on a phone the section list folds into this one button, so the chosen panel comes first -->
+      <button type="button" class="admin-rail-toggle" id="admin-rail-toggle" aria-expanded="false" aria-controls="admin-rail"><span>Section:</span> <b id="admin-rail-current">Users</b> <i class="icon icon-chevron-down" aria-hidden="true"></i></button>
       <nav class="admin-rail" id="admin-rail" aria-label="Admin sections">
         <div class="admin-rail__group">
           <div class="admin-rail__grouphdr"><i class="icon icon-sliders" aria-hidden="true"></i> Global</div>
@@ -1239,7 +1249,11 @@ body.rl-has-lead #btn-open-create{background:var(--light-bg);color:var(--dark-bl
         <button class="btn btn-secondary btn-sm" style="margin-left:auto" onclick="openEmailMapModal()" title="Bulk-set corporate emails for Microsoft SSO (auto-suggested from each name)."><i class="icon icon-mail" aria-hidden="true"></i> Map SSO emails</button>
         <button class="btn btn-primary btn-sm" onclick="openUserModal()">+ New User</button>
       </h3>
-      <div style="display:flex;gap:8px;align-items:center;margin:0 0 10px"><input type="search" class="edv-input" data-table-filter="#user-table" aria-controls="user-filter-count" aria-label="Search users" placeholder="Search users (name, site, role…)" style="max-width:320px;width:100%"><span id="user-filter-count" class="muted" aria-live="polite" style="font-size:12px;color:var(--gray-500)"></span></div>
+      <div style="display:flex;gap:8px;align-items:center;margin:0 0 10px"><input type="search" class="edv-input" data-table-filter="#user-table" aria-controls="user-filter-count" aria-label="Search users" placeholder="Search users (name, site, role…)" style="max-width:320px;width:100%">
+        <select class="edv-select" id="user-facet-role" data-table-facet="#user-table" data-facet="role" aria-label="Filter by role"><option value="">All roles</option></select>
+        <select class="edv-select" id="user-facet-site" data-table-facet="#user-table" data-facet="site" aria-label="Filter by site"><option value="">All sites</option><option value="none">No site</option></select>
+        <select class="edv-select" data-table-facet="#user-table" data-facet="status" aria-label="Filter by status"><option value="">Any status</option><option value="active">Active</option><option value="disabled">Disabled</option></select>
+        <span id="user-filter-count" class="muted" aria-live="polite" style="font-size:12px;color:var(--gray-500)"></span></div>
       <table class="user-table" id="user-table">
         <thead>
           <tr>
@@ -1247,6 +1261,7 @@ body.rl-has-lead #btn-open-create{background:var(--light-bg);color:var(--dark-bl
             <th>Full Name</th>
             <th>Site</th>
             <th>Role</th>
+            <th>Sign-in</th>
             <th>Status</th>
             <th>Actions</th>
           </tr>
@@ -2762,6 +2777,8 @@ function api(method, path, body) {
     if (!r.ok) {
       return Promise.reject((data && data.error) || `HTTP ${r.status} ${r.statusText || ''}`.trim());
     }
+    // a settings save may have stored or replaced a secret: refresh the "Set / Not set" badges (display only)
+    if (method === 'PUT' && path === '/api/reports/config' && typeof paintSecretBadges === 'function') setTimeout(paintSecretBadges, 0);
     return data;
   });
 }
@@ -3186,6 +3203,13 @@ function renderForm() {
 // Tabs are marked done from what is already saved (they used to be marked only on
 // a save in the current session, and the class leaked from one report to the next).
 let _actionsSavedEmpty = false;
+// admin P2-6 — Sites: the row's Save appears (as the primary) only once its Zoho group was edited, and the row is
+// marked; the route and what it saves are unchanged (saveSiteGroup → PUT /api/reports/sites/:id).
+document.addEventListener('input', (e) => {
+  const m = e.target && e.target.id && /^site-grp-(\d+)$/.exec(e.target.id); if (!m) return;
+  const b = document.querySelector('[data-site-save="' + m[1] + '"]'); if (b) b.hidden = false;
+  const tr = e.target.closest('tr'); if (tr) tr.classList.add('is-dirty');
+});
 // the Import / "more" menus of the action row close after a choice, on a click outside and on Escape
 document.addEventListener('click', (e) => { document.querySelectorAll('.act-menu[open]').forEach((d) => { if (!d.contains(e.target) || e.target.closest('.act-menu__list button')) d.open = false; }); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') document.querySelectorAll('.act-menu[open]').forEach((d) => { d.open = false; }); });
@@ -6506,6 +6530,55 @@ function _renderGroupTabs(name) {
     cfg.members.map(m => `<button type="button" class="ap-tab${m === name ? ' active' : ''}" onclick="showAdminPanel('${m}')">${cfg.labels[m] || m}</button>`).join('');
   host.style.display = 'flex';
 }
+document.addEventListener('click', (e) => { const t = e.target.closest && e.target.closest('#admin-rail-toggle'); if (!t) return;
+  const rail = document.getElementById('admin-rail'); const on = !rail.classList.contains('is-open'); rail.classList.toggle('is-open', on); t.setAttribute('aria-expanded', on ? 'true' : 'false'); });
+// ── Admin P2-7 — four-eyes is visible BEFORE the save ─────────────────────────────────────────────────────────
+// While the Policy Center is on, a four-eyes setting changes only through a request a second super_admin approves
+// (services/fourEyesGuard.js). The catalogue (super_admin only, the same call the Policy Center page makes) says
+// which settings those are; each matching field gets a badge, and a pending request is shown where it applies.
+// Display only: the server keeps refusing a single-person change, and never lets a requester approve their own.
+// Center off (the route answers 404) → no badge: a save is immediate then, as today.
+const FOUR_EYES_FIELDS = { sso_mode: 'cfg-sso-mode', entra_tenant_id: 'cfg-entra-tenant', entra_client_id: 'cfg-entra-client', entra_redirect_uri: 'cfg-entra-redirect',
+  sso_breakglass_user: 'cfg-sso-breakglass', never_send_unconfirmed: 'cfg-never-send-unconfirmed', hygiene_send_enabled: 'hyg-enabled', asset_group_send_enabled: 'agp-enabled',
+  scoreboard_send_enabled: 'sbd-enabled', weekly_report_send_enabled: 'wk-enabled', asset_reminder_send_enabled: 'arm-recap-enabled', asset_new_alert_enabled: 'arm-alert-enabled',
+  teams_sla_enabled: 'tsla-enabled', xof_usd_rate: 'hyg-xof-usd-rate', opmanager_tls_insecure: 'cfg-opm-tls' };
+function _fieldLabel(id) { const el = document.getElementById(id); if (!el) return null; return document.querySelector('label[for="' + id + '"]') || el.closest('label') || el.parentNode; }
+async function paintFourEyesBadges() {
+  // the UI policy says whether the Policy Center exists on this server (policy_center_page): off → no request at all
+  if (!(window.__uiPolicy && window.__uiPolicy.policy_center_page === '1')) return;
+  let cat;
+  try { cat = await api('GET', '/api/policy-center/catalogue'); } catch (_) { return; }
+  for (const r of (cat && cat.rules) || []) {
+    const id = FOUR_EYES_FIELDS[r.key]; if (!id || !r.four_eyes || r.source !== 'report_config') continue;
+    const host = _fieldLabel(id); if (!host) continue;
+    host.querySelectorAll('.fe-badge').forEach(n => n.remove());
+    const a = document.createElement('a'); a.className = 'edv-badge edv-badge--warning fe-badge'; a.href = 'policy-center.html';
+    a.title = 'While the Policy Center is on, this setting changes only through a request that a second super_admin approves.';
+    a.textContent = r.pending ? 'Change pending — second approver (' + r.pending + ')' : 'Needs a second approver';
+    host.appendChild(document.createTextNode(' ')); host.appendChild(a);
+  }
+}
+// ── Admin P2-4 — "Set" / "Not set" beside each secret field (presence only; the value never comes back) ────────
+const SECRET_FIELDS = { smtp_pass: 'cfg-smtp-pass', entra_client_secret: 'cfg-entra-secret', meridian_out_key: 'cfg-meridian-out', meridian_in_key: 'cfg-meridian-in',
+  meraki_api_key: 'cfg-meraki-key', opmanager_api_key: 'cfg-opm-key' };
+function secretBadge(host, isSet) {
+  if (!host) return;
+  host.querySelectorAll('.secret-state').forEach(n => n.remove());
+  const b = document.createElement('span');
+  // null = the page could not tell (older server answer): no badge rather than a guess
+  if (isSet == null) return;
+  b.className = 'edv-badge secret-state ' + (isSet ? 'edv-badge--success' : 'edv-badge--neutral');
+  b.textContent = isSet ? 'Set' : 'Not set';
+  b.title = isSet ? 'A value is stored (encrypted). Leave the field blank to keep it; type a new value to replace it.' : 'No value is stored yet.';
+  host.appendChild(document.createTextNode(' ')); host.appendChild(b);
+}
+async function paintSecretBadges() {
+  let c;
+  try { c = await api('GET', '/api/reports/config'); } catch (_) { return; }
+  const set = c && c.secrets_set;
+  for (const [k, id] of Object.entries(SECRET_FIELDS)) secretBadge(_fieldLabel(id), set && k in set ? !!set[k] : null);
+}
+
 function showAdminPanel(name) {
   // Guard: 'risk' / 'backups' / 'autoreports' / 'sso' / 'meridian' / 'infra' are super_admin-only — fall back to Users for everyone else.
   if ((name === 'risk' || name === 'backups' || name === 'autoreports' || name === 'sso' || name === 'meridian' || name === 'infra' || name === 'sla' || name === 'restore-drill' || name === 'asset-reminders' || name === 'teams-sla' || name === 'analytics-api') && currentUser?.role !== 'super_admin') name = 'users';
@@ -6518,6 +6591,11 @@ function showAdminPanel(name) {
     // Chrome (treats undefined as "no force"), which would turn every non-active item navy.
     b.classList.toggle('active', !!(b.dataset.panel === name || (b.dataset.group && b.dataset.group === _grp))));
   _renderGroupTabs(name);
+  // phone: name the open section on the fold button and close the list
+  const _act = document.querySelector('#admin-rail .admin-rail__item.active > span:not(.ar-ico):not(.ar-scope)');
+  const _cur = document.getElementById('admin-rail-current'), _tog = document.getElementById('admin-rail-toggle'), _rail = document.getElementById('admin-rail');
+  if (_cur && _act) _cur.textContent = (_act.firstChild && _act.firstChild.nodeValue ? _act.firstChild.nodeValue : _act.textContent).trim();
+  if (_rail) _rail.classList.remove('is-open'); if (_tog) _tog.setAttribute('aria-expanded', 'false');
   const panel = document.getElementById(_ADMIN_PANEL_IDS[name]);
   if (panel) panel.classList.add('active');
   // Fresh data when opening Active Sessions.
@@ -6612,6 +6690,7 @@ async function loadAdminPage() {
     // Open the panel from the hash sub-section (#admin/<section>) or default to Users.
     // A group name (#admin/wan) opens the group's first tab; a member name still deep-links.
     const sub = (location.hash.split('/')[1] || '').toLowerCase();
+    paintFourEyesBadges(); paintSecretBadges();   // display only, never block the page
     if (PANEL_GROUPS[sub]) showAdminGroup(sub);
     else showAdminPanel(['users','sessions','sites','departments','execview','email','backups','restore-drill','trash','sso','meridian','infra','sla','risk','autoreports','assets-finance','assets-deprec','hygiene','scoreboard','weekly','asset-group','asset-reminders','teams-sla','analytics-api'].includes(sub) ? sub : 'users');
 
@@ -6659,18 +6738,33 @@ async function loadAdminPage() {
         ...hRoles.map(r => `<span class="role-pill role-${esc(r)}" title="${esc(r)}">${esc(roleLabel(r))}</span>`),
         ...fRoles.map(r => `<span class="role-pill" style="background:#CCFBF1;color:#0F766E;border:1px solid #5EEAD4;font-size:10px" title="${esc(r)}">${esc(roleLabel(r))}</span>`),
       ].join(' ');
-      return `<tr>
+      // admin P2-5: facets for the filter lists (role / site / status), the sign-in method the API already returns
+      // (has_entra — never the Entra object id), status as a badge. "Last sign-in" is NOT shown: the users API does
+      // not return it, and a date is never invented.
+      const siteFacet = [u.site_id, ...(Array.isArray(u.extra_site_ids) ? u.extra_site_ids : [])].filter(v => v != null).map(v => 's' + Number(v)).join(' ') || 'none';
+      const auth = u.has_entra ? '<span class="edv-badge edv-badge--info" title="Linked to a Microsoft account">Microsoft SSO</span>' : '<span class="edv-badge edv-badge--neutral">Password</span>';
+      return `<tr data-f-role="${esc(roleArr.join(' '))}" data-f-site="${esc(siteFacet)}" data-f-status="${u.active ? 'active' : 'disabled'}">
         <td><strong>${esc(u.username)}</strong></td>
         <td>${esc(u.full_name)}</td>
         <td>${siteName ? esc(siteName) : '<span style="color:var(--gray-500)">No site</span>'}${_extraSitesBadge(u)}</td>
         <td style="line-height:1.8">${chips}</td>
-        <td><span class="${u.active ? 'status-active' : 'status-inactive'}">${u.active ? 'Active' : 'Disabled'}</span></td>
+        <td>${auth}</td>
+        <td><span class="edv-badge ${u.active ? 'edv-badge--success' : 'edv-badge--neutral'}"><span class="edv-badge__dot"></span>${u.active ? 'Active' : 'Disabled'}</span></td>
         <td>
           <button class="btn btn-secondary btn-sm" onclick="openUserModal(${escJsonAttr(u)})">Edit</button>
           ${u.id !== currentUser.id ? `<button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id})">Delete</button>` : ''}
         </td>
       </tr>`;
     }).join('');
+
+    // facet lists built from what the table holds (roles present, sites with at least one user)
+    const fr = document.getElementById('user-facet-role'), fs = document.getElementById('user-facet-site');
+    if (fr) { const keep = fr.value; const present = [...new Set(users.flatMap(u => Array.isArray(u.roles) && u.roles.length ? u.roles : [u.role || 'viewer']))].sort((a, b) => roleLabel(a).localeCompare(roleLabel(b)));
+      fr.innerHTML = '<option value="">All roles</option>' + present.map(r => `<option value="${esc(r)}">${esc(roleLabel(r))}</option>`).join(''); fr.value = keep; }
+    if (fs) { const keep = fs.value; const ids = [...new Set(users.flatMap(u => [u.site_id, ...(Array.isArray(u.extra_site_ids) ? u.extra_site_ids : [])]).filter(v => v != null).map(Number))];
+      const named = ids.map(id => { const x = sites.find(z => Number(z.id) === id); return [id, x ? x.name : '#' + id]; }).sort((a, b) => String(a[1]).localeCompare(String(b[1])));
+      fs.innerHTML = '<option value="">All sites</option>' + named.map(([id, n]) => `<option value="s${id}">${esc(n)}</option>`).join('') + '<option value="none">No site</option>'; fs.value = keep; }
+    if (window.TableFilter) window.TableFilter.apply('#user-table');
 
     // Sites table (group mapping + create/disable for executive+)
     const stbody = document.getElementById('sites-table-body');
@@ -6688,7 +6782,7 @@ async function loadAdminPage() {
           <td style="text-align:center">${s.sort_order}</td>
           <td>${s.active ? '<span class="status-active">Active</span>' : '<span class="status-inactive">Inactive</span>'}</td>
           <td>
-            <button class="btn btn-secondary btn-sm" onclick="saveSiteGroup(${s.id})"><i class="icon icon-save" aria-hidden="true"></i> Save</button>
+            <button class="btn btn-primary btn-sm site-save" data-site-save="${s.id}" onclick="saveSiteGroup(${s.id})" hidden><i class="icon icon-save" aria-hidden="true"></i> Save change</button>
             ${isExecOrSuper ? `<button class="btn btn-secondary btn-sm" style="margin-left:4px" onclick="openSiteModal(${s.id})">Edit</button>` : ''}
             ${isExecOrSuper && s.active  ? `<button class="btn btn-secondary btn-sm" style="margin-left:4px" onclick="disableSite(${s.id})">⊘ Disable</button>` : ''}
             ${isExecOrSuper && !s.active ? `<button class="btn btn-secondary btn-sm" style="margin-left:4px" onclick="enableSite(${s.id})">↻ Enable</button>` : ''}
@@ -6713,6 +6807,8 @@ async function saveSiteGroup(siteId) {
     allSites = await api('GET', '/api/reports/sites');
     populateSiteSelects();
     toast('Group mapping saved ✓', 'success');
+    const sb = document.querySelector('[data-site-save="' + siteId + '"]'); if (sb) sb.hidden = true;
+    const str = input.closest('tr'); if (str) str.classList.remove('is-dirty');
   } catch(e) { toast('Error: ' + e, 'error'); }
 }
 
@@ -8695,8 +8791,8 @@ function loadTeamsSlaCard() {
     set('tsla-base', c.sdp_api_base_url); set('tsla-accounts', c.sdp_api_accounts_url);
     set('tsla-client-id', c.sdp_api_client_id); set('tsla-filter', c.sdp_api_open_filter);
     // secrets: never prefilled — only say whether one is stored
-    document.getElementById('tsla-secret-state').textContent = c.has_client_secret ? '✓ enregistré' : '(non renseigné)';
-    document.getElementById('tsla-refresh-state').textContent = c.has_refresh_token ? '✓ enregistré' : '(non renseigné)';
+    secretBadge(document.getElementById('tsla-secret-state'), !!c.has_client_secret);
+    secretBadge(document.getElementById('tsla-refresh-state'), !!c.has_refresh_token);
     set('tsla-rules', JSON.stringify(c.rules, null, 2));
     set('tsla-max-age', c.rules && c.rules.max_ticket_age_days != null ? c.rules.max_ticket_age_days : '');
     set('tsla-paused', (c.rules && Array.isArray(c.rules.paused_statuses) ? c.rules.paused_statuses : []).join('\n'));
@@ -8782,6 +8878,8 @@ function loadAnalyticsApiCard() {
       el.textContent = src ? '· ' + (_AN_SRC[src] || src) : '';
       el.style.cssText = 'font-weight:400;color:' + (src === 'db' ? '#15803d' : '#6b7a99');
     });
+    secretBadge(_fieldLabel('an-client-secret'), c.has_client_secret == null ? null : !!c.has_client_secret);
+    secretBadge(_fieldLabel('an-refresh'), c.has_refresh_token == null ? null : !!c.has_refresh_token);
     const t = c.token || {};
     const st = document.getElementById('an-status');
     st.innerHTML = (t.valid ? '<span style="color:#15803d">● Connecté</span>' : '<span style="color:#b91c1c">● Pas de jeton valide</span>') +

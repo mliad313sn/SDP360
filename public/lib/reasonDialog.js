@@ -22,7 +22,7 @@
       + '.rd-meta{display:flex;justify-content:space-between;font-size:12px;color:#5B6573;margin-top:4px}.rd-bad{color:#A0002C}'
       + '.rd-act{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}.rd-act button{font:inherit;padding:8px 14px;border-radius:6px;border:1px solid #9AA4B2;background:#fff;cursor:pointer;min-height:40px}'
       + '.rd-act button.rd-ok{background:#1F2A33;color:#fff;border-color:#1F2A33}.rd-act button.rd-danger{background:var(--rag-red,firebrick);border-color:var(--rag-red,firebrick)}.rd-act button[disabled]{opacity:.5;cursor:not-allowed}'
-      + '.rd-target{font-weight:700;overflow-wrap:anywhere}.rd-msg{white-space:pre-line;margin:0 0 6px}.rd-hint{font-size:12px;color:var(--gray-500,dimgray);margin:6px 0 0}';
+      + '.rd-reveal{display:flex;gap:8px}.rd-box input.rd-secret{font-family:var(--font-mono,monospace);flex:1;min-width:0}.rd-reveal button{font:inherit;padding:8px 14px;border-radius:6px;border:1px solid var(--gray-400,gray);background:var(--color-surface,white);cursor:pointer}.rd-box label.rd-check{display:flex;align-items:center;gap:8px;margin-top:12px}.rd-box label.rd-check input{width:auto}.rd-target{font-weight:700;overflow-wrap:anywhere}.rd-msg{white-space:pre-line;margin:0 0 6px}.rd-hint{font-size:12px;color:var(--gray-500,dimgray);margin:6px 0 0}';
     const s = document.createElement('style');
     const n = document.querySelector('script[nonce]'); if (n && n.nonce) s.nonce = n.nonce;
     s.textContent = css; document.head.appendChild(s);
@@ -101,5 +101,37 @@
     const valid = () => !typed || typed.value.trim() === String(o.typeToConfirm);
     return shell(o.title || '', lang, body, valid, () => true, { okLabel: o.okLabel, danger: o.danger }).then((v) => v === true);
   }
-  root.ReasonDialog = { ask, form, confirm };
+  /** One-time reveal of a generated secret (admin P3-5): a read-only field, a Copy button, and an "I have stored it"
+   *  tick that unlocks Close. The value lives only in this dialog's DOM: it is removed with the dialog, never put in
+   *  a URL, a status line or storage. Escape / backdrop do NOT close it (the key cannot be shown again). → Promise<void> */
+  function reveal(o) {
+    o = o || {}; const lang = pageLang(o.lang); style();
+    const L = lang === 'fr' ? { copy: 'Copier', copied: 'Copié', stored: 'Je l’ai enregistrée en lieu sûr', close: 'Fermer', once: 'Cette valeur ne sera plus jamais affichée.' }
+      : { copy: 'Copy', copied: 'Copied', stored: 'I have stored it somewhere safe', close: 'Close', once: 'This value will never be shown again.' };
+    return new Promise((resolve) => {
+      const prev = document.activeElement;
+      const id = 'rd-rev-' + Date.now();
+      const field = el('input', { id, type: 'text', readOnly: true, value: String(o.value == null ? '' : o.value), className: 'rd-secret' });
+      const copy = el('button', { type: 'button', textContent: L.copy });
+      const tick = el('input', { type: 'checkbox', id: id + '-ok' });
+      const close = el('button', { type: 'button', className: 'rd-ok', textContent: L.close, disabled: true });
+      const h = el('h2', { textContent: o.title || '', id: id + '-t' });
+      const kids = [h];
+      if (o.target) kids.push(el('p', { className: 'rd-target', textContent: o.target }));
+      kids.push(el('label', { htmlFor: id, textContent: o.label || '' }), el('div', { className: 'rd-reveal' }, [field, copy]), el('p', { className: 'rd-hint', textContent: L.once }),
+        el('label', { className: 'rd-check' }, [tick, document.createTextNode(' ' + L.stored)]), el('div', { className: 'rd-act' }, [close]));
+      const box = el('div', { className: 'rd-box' }, kids);
+      box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-labelledby', h.id);
+      const back = el('div', { className: 'rd-back' }, [box]);
+      copy.addEventListener('click', () => {
+        const done = () => { copy.textContent = L.copied; };
+        field.focus(); field.select();
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(field.value).then(done, () => { /* selected: Ctrl+C works */ });
+      });
+      tick.addEventListener('change', () => { close.disabled = !tick.checked; });
+      close.addEventListener('click', () => { field.value = ''; back.remove(); try { prev && prev.focus && prev.focus(); } catch (_) {} resolve(); });
+      document.body.appendChild(back); field.focus(); field.select();
+    });
+  }
+  root.ReasonDialog = { ask, form, confirm, reveal };
 })(window);

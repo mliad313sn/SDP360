@@ -149,3 +149,59 @@ test('home (P2-14): the two PV lines say what each counts; the oldest action is 
   assert.match(src, /oldest: 'oldest opened', days: 'days ago'/);
   assert.doesNotMatch(src, /PVs to sign|PV à signer/);
 });
+
+// ── Admin seat ──────────────────────────────────────────────────────────────────────────────────────────────────
+test('admin users table (P2-5): role / site / status facets, sign-in method, status badge; no invented last sign-in', () => {
+  const src = read('reports.html');
+  for (const f of ['role', 'site', 'status']) assert.match(src, new RegExp(`data-table-facet="#user-table" data-facet="${f}"`));
+  assert.match(src, /<tr data-f-role="\$\{esc\(roleArr\.join\(' '\)\)\}" data-f-site="\$\{esc\(siteFacet\)\}" data-f-status=/);
+  assert.match(src, /u\.has_entra \? '<span class="edv-badge edv-badge--info"/);
+  assert.doesNotMatch(src, /last_login|last_sign_in/, 'the users API returns no last sign-in: none is shown');
+  assert.match(src, /\.role-super_admin\{/);
+  // the facet filter itself (lib/tableFilter.js) on a stub table
+  const rows = [{ t: 'alice hounde', a: { 'data-f-role': 'editor', 'data-f-status': 'active' } }, { t: 'bob', a: { 'data-f-role': 'viewer committee-member', 'data-f-status': 'disabled' } }]
+    .map((r) => ({ textContent: r.t, hidden: false, getAttribute: (k) => r.a[k] || null }));
+  const facet = { value: 'committee-member', getAttribute: (k) => ({ 'data-table-facet': '#t', 'data-facet': 'role' }[k]) };
+  const input = { value: '', getAttribute: (k) => ({ 'data-table-filter': '#t' }[k] || null) };
+  const document = { querySelector: () => ({ querySelectorAll: () => rows }), querySelectorAll: (sel) => (sel === '[data-table-filter]' ? [input] : sel === '[data-table-facet]' ? [facet] : []), getElementById: () => null, addEventListener() {} };
+  const window = {};
+  vm.runInNewContext(read('lib/tableFilter.js'), { document, window });
+  window.TableFilter.apply('#t');
+  assert.deepStrictEqual(rows.map((r) => r.hidden), [true, false]);
+  facet.value = ''; input.value = 'Hounde'; window.TableFilter.apply('#t');
+  assert.deepStrictEqual(rows.map((r) => r.hidden), [false, true]);
+});
+
+test('admin settings (P2-4, P2-7): secret presence only; four-eyes badge from the catalogue, never a client rule', () => {
+  const route = fs.readFileSync(path.join(ROOT, 'routes', 'adminConfig.js'), 'utf8');
+  const fn = fnSource(route, 'redactSecrets');
+  const reportConfig = { _SECRET_BLANK_KEEP: new Set(['smtp_pass', 'meraki_api_key']) };
+  const redact = new Function('reportConfig', fn + '\nreturn redactSecrets;')(reportConfig);
+  const out = redact({ smtp_pass: 'hunter2-very-secret', meraki_api_key: '', other: 'x' });
+  assert.deepStrictEqual(out.secrets_set, { smtp_pass: true, meraki_api_key: false });
+  assert.strictEqual(out.smtp_pass, '');
+  assert.ok(!JSON.stringify(out).includes('hunter2'), 'no part of a secret is returned');
+  assert.deepStrictEqual(redact(out).secrets_set, { smtp_pass: true, meraki_api_key: false }, 'a second pass (PUT answer) keeps the flags');
+  const src = read('reports.html');
+  const fe = fnSource(src, 'paintFourEyesBadges');
+  assert.match(fe, /__uiPolicy\.policy_center_page === '1'/, 'no request while the Policy Center is off');
+  assert.match(fe, /r\.four_eyes \|\| r\.source !== 'report_config'/);
+  assert.match(fe, /Needs a second approver/);
+  assert.match(fnSource(src, 'secretBadge'), /isSet == null\) return/);
+});
+
+test('admin (P2-6, P2-9, P2-10, P3-5): dirty-row Save on sites, grouped policy list, section fold on a phone, one-time key reveal', () => {
+  const src = read('reports.html');
+  assert.match(src, /class="btn btn-primary btn-sm site-save" data-site-save="\$\{s\.id\}" onclick="saveSiteGroup\(\$\{s\.id\}\)" hidden>/);
+  assert.match(src, /id="admin-rail-toggle" aria-expanded="false" aria-controls="admin-rail"/);
+  assert.match(src, /\.admin-rail:not\(\.is-open\)\{display:none\}/);
+  const pc = read('lib/policyCenterPage.js');
+  assert.match(pc, /<details class="pc-card pc-cat" data-cat=/); assert.match(pc, /filtering \|\| openCats\.has\(k\) \? ' open' : ''/);
+  assert.match(read('policy-center.html'), /id="pcCats"/);
+  const rd = read('lib/reasonDialog.js');
+  const reveal = fnSource(rd, 'reveal');
+  assert.match(reveal, /readOnly: true/); assert.match(reveal, /close\.disabled = !tick\.checked/); assert.match(reveal, /field\.value = ''; back\.remove\(\)/);
+  assert.doesNotMatch(reveal, /keydown|Escape/, 'the reveal cannot be dismissed by accident');
+  const integ = read('integrations.html');
+  assert.match(integ, /D\.reveal\(\{ title: "API key created"/);
+});

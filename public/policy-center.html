@@ -37,6 +37,15 @@
   @media (max-width: 640px) { .pc-edit { grid-template-columns: 1fr; } }
   .pc-pre { font-family: var(--font-mono); font-size: 12px; white-space: pre-wrap; word-break: break-word; }
   .pc-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .pc-field { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .pc-cats { display: flex; flex-wrap: wrap; gap: 6px; margin-top: var(--space-3); }
+  .pc-cats:empty { display: none; }
+  .pc-cats button { display: inline-flex; align-items: center; gap: 6px; border-radius: var(--radius-pill); font-size: 12.5px; }
+  .pc-cats button[aria-pressed="true"] { background: var(--color-text-strong); border-color: var(--color-text-strong); color: var(--color-text-on-dark); }
+  .pc-cats .n { font-variant-numeric: tabular-nums; opacity: .8; }
+  details.pc-cat > summary { cursor: pointer; list-style: revert; min-height: 32px; display: list-item; }
+  details.pc-cat > summary h2 { display: inline; margin: 0; }
+  details.pc-cat[open] > summary { margin-bottom: var(--space-2); }
   textarea.pc-json { width: 100%; min-height: 120px; font-family: var(--font-mono); font-size: 12px; }
 
   /* a11y-fr F20 / admin: summary rows reach the 24 px target, buttons use the shared component look */
@@ -57,15 +66,17 @@
     <div class="pc-bar" role="search">
       <label for="pcQ" class="pc-sr" data-i18n="search">Search</label>
       <input id="pcQ" type="search" placeholder="Search a rule" data-i18n-placeholder="searchPh">
-      <label for="pcCat" data-i18n="category">Category</label><select id="pcCat"></select>
-      <label for="pcRisk" data-i18n="risk">Risk</label>
-      <select id="pcRisk"><option value="" data-i18n="all">All</option><option value="high" data-i18n="high">High</option><option value="medium" data-i18n="medium">Medium</option><option value="low" data-i18n="low">Low</option></select>
+      <span class="pc-field"><label for="pcCat" data-i18n="category">Category</label><select id="pcCat"></select></span>
+      <span class="pc-field"><label for="pcRisk" data-i18n="risk">Risk</label>
+      <select id="pcRisk"><option value="" data-i18n="all">All</option><option value="high" data-i18n="high">High</option><option value="medium" data-i18n="medium">Medium</option><option value="low" data-i18n="low">Low</option></select></span>
       <label><input type="checkbox" id="pcDev"> <span data-i18n="onlyDev">Only rules that deviate from best practice</span></label>
       <button type="button" id="pcExportJson" data-i18n="exportJson">Export JSON</button>
       <button type="button" id="pcExportCsv" data-i18n="exportCsv">Export CSV</button>
     </div>
     <div class="pc-msg" id="pcMsg" role="status" aria-live="polite"></div>
     <p class="pc-muted" id="pcCoverage"></p>
+    <!-- admin P2-9: the categories, with their counts, as the way into the list -->
+    <nav class="pc-cats" id="pcCats" aria-label="Categories"></nav>
   </div>
   <div class="pc-card" id="pcReqCard">
     <h2 data-i18n="requests">Changes awaiting a second super_admin</h2>

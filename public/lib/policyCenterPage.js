@@ -123,16 +123,26 @@
     const q = $('pcQ').value.trim().toLowerCase(), cat = $('pcCat').value, risk = $('pcRisk').value, dev = $('pcDev').checked;
     const rows = data.rules.filter((r) => (!cat || r.category === cat) && (!risk || r.risk === risk) && (!dev || r.deviates || (r.site_deviations || []).length)
       && (!q || (r.key + ' ' + r.title + ' ' + (r.description_en || '') + ' ' + (r.description_fr || '')).toLowerCase().includes(q)));
-    const out = [];
+    const out = [], nav = [];
+    // admin P2-9 — grouped list: one collapsible block per category (closed until asked for, so the page opens on
+    // an overview instead of ~350 rules), with what matters in its heading: how many rules, how many deviate, how
+    // many wait for a second approver. A search or a filter opens every block that still has a match.
+    const filtering = !!(q || cat || risk || dev);
     for (const [k, c] of Object.entries(data.categories)) {
       const list = rows.filter((r) => r.category === k);
       const extra = k === 'kpi' && (!cat || cat === 'kpi') ? data.kpi_policies : [];
+      const all = data.rules.filter((r) => r.category === k);
+      nav.push(`<button type="button" data-cat="${esc(k)}" aria-pressed="${cat === k ? 'true' : 'false'}">${esc(c[lang] || c.en)} <span class="n">${all.length}</span></button>`);
       if (!list.length && !extra.length) continue;
-      out.push(`<section class="pc-card" aria-labelledby="h-${esc(k)}"><h2 id="h-${esc(k)}">${esc(c[lang] || c.en)} <span class="pc-muted">(${list.length})</span></h2>${list.map(ruleHtml).join('')}
-        ${extra.length ? `<p class="pc-muted">${esc(S.kpiNote)} <a href="kpi-builder.html">kpi-builder.html</a></p><p class="pc-muted">${extra.map((x) => `<span class="pc-key">${esc(x.key)}</span>`).join(' · ')}</p>` : ''}</section>`);
+      const nDev = list.filter((r) => r.deviates || (r.site_deviations || []).length).length, nPend = list.filter((r) => r.pending).length;
+      const facts = [`${list.length}`].concat(nDev ? [`${nDev} ${S.deviates}`] : [], nPend ? [`${nPend} ${S.pending}`] : []).join(' · ');
+      out.push(`<details class="pc-card pc-cat" data-cat="${esc(k)}"${filtering || openCats.has(k) ? ' open' : ''}><summary><h2 id="h-${esc(k)}">${esc(c[lang] || c.en)}</h2> <span class="pc-muted">(${esc(facts)})</span></summary>${list.map(ruleHtml).join('')}
+        ${extra.length ? `<p class="pc-muted">${esc(S.kpiNote)} <a href="kpi-builder.html">kpi-builder.html</a></p><p class="pc-muted">${extra.map((x) => `<span class="pc-key">${esc(x.key)}</span>`).join(' · ')}</p>` : ''}</details>`);
     }
     $('pcRules').innerHTML = out.join('');
+    const cats = $('pcCats'); if (cats) cats.innerHTML = nav.join('');
   }
+  const openCats = new Set();
   function readValue(r, box) {
     const el = box.querySelector('#v-' + r.key.replace(/[^a-z0-9]/gi, '_'));
     if (!el) return undefined;
@@ -184,6 +194,9 @@
       msg(S.saved, true); await load();
     } catch (e) { msg(e.message, false); }
   });
+  // a category chip = the Category filter (click again to clear); an opened block stays open across re-renders
+  if ($('pcCats')) $('pcCats').addEventListener('click', (ev) => { const b = ev.target.closest('button[data-cat]'); if (!b || !data) return; const k = b.getAttribute('data-cat'); $('pcCat').value = $('pcCat').value === k ? '' : k; render(); });
+  $('pcRules').addEventListener('toggle', (ev) => { const d = ev.target; if (!d.classList || !d.classList.contains('pc-cat')) return; const k = d.getAttribute('data-cat'); if (d.open) openCats.add(k); else openCats.delete(k); }, true);
   for (const id of ['pcQ', 'pcCat', 'pcRisk', 'pcDev']) $(id).addEventListener(id === 'pcQ' ? 'input' : 'change', () => data && render());
   function download(name, text, type) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; document.body.appendChild(a); a.click(); a.remove(); }
   $('pcExportJson').addEventListener('click', async () => { try { const j = await api('GET', '/api/policy-center/export'); delete j._status; download('policy-set.json', JSON.stringify(j, null, 1), 'application/json'); } catch (e) { msg(e.message, false); } });
