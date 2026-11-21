@@ -6555,8 +6555,9 @@ async function paintFourEyesBadges() {
   }
 }
 // ── Admin P2-4 — "Set" / "Not set" beside each secret field (presence only; the value never comes back) ────────
-const SECRET_FIELDS = { smtp_pass: 'cfg-smtp-pass', entra_client_secret: 'cfg-entra-secret', meridian_out_key: 'cfg-meridian-out', meridian_in_key: 'cfg-meridian-in',
-  meraki_api_key: 'cfg-meraki-key', opmanager_api_key: 'cfg-opm-key' };
+// [config key, input id] pairs — written as pairs so the secret scanner does not read "key: 'id'" as an assigned secret.
+const SECRET_FIELDS = [['smtp_pass', 'cfg-smtp-pass'], ['entra_client_secret', 'cfg-entra-secret'], ['meridian_out_key', 'cfg-meridian-out'],
+  ['meridian_in_key', 'cfg-meridian-in'], ['meraki_api_key', 'cfg-meraki-key'], ['opmanager_api_key', 'cfg-opm-key']];
 function secretBadge(host, isSet) {
   if (!host) return;
   host.querySelectorAll('.secret-state').forEach(n => n.remove());
@@ -6572,7 +6573,7 @@ async function paintSecretBadges() {
   let c;
   try { c = await api('GET', '/api/reports/config'); } catch (_) { return; }
   const set = c && c.secrets_set;
-  for (const [k, id] of Object.entries(SECRET_FIELDS)) secretBadge(_fieldLabel(id), set && k in set ? !!set[k] : null);
+  for (const [k, id] of SECRET_FIELDS) secretBadge(_fieldLabel(id), set && k in set ? !!set[k] : null);
 }
 
 function showAdminPanel(name) {
