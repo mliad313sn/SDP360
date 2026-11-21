@@ -254,3 +254,26 @@ an unknown key id or a shortened ledger, token evidence for every CLI request, c
 D-2), L02, L09, L10, L11 (one editor per inspection until F-29 lands), L15, and L13 operations resilience; CONDITIONAL
 for L03, L06–L08, L12, L14, L16 (out of pilot) and CLI `--apply` on four-eyes lots; NO-GO for L05 until Finance gate G14
 is signed. All 21 RELEASE-GATES rows and every register decision cell remain empty.
+
+## Round 9 — frozen SHA 928ca8f0 (2026-11-21) — AI panel, not an independent human review
+
+Seat reports: `docs/agent-execution/p11/round9-928ca8f0/r9-<seat>.md`. CI green at 928ca8f0 (6 078 tests + PG17 rehearsal).
+
+| Seat | P0 | P1 | New P2 | Round-8 re-check |
+|---|---|---|---|---|
+| security | 0 | 0 (R1-F2 policy) | — (P3: N-R9-1 CLI token evidence keyed on a forgeable source; replayable used token) | N-R8-1 fixed; N-R8-2 fixed as text |
+| data-kpi | 0 | 0 | — (P3: partial flag not on the card; kid history writable by the app role; unbound counts file accepted) | R8-2, R8-3 fixed; R8-1 partial; R8-4 fixed but bypassable |
+| ppm | 0 | 0 | R9-1 editing a RAID entry with the shipped form erased its score (regression from fix 34; switches off by default) | R8-1, R8-3, R8-4, R8-5 fixed; R8-2 API only |
+| operations | 0 | 0 | — (P3: O-14 kid row writable, O-15 unbound counts, O-16 forged anchor event → nightly false alarm, O-17 login 500 on DB outage) | O-13, O-5, O-12 fixed; O-11 partial |
+| ux-field | 0 | 0 | F-32 false 409 after an offline-queued save drains (regression from fix 35) | F-29, F-30, F-31 fixed |
+| audit | 0 | 0 | — (P3, P2 until hardening: R9-A1 unhardened owner can launder; R9-A2 forged source values; R9-A4 unbound counts; R9-A5 non-numeric samples) | R8-A2 fixed; R8-A1 fixed for its repro |
+
+**Fourth consecutive round with P0 = 0 and P1 = 0 on every seat.** Corrections: fix 37 (RAID edits merge onto the stored
+entry, pre-filled form, scores validated 1–3, lower-bound high card, partial marker) merged; fix 38 (offline-queue
+version chaining, no deletion by omission without a version) and fix 39 (signed kid history and anchor events, request
+origin signatures + tokens bound to their request, unbound counts refused, login 503 on DB outage) in progress.
+
+**AI panel recommendation (advisory, not an approval):** GO PILOT for the default product, L01 (French conditional on
+D-2), L02, L09, L10, L15, L13 operations resilience; L11 CONDITIONAL until F-32 lands (or brief pilot users);
+CONDITIONAL for L03, L06–L08, L12, L14, L16 (out of pilot) and CLI `--apply` on four-eyes lots; NO-GO for L05 until
+Finance gate G14 is signed. All 21 RELEASE-GATES rows and every register decision cell remain empty.
