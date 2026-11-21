@@ -10,7 +10,7 @@
 | Case de décision dans RELEASE-GATES.md | vide — cette porte est **NO-GO** tant que l'approbateur ne l'a pas remplie. Ce dossier ne remplit rien. |
 | Ce que cette porte bloque | ne bloque que le déploiement général |
 | À décider après | [G01](G01-security-access-policy.md) Sécurité : politique d'accès et matrice d'autorisation · [G02](G02-threat-model-findings.md) Sécurité : modèle de menace et constats |
-| SHA cible | `3df35be7` |
+| SHA cible | `4cdc0778` |
 | Généré | 2026-11-21 |
 
 ## 1. La question à trancher
