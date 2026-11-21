@@ -5,7 +5,7 @@
   "pages_without_test_reference": 0,
   "pages_without_declared_role": 6,
   "pages_not_in_navigation": 33,
-  "pages_not_in_shell_or_module_tabs": 24,
+  "pages_not_in_shell_or_module_tabs": 23,
   "pages_deep_link_only": 10,
   "pages_without_entry_point": 2,
   "pages_with_inline_scripts": 45,
@@ -15,7 +15,7 @@
   "jobs": 33,
   "jobs_without_test_reference": 0,
   "migrations": 119,
-  "test_files": 955
+  "test_files": 956
  },
  "pages": [
   {
@@ -217,7 +217,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 10,
-   "bytes": 207511,
+   "bytes": 207000,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/adoption-lota-truth.test.js",
@@ -237,7 +237,8 @@
     "tests/rbac-ui-gates.test.js",
     "tests/report-template-weekly.test.js",
     "tests/reports-editor-asset-tab.test.js",
-    "tests/ui-design-ratchet.test.js"
+    "tests/ui-design-ratchet.test.js",
+    "tests/visual-polish-3.test.js"
    ]
   },
   {
@@ -260,7 +261,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 42010,
+   "bytes": 42753,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/adoption-lota-nav-authz.test.js",
@@ -273,7 +274,8 @@
     "tests/no-native-dialogs.test.js",
     "tests/obligations-decisions.test.js",
     "tests/project-page.test.js",
-    "tests/ui-design-ratchet.test.js"
+    "tests/ui-design-ratchet.test.js",
+    "tests/visual-polish-3.test.js"
    ]
   },
   {
@@ -382,13 +384,14 @@
    "parent": "dashboards.html",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 27411,
+   "bytes": 27162,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/i18n-coverage.test.js",
     "tests/no-native-dialogs.test.js",
-    "tests/ui-design-ratchet.test.js"
+    "tests/ui-design-ratchet.test.js",
+    "tests/visual-polish-3.test.js"
    ]
   },
   {
@@ -411,7 +414,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 31494,
+   "bytes": 32584,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/adoption-lota-nav-authz.test.js",
@@ -427,7 +430,8 @@
     "tests/page-head.test.js",
     "tests/page-usage.test.js",
     "tests/shell-navigation.test.js",
-    "tests/ui-design-ratchet.test.js"
+    "tests/ui-design-ratchet.test.js",
+    "tests/visual-polish-3.test.js"
    ]
   },
   {
@@ -466,16 +470,16 @@
    "in_navigation": false,
    "entry_points": {
     "shell": false,
-    "module_tab": false,
+    "module_tab": true,
     "linked_from": [],
     "redirect_to": null,
     "deep_link_only": "public IT status snapshot: reached from the SharePoint Quick Link, outside the app",
     "known_dead_end": null
    },
-   "parent": null,
+   "parent": "dashboards.html",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 37069,
+   "bytes": 38685,
    "tests": [
     "tests/csp-headers.smoke.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
@@ -484,7 +488,8 @@
     "tests/page-usage.test.js",
     "tests/sla-tile-definitions.test.js",
     "tests/trust-label.test.js",
-    "tests/ui-design-ratchet.test.js"
+    "tests/ui-design-ratchet.test.js",
+    "tests/visual-polish-3.test.js"
    ]
   },
   {
@@ -505,7 +510,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 473586,
+   "bytes": 444378,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/api-key-injection.smoke.test.js",
@@ -520,7 +525,8 @@
     "tests/page-usage.test.js",
     "tests/rbac-ui-gates.test.js",
     "tests/site-window-readers.test.js",
-    "tests/ui-design-ratchet.test.js"
+    "tests/ui-design-ratchet.test.js",
+    "tests/visual-polish-3.test.js"
    ]
   },
   {
@@ -544,7 +550,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 606590,
+   "bytes": 607320,
    "tests": [
     "tests/a11y-legacy-ratchet.test.js",
     "tests/adoption-lota-nav-authz.test.js",
@@ -564,7 +570,8 @@
     "tests/page-usage.test.js",
     "tests/polish-exec-sla-zero.test.js",
     "tests/sla-tile-definitions.test.js",
-    "tests/ui-design-ratchet.test.js"
+    "tests/ui-design-ratchet.test.js",
+    "tests/visual-polish-3.test.js"
    ]
   },
   {
@@ -694,7 +701,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 0,
-   "bytes": 8509,
+   "bytes": 8774,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/adoption-lota-nav-authz.test.js",
@@ -739,7 +746,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 133608,
+   "bytes": 139049,
    "tests": [
     "tests/a11y-legacy-ratchet.test.js",
     "tests/a11y-static.test.js",
@@ -772,6 +779,7 @@
     "tests/helpdesk-pareto-ranking.test.js",
     "tests/helpdesk-site-default-r5.test.js",
     "tests/helpdesk-site-match-r6.test.js",
+    "tests/home-queue-page.test.js",
     "tests/i18n-coverage.test.js",
     "tests/kpi-policy-routes.smoke.test.js",
     "tests/landing.test.js",
@@ -785,7 +793,8 @@
     "tests/site-fold-sla-definition.test.js",
     "tests/sla-tile-definitions.test.js",
     "tests/trust-label.test.js",
-    "tests/ui-design-ratchet.test.js"
+    "tests/ui-design-ratchet.test.js",
+    "tests/visual-polish-3.test.js"
    ]
   },
   {
@@ -837,7 +846,7 @@
    "parent": "inspections.html",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 49083,
+   "bytes": 49325,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
@@ -846,7 +855,8 @@
     "tests/polish2-ux.test.js",
     "tests/rbac-ui-gates.test.js",
     "tests/review-dashboard.test.js",
-    "tests/ui-design-ratchet.test.js"
+    "tests/ui-design-ratchet.test.js",
+    "tests/visual-polish-3.test.js"
    ]
   },
   {
@@ -870,7 +880,7 @@
    "parent": "inspections.html",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 234272,
+   "bytes": 238707,
    "tests": [
     "tests/adoption-lota-labels.test.js",
     "tests/csp-journey-report.test.js",
@@ -884,7 +894,8 @@
     "tests/p11-r9-field-fixes.test.js",
     "tests/polish2-ux.test.js",
     "tests/rbac-ui-gates.test.js",
-    "tests/ui-design-ratchet.test.js"
+    "tests/ui-design-ratchet.test.js",
+    "tests/visual-polish-3.test.js"
    ]
   },
   {
@@ -908,7 +919,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 41657,
+   "bytes": 41199,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/adoption-lota-truth.test.js",
@@ -920,7 +931,8 @@
     "tests/page-states-adoption.test.js",
     "tests/rbac-ui-gates.test.js",
     "tests/shell-navigation.test.js",
-    "tests/ui-design-ratchet.test.js"
+    "tests/ui-design-ratchet.test.js",
+    "tests/visual-polish-3.test.js"
    ]
   },
   {
@@ -944,13 +956,14 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 19926,
+   "bytes": 20406,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/adoption-lota-nav-authz.test.js",
     "tests/i18n-coverage.test.js",
     "tests/shell-navigation.test.js",
-    "tests/ui-design-ratchet.test.js"
+    "tests/ui-design-ratchet.test.js",
+    "tests/visual-polish-3.test.js"
    ]
   },
   {
@@ -974,7 +987,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 110075,
+   "bytes": 109086,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
@@ -983,7 +996,8 @@
     "tests/page-usage.test.js",
     "tests/review-page.smoke.test.js",
     "tests/ui-design-ratchet.test.js",
-    "tests/ux-events.smoke.test.js"
+    "tests/ux-events.smoke.test.js",
+    "tests/visual-polish-3.test.js"
    ]
   },
   {
@@ -1094,7 +1108,7 @@
    "parent": "executive-report.html",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 21084,
+   "bytes": 20701,
    "tests": [
     "tests/adoption-lotb-home.test.js",
     "tests/brand-buttons.test.js",
@@ -1109,7 +1123,8 @@
     "tests/landing.test.js",
     "tests/login-next-redirect.test.js",
     "tests/my-work-route.smoke.test.js",
-    "tests/ui-design-ratchet.test.js"
+    "tests/ui-design-ratchet.test.js",
+    "tests/visual-polish-3.test.js"
    ]
   },
   {
@@ -1139,7 +1154,7 @@
    "parent": "meetings-actions.html",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 88678,
+   "bytes": 89466,
    "tests": [
     "tests/adoption-lota-labels.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
@@ -1154,7 +1169,8 @@
     "tests/my-work.test.js",
     "tests/rbac-ui-gates.test.js",
     "tests/status-transfer.smoke.test.js",
-    "tests/ui-design-ratchet.test.js"
+    "tests/ui-design-ratchet.test.js",
+    "tests/visual-polish-3.test.js"
    ]
   },
   {
@@ -1201,8 +1217,7 @@
     "shell": false,
     "module_tab": true,
     "linked_from": [
-     "cockpit.html",
-     "meetings.html"
+     "cockpit.html"
     ],
     "redirect_to": null,
     "deep_link_only": null,
@@ -1229,9 +1244,7 @@
    "entry_points": {
     "shell": false,
     "module_tab": true,
-    "linked_from": [
-     "meetings.html"
-    ],
+    "linked_from": [],
     "redirect_to": null,
     "deep_link_only": null,
     "known_dead_end": null
@@ -1266,12 +1279,13 @@
    "parent": "meetings.html",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 74233,
+   "bytes": 74684,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
     "tests/rbac-ui-gates.test.js",
-    "tests/ui-design-ratchet.test.js"
+    "tests/ui-design-ratchet.test.js",
+    "tests/visual-polish-3.test.js"
    ]
   },
   {
@@ -1311,9 +1325,7 @@
    "entry_points": {
     "shell": false,
     "module_tab": true,
-    "linked_from": [
-     "meetings.html"
-    ],
+    "linked_from": [],
     "redirect_to": null,
     "deep_link_only": null,
     "known_dead_end": null
@@ -1378,12 +1390,13 @@
    "parent": "meetings.html",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 25446,
+   "bytes": 25644,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
     "tests/inventory-reachability.test.js",
-    "tests/ui-design-ratchet.test.js"
+    "tests/ui-design-ratchet.test.js",
+    "tests/visual-polish-3.test.js"
    ]
   },
   {
@@ -1434,7 +1447,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 36845,
+   "bytes": 35824,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/adoption-lota-truth.test.js",
@@ -1601,7 +1614,8 @@
     "shell": true,
     "module_tab": false,
     "linked_from": [
-     "admin-home.html"
+     "admin-home.html",
+     "reports.html"
     ],
     "redirect_to": null,
     "deep_link_only": null,
@@ -1610,14 +1624,15 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 0,
-   "bytes": 7678,
+   "bytes": 8689,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/activate-switches.test.js",
     "tests/adoption-lota-nav-authz.test.js",
     "tests/i18n-coverage.test.js",
     "tests/no-native-dialogs.test.js",
-    "tests/policy-center-routes.smoke.test.js"
+    "tests/policy-center-routes.smoke.test.js",
+    "tests/visual-polish-3.test.js"
    ]
   },
   {
@@ -1696,7 +1711,7 @@
    "parent": "portfolio.html",
    "reachable": true,
    "inline_scripts": 0,
-   "bytes": 6268,
+   "bytes": 6441,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/i18n-coverage.test.js",
@@ -1729,7 +1744,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 73400,
+   "bytes": 73431,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/adoption-lota-nav-authz.test.js",
@@ -1753,7 +1768,8 @@
     "tests/roadmap-parity.test.js",
     "tests/shell-nav-r4.test.js",
     "tests/shell-navigation.test.js",
-    "tests/ui-design-ratchet.test.js"
+    "tests/ui-design-ratchet.test.js",
+    "tests/visual-polish-3.test.js"
    ]
   },
   {
@@ -1832,12 +1848,13 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 18753,
+   "bytes": 19093,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/adoption-lota-nav-authz.test.js",
     "tests/i18n-coverage.test.js",
-    "tests/ui-design-ratchet.test.js"
+    "tests/ui-design-ratchet.test.js",
+    "tests/visual-polish-3.test.js"
    ]
   },
   {
@@ -1863,7 +1880,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 555451,
+   "bytes": 575547,
    "tests": [
     "tests/a11y-legacy-ratchet.test.js",
     "tests/admin-superadmin-gate.smoke.test.js",
@@ -1906,6 +1923,7 @@
     "tests/uat-amdec-org-models.smoke.test.js",
     "tests/uat-amdec-workflows.smoke.test.js",
     "tests/ui-design-ratchet.test.js",
+    "tests/visual-polish-3.test.js",
     "tests/wan-timeup-default.test.js",
     "tests/weekly-report-nudges.test.js"
    ]
@@ -1931,13 +1949,14 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 12774,
+   "bytes": 13847,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/adoption-lota-nav-authz.test.js",
     "tests/i18n-coverage.test.js",
     "tests/project-page.test.js",
-    "tests/ui-design-ratchet.test.js"
+    "tests/ui-design-ratchet.test.js",
+    "tests/visual-polish-3.test.js"
    ]
   },
   {
@@ -1962,7 +1981,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 42162,
+   "bytes": 43123,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/csp-journey-report.test.js",
@@ -1982,7 +2001,8 @@
     "tests/site-actions-register.test.js",
     "tests/state-badge.test.js",
     "tests/status-transfer.smoke.test.js",
-    "tests/ui-design-ratchet.test.js"
+    "tests/ui-design-ratchet.test.js",
+    "tests/visual-polish-3.test.js"
    ]
   },
   {
@@ -1996,7 +2016,7 @@
    "in_navigation": true,
    "entry_points": {
     "shell": true,
-    "module_tab": false,
+    "module_tab": true,
     "linked_from": [
      "auth.js",
      "lib/workspaceProfiles.js"
@@ -2008,7 +2028,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 77498,
+   "bytes": 78273,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/adoption-lotb-landing.test.js",
@@ -2022,7 +2042,8 @@
     "tests/p11-r8-field-fixes.test.js",
     "tests/shell-navigation.test.js",
     "tests/site-awareness-sla-parity.test.js",
-    "tests/ui-design-ratchet.test.js"
+    "tests/ui-design-ratchet.test.js",
+    "tests/visual-polish-3.test.js"
    ]
   },
   {
@@ -2074,12 +2095,13 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 20524,
+   "bytes": 20460,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
-    "tests/ui-design-ratchet.test.js"
+    "tests/ui-design-ratchet.test.js",
+    "tests/visual-polish-3.test.js"
    ]
   },
   {
@@ -2131,12 +2153,13 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 15537,
+   "bytes": 15486,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/adoption-lota-nav-authz.test.js",
     "tests/i18n-coverage.test.js",
-    "tests/ui-design-ratchet.test.js"
+    "tests/ui-design-ratchet.test.js",
+    "tests/visual-polish-3.test.js"
    ]
   },
   {
@@ -2276,7 +2299,7 @@
    "parent": null,
    "reachable": true,
    "inline_scripts": 0,
-   "bytes": 4322,
+   "bytes": 5112,
    "tests": [
     "tests/i18n-coverage.test.js",
     "tests/workspace-mounted.smoke.test.js",
@@ -9475,7 +9498,7 @@
    "method": "POST",
    "path": "/api/integrations/analytics/test",
    "file": "routes/adminConfig.js",
-   "line": 170,
+   "line": 174,
    "tests": [
     "tests/e2e-outbound-guard.test.js",
     "tests/teams-sla-admin-card.test.js"
@@ -9486,7 +9509,7 @@
    "method": "GET",
    "path": "/api/integrations/analytics",
    "file": "routes/adminConfig.js",
-   "line": 141,
+   "line": 145,
    "tests": [
     "tests/analytics-integration-routes.smoke.test.js",
     "tests/e2e-outbound-guard.test.js",
@@ -9499,7 +9522,7 @@
    "method": "PUT",
    "path": "/api/integrations/analytics",
    "file": "routes/adminConfig.js",
-   "line": 154,
+   "line": 158,
    "tests": [
     "tests/analytics-integration-routes.smoke.test.js",
     "tests/e2e-outbound-guard.test.js",
@@ -13550,7 +13573,7 @@
    "method": "GET",
    "path": "/api/reports/config/history",
    "file": "routes/adminConfig.js",
-   "line": 73,
+   "line": 77,
    "tests": [
     "tests/config-change-journal.smoke.test.js"
    ]
@@ -13560,7 +13583,7 @@
    "method": "GET",
    "path": "/api/reports/config",
    "file": "routes/adminConfig.js",
-   "line": 66,
+   "line": 70,
    "tests": [
     "tests/admin-superadmin-gate.smoke.test.js",
     "tests/analytics-integration-routes.smoke.test.js",
@@ -13579,7 +13602,7 @@
    "method": "PUT",
    "path": "/api/reports/config",
    "file": "routes/adminConfig.js",
-   "line": 84,
+   "line": 88,
    "tests": [
     "tests/admin-superadmin-gate.smoke.test.js",
     "tests/analytics-integration-routes.smoke.test.js",
@@ -14134,7 +14157,7 @@
    "method": "POST",
    "path": "/api/reports/test-smtp",
    "file": "routes/adminConfig.js",
-   "line": 188,
+   "line": 192,
    "tests": []
   },
   {
@@ -15986,6 +16009,7 @@
     "tests/field-storage-browser.test.js",
     "tests/field-sw-no-api-cache-browser.test.js",
     "tests/first-usable.test.js",
+    "tests/home-queue-page.test.js",
     "tests/landing.test.js",
     "tests/login-next-redirect.test.js",
     "tests/polish2-ux.test.js",

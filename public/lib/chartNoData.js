@@ -4,7 +4,6 @@
  *   • a TREND (a chart with a line dataset) with fewer than 3 measured points draws "Not enough data for a trend —
  *     N of 3 periods" instead of a lone dot on a 12-month axis (a per-chart `options.plugins.noData.minPoints`
  *     overrides 3; `false` switches the plugin off for that chart);
- *   • a count axis (every value on it is a whole number) shows whole ticks only.
  * It draws nothing new from data and changes no value: the figures stay in the chart's data table / tiles.
  * UMD: the pure decision is exported for the tests. */
 (function (root) {
@@ -27,14 +26,6 @@
   }
   var plugin = {
     id: 'noData',
-    beforeUpdate: function (chart) {
-      var scales = (chart.options && chart.options.scales) || {};
-      Object.keys(scales).forEach(function (id) {
-        var sc = scales[id]; if (!sc || sc.type === 'category' || sc.type === 'time' || (sc.ticks && sc.ticks.precision != null)) return;
-        var vals = []; (chart.data.datasets || []).forEach(function (ds) { var ax = ds.yAxisID || 'y'; if (ax !== id) return; (ds.data || []).forEach(function (v) { var n = v && typeof v === 'object' ? v.y : v; if (n != null && !Number.isNaN(Number(n))) vals.push(Number(n)); }); });
-        if (vals.length && vals.every(function (n) { return Number.isInteger(n); })) { sc.ticks = sc.ticks || {}; sc.ticks.precision = 0; }
-      });
-    },
     beforeDraw: function (chart, args, opts) {
       if (opts === false || (opts && opts.enabled === false)) return;
       var t = chart.config.type; if (t === 'doughnut' || t === 'pie') { if (verdict('bar', chart.data.datasets) === null) return; }

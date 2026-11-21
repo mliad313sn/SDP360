@@ -577,3 +577,7 @@ body.exec-house .edv-widget-text p { font-size: 14px; color: var(--color-text-st
 :where(.edv-ui) .status-active { background:var(--color-success-bg); color:var(--color-success-text); }
 :where(.edv-ui) .status-inactive { background:var(--gray-100); color:var(--gray-600); }
 :where(.edv-ui) .status-active::before, :where(.edv-ui) .status-inactive::before { content:''; width:6px; height:6px; border-radius:50%; background:currentColor; }
+/* the `hidden` attribute wins over the button's own display (a class rule would otherwise un-hide a hidden button) */
+.edv-btn[hidden], :where(.edv-ui) .btn[hidden], :where(.edv-ui-dark) .btn[hidden], :where(.edv-house) .btn[hidden] { display: none; }
+/* on a phone a long button label wraps instead of widening the page (the older pages' buttons always could) */
+@media (max-width: 640px) { :where(.edv-ui) .btn, :where(.edv-ui-dark) .btn { white-space: normal; max-width: 100%; padding-block: 8px; line-height: 1.2; text-align: center; } }
