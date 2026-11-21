@@ -165,6 +165,7 @@ not the browser-checked level.
 | `docs/agent-execution/FIX-34-DATA-PPM.md` | — (reference) | — | — | — | `d5e5f552d905c77a4e7f8a98c6e98e54e933a4580d49600fc4b7e700976f2007` |
 | `docs/agent-execution/FIX-35-FIELD.md` | — (reference) | — | — | — | `1a6bdcfef4414f35cb10ae42901f9ad5fa37e4a01bb6797be249bfeedd23573c` |
 | `docs/agent-execution/FIX-36-AUDIT-OPS.md` | — (reference) | — | — | — | `d8f3bc6cecf4b6f494903d640f02759bffba053e847ccd77118af8654cdee4c0` |
+| `docs/agent-execution/FIX-37-PPM.md` | — (reference) | — | — | — | `6f366fd54f04fbe97fbb1cedfab7d3db17b2c09e572f3e1e77b21f25065435ae` |
 | `docs/agent-execution/G00.md` | G00 | code+test | pending | pending | `851fd0ca5460f8907fc678153f3984ef56facd75f643cbb4676e3f97643f1210` |
 | `docs/agent-execution/G01.md` | G01 | code+test | pending | pending | `2fbce7e79960cc4e55ecc9101df2256a5df921d0a3e8bf08df363a77ae935bea` |
 | `docs/agent-execution/G02.md` | G02 | code+test | pending | pending | `933b84b8c361d4129e97e0e4203d2ee759da8891d428727599d549e287ac4f9c` |
