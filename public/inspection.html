@@ -977,6 +977,34 @@ body.submission-locked .submit-row::before{
 @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
 
 /* ---------- Print ---------- */
+/* VISUAL POLISH 2 (field seat F13/F14/F15) — the form on a phone: the first field is reachable without scrolling past
+   tools, touch targets are 44 px, the 17 categories are one swipeable chip row that stays in view. */
+@media (max-width:720px){
+  .app-header .brand{display:none}
+  .app-header{padding:8px 12px}
+  .header-actions{width:100%;gap:6px;flex-wrap:nowrap}
+  .saved-bar{flex:1;min-width:0;display:flex;gap:6px;flex-wrap:nowrap}
+  .saved-bar #savedSelect{flex:1;min-width:0;min-height:44px}
+  .saved-bar .btn,.header-actions > .btn{min-height:44px;min-width:44px;padding:8px 10px}
+  .toolbar{position:sticky;top:0;z-index:5;display:flex;flex-direction:row;flex-wrap:wrap;align-items:center;gap:4px 10px;padding:6px 12px;margin-bottom:10px}
+  /* print options are a desktop affair: hidden on a phone (they stay in the DOM and on wider screens) */
+  .toolbar > label,.toolbar > span[style],.toolbar > .save-status ~ strong{display:none !important}
+  .toolbar .save-status{margin-left:0}
+  .toolbar .save-now-link{min-height:44px;padding:0 10px;font-size:14px}
+  .section-body input[type="text"],.section-body input[type="date"],.section-body input[type="time"],.section-body input[type="number"],.section-body select,.section-body textarea{min-height:48px;font-size:16px}
+  .filter-bar .chip,.cat-domains button{min-height:44px}
+  #searchBox{min-height:44px;font-size:16px}
+  .mic-btn,.input-with-mic .mic-btn-input{width:44px;height:44px}
+  .cat-tabs{display:flex;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity;position:sticky;top:52px;z-index:4;background:var(--color-surface,#fff);gap:4px;padding:4px 8px}
+  .cat-tabs .cat-tab{flex:0 0 auto;scroll-snap-align:start;white-space:nowrap;min-height:44px;border:1px solid var(--color-border,#E2E5EA);border-radius:999px;padding:8px 14px}
+  .cat-tabs .cat-tab.active{border-color:var(--color-primary-fill,#C2410C)}
+  .status-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+  .status-btn{min-height:48px}
+  .sig-controls button,.sig-controls .btn{min-height:44px}
+}
+@media (pointer:coarse){
+  input[type="checkbox"],input[type="radio"]{width:22px;height:22px}
+}
 @media print{
   body{background:#fff;font-size:11px}
   .app-header{position:static;padding:10px 0;background:#fff;color:#000;border-bottom:2px solid #000}
@@ -4837,6 +4865,7 @@ document.addEventListener('DOMContentLoaded', init);
 <script nonce="%%CSP_NONCE%%" src="lib/i18nText.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/common.fr.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/inspection.fr.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/oneLanguage.js" data-auto></script>
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/boot.js" data-dict="I18N_FR_INSPECTION"></script>
 </main>
 </body>

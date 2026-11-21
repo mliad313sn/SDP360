@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 6131,
+ "total": 6137,
  "files": {
   "a11y-legacy-ratchet.test.js": 3,
   "a11y-static.test.js": 21,
@@ -547,6 +547,7 @@
   "polish-admin-home.test.js": 3,
   "polish-exec-sla-zero.test.js": 3,
   "polish-infra-unknown.test.js": 4,
+  "polish2-ux.test.js": 6,
   "portfolio-access-parity.smoke.test.js": 7,
   "portfolio-access.test.js": 9,
   "portfolio-benefits.smoke.test.js": 8,
