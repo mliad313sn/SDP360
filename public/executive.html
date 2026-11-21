@@ -1531,6 +1531,7 @@ table tbody tr:hover td { background: var(--color-bg); }
 <!-- ═ Unified shell ═ -->
 <div id="__shell" data-section="executive" data-current="scorecard" data-version="v1.10.8"></div>
 <div id="__moduletabs" class="exec-tabs" data-module="executive" data-current="scorecard"></div>
+<main id="main" class="edv-main">
 
 <!-- ═ Page-bar: breadcrumb + page-specific actions + KPI tabs ═
      Commentary actions (Analyze / Edit / Copy) relocated here from the
@@ -1572,11 +1573,11 @@ table tbody tr:hover td { background: var(--color-bg); }
 <!-- Filter Bar -->
 <div class="filter-bar">
   <span class="filter-label" title="All filters work as AND: Period AND Site AND Group AND Priority AND Category. Site + Group = that group within that site only. All Sites + Group = that group across all sites.">Filters:</span>
-  <select class="filter-select" id="fPeriod" onchange="applyFilters()">
+  <select aria-label="Date" class="filter-select" id="fPeriod" onchange="applyFilters()">
     <!-- populated dynamically by buildPeriodFilter() on page load -->
   </select>
   <div class="filter-divider"></div>
-  <select class="filter-select" id="fSite" onchange="applyFilters()">
+  <select aria-label="Site" class="filter-select" id="fSite" onchange="applyFilters()">
     <option value="all">All Sites</option>
     <option value="abidjan">Abidjan</option>
     <option value="exploration">Exploration</option>
@@ -1645,14 +1646,14 @@ table tbody tr:hover td { background: var(--color-bg); }
     </optgroup>
   </select>
   <div class="filter-divider"></div>
-  <select class="filter-select" id="fPriority" onchange="applyFilters()">
+  <select aria-label="Priority" class="filter-select" id="fPriority" onchange="applyFilters()">
     <option value="all">All Priorities</option>
     <option value="high">High Priority</option>
     <option value="medium">Medium Priority</option>
     <option value="low">Low Priority</option>
   </select>
   <div class="filter-divider"></div>
-  <select class="filter-select" id="fCategory" onchange="applyFilters()">
+  <select aria-label="Category" class="filter-select" id="fCategory" onchange="applyFilters()">
     <option value="all">All Categories</option>
     <option value="hardware">Hardware & Accessories</option>
     <option value="software">Software & Applications</option>
@@ -11050,5 +11051,6 @@ initFreshnessBar();
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/executive.fr.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/boot.js" data-dict="I18N_FR_EXECUTIVE"></script>
 <script nonce="%%CSP_NONCE%%" src="module-tabs.js"></script>
+</main>
 </body>
 </html>

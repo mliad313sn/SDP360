@@ -214,6 +214,7 @@ border-color: var(--edv-orange, #EF631A);
 <body>
 
 <div id="__shell" data-section="operations" data-current="meetings"></div>
+<main id="main" class="edv-main">
 
 <div class="mi-wrap">
 
@@ -267,11 +268,11 @@ border-color: var(--edv-orange, #EF631A);
   </section>
 
   <section class="mi-filters">
-    <select class="mi-select" id="miSite"><option value="">All sites</option></select>
-    <select class="mi-select" id="miDept"><option value="">All departments</option></select>
-    <select class="mi-select" id="miStatus"><option value="">All statuses</option></select>
+    <select aria-label="Site" class="mi-select" id="miSite"><option value="">All sites</option></select>
+    <select aria-label="Department" class="mi-select" id="miDept"><option value="">All departments</option></select>
+    <select aria-label="Status" class="mi-select" id="miStatus"><option value="">All statuses</option></select>
     <label class="mi-chk"><input type="checkbox" id="miOverdue"> Overdue only</label>
-    <input class="mi-search" type="search" id="miQ" placeholder="Search description / owner…">
+    <input aria-label="Search" class="mi-search" type="search" id="miQ" placeholder="Search description / owner…">
   </section>
 
   <section class="mi-table-card">
@@ -489,7 +490,7 @@ border-color: var(--edv-orange, #EF631A);
     const opts = window.StatusTransfer   // A-05: an unknown stored code stays selected ("(legacy)")
       ? window.StatusTransfer.optionsHtml(state.lookups.statuses || [], r.status, esc)
       : (state.lookups.statuses || []).map(s => `<option value="${esc(s.code)}"${s.code === r.status ? ' selected' : ''}>${esc(s.name_en)}</option>`).join('');
-    return `<select class="mi-status-sel" data-act="${esc(r.id)}" style="color:${esc(st.color)}">${opts}</select>`;
+    return `<select aria-label="Status" class="mi-status-sel" data-act="${esc(r.id)}" style="color:${esc(st.color)}">${opts}</select>`;
   }
 
   function renderTable() {
@@ -806,5 +807,6 @@ border-color: var(--edv-orange, #EF631A);
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/common.fr.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/meetings-actions.fr.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/boot.js" data-dict="I18N_FR_MEETINGS_ACTIONS"></script>
+</main>
 </body>
 </html>

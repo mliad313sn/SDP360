@@ -35,6 +35,7 @@
 </head>
 <body>
 <div id="__shell" data-section="operations" data-current="site-actions"></div>
+<main id="main" class="edv-main">
 <div class="cm-wrap">
   <div class="cm-card">
     <h1>Commitments</h1>
@@ -235,5 +236,6 @@
   if (QP.get('new') && QP.get('metric')) { $('cmNew').hidden = false; $('nfTitle').value = String(QP.get('title') || '').slice(0, 300); if (QP.get('site_id')) $('nfSite').value = QP.get('site_id'); }
 })();
 </script>
+</main>
 </body>
 </html>

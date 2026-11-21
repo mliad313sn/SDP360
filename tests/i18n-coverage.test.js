@@ -85,7 +85,7 @@ const ALLOW = {
   'meeting.html': {},
   'inspection.html': {
     'EM': 'brand initials', 'Date': 'same word in French', 'Type': 'same word in French', 'Site': 'same word in French',
-    'Progress': 'common', '🇬🇧 EN': 'dictation-language button (speech model), not the UI language',
+    'Progress': 'common', 'EN': 'dictation-language button (speech model), not the UI language — mic icon + code since the 2026-11 polish',
     'La': ALREADY_FR, 'caméra': ALREADY_FR, 'et le': ALREADY_FR, 'microphone': ALREADY_FR,
     'ne fonctionnent pas quand le fichier est ouvert depuis le gestionnaire de fichiers.': ALREADY_FR,
     'Appuyez longuement sur le fichier': ALREADY_FR, 'IT_Inspection_SDP.html': 'file name', 'Choisissez': ALREADY_FR,

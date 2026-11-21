@@ -192,6 +192,7 @@
 <body>
 
 <div id="__shell" data-section="operations" data-current="meetings"></div>
+<main id="main" class="edv-main">
 
 <div class="mc-wrap">
 
@@ -210,11 +211,11 @@
 
   <!-- Filters -->
   <section class="mc-filters">
-    <select class="mc-select" id="mcSite"><option value="">All sites</option></select>
-    <select class="mc-select" id="mcDept"><option value="">All departments</option></select>
-    <select class="mc-select" id="mcSev"><option value="">All severities</option></select>
-    <select class="mc-select" id="mcReason"><option value="">All reasons</option></select>
-    <input class="mc-search" type="search" id="mcQ" placeholder="Search title / description / champion…">
+    <select aria-label="Site" class="mc-select" id="mcSite"><option value="">All sites</option></select>
+    <select aria-label="Department" class="mc-select" id="mcDept"><option value="">All departments</option></select>
+    <select aria-label="All severities" class="mc-select" id="mcSev"><option value="">All severities</option></select>
+    <select aria-label="All reasons" class="mc-select" id="mcReason"><option value="">All reasons</option></select>
+    <input aria-label="Search" class="mc-search" type="search" id="mcQ" placeholder="Search title / description / champion…">
   </section>
 
   <!-- Themes -->
@@ -427,5 +428,6 @@
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/common.fr.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/meetings-council.fr.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/boot.js" data-dict="I18N_FR_MEETINGS_COUNCIL"></script>
+</main>
 </body>
 </html>

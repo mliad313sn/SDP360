@@ -38,3 +38,11 @@ test('autoInfraStatusTrend(): an empty value resets the status to "none"; a type
   assert.strictEqual(run('99', '98%'), 'green');
   assert.strictEqual(run('80', '98%'), 'red');
 });
+
+test('the Infrastructure tab turns green only when every KPI row has a typed value', () => {
+  const ctx = {}; vm.runInNewContext(fnSource(SRC, '_infraComplete') + '\nthis.f = _infraComplete;', ctx);
+  assert.strictEqual(ctx.f([]), false);
+  assert.strictEqual(ctx.f([{ status_value: '99' }, { status_value: '' }]), false, 'one empty row = not complete');
+  assert.strictEqual(ctx.f([{ status_value: '99' }, { status_value: '98.5' }]), true);
+  assert.strictEqual(ctx.f(null), false);
+});

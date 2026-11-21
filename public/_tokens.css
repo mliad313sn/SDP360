@@ -311,3 +311,5 @@
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
+/* a11y (UX committee) — the <main> landmark added around legacy page bodies must not change their layout */
+main.edv-main { display: contents; }

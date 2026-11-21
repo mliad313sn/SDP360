@@ -113,6 +113,7 @@
 </head>
 <body>
 <div id="__shell" data-section="operations" data-current="site-actions"></div>
+<main id="main" class="edv-main">
 
 <div id="__moduletabs" data-module="site_actions" data-current="site"></div>
 
@@ -129,8 +130,8 @@
   <div id="pageHead"></div>
 
   <div class="sa-filters">
-    <select id="saSite" class="sa-select"><option value="">— Select a site —</option></select>
-    <input id="saQ" class="sa-search" type="text" placeholder="Filter by text…">
+    <select aria-label="Site" id="saSite" class="sa-select"><option value="">— Select a site —</option></select>
+    <input aria-label="Search" id="saQ" class="sa-search" type="text" placeholder="Filter by text…">
     <label class="sa-chk"><input type="checkbox" id="saOverdue"> Overdue only</label>
     <label class="sa-chk" title="Open issues that no open action addresses yet"><input type="checkbox" id="saNoAction"> Issues without action only</label>
     <label class="sa-chk" title="Issues and actions closed or cancelled in the last 30 days — change the status to reopen one"><input type="checkbox" id="saClosed"> Show closed / cancelled (30 days)</label>
@@ -252,7 +253,7 @@
     if (!canEdit || !id || !g.statuses.length) {
       return `<span class="sa-pill" style="background:rgba(107,119,133,.12);color:#556;border-color:rgba(107,119,133,.3)">${esc(it.status)}</span>`;
     }
-    const head = `<select class="sa-status-sel" data-src="${it.source}" data-id="${esc(id)}" data-prev="${esc(it.status)}">`;
+    const head = `<select aria-label="Status" class="sa-status-sel" data-src="${it.source}" data-id="${esc(id)}" data-prev="${esc(it.status)}">`;
     // A-05: meetings / incubation rows use the shared builder (unknown stored code → "(legacy)", still selected)
     if (ST && (g.key === 'meetings' || g.key === 'incubation')) return head + ST.optionsHtml(g.statuses, it.status, esc) + '</select>';
     const opts = g.statuses.slice();
@@ -303,7 +304,7 @@
     if (!canEdit || !it.issue_id) {
       return `<span class="sa-pill" style="background:rgba(107,119,133,.12);color:#556;border-color:rgba(107,119,133,.3)">${esc(it.status)}</span>`;
     }
-    const head = `<select class="sa-status-sel" data-src="issue" data-id="${esc(it.issue_id)}" data-prev="${esc(it.status)}">`;
+    const head = `<select aria-label="Status" class="sa-status-sel" data-src="issue" data-id="${esc(it.issue_id)}" data-prev="${esc(it.status)}">`;
     if (ST) return head + ST.optionsHtml(ISSUE_STATUSES, it.status, esc) + '</select>';   // A-05
     const opts = ISSUE_STATUSES.slice();
     if (!opts.includes(it.status)) opts.unshift(it.status);
@@ -352,9 +353,9 @@
     bg.innerHTML = `<div class="sa-modal">
       <div class="sa-modal__head">New action for this issue<small>${esc(title)}</small></div>
       <div class="sa-form">
-        <label>Action<textarea id="sa-a-desc" rows="3"></textarea></label>
-        <label>IT owner<input id="sa-a-owner" type="text"></label>
-        <label>Due date<input id="sa-a-due" type="date"></label>
+        <label>Action<textarea aria-label="Description" id="sa-a-desc" rows="3"></textarea></label>
+        <label>IT owner<input aria-label="Owner" id="sa-a-owner" type="text"></label>
+        <label>Due date<input aria-label="Due date" id="sa-a-due" type="date"></label>
       </div>
       <div class="sa-modal__foot"><button id="sa-a-cancel">Cancel</button><button id="sa-a-save" class="sa-primary">Add</button></div></div>`;
     document.body.appendChild(bg);
@@ -605,5 +606,6 @@
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/common.fr.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/site-actions.fr.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/boot.js" data-dict="I18N_FR_SITE_ACTIONS"></script>
+</main>
 </body>
 </html>

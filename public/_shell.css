@@ -513,3 +513,11 @@ nav.shell-breadcrumb [aria-current="page"] { color: var(--color-heading, #1F2D3D
   border: 1px solid rgba(255,255,255,.16); background: rgba(255,255,255,.08); text-decoration: none; }
 .shell-icon-btn:hover { background: rgba(255,255,255,.18); }
 .shell-icon-btn svg { width: 17px; height: 17px; }
+/* ia-value F2 — the "still loading" notice (lib/pageStates.js) used unstyled native buttons */
+.ps-slow { margin-top: 10px; font-size: 13px; color: var(--gray-600, #4A5565); }
+.ps-slow button { min-height: 32px; padding: 0 12px; margin: 4px 4px 0 0; border: 1px solid var(--color-border-strong, #C5C6C4); border-radius: 6px;
+  background: var(--color-surface, #fff); color: var(--color-text-strong, #2A2A2A); font: 500 13px/1 var(--font-sans, sans-serif); cursor: pointer; }
+.ps-slow button:hover { background: var(--gray-50, #F5F7FA); }
+/* visual F6 — the caret is the chevron SVG (14 px, .7) instead of a "▾" text glyph; a11y-fr F16 — a long trail wraps */
+.shell-nav-caret svg { width: 14px; height: 14px; display: block; }
+nav.shell-breadcrumb li { min-width: 0; overflow-wrap: anywhere; }

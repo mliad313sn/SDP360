@@ -357,6 +357,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 <div id="app">
   <!-- ═ Unified shell (rendered by _shell.js, refreshed by initApp() after login) ═ -->
   <div id="__shell" data-section="reports" data-current="site-reports" data-version="v1.10.8"></div>
+<main id="main" class="edv-main">
 
   <!-- ═ Page-bar: tab strip for Weekly / Monthly / Admin (sub-pages of Reports) ═ -->
   <div class="shell-page-bar">
@@ -366,7 +367,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
     <span class="shell-page-bar-spacer"></span>
     <nav class="shell-tabs">
       <button onclick="showPage('reports')" id="nav-reports" class="active"><i class="icon icon-file-text"></i>Weekly</button>
-      <button onclick="showPage('monthly')" id="nav-monthly">📅 Monthly</button>
+      <button onclick="showPage('monthly')" id="nav-monthly"><i class="icon icon-calendar"></i>Monthly</button>
       <!-- Admin tab moved to the unified shell's top nav (Admin link) — clicking
            it loads reports.html#admin and the hash router below opens the admin
            page automatically. Removed from this page-bar to avoid duplication. -->
@@ -374,7 +375,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
            code that queries it (.classList.add('active'), .style.display) keeps
            working without needing a defensive null-guard rewrite. -->
       <span id="nav-admin" style="display:none"></span>
-      <button id="btn-change-pwd" onclick="openChangePassword()" title="Change your password" style="margin-left:8px">🔑 Change Password</button>
+      <button id="btn-change-pwd" onclick="openChangePassword()" title="Change your password" style="margin-left:8px"><i class="icon icon-shield"></i>Change Password</button>
     </nav>
     <span id="user-name" style="display:none"></span>
     <span id="user-role-badge" style="display:none"></span>
@@ -383,7 +384,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
   <!-- ── CHANGE PASSWORD MODAL ──────────────────────────────────── -->
   <div id="chpwd-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:none;align-items:center;justify-content:center">
     <div style="background:#fff;border-radius:10px;padding:32px 36px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,.3)">
-      <h3 style="font-size:16px;font-weight:700;color:#0d2b4e;margin-bottom:6px">🔑 Change Password</h3>
+      <h3 style="font-size:16px;font-weight:700;color:#0d2b4e;margin-bottom:6px">Change Password</h3>
       <p style="font-size:12px;color:#9ca3af;margin-bottom:20px">Enter your current password and choose a new one.</p>
       <div id="chpwd-error" style="display:none;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:8px 12px;font-size:12px;color:#dc2626;margin-bottom:14px"></div>
       <div id="chpwd-success" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:8px 12px;font-size:12px;color:#16a34a;margin-bottom:14px"></div>
@@ -448,7 +449,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px" id="pptx-cards">
         <!-- ── Monthly Site Report ── -->
         <div class="card" style="margin-bottom:0;border-top:3px solid var(--orange)">
-          <h3 style="display:flex;align-items:center;gap:8px;margin-bottom:6px">📅 Monthly Site Report</h3>
+          <h3 style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><i class="icon icon-calendar"></i>Monthly Report</h3>
           <p style="font-size:0.82rem;color:#6b7a99;margin-bottom:14px">7-slide PPTX for one site. Edit lights / actions / objectives in the <strong>Monthly</strong> tab first, then export.</p>
           <div class="form-row cols-3" style="gap:10px;align-items:flex-end;margin-bottom:14px">
             <div class="form-group" style="margin-bottom:0">
@@ -3082,11 +3083,14 @@ function _assetReviewDone(ar) {
   return !!ar && (ar.applicable === false ||
     (String(ar.handled_note || '').trim() !== '' && String(ar.plan_note || '').trim() !== ''));
 }
+// a tab turns green only when its content is complete: every infra KPI row carries a typed value (an empty row is
+// "— Not measured", not done)
+function _infraComplete(rows) { return Array.isArray(rows) && rows.length > 0 && rows.every((k) => String((k && k.status_value) || '').trim() !== ''); }
 function _markSectionTabsFromData() {
   const r = currentReport || {};
   for (let i = 0; i < 5; i++) { const t = document.getElementById('stab-' + i); if (t) t.classList.remove('done'); }
   const mark = (i, on) => { const t = document.getElementById('stab-' + i); if (t && on) t.classList.add('done'); };
-  mark(0, (r.infra_kpis || []).length > 0);
+  mark(0, _infraComplete(r.infra_kpis));   // site coordinator P2: green only when every KPI row has a value
   mark(1, !!(r.helpdesk && (r.helpdesk.fetched_at || r.helpdesk.updated_at)));
   mark(2, (r.lights || []).length > 0);
   mark(3, (r.action_items || []).length > 0);
@@ -5165,7 +5169,7 @@ async function saveSection(n) {
       const kpis = collectInfra();
       await api('PUT', `/api/reports/${id}/infra`, kpis);
       currentReport.infra_kpis = kpis;
-      document.getElementById('stab-0').classList.add('done');
+      document.getElementById('stab-0').classList.toggle('done', _infraComplete(kpis));
     } else if (n === 1) {
       const hd = collectHelpdesk();
       await api('PUT', `/api/reports/${id}/helpdesk`, hd);
@@ -8934,5 +8938,6 @@ window.addEventListener('hashchange', _routeFromHash);
 <script nonce="%%CSP_NONCE%%" src="lib/modalA11y.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/tableFilter.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/reasonDialog.js"></script>
+</main>
 </body>
 </html>

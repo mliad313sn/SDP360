@@ -360,6 +360,7 @@
 <body>
 
 <div id="__shell" data-section="operations" data-current="meetings"></div>
+<main id="main" class="edv-main">
 
 <div class="md-wrap">
 
@@ -425,11 +426,11 @@
 
   <!-- Filters -->
   <section class="md-filters">
-    <select class="md-filter-select" id="mdSite"><option value="">All sites</option></select>
-    <select class="md-filter-select" id="mdDept"><option value="">All departments</option></select>
-    <select class="md-filter-select" id="mdStatus"><option value="">All statuses</option></select>
+    <select aria-label="Site" class="md-filter-select" id="mdSite"><option value="">All sites</option></select>
+    <select aria-label="Department" class="md-filter-select" id="mdDept"><option value="">All departments</option></select>
+    <select aria-label="Status" class="md-filter-select" id="mdStatus"><option value="">All statuses</option></select>
     <select class="md-filter-select" id="mdIntake"><option value="">All sources</option></select>
-    <input class="md-search" type="search" id="mdSearch" placeholder="Search reference / lead / dept-head / priority…" />
+    <input aria-label="Search" class="md-search" type="search" id="mdSearch" placeholder="Search reference / lead / dept-head / priority…" />
   </section>
 
   <!-- Meetings list -->
@@ -804,5 +805,6 @@
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/common.fr.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/meetings.fr.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/boot.js" data-dict="I18N_FR_MEETINGS"></script>
+</main>
 </body>
 </html>

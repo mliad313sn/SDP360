@@ -61,7 +61,7 @@ const AVOID = () => glossaryAvoid(read('docs/ux/GLOSSARY-FR.md'));
 // Hits found on 2026-11-06 — left for the francophone review (gate 17). The list may only shrink.
 const KNOWN_HITS = [
   'public/handoffs.html:46 Escalated → "remontée"',
-  'public/meetings-insights.html:433 Closed → "Fermés"',
+  'public/meetings-insights.html:434 Closed → "Fermés"',
 ];
 
 test('fixture: a variant inside a data-lng="fr" span is found with its line; English text and word fragments are not', () => {

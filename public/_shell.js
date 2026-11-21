@@ -75,6 +75,7 @@
     zap:              ICONS.html('zap'),
     search:           ICONS.html('search'),
     home:             ICONS.html('home'),
+    chevron:          ICONS.html('chevron-down-s'),
     bell:             ICONS.html('bell'),
     'help-circle':    ICONS.html('help-circle'),
     briefcase:        ICONS.html('briefcase'),
@@ -419,7 +420,7 @@
     'No page found': 'Aucune page trouvée', 'Language': 'Langue', 'Skip to content': 'Aller au contenu',
     'Work': 'Travail', 'Plan': 'Planifier', 'Insights': 'Analyses', 'Site work': 'Travail du site', 'Field': 'Terrain',
     'Service desk': 'Centre de services', 'Overview': 'Vue d’ensemble', 'Policies': 'Politiques', 'Integrations & data': 'Intégrations et données',
-    'Audit': 'Audit', 'Admin home': 'Accueil administration', 'Meetings & Decisions': 'Réunions et décisions', 'Finance certification': 'Certification finance',
+    'Audit': 'Audit', 'Open the menu': 'Ouvrir le menu', 'Admin home': 'Accueil administration', 'Meetings & Decisions': 'Réunions et décisions', 'Finance certification': 'Certification finance',
     'Connector health': 'Santé des connecteurs', 'Value scoreboard': 'Tableau de valeur', 'Account': 'Compte', 'My access': 'Mes accès',
     'Sign out': 'Se déconnecter', 'Help for this page': 'Aide pour cette page', 'Super admin': 'Super administrateur', 'Administrator': 'Administrateur',
     'Coordinator': 'Coordinateur', 'Viewer': 'Lecteur', 'Executive reader': 'Lecteur direction',
@@ -599,7 +600,7 @@
         <a href="${escapeHtml(href)}"${target} aria-label="${escapeHtml(item.label)}" style="display:contents;color:inherit;text-decoration:none">
           <span class="shell-nav-icon">${item.icon || ''}</span>
           <span class="shell-nav-label">${escapeHtml(item.label)}</span>
-        </a><span class="shell-nav-caret" role="button" tabindex="0" aria-expanded="false" aria-label="Toggle ${escapeHtml(item.label)} menu" title="Click to pin menu open">▾</span>
+        </a><span class="shell-nav-caret" role="button" tabindex="0" aria-expanded="false" aria-label="${escapeHtml(T('Open the menu'))} ${escapeHtml(item.label)}" title="${escapeHtml(T('Open the menu'))} ${escapeHtml(item.label)}">${ICON_LIB.chevron || '▾'}</span>
         <div class="shell-dropdown">${kids}</div>
       </div>`;
     }
@@ -887,6 +888,13 @@
     if (!target) {
       target = mount.nextElementSibling;
       while (target && /^(SCRIPT|STYLE|TEMPLATE|LINK|NOSCRIPT)$/.test(target.tagName)) target = target.nextElementSibling;
+    }
+    // a legacy page body wrapped in <main class="edv-main"> (display:contents, no box of its own): land on its first
+    // real element so the focus and the scroll still move
+    if (target && target.classList && target.classList.contains('edv-main')) {
+      let first = target.firstElementChild;
+      while (first && /^(SCRIPT|STYLE|TEMPLATE|LINK|NOSCRIPT)$/.test(first.tagName)) first = first.nextElementSibling;
+      if (first) { target = first; if (!target.id) target.id = 'main-content'; }
     }
     if (!target) return;
     if (!target.id) target.id = 'main';

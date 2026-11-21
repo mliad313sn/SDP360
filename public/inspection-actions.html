@@ -145,6 +145,7 @@
 <body>
 
 <div id="__shell" data-section="operations" data-current="inspections"></div>
+<main id="main" class="edv-main">
 
 <div id="__moduletabs" data-module="inspections" data-current="actions"></div>
 
@@ -200,8 +201,8 @@
   </section>
 
   <section class="mi-filters">
-    <select class="mi-select" id="miSite"><option value="">All sites</option></select>
-    <select class="mi-select" id="miStatus">
+    <select aria-label="Site" class="mi-select" id="miSite"><option value="">All sites</option></select>
+    <select aria-label="Status" class="mi-select" id="miStatus">
       <option value="">All statuses</option>
       <option value="Open">Open</option>
       <option value="In Progress">In Progress</option>
@@ -209,7 +210,7 @@
       <option value="Closed">Closed</option>
       <option value="Cancelled">Cancelled</option>
     </select>
-    <select class="mi-select" id="miPrio">
+    <select aria-label="Priority" class="mi-select" id="miPrio">
       <option value="">All priorities</option>
       <option value="Critical">Critical</option>
       <option value="High">High</option>
@@ -217,7 +218,7 @@
       <option value="Low">Low</option>
     </select>
     <label class="mi-chk"><input type="checkbox" id="miOverdue"> Overdue only</label>
-    <input class="mi-search" type="search" id="miQ" placeholder="Search description / owner / item…">
+    <input aria-label="Search" class="mi-search" type="search" id="miQ" placeholder="Search description / owner / item…">
   </section>
 
   <section class="mi-table-card">
@@ -424,7 +425,7 @@
       return `<span class="mi-pill" style="background:${tint(col,0.12)};color:${col};border-color:${tint(col,0.3)}">${esc(r.status)}</span>`;
     }
     const opts = STATUSES.map(s => `<option value="${esc(s)}"${s === r.status ? ' selected' : ''}>${esc(s)}</option>`).join('');
-    return `<select class="mi-status-sel" data-act="${esc(r.id)}" style="color:${col}">${opts}</select>`;
+    return `<select aria-label="Status" class="mi-status-sel" data-act="${esc(r.id)}" style="color:${col}">${opts}</select>`;
   }
 
   // E-I06 — independent verification (only when the server says verify_enabled; otherwise nothing changes)
@@ -762,5 +763,6 @@
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/common.fr.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/inspection-actions.fr.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/boot.js" data-dict="I18N_FR_INSPECTION_ACTIONS"></script>
+</main>
 </body>
 </html>

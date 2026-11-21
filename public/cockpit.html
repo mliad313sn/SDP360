@@ -35,6 +35,13 @@
   .tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:14px; } .tile { background:var(--color-surface); border:1px solid var(--gray-200); border-radius:var(--radius-lg); box-shadow:var(--shadow-card); padding:12px 14px; } .tile .tn { font-size:22px; font-weight:700; color:var(--edv-slate); } .tile .tl { font-size:12px; color:var(--gray-500); }
   .lang { float:right; } .lang button[aria-pressed="true"] { background:var(--gray-800); color:#fff; } .draft { color:#8a5a00; font-size:12px; }
   .live { position:fixed; inset:0; background:var(--color-surface); z-index:2000; overflow:auto; padding:24px; } .live .item { border:1px solid var(--gray-200); border-radius:12px; padding:12px 14px; margin-bottom:10px; } .live .item.active { border-color:var(--edv-slate); box-shadow:0 0 0 2px #3A4A6033; } .clock { font-variant-numeric:tabular-nums; font-size:18px; font-weight:700; color:var(--edv-slate); } .kpi { display:inline-block; min-width:140px; margin:4px 8px 4px 0; padding:6px 10px; border:1px solid var(--gray-200); border-radius:10px; }
+
+  /* a11y-fr F16 — reflow at 320 px: grid children may shrink, the cadence table scrolls inside its panel, KPI tiles 2-up */
+  .panel, .row > *, .grid2 > * { min-width: 0; }
+  .row { grid-template-columns: repeat(auto-fit, minmax(min(160px, 100%), 1fr)); }
+  .grid2 { grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); }
+  #cadences, #cadForm { overflow-x: auto; }
+  @media (max-width: 480px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .wrap { padding: 16px; } }
 </style>
 </head>
 <body>

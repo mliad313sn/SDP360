@@ -432,6 +432,7 @@
 <body>
 
 <div id="__shell" data-section="operations" data-current="meetings"></div>
+<main id="main" class="edv-main">
 
 <div id="__moduletabs" data-module="meetings" data-current=""></div>
 
@@ -932,15 +933,15 @@
         </div>
         <div class="pv-row pv-row--single">
           <div class="pv-field"><label>Project name <em>· Nom du projet</em></label>
-            <input type="text" data-k="project_name" value="${esc(p.project_name || '')}"></div>
+            <input aria-label="Title" type="text" data-k="project_name" value="${esc(p.project_name || '')}"></div>
         </div>
         <div class="pv-row pv-row--three">
           <div class="pv-field"><label>Phase</label>
-            <select data-k="phase"><option value="">—</option>${optPhase}</select></div>
+            <select aria-label="Phase" data-k="phase"><option value="">—</option>${optPhase}</select></div>
           <div class="pv-field"><label>IT involvement</label>
-            <select data-k="it_involvement"><option value="">—</option>${optInv}</select></div>
+            <select aria-label="IT involvement" data-k="it_involvement"><option value="">—</option>${optInv}</select></div>
           <div class="pv-field"><label>Project status <em>· Statut projet</em></label>
-            <select data-k="status">
+            <select aria-label="Status" data-k="status">
               <option value="">—</option>
               <option value="on_track"${p.status === 'on_track' ? ' selected' : ''}>On track · Sur la trajectoire</option>
               <option value="at_risk"${p.status === 'at_risk' ? ' selected' : ''}>At risk · À risque</option>
@@ -954,11 +955,11 @@
           <div class="pv-field"><label>Business sponsor</label>
             <input type="text" data-k="business_sponsor" list="pvPeopleList" value="${esc(p.business_sponsor || '')}"></div>
           <div class="pv-field"><label>Target end <em>· Date cible fin</em></label>
-            <input type="date" data-k="target_end" value="${esc(p.target_end || '')}"></div>
+            <input aria-label="Target date" type="date" data-k="target_end" value="${esc(p.target_end || '')}"></div>
         </div>
         <div class="pv-row pv-row--single">
           <div class="pv-field"><label>Notes</label>
-            <textarea data-k="notes">${esc(p.notes || '')}</textarea></div>
+            <textarea aria-label="Notes" data-k="notes">${esc(p.notes || '')}</textarea></div>
         </div>
       </div>`;
   }
@@ -994,17 +995,17 @@
         </div>
         <div class="pv-row pv-row--single">
           <div class="pv-field"><label>Title <em>· Intitulé</em><span class="req">*</span></label>
-            <input type="text" data-k="title" value="${esc(iss.title || '')}" placeholder="Short headline of the issue"></div>
+            <input aria-label="Title" type="text" data-k="title" value="${esc(iss.title || '')}" placeholder="Short headline of the issue"></div>
         </div>
         <div class="pv-row pv-row--single">
           <div class="pv-field"><label>Description</label>
-            <textarea data-k="description">${esc(iss.description || '')}</textarea></div>
+            <textarea aria-label="Description" data-k="description">${esc(iss.description || '')}</textarea></div>
         </div>
         <div class="pv-row pv-row--four">
           <div class="pv-field"><label>Category <em>· Catégorie</em><span class="req">*</span></label>
-            <select data-k="category"><option value="">— pick —</option>${optCat}</select></div>
+            <select aria-label="Category" data-k="category"><option value="">— pick —</option>${optCat}</select></div>
           <div class="pv-field"><label>Severity <em>· Gravité</em></label>
-            <select data-k="severity">${optSev}</select></div>
+            <select aria-label="Severity" data-k="severity">${optSev}</select></div>
           <div class="pv-field"><label>Status</label>
             <select data-k="status" data-prev="${esc(iss.status || 'open')}">${optSt}</select>${transferNote(iss)}</div>
           <div class="pv-field"><label>Target date <em>· Date cible</em></label>
@@ -1012,7 +1013,7 @@
         </div>
         <div class="pv-row">
           <div class="pv-field"><label>Champion <em>· Responsable IT</em><span class="req">*</span></label>
-            <input type="text" data-k="champion" list="pvPeopleList" value="${esc(iss.champion || '')}" placeholder="Named, reachable owner"></div>
+            <input aria-label="Champion" type="text" data-k="champion" list="pvPeopleList" value="${esc(iss.champion || '')}" placeholder="Named, reachable owner"></div>
           <div class="pv-field"><label>Champion email <em>· optional</em></label>
             <input type="email" data-k="champion_email" value="${esc(iss.champion_email || '')}"></div>
         </div>
@@ -1038,7 +1039,7 @@
 
         <div class="pv-row pv-row--single">
           <div class="pv-field"><label>Notes</label>
-            <textarea data-k="notes">${esc(iss.notes || '')}</textarea></div>
+            <textarea aria-label="Notes" data-k="notes">${esc(iss.notes || '')}</textarea></div>
         </div>
 
         ${iss.id ? `
@@ -1078,11 +1079,11 @@
         </div>
         <div class="pv-row pv-row--single">
           <div class="pv-field"><label>Description <em>· Action</em><span class="req">*</span></label>
-            <textarea data-k="description">${esc(a.description || '')}</textarea></div>
+            <textarea aria-label="Description" data-k="description">${esc(a.description || '')}</textarea></div>
         </div>
         <div class="pv-row pv-row--four">
           <div class="pv-field"><label>Champion (IT owner) <em>· Responsable</em><span class="req">*</span></label>
-            <input type="text" data-k="owner_it" list="pvPeopleList" value="${esc(a.owner_it || '')}"></div>
+            <input aria-label="Owner" type="text" data-k="owner_it" list="pvPeopleList" value="${esc(a.owner_it || '')}"></div>
           <div class="pv-field"><label>Owner email</label>
             <input type="email" data-k="owner_email" value="${esc(a.owner_email || '')}"></div>
           <div class="pv-field"><label>Target date <em>· Échéance</em></label>
@@ -1092,7 +1093,7 @@
         </div>
         <div class="pv-row pv-row--single">
           <div class="pv-field"><label>Linked issue <em>· Problème lié</em></label>
-            <select data-k="linked_issue_ord"><option value="">— none —</option>${issueOpts}</select></div>
+            <select aria-label="Linked issue" data-k="linked_issue_ord"><option value="">— none —</option>${issueOpts}</select></div>
         </div>
       </div>`;
   }
@@ -1363,7 +1364,7 @@
   const PV_SERVER_ERR = { 'Missing state.header.department': { en: 'The department is required.', fr: 'Le département est obligatoire.' } };
   const _pvHuman = (m) => (PV_SERVER_ERR[m] ? PV_SERVER_ERR[m][_pvFr() ? 'fr' : 'en'] : m);
   async function save(opts = {}) {
-    if (!validateHeader()) return false;
+    if (typeof validateHeader === 'function' && !validateHeader()) return false;
     const btn = document.getElementById('pvSaveBtn');
     btn.disabled = true;
     try {
@@ -1392,7 +1393,7 @@
         showConflictBanner(payload.state);
         return false;
       }
-      if (!r.ok) throw new Error(_pvHuman(j.error) || ('HTTP ' + r.status));
+      if (!r.ok) throw new Error((typeof _pvHuman === 'function' ? _pvHuman(j.error) : j.error) || ('HTTP ' + r.status));
 
       // First save → land on the new id
       if (!state.id && j.id) {
@@ -1721,5 +1722,6 @@
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/common.fr.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/meeting.fr.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/boot.js" data-dict="I18N_FR_MEETING"></script>
+</main>
 </body>
 </html>
