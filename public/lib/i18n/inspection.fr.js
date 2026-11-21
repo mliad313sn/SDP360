@@ -55,7 +55,7 @@
     'Sign with finger or mouse / Signer au doigt ou à la souris': 'Signer au doigt ou à la souris',
     'Site Acknowledgement / Validation Site': 'Validation site', 'Distribution / Diffusion': 'Diffusion',
     'Submit Inspection ·': '', 'Soumettre': 'Soumettre',
-    'Auto-save has been syncing your work the whole time. Tap': 'L’enregistrement automatique synchronise votre travail en continu. Touchez',
+    'Your work is saved on this device as you type; it is sent to the server by': 'Votre saisie est enregistrée sur cet appareil au fil de la frappe ; elle est envoyée au serveur par', 'and by Submit. Tap': 'et par Soumettre. Touchez',
     'when this inspection is complete and ready for review — the record is then marked': 'quand l’inspection est terminée et prête à être revue — elle est alors marquée',
     'submitted': 'soumise', ', locked from further edits by editors, and visible to reviewers on the dashboard.': ', verrouillée pour les éditeurs et visible des relecteurs sur le tableau de bord.',
     '✓ Submit Inspection · Soumettre': '✓ Soumettre l’inspection', '↻ Re-open for edits': '↻ Rouvrir pour modification',

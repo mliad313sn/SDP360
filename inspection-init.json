@@ -70,8 +70,8 @@
   },
   "categories": [
     { "id": "env", "name_en": "Environment", "name_fr": "Environnement", "icon": "thermometer", "items": [
-      { "l": "Temperature within range (18-24°C)", "fr": "Température dans la plage" },
-      { "l": "Relative humidity within range (40-60%)", "fr": "Humidité relative dans la plage" },
+      { "l": "Temperature within range (18-24°C)", "fr": "Température dans la plage (18–24 °C)" },
+      { "l": "Relative humidity within range (40-60%)", "fr": "Humidité relative dans la plage (40–60 %)" },
       { "l": "HVAC / cooling units operational", "fr": "Climatisation opérationnelle" },
       { "l": "HVAC redundancy (N+1)", "fr": "Redondance climatisation (N+1)" },
       { "l": "Temperature/humidity monitoring & alarms", "fr": "Surveillance & alarmes T°/HR" },

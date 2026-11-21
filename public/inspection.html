@@ -1433,8 +1433,8 @@ body.submission-locked .submit-row::before{
     </div>
     <div class="section-body">
       <p style="font-size:13px;color:var(--ink-2);margin:0 0 14px">
-        Auto-save has been syncing your work the whole time. Tap <strong>Submit</strong> when this inspection is complete and ready for review — the record is then marked <em>submitted</em>, locked from further edits by editors, and visible to reviewers on the dashboard.<br>
-        <span style="color:var(--ink-3);font-size:12px">L'auto-sauvegarde envoie déjà chaque modification. Le bouton ci-dessous marque l'inspection comme terminée et prête à être revue.</span>
+        Your work is saved on this device as you type; it is sent to the server by <strong>Save now</strong> and by Submit. Tap <strong>Submit</strong> when this inspection is complete and ready for review — the record is then marked <em>submitted</em>, locked from further edits by editors, and visible to reviewers on the dashboard.<br>
+        <span style="color:var(--ink-3);font-size:12px">Votre saisie est enregistrée sur cet appareil ; « Enregistrer maintenant » ou « Soumettre » l'envoie au serveur. Le bouton ci-dessous marque l'inspection comme terminée et prête à être revue.</span>
       </p>
       <div class="submit-row">
         <button type="button" class="btn-submit" id="submitBtn" onclick="submitInspection()">
@@ -1516,8 +1516,8 @@ body.submission-locked .submit-row::before{
    ============================================================ */
 const CATEGORIES = [
   { id:'env', name:'Environment', fr:'Environnement', icon:'🌡', items:[
-    { l:'Temperature within range (18-24°C)', fr:'Température dans la plage' },
-    { l:'Relative humidity within range (40-60%)', fr:'Humidité relative dans la plage' },
+    { l:'Temperature within range (18-24°C)', fr:'Température dans la plage (18–24 °C)' },
+    { l:'Relative humidity within range (40-60%)', fr:'Humidité relative dans la plage (40–60 %)' },
     { l:'HVAC / cooling units operational', fr:'Climatisation opérationnelle' },
     { l:'HVAC redundancy (N+1)', fr:'Redondance climatisation (N+1)' },
     { l:'Temperature/humidity monitoring & alarms', fr:'Surveillance & alarmes T°/HR' },

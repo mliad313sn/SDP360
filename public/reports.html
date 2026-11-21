@@ -289,6 +289,9 @@ body.rl-has-lead #btn-open-create{background:var(--light-bg);color:var(--dark-bl
 .admin-rail-toggle{display:none;align-items:center;gap:6px;min-height:44px;padding:0 14px;border:1px solid var(--color-border-strong);border-radius:8px;background:var(--color-surface);color:var(--color-text-strong);font:inherit;font-size:0.9rem;cursor:pointer}
 .admin-rail-toggle .icon{margin-left:auto;width:16px;height:16px}
 .fe-badge{text-decoration:none;margin-left:4px}
+#page-admin .form-group:has(> input[type="checkbox"]){display:flex;flex-direction:row-reverse;justify-content:flex-end;align-items:flex-start;gap:8px;grid-column:1/-1}
+#page-admin .form-group:has(> input[type="checkbox"]) > input[type="checkbox"]{flex:none;width:auto;margin:3px 0 0}
+#page-admin .form-group:has(> input[type="checkbox"]) > label{margin:0}
 .fe-badge:hover{text-decoration:underline}
 .admin-rail{flex:0 0 210px;position:sticky;top:16px;display:flex;flex-direction:column;gap:4px;
   background:#fff;border:1px solid var(--border);border-radius:10px;padding:8px}

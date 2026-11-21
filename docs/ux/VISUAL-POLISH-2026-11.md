@@ -192,3 +192,22 @@ used while working (not committed): `/tmp/claude-0/polish3/ut.sh <test files>` a
 | Milestone dates, register numbers | done-3 — the milestone date in the portfolio list goes through the page formatter; register FTE, budget and counts through `SDPFormat.number` (one line per currency, never a sum; unknown stays "—") |
 | Mobile check (register / decisions / capacity) | done-3 — captured at 390 px with their switches on: the register's analysis cards widened the page (592 px) → cards scroll inside themselves, grid `minmax(min(380px,100%),1fr)`; `project.html` overview list (415 px) fixed the same way; decisions and capacity had no overflow |
 | "(help §25)" | none left on portfolio / project (only the mapping note inside the manual) |
+
+### Other findings closed on this branch
+
+| Item | State |
+|---|---|
+| a11y-fr F23 | done-3 — the French checklist lines keep the thresholds (« 18–24 °C », « 40–60 % »), in both copies (seed JSON + the page's inline list) |
+| a11y-fr F24 | done-3 — one true sentence about saving on the inspection form (kept on the device as you type; Save now / Submit send it), EN and FR |
+| a11y-fr F25 | done-3 — a page's own skip link takes the shell's wording and language |
+| a11y-fr F1 | human decision, untouched — the default of `ui_i18n_pages` |
+| Visual F23 / admin P3-2 (US date inputs) | not fixable in the page — a native date input follows the browser's locale, not the document's; replacing it with a custom picker would lose the native keyboard and screen-reader behaviour |
+| Admin P2-3 | done-3 — a checkbox and its label stay on one line across the admin form grid |
+| Admin P3-2 | done-3 — the unfinished "Events & reconciliation (v2)" tab is no longer shown; Prev/Next were already disabled at the bounds |
+| Admin P3-1 | done-3 — through `lib/chartNoData.js` on System Logs (whole ticks on count axes, short trends say so) |
+| Coordinator P2-16 | done-3 — Site Actions: the "Age" column is "Late" (days past the due date, red; the age since opening in the tooltip) |
+| Coordinator P3-18 | done-3 — login says "Sign in to continue." (not "Welcome back"); a wrong password reads as a sentence, in the page language |
+| Coordinator P1-7 / visual F18 (French literals in the report editor: "5. Parc informatique", "— inconnu") | not done — tab 5 was authored in French on a user decision (2026-09-18) and is pinned as such by `tests/reports-editor-asset-tab.test.js`; translating it is a content decision that goes with `ui_i18n_pages` |
+| Coordinator P2-15 (PV editor as compact expandable rows), P3-21 (bottom tab bar on a phone), ia-value F10 (drawer menu) | not done — each replaces a working layout with a new interaction model; they need a design decision and field testing, not a polish pass. Nothing blocks them |
+| Visual F9 / F17 / F19 / F20 (type scale, page widths, elevation, radii) | partial — the tokens exist and every component added here uses them; the older pages keep their own values where no shared component replaced them |
+| Admin P3-6 (manual out of date), P3-7 (dormant connectors folded) | not done here — the manual was rewritten on 2026-11-21 (trunk); folding Meridian away is a product choice |

@@ -887,7 +887,8 @@
     if (typeof document === 'undefined' || !document.body || typeof document.createElement !== 'function') return;
     const mine = document.querySelector('.shell-skip');
     if (mine) { mine.textContent = T('Skip to content'); return; }
-    if (document.querySelector('.edv-skip')) return;
+    const own = document.querySelector('.edv-skip');
+    if (own) { own.textContent = T('Skip to content'); return; }   // a11y-fr F25: same words (and language) as the shell's own link
     let target = document.getElementById('main') || document.querySelector('main');
     if (!target) {
       target = mount.nextElementSibling;

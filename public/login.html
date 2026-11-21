@@ -167,7 +167,7 @@
     <div class="logo-badge" role="img" aria-label="Endeavour Mining"></div>
     <h1>Endeavour Mining</h1>
     <span class="wordmark">IT Operations Dashboard</span>
-    <p data-en="Welcome back. Sign in to continue." data-fr="Bon retour. Connectez-vous pour continuer.">Welcome back. Sign in to continue.</p>
+    <p data-en="Sign in to continue." data-fr="Connectez-vous pour continuer.">Sign in to continue.</p>
   </div>
 
   <div class="error" id="err"></div>
@@ -269,7 +269,7 @@
         res = await post({ reason });
         data = await res.json();
       }
-      if (!res.ok) throw new Error(data.error || 'Invalid credentials');
+      if (!res.ok) throw new Error(data.error === 'Invalid credentials' || !data.error ? (document.documentElement.lang === 'fr' ? 'Nom d’utilisateur ou mot de passe incorrect.' : 'The username or the password is not correct.') : data.error);
 
       // Store the profile only — the session cookie was set by the server (E5)
       localStorage.setItem('report_user', JSON.stringify(data.user));
