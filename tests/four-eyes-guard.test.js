@@ -33,6 +33,8 @@ const TOOLS_KNOWN = [
   'tools/meraki/check-timeup-calibration.js',
   'tools/meraki/poll-wan-outages.js',
   'tools/ops/activate-switches.js',
+  // AI final-test profile: test/throwaway databases only (name pattern + explicit flag), never a four-eyes key
+  'tools/release/final-test-profile.js',
   'tools/reports/set-ui-policy.js',
   'tools/teams/poll-sla.js',
 ];
