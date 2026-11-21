@@ -46,7 +46,11 @@ const PPM = ['010_roadmap', '011_roadmap_project', '039_native_ppm', '043_portfo
   // P11 r6 — TRUNCATE refusal on the audit chain anchors (additive trigger; proved the same way)
   '132_audit_chain_anchor_truncate',
   // N-R6-2 (P11 round 6) — the frozen fields a change request names
-  '133_ppm_cr_scope_fields'];
+  '133_ppm_cr_scope_fields',
+  // P11 r7 O-8 / R7-A2 — anchor key identifier + audit chain meta (ledger schema, signed anchors written)
+  '137_audit_chain_anchor_kid',
+  // P11 r7 R7-A1 — operator token binding (HMAC keyed outside the database)
+  '138_operator_token_binding'];
 
 async function snapshot(pg) {
   const q = async (sql) => (await pg.prepare(sql).all()).map((r) => Object.values(r).join('|'));

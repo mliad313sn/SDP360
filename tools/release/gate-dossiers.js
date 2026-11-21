@@ -78,6 +78,71 @@ function allCitedScripts(source) {
   return [...set].sort();
 }
 
+// P11 r7 (R6-A3 residual) — the LOCAL require() / import closure of each cited script: a change in a module the
+// script loads (services/auditChain.js for tools/pg/restore-rehearsal.js) changes what the command proves, so it marks
+// the dossiers stale too. Static and conservative: string-literal relative requires, `<x>.join(__dirname|<ROOT>, '…')`
+// requires, relative ES imports; node_modules and anything outside the repository are ignored, an unresolvable path is
+// skipped (optional requires).
+const _EXT = ['', '.js', '.json', '.mjs', '.cjs', '/index.js'];
+function _resolveLocal(root, base) {
+  for (const e of _EXT) {
+    const f = base + e;
+    const rel = path.relative(root, f);
+    if (rel.startsWith('..') || path.isAbsolute(rel) || rel.split(path.sep).includes('node_modules')) return null;
+    try { if (fs.statSync(f).isFile()) return rel.split(path.sep).join('/'); } catch (_) { /* next */ }
+  }
+  return null;
+}
+function _literalSegs(list) { const out = []; const re = /['"]([^'"]+)['"]/g; let m; while ((m = re.exec(list))) out.push(m[1]); return out; }
+function _directDeps(root, rel) {
+  const abs = path.join(root, rel);
+  let src = ''; try { src = fs.readFileSync(abs, 'utf8'); } catch (_) { return []; }
+  if (!/\.(m|c)?js$/.test(rel)) return [];
+  const dir = path.dirname(abs);
+  const specs = [];
+  let m;
+  const reRel = /(?:require|import)\(\s*['"](\.{1,2}\/[^'"]+)['"]\s*\)|from\s+['"](\.{1,2}\/[^'"]+)['"]/g;
+  while ((m = reRel.exec(src))) specs.push(path.resolve(dir, m[1] || m[2]));
+  // identifiers bound to a directory: const ROOT = path.join(__dirname, '..', '..')
+  const dirs = { __dirname: dir };
+  // eslint-disable-next-line security/detect-unsafe-regex -- reviewed (fix 33): input = one repository source file, groups anchored by literal punctuation, linear
+  const reDir = /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*[A-Za-z_$][\w$]*\.(?:join|resolve)\(\s*__dirname\s*((?:,\s*['"][^'"]*['"]\s*)*)\)/g;
+  while ((m = reDir.exec(src))) dirs[m[1]] = path.resolve(dir, ..._literalSegs(m[2]));
+  // eslint-disable-next-line security/detect-unsafe-regex -- reviewed (fix 33): same shape as reDir, repository source only
+  const reJoin = /require\(\s*[A-Za-z_$][\w$]*\.(?:join|resolve)\(\s*([A-Za-z_$][\w$]*)\s*((?:,\s*['"][^'"]*['"]\s*)+)\)\s*\)/g;
+  while ((m = reJoin.exec(src))) if (dirs[m[1]]) specs.push(path.resolve(dirs[m[1]], ..._literalSegs(m[2])));
+  const out = [];
+  for (const a of specs) { const r = _resolveLocal(root, a); if (r && r !== rel) out.push(r); }
+  return out;
+}
+/** Every repository file `rel` loads, transitively (rel itself excluded). */
+function scriptDependencies(root, rel) {
+  const seen = new Set([rel]); const queue = [rel]; const out = [];
+  while (queue.length) {
+    const cur = queue.shift();
+    for (const d of _directDeps(root, cur)) if (!seen.has(d)) { seen.add(d); out.push(d); queue.push(d); }
+  }
+  return out.sort();
+}
+/** dependency path → { sha256 } for the closure of `scripts` (the scripts themselves are hashed separately). */
+function dependencyHashes(root, scripts) {
+  const cited = new Set(scripts); const all = new Set();
+  for (const p of scripts) for (const d of scriptDependencies(root, p)) if (!cited.has(d)) all.add(d);
+  const out = {};
+  for (const p of [...all].sort()) out[p] = { sha256: sha256(readRel(root, p)) };
+  return out;
+}
+/** Reasons the recorded dependency closure no longer matches the tree. */
+function staleScriptDeps(c, manifest) {
+  const reasons = []; const rec = manifest.script_deps || {};
+  for (const [p, r] of Object.entries(c.scriptDeps || {})) {
+    if (!rec[p]) reasons.push(`a module a cited command loads is not recorded in the manifest: ${p}`);
+    else if (rec[p].sha256 !== r.sha256) reasons.push(`a module a cited command loads changed after the dossier was generated: ${p}`);
+  }
+  for (const p of Object.keys(rec)) if (!(c.scriptDeps || {})[p]) reasons.push(`a module a cited command loaded is gone or no longer loaded: ${p}`);
+  return reasons;
+}
+
 function allCitedPaths(source) {
   const set = new Set();
   for (const g of source.gates) for (const e of g.evidence) set.add(e.path);
@@ -112,6 +177,7 @@ function collect(root, { withGit = true } = {}) {
   }
   return {
     scripts,
+    scriptDeps: dependencyHashes(root, Object.keys(scripts)),
     missingScripts,
     source,
     rows: parseGateRows(gatesMd),
@@ -281,6 +347,7 @@ function buildManifest(c, targetSha, generated) {
     rows: c.rows.map((r) => ({ gate: r.gate, scope: r.scope, decision: r.decision })),
     evidence: c.evidence,
     scripts: c.scripts,
+    script_deps: c.scriptDeps,
     awaited: c.awaited,
   };
 }
@@ -306,6 +373,7 @@ function checkStale(root = ROOT) {
     if (!m) reasons.push(`cited command script not recorded in the manifest: ${p}`);
     else if (m.sha256 !== rec.sha256) reasons.push(`a script a cited command runs changed after the dossier was generated: ${p}`);
   }
+  for (const r of staleScriptDeps(c, manifest)) reasons.push(r);
   for (const [glob, list] of Object.entries(c.awaited)) {
     const before = (manifest.awaited || {})[glob] || [];
     if (JSON.stringify(before) !== JSON.stringify(list)) reasons.push(`awaited evidence changed (${glob}): recorded [${before.join(', ')}], now [${list.join(', ')}]`);
@@ -342,7 +410,7 @@ function generate(root = ROOT, { sha } = {}) {
   return { count: Object.keys(files).length - 1, targetSha };
 }
 
-module.exports = { scriptsInCommand, allCitedScripts, parseGateRows, resolveGlob, collect, validate, dependencyOrder, pilotPath, renderAll, renderDossier, checkStale, generate, sha256, OUT_DIR, MANIFEST, GATES_MD, SOURCE };
+module.exports = { scriptsInCommand, allCitedScripts, scriptDependencies, dependencyHashes, staleScriptDeps, parseGateRows, resolveGlob, collect, validate, dependencyOrder, pilotPath, renderAll, renderDossier, checkStale, generate, sha256, OUT_DIR, MANIFEST, GATES_MD, SOURCE };
 
 if (require.main === module) {
   const args = process.argv.slice(2);

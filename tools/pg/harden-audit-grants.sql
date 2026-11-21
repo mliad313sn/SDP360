@@ -97,10 +97,20 @@ DO $$ DECLARE app TEXT := current_setting('sdp.app_role');
 BEGIN
   IF to_regclass('audit_chain_anchors') IS NOT NULL THEN
     ALTER TABLE audit_chain_anchors ADD COLUMN IF NOT EXISTS sig TEXT;   -- R6-A2: HMAC signature (migration 135)
+    ALTER TABLE audit_chain_anchors ADD COLUMN IF NOT EXISTS kid TEXT;   -- R7 O-8: key identifier (migration 137)
     ALTER TABLE audit_chain_anchors OWNER TO sdp_audit_owner;
     EXECUTE format('REVOKE ALL ON audit_chain_anchors FROM %I', app);
     EXECUTE format('GRANT SELECT, INSERT ON audit_chain_anchors TO %I', app);
     EXECUTE format('GRANT USAGE ON SEQUENCE %s TO %I', pg_get_serial_sequence('audit_chain_anchors', 'id'), app);
+  END IF;
+END $$;
+-- R7-A2: the audit chain meta table (ledger schema at migration time, 'signed anchors written') — append + read only
+DO $$ DECLARE app TEXT := current_setting('sdp.app_role');
+BEGIN
+  IF to_regclass('audit_chain_meta') IS NOT NULL THEN
+    ALTER TABLE audit_chain_meta OWNER TO sdp_audit_owner;
+    EXECUTE format('REVOKE ALL ON audit_chain_meta FROM %I', app);
+    EXECUTE format('GRANT SELECT, INSERT ON audit_chain_meta TO %I', app);
   END IF;
 END $$;
 -- R5-A3: no new schema (database handed over), no other schema to plant a copy in, search_path pinned to the ledgers

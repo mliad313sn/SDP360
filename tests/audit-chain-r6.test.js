@@ -80,9 +80,10 @@ test('R6-A2 (c): signed anchors — an app-role INSERT (unsigned or wrong signat
   await db.prepare('INSERT INTO audit_chain_anchors (table_name, schema_name, last_id, head, row_count, sig) VALUES (\'minutes_history\', ?, NULL, NULL, 999, ?)').run(real, 'f'.repeat(64));
   r = await AC.verify(db, { key });
   assert.equal(r.ok, false); assert.match(mh(r).anchor_error, /forged or altered/);
-  // without the key the same anchors are only advisory (said, not hidden)
+  // without the key, signed anchors cannot be checked: unverifiable, never ok (P11 r7 F-32 — was "advisory" and ok)
   const adv = await AC.verify(db, { key: null });
-  assert.match(adv.anchor_integrity, /advisory/);
+  assert.match(adv.anchor_integrity, /unverifiable \(signed anchors present, no SDP_CONFIG_KEY\)/);
+  assert.equal(adv.ok, false);
 });
 
 test('R6-A2 (c): replaying an OLDER signed anchor row cannot lower the baseline', async () => {

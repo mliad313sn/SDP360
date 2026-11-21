@@ -10,7 +10,7 @@
 | Case de décision dans RELEASE-GATES.md | vide — cette porte est **NO-GO** tant que l'approbateur ne l'a pas remplie. Ce dossier ne remplit rien. |
 | Ce que cette porte bloque | bloque le pilote sur deux sites (instance de TEST) |
 | À décider après | [G03](G03-cab-dependencies-postgres-only.md) CAB : mise à jour des dépendances et passage à PostgreSQL seul |
-| SHA cible | `8d5db88a` |
+| SHA cible | `4320dbd6` |
 | Généré | 2026-11-21 |
 
 ## 1. La question à trancher
@@ -22,7 +22,7 @@ Quelle perte de données (RPO) et quel délai de restauration (RTO) acceptez-vou
 | Preuve | Ce qu'elle montre | Régénérer / rejouer | Dernière modification (commit, date) | Empreinte |
 |---|---|---|---|---|
 | `docs/ops/restore-drills/2026-10-21.md` | Exercice de restauration : comptes de lignes égaux sur la copie restaurée (base synthétique) | `node tools/pg/restore-drill.js` | de418131, 2026-10-21 | `c6515dbb34f803de` |
-| `tools/pg/restore-drill.js` | Outil d'exercice | `node tools/pg/restore-drill.js` | e57c1880, 2026-11-20 | `9fc5dc46e813c65b` |
+| `tools/pg/restore-drill.js` | Outil d'exercice | `node tools/pg/restore-drill.js` | 4320dbd6, 2026-11-21 | `31d127e280a4f2b0` |
 | `tests/restore-drill.test.js` | Comportement de l'outil d'exercice | `node --test --test-force-exit tests/restore-drill.test.js` | f001ec01, 2026-11-12 | `5df8903f7cc56426` |
 | `tests/backup-encrypt.test.js` | Comportement de la sauvegarde chiffrée | `node --test --test-force-exit tests/backup-encrypt.test.js` | e57c1880, 2026-11-20 | `cde8b83169659eb4` |
 | `tests/blob-backup.test.js` | Stock de fichiers (photos, signatures, téléversements, documents) archivé avec le dump et vérifié par l'exercice (nombre + SHA-256) | `node --test --test-force-exit tests/blob-backup.test.js` | 277386f1, 2026-11-20 | `28e0285a89518d4c` |

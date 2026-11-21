@@ -14,8 +14,8 @@
   "routes_in_server_js": 160,
   "jobs": 33,
   "jobs_without_test_reference": 0,
-  "migrations": 115,
-  "test_files": 934
+  "migrations": 117,
+  "test_files": 933
  },
  "pages": [
   {
@@ -831,7 +831,7 @@
    "parent": "inspections.html",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 216524,
+   "bytes": 213864,
    "tests": [
     "tests/adoption-lota-labels.test.js",
     "tests/csp-journey-report.test.js",
@@ -840,7 +840,6 @@
     "tests/inspection-delete-client.test.js",
     "tests/inspection-local-draft.test.js",
     "tests/module-tabs.test.js",
-    "tests/p11-r7-field-fixes.test.js",
     "tests/rbac-ui-gates.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
@@ -1924,7 +1923,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 75591,
+   "bytes": 75068,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/adoption-lotb-landing.test.js",
@@ -1934,7 +1933,6 @@
     "tests/p11-r5-data-fixes.test.js",
     "tests/p11-r6-data-fixes.test.js",
     "tests/p11-r7-data-fixes.test.js",
-    "tests/p11-r7-field-fixes.test.js",
     "tests/shell-navigation.test.js",
     "tests/site-awareness-sla-parity.test.js",
     "tests/ui-design-ratchet.test.js"
@@ -8930,7 +8928,6 @@
     "tests/inspection-verify.smoke.test.js",
     "tests/inventory-strict.test.js",
     "tests/multi-site-editor.smoke.test.js",
-    "tests/p11-r7-field-fixes.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/read-scope-express5.smoke.test.js",
     "tests/soft-delete-routes.smoke.test.js",
@@ -8962,7 +8959,6 @@
     "tests/inspection-verify.smoke.test.js",
     "tests/inventory-strict.test.js",
     "tests/multi-site-editor.smoke.test.js",
-    "tests/p11-r7-field-fixes.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/read-scope-express5.smoke.test.js",
     "tests/soft-delete-routes.smoke.test.js",
@@ -8994,7 +8990,6 @@
     "tests/inspection-verify.smoke.test.js",
     "tests/inventory-strict.test.js",
     "tests/multi-site-editor.smoke.test.js",
-    "tests/p11-r7-field-fixes.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/read-scope-express5.smoke.test.js",
     "tests/soft-delete-routes.smoke.test.js",
@@ -9026,7 +9021,6 @@
     "tests/inspection-verify.smoke.test.js",
     "tests/inventory-strict.test.js",
     "tests/multi-site-editor.smoke.test.js",
-    "tests/p11-r7-field-fixes.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/read-scope-express5.smoke.test.js",
     "tests/soft-delete-routes.smoke.test.js",
@@ -9049,8 +9043,7 @@
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
     "tests/inspection-routes.test.js",
-    "tests/inspection-verify.smoke.test.js",
-    "tests/p11-r7-field-fixes.smoke.test.js"
+    "tests/inspection-verify.smoke.test.js"
    ]
   },
   {
@@ -9069,8 +9062,7 @@
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
     "tests/inspection-routes.test.js",
-    "tests/inspection-verify.smoke.test.js",
-    "tests/p11-r7-field-fixes.smoke.test.js"
+    "tests/inspection-verify.smoke.test.js"
    ]
   },
   {
@@ -9089,8 +9081,7 @@
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
     "tests/inspection-routes.test.js",
-    "tests/inspection-verify.smoke.test.js",
-    "tests/p11-r7-field-fixes.smoke.test.js"
+    "tests/inspection-verify.smoke.test.js"
    ]
   },
   {
@@ -9202,7 +9193,6 @@
     "tests/inspection-routes.test.js",
     "tests/inspection-site-scope.smoke.test.js",
     "tests/inspection-verify.smoke.test.js",
-    "tests/p11-r7-field-fixes.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/read-scope-express5.smoke.test.js",
     "tests/soft-delete-routes.smoke.test.js",
@@ -10186,7 +10176,7 @@
    "method": "GET",
    "path": "/api/policy-center/export",
    "file": "routes/policyCenter.js",
-   "line": 219,
+   "line": 236,
    "tests": [
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
@@ -10197,7 +10187,7 @@
    "method": "POST",
    "path": "/api/policy-center/import",
    "file": "routes/policyCenter.js",
-   "line": 270,
+   "line": 287,
    "tests": [
     "tests/p11-r7-security.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
@@ -10208,7 +10198,7 @@
    "method": "POST",
    "path": "/api/policy-center/operator-tokens",
    "file": "routes/policyCenter.js",
-   "line": 200,
+   "line": 215,
    "tests": [
     "tests/activate-switches-r6-impersonation.smoke.test.js"
    ]
@@ -10218,7 +10208,7 @@
    "method": "POST",
    "path": "/api/policy-center/requests/:id/approve",
    "file": "routes/policyCenter.js",
-   "line": 193,
+   "line": 208,
    "tests": [
     "tests/activate-switches-r6-impersonation.smoke.test.js",
     "tests/p11-r5-security.smoke.test.js",
@@ -10231,7 +10221,7 @@
    "method": "POST",
    "path": "/api/policy-center/requests/:id/cancel",
    "file": "routes/policyCenter.js",
-   "line": 195,
+   "line": 210,
    "tests": [
     "tests/activate-switches-r6-impersonation.smoke.test.js",
     "tests/p11-r5-security.smoke.test.js",
@@ -10244,7 +10234,7 @@
    "method": "POST",
    "path": "/api/policy-center/requests/:id/reject",
    "file": "routes/policyCenter.js",
-   "line": 194,
+   "line": 209,
    "tests": [
     "tests/activate-switches-r6-impersonation.smoke.test.js",
     "tests/p11-r5-security.smoke.test.js",
@@ -15678,7 +15668,6 @@
    "line": 1380,
    "tests": [
     "tests/csp-journey-report.test.js",
-    "tests/p11-r7-field-fixes.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
   },
@@ -15994,7 +15983,6 @@
    "tests": [
     "tests/p11-r6-data-fixes.test.js",
     "tests/p11-r7-data-fixes.test.js",
-    "tests/p11-r7-field-fixes.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
   },
@@ -16801,6 +16789,14 @@
   {
    "id": "MG-reports-136-operator-tokens",
    "file": "db/postgres/reports/136_operator_tokens.sql"
+  },
+  {
+   "id": "MG-reports-137-audit-chain-anchor-kid",
+   "file": "db/postgres/reports/137_audit_chain_anchor_kid.sql"
+  },
+  {
+   "id": "MG-reports-138-operator-token-binding",
+   "file": "db/postgres/reports/138_operator_token_binding.sql"
   },
   {
    "id": "MG-sync-000-upgrade-from-1-11",

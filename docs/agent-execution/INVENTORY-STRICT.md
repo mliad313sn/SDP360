@@ -10,13 +10,13 @@ Classes come from the declaration (method, path, guard names): `access`, `financ
 |---|---:|
 | routes | 810 |
 | routes not measurable | 3 |
-| routes without strict test | 64 |
+| routes without strict test | 63 |
 | critical routes | 221 |
 | critical routes without strict test | 17 |
-| writes without strict test | 22 |
+| writes without strict test | 21 |
 | jobs | 33 |
 | jobs without strict test | 0 |
-| test sources | 992 |
+| test sources | 991 |
 | without strict test access | 3 |
 | without strict test finance | 2 |
 | without strict test export | 6 |
@@ -79,7 +79,6 @@ Classes come from the declaration (method, path, guard names): `access`, `financ
 | GET | `/api/meetings/import/incubation-template` | read | routes/meetings.js |
 | POST | `/api/meetings/import/incubation/commit` | write | routes/meetings.js |
 | POST | `/api/meetings/import/incubation/preview` | write | routes/meetings.js |
-| POST | `/api/policy-center/requests/:id/reject` | write | routes/policyCenter.js |
 | GET | `/api/reports/:id/active-incidents` | read | server.js |
 | GET | `/api/reports/:id/carry-over-actions` | read | server.js |
 | GET | `/api/reports/:id/carry-over-infra` | read | server.js |

@@ -16,6 +16,7 @@ process.env.DASH_PASS = process.env.DASH_PASS || 'pc-admin-pass-0000';
 process.env.DASHBOARD_API_KEY = process.env.DASHBOARD_API_KEY || 'pc-key';
 for (const k of ['ZOHO_CLIENT_ID', 'ZOHO_CLIENT_SECRET', 'ZOHO_REFRESH_TOKEN']) process.env[k] = process.env[k] || 'dummy';
 process.env.AI_PROVIDER = 'off';
+process.env.SDP_CONFIG_KEY = process.env.SDP_CONFIG_KEY || 'r6imp-test-config-key-0123456789';   // P11 r7 R7-A1: tokens are bound with it
 
 const { test, before, after } = require('node:test');
 const assert = require('node:assert');
@@ -89,4 +90,41 @@ test('R6-A1 repro: the CLI runner can no longer file as a colleague and approve 
   const row = await rdb.pgHandle().prepare('SELECT requested_by_name, reason FROM policy_change_requests WHERE id = ?').get(id);
   assert.equal(row.requested_by_name, 'pc_super');
   assert.match(row.reason, /authenticated by operator token #\d+; os pc_super_os@SRV-TEST/);
+});
+
+// P11 r7 R7-A1 — a token forged by a direct INSERT with the application database login (which the CLI needs anyway):
+// the CLI refuses it (no server binding), and a request that names a token without an issuance event cannot be approved.
+test('R7-A1: a token INSERTed with the app DB login is refused by the CLI; a forged request naming a token is refused at approval', async () => {
+  await RC.setConfig(rdb.db, { policy_center_enabled: '1', portfolio_editor_plan_writes: '0' }, 'test');
+  const OT = require('../services/operatorTokens'); const H = rdb.pgHandle();
+  const u2 = await H.prepare("SELECT id FROM users WHERE username = 'pc_super2'").get();
+  const tok = OT.PREFIX + require('crypto').randomBytes(32).toString('base64url');
+  await H.prepare("INSERT INTO operator_tokens (token_hash, user_id, username, purpose, expires_at) VALUES (?, ?, 'pc_super2', 'activate-switches', now() + interval '10 minutes')").run(OT.hash(tok), u2.id);
+  const { run } = cli();
+  await assert.rejects(withToken(tok, () => run(['--operator-token=env'])), /not issued by the server[^]*nothing written/);
+  assert.equal((await H.prepare("SELECT COUNT(*) AS n FROM policy_change_requests WHERE key = 'portfolio_editor_plan_writes' AND status = 'pending'").get()).n, 0, 'nothing filed');
+  // a request row written straight into the table, naming a token #id that has no issuance event / binding
+  const forgedTok = await H.prepare("SELECT id FROM operator_tokens WHERE token_hash = ?").get(OT.hash(tok));
+  const ins = await H.prepare("INSERT INTO policy_change_requests (key, scope, old_value, new_value, reason, requested_by, requested_by_name, requested_at, expires_at) VALUES ('portfolio_editor_plan_writes', 'global', '0', '1', ?, ?, 'pc_super2', ?, ?) RETURNING id")
+    .get(`forged [filed by activate-switches; authenticated by operator token #${forgedTok.id}; os x@y]`, u2.id, new Date().toISOString(), new Date(Date.now() + 7 * 864e5).toISOString());
+  const list = await (await send('GET', '/api/policy-center/requests', T.super)).json();
+  const shown = list.requests.find((r) => r.id === 'pc-' + ins.id);
+  assert.deepEqual([shown.operator_token.id, shown.operator_token.issued_event, shown.operator_token.binding_ok], [Number(forgedTok.id), false, false], 'the approver sees the token is not verifiable');
+  const ap = await send('POST', `/api/policy-center/requests/pc-${ins.id}/approve`, T.super, { reason: 'approve the colleague request' });
+  assert.equal(ap.status, 409);
+  assert.equal((await RC.getConfig(rdb.db)).portfolio_editor_plan_writes, '0', 'value unchanged');
+  assert.equal((await send('POST', `/api/policy-center/requests/pc-${ins.id}/reject`, T.super, { reason: 'forged request, not issued by the server' })).status, 200);
+  // a genuine token (route-issued, event logged) shows as verified
+  const mine = (await issue(T.super)).body.token;
+  const res = await withToken(mine, () => run(['--operator-token=env']));
+  const good = (await (await send('GET', '/api/policy-center/requests', T.super2)).json()).requests.find((r) => r.id === 'pc-' + res.requested[0].request_id);
+  assert.deepEqual([good.operator_token.issued_event, good.operator_token.binding_ok, good.operator_token.account_matches], [true, true, true]);
+  await send('POST', `/api/policy-center/requests/pc-${res.requested[0].request_id}/cancel`, T.super, {});
+});
+
+test('R7-A1: without SDP_CONFIG_KEY the token route refuses (fail closed, 409, clear message)', async () => {
+  await RC.setConfig(rdb.db, { policy_center_enabled: '1' }, 'test');
+  const saved = process.env.SDP_CONFIG_KEY; delete process.env.SDP_CONFIG_KEY;
+  try { const r = await issue(T.super); assert.equal(r.status, 409); assert.match(JSON.stringify(r.body), /SDP_CONFIG_KEY/); }
+  finally { process.env.SDP_CONFIG_KEY = saved; }
 });

@@ -111,6 +111,6 @@ test('r6 O-5: blocking mode fails when no class was measured; warn mode reports 
   assert.strictEqual(PB.main([`--budgets=${budgets}`, `--load=${empty}`], { PERF_BUDGETS_BLOCKING: '1' }, (s) => lines.push(s)), 1, 'nothing measured = fail');
   assert.ok(lines.some((l) => /no class was measured/.test(l)));
   assert.strictEqual(PB.main([`--budgets=${budgets}`, `--load=${empty}`], {}, () => {}), 0, 'warn mode stays 0');
-  assert.strictEqual(PB.main([`--budgets=${budgets}`, `--load=${some}`], { PERF_BUDGETS_BLOCKING: '1' }, () => {}), 0, 'one class measured within budget passes');
+  assert.strictEqual(PB.main([`--budgets=${budgets}`, `--load=${some}`], { PERF_BUDGETS_BLOCKING: '1' }, () => {}), 1, 'P11 r7 O-5: one class measured, one with no sample — no data is not a pass');
   fs.rmSync(dir, { recursive: true, force: true });
 });
