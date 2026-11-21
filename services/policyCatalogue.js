@@ -15,6 +15,7 @@
 const fs = require('fs');
 const path = require('path');
 const { typed } = require('./httpError');
+const { RANGES, rangeProblem } = require('./policyRanges');
 
 const ROOT = path.join(__dirname, '..');
 const CATALOGUE_FILE = path.join(ROOT, 'docs', 'ops', 'policy-catalogue.json');
@@ -118,7 +119,12 @@ function build({ fresh = false, catalogueFile = CATALOGUE_FILE, registerFile = R
     entries.push({
       key: k, source: 'report_config', category: e.category || null,
       title: humanize(k), description_en: describeFromSource(src, k), description_fr: e.description_fr || null,
-      type: t.type, allowed: t.allowed || null, min: e.min != null ? e.min : null, max: e.max != null ? e.max : null, unit: e.unit || null,
+      // N-R7-1 — a key with a reader range (services/policyRanges.js) takes its bounds from THERE, so the center, the
+      // generic config write path and the reader cannot disagree; the catalogue file must say the same (checked by
+      // tools/agent/policy-catalogue.js and tests/p11-r7-security.smoke.test.js).
+      type: t.type, allowed: t.allowed || null,
+      min: RANGES[k] ? RANGES[k].min : (e.min != null ? e.min : null), max: RANGES[k] ? RANGES[k].max : (e.max != null ? e.max : null),
+      integer: RANGES[k] ? !!RANGES[k].integer : !!e.integer, unit: e.unit || null,
       default: secret ? null : String(RC.DEFAULTS[k]),
       recommendation: r.recommended ? { text: String(r.recommended), status: 'PROPOSED', reference: r.reference || null } : null,
       owner_role: r.owner_role ? { role: String(r.owner_role), status: 'PROPOSED' } : null,
@@ -203,6 +209,9 @@ function validateConfigValue(entry, raw) {
     if (v === '' || !Number.isFinite(n)) throw bad('a number is expected');
     if (entry.min != null && n < entry.min) throw bad(`minimum ${entry.min}`);
     if (entry.max != null && n > entry.max) throw bad(`maximum ${entry.max}`);
+    if (entry.integer && !Number.isInteger(n)) throw bad('a whole number is expected');
+    const why = rangeProblem(entry.key, v);   // N-R7-1 — the reader's own range (plain notation, integer, bounds)
+    if (why) throw bad(why);
     return v;
   }
   if (entry.type === 'json') {
@@ -225,6 +234,8 @@ function needsSecondPerson(entry, current, next) {
   if (String(current) === String(next)) return false;
   if (entry.strict_value != null) return String(next) !== String(entry.strict_value);
   if (entry.strict_direction) {
+    // N-R7-1 — a value its reader would clamp or discard is never "stricter": fail closed (second person).
+    if (rangeProblem(entry.key, next)) return true;
     const c = Number(current === '' || current == null ? entry.default : current), n = Number(next);
     if (String(next).trim() === '' || !Number.isFinite(c) || !Number.isFinite(n)) return true;
     return entry.strict_direction === 'higher' ? !(n > c) : !(n < c);

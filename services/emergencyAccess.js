@@ -9,7 +9,8 @@
 //     other than the granter and the beneficiary; outcome `justified` | `not_justified` with notes;
 //   • an emergency never waives a qualification prerequisite (C-19): it adds roles, never evidence.
 
-const MAX_HOURS = 24;
+const RANGE = require('./policyRanges').RANGES.emergency_access_max_hours;   // N-R7-1 — shared bounds
+const MAX_HOURS = RANGE.max;
 const REVIEW_WORKING_DAYS = 2;
 const OUTCOMES = Object.freeze(['justified', 'not_justified']);
 const NEVER_GRANTED = Object.freeze(['super_admin']);
@@ -18,7 +19,7 @@ const err = (status, code, error) => ({ status, code, error });
 /** Effective cap in hours: the policy value clamped to [1, 24]; unreadable → 24. */
 function maxHours(policyValue) {
   const n = Number(policyValue);
-  return Number.isFinite(n) && n >= 1 ? Math.min(Math.floor(n), MAX_HOURS) : MAX_HOURS;
+  return Number.isFinite(n) && n >= RANGE.min ? Math.min(Math.floor(n), MAX_HOURS) : MAX_HOURS;
 }
 
 /** The date `n` working days (Mon–Fri) after the UTC date of `iso`. */

@@ -321,9 +321,10 @@ async function _setExecMiSummaryPg(request_id, s) {
 // every hash before that column was made with. The target for NEW hashes is report_config auth_pbkdf2_iterations
 // (default '100000' = today); an invalid, lower or absurd value falls back to 100000 (never weakens a new hash).
 const PBKDF2_LEGACY = 100000;
+const _PBKDF2_RANGE = require('./services/policyRanges').RANGES.auth_pbkdf2_iterations;   // N-R7-1 — shared bounds
 function _pbkdf2Target(v) {
   const n = Number(v);
-  return Number.isInteger(n) && n >= PBKDF2_LEGACY && n <= 5000000 ? n : PBKDF2_LEGACY;
+  return Number.isInteger(n) && n >= _PBKDF2_RANGE.min && n <= _PBKDF2_RANGE.max ? n : PBKDF2_LEGACY;
 }
 function _storedIterations(user) {
   const n = Number(user && user.password_iterations);
