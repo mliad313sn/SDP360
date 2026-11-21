@@ -1,7 +1,7 @@
 /* C-26 (G27) — French for public/analytics.html (Requests · Change + CAB · Survey). Site names, category /
  * technician / status values and every figure come from the API and are data: never keys here. Chart axis titles
  * drawn on the canvas stay English; the accessible data tables are localised by lib/chartTheme.js.
- * Inert unless ui_i18n_pages='1'. Glossary: docs/ux/GLOSSARY-FR.md. */
+ * Inert unless ui_i18n_pages='1'. Glossary: docs/i18n/GLOSSAIRE-FR.md. */
 (function (root) {
   'use strict';
   root.I18N_FR_ANALYTICS = {

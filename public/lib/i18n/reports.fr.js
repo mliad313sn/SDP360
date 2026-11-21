@@ -95,7 +95,7 @@
     '✅ Submitted': '✅ Soumis', '✔ Ready': '✔ Prêt', '⏳ In Progress': '⏳ En cours', '✏ Draft': '✏ Brouillon', '✔ Ready to Submit': '✔ Prêt à soumettre',
     'No reports yet. Create the first one above.': 'Aucun rapport pour l’instant. Créez le premier ci-dessus.', 'No reports found for this month': 'Aucun rapport pour ce mois',
     // action rows (option text only — the option values stay the codes)
-    '— Select —': '— Choisir —', '🔴 High': '🔴 Haute', '🟡 Medium': '🟡 Moyenne', '🟢 Low': '🟢 Basse', 'Open': 'Ouvert', 'On Hold': 'En attente',
+    '— Select —': '— Choisir —', '🔴 High': '🔴 Haute', '🟡 Medium': '🟡 Moyenne', '🟢 Low': '🟢 Basse', 'Open@status': 'Ouverte', 'On Hold': 'En attente',
     'Type or select…': 'Saisir ou choisir…', 'Click to edit': 'Cliquer pour modifier', 'Done': 'Terminé',
     'Why is this on hold? Blockers? Decisions? (Dashboard-only — not shown in PPTX)': 'Pourquoi en attente ? Blocages ? Décisions ? (tableau de bord seulement — absent du PPTX)',
     // panels and empty states

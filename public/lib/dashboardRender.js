@@ -21,8 +21,21 @@
     return 'grid-column:' + ((L.x || 0) + 1) + ' / span ' + Math.min(L.w || 1, c) + ';grid-row:' + ((L.y || 0) + 1) + ' / span ' + (L.h || 1) + ';';
   }
 
+  // I18N-QUALITY — a French page body gets French separators (« 1 629 », « 73,5 % ») through lib/format.js.
+  function _frFmt() { try { var f = typeof self !== 'undefined' ? self.SDPFormat : null; return f && f.lang && f.lang() === 'fr' ? f : null; } catch (_) { return null; } }
   function formatValue(value, unit) {
     if (value === null || value === undefined || (typeof value === 'number' && isNaN(value))) return '—';
+    var ff = _frFmt();
+    if (ff && !isNaN(Number(value))) {
+      var nn = Number(value), uu = String(unit || '').toLowerCase(), r1 = Math.round(nn * 10) / 10, sp = '\u202F';
+      if (uu === '%') return ff.percent(r1, { lang: 'fr' });
+      if (uu === 'hours' || uu === 'h') return ff.number(r1, { lang: 'fr' }) + sp + 'h';
+      if (uu === 'ms') return ff.number(Math.round(nn), { decimals: 0, lang: 'fr' }) + sp + 'ms';
+      if (uu === 'points' || uu === 'pts') return ff.number(r1, { lang: 'fr' }) + sp + 'pts';
+      if (uu === 'rank') return 'n°' + sp + Math.round(nn);
+      if (uu === 'usd') return ff.number(Math.round(nn), { decimals: 0, lang: 'fr' }) + sp + 'USD';
+      return Number.isInteger(nn) ? ff.number(nn, { decimals: 0, lang: 'fr' }) : ff.number(r1, { lang: 'fr' });
+    }
     var n = Number(value);
     if (typeof value !== 'number' && isNaN(n)) return String(value);
     var u = String(unit || '').toLowerCase();

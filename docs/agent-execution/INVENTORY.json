@@ -15,7 +15,7 @@
   "jobs": 33,
   "jobs_without_test_reference": 0,
   "migrations": 119,
-  "test_files": 948
+  "test_files": 949
  },
  "pages": [
   {
@@ -1893,6 +1893,7 @@
     "tests/home-queue-page.test.js",
     "tests/home-queue.test.js",
     "tests/i18n-coverage.test.js",
+    "tests/i18n-quality.test.js",
     "tests/meeting-status-options.test.js",
     "tests/module-tabs.test.js",
     "tests/my-work.test.js",
@@ -9053,7 +9054,7 @@
    "method": "POST",
    "path": "/api/inspection/:id/export",
    "file": "routes/inspection.js",
-   "line": 451,
+   "line": 452,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/business-only-boundary.smoke.test.js",
@@ -9121,7 +9122,7 @@
    "method": "DELETE",
    "path": "/api/inspection/:id",
    "file": "routes/inspection.js",
-   "line": 403,
+   "line": 404,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/business-only-boundary.smoke.test.js",
@@ -9155,7 +9156,7 @@
    "method": "GET",
    "path": "/api/inspection/:id",
    "file": "routes/inspection.js",
-   "line": 170,
+   "line": 171,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/business-only-boundary.smoke.test.js",
@@ -9189,7 +9190,7 @@
    "method": "POST",
    "path": "/api/inspection/actions/:id/update",
    "file": "routes/inspection.js",
-   "line": 242,
+   "line": 243,
    "tests": [
     "tests/cross-site-object-writes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
@@ -9211,7 +9212,7 @@
    "method": "POST",
    "path": "/api/inspection/actions/:id/verify",
    "file": "routes/inspection.js",
-   "line": 273,
+   "line": 274,
    "tests": [
     "tests/cross-site-object-writes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
@@ -9233,7 +9234,7 @@
    "method": "GET",
    "path": "/api/inspection/actions",
    "file": "routes/inspection.js",
-   "line": 213,
+   "line": 214,
    "tests": [
     "tests/cross-site-object-writes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
@@ -9255,7 +9256,7 @@
    "method": "POST",
    "path": "/api/inspection/aggregate/export",
    "file": "routes/inspection.js",
-   "line": 429,
+   "line": 430,
    "tests": [
     "tests/inspection-routes.test.js",
     "tests/inspection-site-scope.smoke.test.js"
@@ -9266,7 +9267,7 @@
    "method": "GET",
    "path": "/api/inspection/aggregate",
    "file": "routes/inspection.js",
-   "line": 196,
+   "line": 197,
    "tests": [
     "tests/inspection-routes.test.js",
     "tests/inspection-site-scope.smoke.test.js",
@@ -9278,7 +9279,7 @@
    "method": "GET",
    "path": "/api/inspection/export.xlsx",
    "file": "routes/inspection.js",
-   "line": 322,
+   "line": 323,
    "tests": [
     "tests/inspection-site-scope.smoke.test.js"
    ]
@@ -9288,7 +9289,7 @@
    "method": "GET",
    "path": "/api/inspection/list",
    "file": "routes/inspection.js",
-   "line": 176,
+   "line": 177,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/business-only-boundary.smoke.test.js",
@@ -9302,7 +9303,7 @@
    "method": "GET",
    "path": "/api/inspection/lookups",
    "file": "routes/inspection.js",
-   "line": 83,
+   "line": 84,
    "tests": [
     "tests/cross-site-object-writes.smoke.test.js",
     "tests/inspection-routes.test.js",
@@ -9315,7 +9316,7 @@
    "method": "GET",
    "path": "/api/inspection/people",
    "file": "routes/inspection.js",
-   "line": 103,
+   "line": 104,
    "tests": [
     "tests/inspection-routes.test.js"
    ]
@@ -9325,7 +9326,7 @@
    "method": "GET",
    "path": "/api/inspection/repeat-findings",
    "file": "routes/inspection.js",
-   "line": 298,
+   "line": 299,
    "tests": [
     "tests/inspection-verify.smoke.test.js"
    ]
@@ -9335,7 +9336,7 @@
    "method": "POST",
    "path": "/api/inspection/reset",
    "file": "routes/inspection.js",
-   "line": 470,
+   "line": 471,
    "tests": [
     "tests/inspection-routes.test.js",
     "tests/inventory-strict.test.js"
@@ -9346,7 +9347,7 @@
    "method": "POST",
    "path": "/api/inspection/save",
    "file": "routes/inspection.js",
-   "line": 362,
+   "line": 363,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/commitment-source-scope.smoke.test.js",
@@ -9605,7 +9606,7 @@
    "method": "GET",
    "path": "/api/meetings/:id/export-pptx",
    "file": "routes/meetings.js",
-   "line": 893,
+   "line": 898,
    "tests": [
     "tests/access-revocation.smoke.test.js",
     "tests/adoption-lota-nav-authz.test.js",
@@ -9679,7 +9680,7 @@
    "method": "POST",
    "path": "/api/meetings/:id/sign",
    "file": "routes/meetings.js",
-   "line": 408,
+   "line": 409,
    "tests": [
     "tests/access-revocation.smoke.test.js",
     "tests/adoption-lota-nav-authz.test.js",
@@ -9716,7 +9717,7 @@
    "method": "DELETE",
    "path": "/api/meetings/:id",
    "file": "routes/meetings.js",
-   "line": 609,
+   "line": 614,
    "tests": [
     "tests/access-revocation.smoke.test.js",
     "tests/adoption-lota-nav-authz.test.js",
@@ -9753,7 +9754,7 @@
    "method": "GET",
    "path": "/api/meetings/:id",
    "file": "routes/meetings.js",
-   "line": 445,
+   "line": 446,
    "tests": [
     "tests/access-revocation.smoke.test.js",
     "tests/adoption-lota-nav-authz.test.js",
@@ -9790,7 +9791,7 @@
    "method": "POST",
    "path": "/api/meetings/actions/:id/update",
    "file": "routes/meetings.js",
-   "line": 346,
+   "line": 347,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/cross-site-object-writes.smoke.test.js",
@@ -9807,7 +9808,7 @@
    "method": "GET",
    "path": "/api/meetings/actions",
    "file": "routes/meetings.js",
-   "line": 322,
+   "line": 323,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/cross-site-object-writes.smoke.test.js",
@@ -9824,7 +9825,7 @@
    "method": "GET",
    "path": "/api/meetings/aggregate",
    "file": "routes/meetings.js",
-   "line": 194,
+   "line": 195,
    "tests": [
     "tests/cross-site-object-writes.smoke.test.js"
    ]
@@ -9834,7 +9835,7 @@
    "method": "GET",
    "path": "/api/meetings/compliance",
    "file": "routes/meetings.js",
-   "line": 231,
+   "line": 232,
    "tests": [
     "tests/cross-site-object-writes.smoke.test.js"
    ]
@@ -9844,7 +9845,7 @@
    "method": "GET",
    "path": "/api/meetings/escalations",
    "file": "routes/meetings.js",
-   "line": 272,
+   "line": 273,
    "tests": [
     "tests/cross-site-object-writes.smoke.test.js"
    ]
@@ -9854,7 +9855,7 @@
    "method": "GET",
    "path": "/api/meetings/export.xlsx",
    "file": "routes/meetings.js",
-   "line": 296,
+   "line": 297,
    "tests": [
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/meetings-site-scope.smoke.test.js",
@@ -9867,7 +9868,7 @@
    "method": "POST",
    "path": "/api/meetings/import/commit",
    "file": "routes/meetings.js",
-   "line": 782,
+   "line": 787,
    "tests": [
     "tests/meetings-site-scope.smoke.test.js"
    ]
@@ -9877,7 +9878,7 @@
    "method": "GET",
    "path": "/api/meetings/import/incubation-template",
    "file": "routes/meetings.js",
-   "line": 806,
+   "line": 811,
    "tests": []
   },
   {
@@ -9885,7 +9886,7 @@
    "method": "POST",
    "path": "/api/meetings/import/incubation/commit",
    "file": "routes/meetings.js",
-   "line": 846,
+   "line": 851,
    "tests": []
   },
   {
@@ -9893,7 +9894,7 @@
    "method": "POST",
    "path": "/api/meetings/import/incubation/preview",
    "file": "routes/meetings.js",
-   "line": 819,
+   "line": 824,
    "tests": []
   },
   {
@@ -9901,7 +9902,7 @@
    "method": "POST",
    "path": "/api/meetings/import/preview",
    "file": "routes/meetings.js",
-   "line": 731,
+   "line": 736,
    "tests": [
     "tests/critical-routes.smoke.test.js"
    ]
@@ -9911,7 +9912,7 @@
    "method": "GET",
    "path": "/api/meetings/import/template",
    "file": "routes/meetings.js",
-   "line": 711,
+   "line": 716,
    "tests": [
     "tests/critical-routes.smoke.test.js"
    ]
@@ -9921,7 +9922,7 @@
    "method": "GET",
    "path": "/api/meetings/insights",
    "file": "routes/meetings.js",
-   "line": 214,
+   "line": 215,
    "tests": [
     "tests/cross-site-object-writes.smoke.test.js"
    ]
@@ -9931,7 +9932,7 @@
    "method": "POST",
    "path": "/api/meetings/issues/:id/actions",
    "file": "routes/meetings.js",
-   "line": 575,
+   "line": 580,
    "tests": [
     "tests/cross-site-object-writes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
@@ -9946,7 +9947,7 @@
    "method": "POST",
    "path": "/api/meetings/issues/:id/update",
    "file": "routes/meetings.js",
-   "line": 533,
+   "line": 538,
    "tests": [
     "tests/cross-site-object-writes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
@@ -9961,7 +9962,7 @@
    "method": "GET",
    "path": "/api/meetings/issues",
    "file": "routes/meetings.js",
-   "line": 244,
+   "line": 245,
    "tests": [
     "tests/cross-site-object-writes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
@@ -9976,7 +9977,7 @@
    "method": "GET",
    "path": "/api/meetings/list",
    "file": "routes/meetings.js",
-   "line": 169,
+   "line": 170,
    "tests": [
     "tests/access-revocation.smoke.test.js",
     "tests/adoption-lota-nav-authz.test.js",
@@ -9990,7 +9991,7 @@
    "method": "PATCH",
    "path": "/api/meetings/lookups/:table/:code/active",
    "file": "routes/meetings.js",
-   "line": 684,
+   "line": 689,
    "tests": [
     "tests/cross-site-object-writes.smoke.test.js",
     "tests/inventory-strict.test.js",
@@ -10002,7 +10003,7 @@
    "method": "PUT",
    "path": "/api/meetings/lookups/:table/:code",
    "file": "routes/meetings.js",
-   "line": 668,
+   "line": 673,
    "tests": [
     "tests/cross-site-object-writes.smoke.test.js",
     "tests/inventory-strict.test.js",
@@ -10014,7 +10015,7 @@
    "method": "GET",
    "path": "/api/meetings/lookups/:table",
    "file": "routes/meetings.js",
-   "line": 652,
+   "line": 657,
    "tests": [
     "tests/cross-site-object-writes.smoke.test.js",
     "tests/inventory-strict.test.js",
@@ -10026,7 +10027,7 @@
    "method": "POST",
    "path": "/api/meetings/lookups/:table",
    "file": "routes/meetings.js",
-   "line": 636,
+   "line": 641,
    "tests": [
     "tests/cross-site-object-writes.smoke.test.js",
     "tests/inventory-strict.test.js",
@@ -10038,7 +10039,7 @@
    "method": "GET",
    "path": "/api/meetings/lookups",
    "file": "routes/meetings.js",
-   "line": 137,
+   "line": 138,
    "tests": [
     "tests/cross-site-object-writes.smoke.test.js",
     "tests/inventory-strict.test.js",
@@ -10050,7 +10051,7 @@
    "method": "GET",
    "path": "/api/meetings/people",
    "file": "routes/meetings.js",
-   "line": 152,
+   "line": 153,
    "tests": [
     "tests/critical-routes.smoke.test.js"
    ]
@@ -10060,7 +10061,7 @@
    "method": "GET",
    "path": "/api/meetings/progress/export-pptx",
    "file": "routes/meetings.js",
-   "line": 922,
+   "line": 927,
    "tests": []
   },
   {
@@ -10068,7 +10069,7 @@
    "method": "GET",
    "path": "/api/meetings/progress",
    "file": "routes/meetings.js",
-   "line": 868,
+   "line": 873,
    "tests": [
     "tests/cross-site-object-writes.smoke.test.js"
    ]
@@ -10078,7 +10079,7 @@
    "method": "POST",
    "path": "/api/meetings/reset",
    "file": "routes/meetings.js",
-   "line": 698,
+   "line": 703,
    "tests": [
     "tests/critical-routes.smoke.test.js"
    ]
@@ -10088,7 +10089,7 @@
    "method": "POST",
    "path": "/api/meetings/save",
    "file": "routes/meetings.js",
-   "line": 468,
+   "line": 469,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/cross-site-object-writes.smoke.test.js",
@@ -10111,7 +10112,7 @@
    "method": "GET",
    "path": "/api/meetings/unsigned",
    "file": "routes/meetings.js",
-   "line": 385,
+   "line": 386,
    "tests": [
     "tests/meetings-unsigned-routes.smoke.test.js"
    ]
@@ -16210,6 +16211,7 @@
     "tests/csp-journey-report.test.js",
     "tests/csp-strict-pages-config.test.js",
     "tests/first-usable.test.js",
+    "tests/i18n-quality.test.js",
     "tests/meeting-status-options.test.js",
     "tests/shell-nav-r4.test.js",
     "tests/site-actions-register.test.js",

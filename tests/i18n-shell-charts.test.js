@@ -2,7 +2,7 @@
 // C-26 (G27) — French for the chart accessibility layer (ChartTable / edvA11y in lib/chartTheme.js) and the Hygiene
 // bullet table (lib/assetHygieneVisuals.js), through the same switch as the page dictionaries (ui_i18n_pages: boot.js
 // marks <html data-i18n="on">, I18nText picks the language). Off (today) = byte-for-byte English. And the glossary
-// docs/ux/GLOSSARY-FR.md: one French rendering per ITSM term, enforced on every dictionary.
+// docs/i18n/GLOSSAIRE-FR.md: one French rendering per ITSM term, enforced on every dictionary.
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
@@ -83,7 +83,7 @@ test('every chart key used by the two libraries has a French entry, and no entry
 
 // ── Glossary ──────────────────────────────────────────────────────────────────────────────────────────────
 function glossary() {
-  const md = fs.readFileSync(path.join(ROOT, 'docs/ux/GLOSSARY-FR.md'), 'utf8').replace(/\r\n/g, '\n');
+  const md = fs.readFileSync(path.join(ROOT, 'docs/i18n/GLOSSAIRE-FR.md'), 'utf8').replace(/\r\n/g, '\n');
   const rows = [...md.matchAll(/^\| ([^|]+?) \| ([^|]+?) \|/gm)].map((m) => [m[1].trim(), m[2].trim()])
     .filter(([en]) => en !== 'English' && !/^-+$/.test(en));
   return rows;

@@ -196,7 +196,8 @@ not the browser-checked level.
 | `docs/agent-execution/G24-DOSSIER-GO-NOGO-FR.md` | G24 | code+test | pending | pending | `0130ead17d7d988951b2adfb2777ec34fd98c24e587b96fbe6fee9e569474cbc` |
 | `docs/agent-execution/G24.md` | G24 | code+test | pending | pending | `2349897316ae9dd2908e50fa872042b53a905f48a9b8854085ff07b8cc2c4ac2` |
 | `docs/agent-execution/HANDOFF-2026-11-13-orchestrator.md` | — (reference) | — | — | — | `57a464e026ff789fac72df5a39bc62d9e944f549ac3d9c80bab6e5515cefec2c` |
-| `docs/agent-execution/INVENTORY-STRICT.md` | — (reference) | — | — | — | `974b0a44006550ee8315104c92bb690429d29acf4fc8069b50de9fe02848bb71` |
+| `docs/agent-execution/I18N-QUALITY.md` | — (reference) | — | — | — | `2b8181d3e3e377012d2c3f703a8cb4351c555c73f5de3c4735ed05cdefddeac7` |
+| `docs/agent-execution/INVENTORY-STRICT.md` | — (reference) | — | — | — | `60258be7ff68204d6de4b78b5bd89dfb54e83aafbb7ed112397fc3f34cf4a6ed` |
 | `docs/agent-execution/P02-authz-outcomes.md` | P02 | code+test | pending | pending | `1b3c7c2278a4e5d1a5aa0ca98da31cd64a54cf2d18ee5287ec685243e58ffc81` |
 | `docs/agent-execution/P03-switch-lots.md` | P03 | code+test | pending | pending | `99419412678af916494549fa3c6ef56f7c4f4d94aab09482c800dcccf93caa39` |
 | `docs/agent-execution/P04-ppm-certification.md` | P04 | code+test | pending | pending | `ce601c12654f688fbed18b2feb9a2bdc42734d19de01075a2292838c4e74cca3` |
@@ -239,8 +240,8 @@ not the browser-checked level.
 
 | File | SHA-256 |
 |---|---|
-| `docs/agent-execution/INVENTORY.json` | `48dc7a408ae739d0f6ac0c319d612b36684e48f16a4de727f55e74b47b5e6975` |
-| `docs/agent-execution/INVENTORY.md` | `2cef4449fe5c4d6f7e1368bdeb4f200747a1ddb32887d68deaada9597bd6fda2` |
+| `docs/agent-execution/INVENTORY.json` | `ae8a9602bd3199f9fde55b0364953447f8a9c3b1889fb4221985f94d7f7987a7` |
+| `docs/agent-execution/INVENTORY.md` | `b602d001d3ecf679047c314ca57ede81a45d78be0f0ed3f0be36b9962fb99293` |
 | `docs/agent-execution/TRACEABILITY.md` | `bab98d60573cc653947f1acead471e8655cbc78134969e91ee7f281ff9876c0a` |
 | `docs/ops/AUTHZ-MATRIX.md` | `b718b64fff1f6f6f4fc6ea729f66ad9565c988f5dc601b9073dfc20b4ab4e93e` |
 | `docs/ops/FLAG-REGISTER.md` | `f0c695c7960cac781d281c1bb4f929890911542445c0bc2338df5a5e40019cb4` |

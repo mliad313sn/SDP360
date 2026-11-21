@@ -3,10 +3,12 @@
  * (UDF:…, Group Assignment Count…), every figure and every survey verbatim are data: never keys here (see the
  * allow-list in tests/i18n-coverage.test.js). Chart axis titles drawn on the canvas stay English; the accessible
  * data tables are localised by lib/chartTheme.js. '✓ Done' is deliberately NOT a key: toggleAllCommentaryEdit()
- * reads the button text. Inert unless ui_i18n_pages='1'. Glossary: docs/ux/GLOSSARY-FR.md. */
+ * reads the button text. Inert unless ui_i18n_pages='1'. Glossary: docs/i18n/GLOSSAIRE-FR.md. */
 (function (root) {
   'use strict';
   root.I18N_FR_EXECUTIVE = {
+    // I18N-QUALITY — whole sentence (lib/i18nText.js matches the block first; inline tags kept in the value)
+    'Define which Freshservice groups belong to the Operations and Applications categories. When you select "All Operations" or "All Applications" in the filter, only the groups listed here will be included. Changes are saved in your browser.': 'Définissez quels groupes Freshservice relèvent des catégories <strong>Opérations</strong> et <strong>Applications</strong>. Quand vous choisissez « Toutes les opérations » ou « Toutes les applications » dans le filtre, seuls les groupes listés ici sont inclus. Les changements sont enregistrés dans votre navigateur.',
     'IT Executive Scorecard': 'Tableau de performance IT de la direction',
     'Share Scorecard': 'Partager le tableau de performance',
     'Share this dashboard with management': 'Partager ce tableau de bord avec la direction',
@@ -18,11 +20,9 @@
     'If hosted on a server or SharePoint': 'Si hébergé sur un serveur ou sur SharePoint',
     'Category Group Editor': 'Éditeur des groupes par catégorie',
     'Affects All Operations / All Applications filter': 'Concerne le filtre Toutes les opérations / Toutes les applications',
-    'Define which Freshservice groups belong to the': 'Définissez quels groupes Freshservice appartiennent aux catégories',
     'Operations': 'Opérations',
     'and': 'et',
     'Applications': 'Applications',
-    'categories. When you select "All Operations" or "All Applications" in the filter, only the groups listed here will be included. Changes are saved in your browser.': 'Quand vous choisissez « Toutes les opérations » ou « Toutes les applications » dans le filtre, seuls les groupes listés ici sont inclus. Les changements sont enregistrés dans votre navigateur.',
     '🏗 Operations Groups': '🏗 Groupes Opérations',
     '＋ Add group to Operations…': '＋ Ajouter un groupe aux Opérations…',
     '💻 Applications Groups': '💻 Groupes Applications',

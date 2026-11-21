@@ -169,6 +169,22 @@ function staticStrings(html) {
   const attrs = [...body.matchAll(/\s(?:placeholder|aria-label|title)="([^"]+)"/g)].map((m) => norm(dec(m[1])));
   return [...new Set([...texts, ...attrs])].filter((t) => /[A-Za-z]{2}/.test(t));
 }
+// I18N-QUALITY — a sentence split by inline markup (<strong>/<em>/<b>/<i>/<br>) is translated as ONE block key (the
+// element's whole text, as lib/i18nText.js computes it). Its fragments are then covered by the block entry.
+const INL = 'strong|em|b|i';
+const BLOCK_RE = new RegExp(`<(p|li|div|span|label|h[1-6]|td|th|small)\\b[^>]*>((?:[^<]|<(?:${INL})\\b[^>]*>[^<]*</(?:${INL})>|<br\\s*/?>)+)</\\1>`, 'g');
+function blocks(html) {
+  let body = html.slice(html.indexOf('<body'));
+  body = body.replace(/<script\b[\s\S]*?<\/script>/gi, '').replace(/<style\b[\s\S]*?<\/style>/gi, '').replace(/<!--[\s\S]*?-->/g, '');
+  const out = [];
+  for (const m of body.matchAll(BLOCK_RE)) {
+    if (!new RegExp(`<(${INL}|br)\\b`).test(m[2])) continue;
+    const key = norm(dec(m[2].replace(/<[^>]+>/g, '')));
+    const parts = m[2].split(/<[^>]+>/).map((x) => norm(dec(x))).filter((x) => /[A-Za-z]{2}/.test(x));
+    out.push({ key, parts });
+  }
+  return out;
+}
 function loadDicts(file) {
   const ctx = { window: {} };
   vm.runInNewContext(fs.readFileSync(path.join(PUB, 'lib', 'i18n', 'common.fr.js'), 'utf8'), ctx);
@@ -192,7 +208,9 @@ for (const [page, spec] of Object.entries(TRANSLATED_PAGES)) {
     const dict = Object.assign({}, w.I18N_FR_COMMON, w[spec.dict]);
     assert.ok(Object.keys(w[spec.dict]).length > 0, 'page dictionary not empty');
     const allow = ALLOW[page] || {};
-    const missing = staticStrings(cutRegions(page, read(page))).filter((t) => !(t in dict) && !(t in allow));
+    const html = cutRegions(page, read(page));
+    const covered = new Set(blocks(html).filter((b) => b.key in dict).flatMap((b) => b.parts.concat([b.key])));
+    const missing = staticStrings(html).filter((t) => !(t in dict) && !(t in allow) && !covered.has(t));
     assert.deepStrictEqual(missing, [], 'missing French entries');
     for (const [k, v] of Object.entries(allow)) assert.ok(v && v.length > 3, `allow-list entry "${k}" has a reason`);
     for (const [k, v] of Object.entries(w[spec.dict])) assert.strictEqual(typeof v, 'string', `${k} → string`);
@@ -203,7 +221,7 @@ for (const [page, spec] of Object.entries(TRANSLATED_PAGES)) {
     test(`${page}: every runtime key appears in the page source (the dictionary cannot drift from the page)`, () => {
       const w = loadDicts(spec.file);
       const src = norm(dec(read(page)));
-      const gone = Array.from(w[spec.dict + '_RUNTIME']).filter((k) => !src.includes(k));
+      const gone = Array.from(w[spec.dict + '_RUNTIME']).map((k) => k.split('@')[0]).filter((k) => !src.includes(k));
       assert.deepStrictEqual(gone, []);
     });
   }

@@ -1,21 +1,21 @@
 /* Adoption Lot A (item 11) — French for public/meetings-actions.html (static markup). JS-built rows: next pass.
  * NOT translated on purpose: site, department, owners, descriptions (data). Inert unless ui_i18n_pages='1'.
- * Terms follow docs/ux/GLOSSARY-FR.md (PROPOSED — to be validated by a French-speaking coordinator). */
+ * Terms follow docs/i18n/GLOSSAIRE-FR.md (PROPOSED — to be validated by a French-speaking coordinator). */
 (function (root) {
   'use strict';
   const STATIC = {
-    'Excel (full data)': 'Excel (toutes les données)', 'Export PPTX': 'Exporter en PPTX', 'Insights · Actions Register': 'Insights · Registre des actions',
+    // I18N-QUALITY — severity options (md_severities name_fr)
+    'High@status': 'Haute',
+    'Medium@status': 'Moyenne',
+    'Low@status': 'Basse',
+    // I18N-QUALITY — whole sentence (lib/i18nText.js matches the block first; inline tags kept in the value)
+    'Every action (IT commitment) raised in any Department Meeting, in one place — so nothing slips through. Filter by site, department, status or owner, and close an action right here without re-opening its PV. Actions stay actionable even after the meeting is signed or closed. The charts and the PPTX export reflect whatever filter you have applied. Overdue rows are red.': 'Toutes les actions (engagements IT) décidées en réunion de département, au même endroit — pour que rien ne passe entre les mailles. <strong>Filtrez</strong> par site, département, statut ou responsable, et <strong>clôturez une action ici même</strong> sans rouvrir son PV. Les actions restent modifiables même après la signature ou la clôture de la réunion. Les graphiques et l’<strong>export PPTX</strong> suivent le filtre appliqué. Les lignes en retard sont en rouge.',
+    'Excel (full data)': 'Excel (toutes les données)', 'Export PPTX': 'Exporter en PPTX', 'Insights · Actions Register': 'Analyses · Registre des actions',
     'IT commitments across all meetings': 'Engagements IT de toutes les réunions',
-    'Every action (IT commitment) raised in any Department Meeting, in one place — so nothing slips through.':
-      'Toutes les actions (engagements IT) décidées en réunion de département, au même endroit — pour que rien ne passe entre les mailles.',
-    'by site, department, status or owner, and': 'par site, département, statut ou responsable, et', 'close an action right here': 'clôturez une action ici même',
-    'without re-opening its PV. Actions stay actionable even after the meeting is signed or closed. The charts and the':
-      'sans rouvrir son PV. Les actions restent traitables même après la signature ou la clôture de la réunion. Les graphiques et l’',
-    'PPTX export': 'export PPTX', 'reflect whatever filter you have applied. Overdue rows are red.': 'suivent le filtre appliqué. Les lignes en retard sont en rouge.',
-    'Status breakdown': 'Répartition par statut', 'All actions in scope': 'Toutes les actions du périmètre',
+    'PPTX export': 'export PPTX',    'Status breakdown': 'Répartition par statut', 'All actions in scope': 'Toutes les actions du périmètre',
     'Open actions by department': 'Actions ouvertes par département', 'Not-yet-closed only': 'Non clôturées uniquement',
     'Open-action ageing': 'Ancienneté des actions ouvertes', 'By target date': 'Par date cible', 'Open actions by site': 'Actions ouvertes par site',
-    'Where the backlog sits — overdue highlighted': 'Où se trouve le stock — retards en évidence', 'Raised vs closed': 'Ouvertes ou clôturées',
+    'Where the backlog sits — overdue highlighted': 'Où se trouve le backlog — retards en évidence', 'Raised vs closed': 'Ouvertes ou clôturées',
     'Last 6 months': '6 derniers mois', 'All sites': 'Tous les sites', 'All departments': 'Tous les départements', 'All statuses': 'Tous les statuts',
     'Overdue only': 'En retard uniquement',
     'Download EVERY meeting (PV), issue, action and project as an Excel workbook (all sites, ignores filters). Admin only.':
@@ -27,7 +27,7 @@
   const RUNTIME = {
     // P11 r4 F-12 — texts built in script (toasts, empty states, row buttons, table heads)
     'Total actions': 'Actions au total',
-    'Open': 'Ouvertes',
+    'Open': 'Ouvertes', 'Open@status': 'Ouverte',
     'in scope': 'dans le périmètre',
     'not yet closed': 'pas encore clôturées',
     'open & unassigned': 'ouvertes et non attribuées',

@@ -14,11 +14,26 @@
     if (!(pol && pol.i18n_pages === '1')) return false;           // ui_i18n_pages switch (today: '0')
     const I = root.I18nText; if (!I) return false;
     const scope = (rootId && root.document.getElementById(rootId)) || root.document.body;
-    I.install({ dict: I.merge(root.I18N_FR_COMMON, root[dictName]), storageKey: 'ui_lang', root: scope });
+    I.install({ dict: I.merge(root.I18N_FR_COMMON, root.I18N_FR_LOOKUPS, root[dictName]), storageKey: 'ui_lang', root: scope });
     root.document.documentElement.dataset.i18n = 'on';
+    loadShared();
     return true;
   }
-  root.I18nBoot = { install };
+  // I18N-QUALITY — the shared formatter (lib/format.js) and code labels (lib/codeLabels.js) follow the page into
+  // French. Loaded only when the dictionaries install (an English page keeps its English formats), with the same
+  // ?v= as this script so a deploy refreshes them; a re-walk once the labels arrive picks up raw codes on screen.
+  function loadShared() {
+    const d = root.document; if (!d || !d.createElement || !d.head) return;
+    const v = (me && me.src && /[?&]v=([^&]+)/.exec(me.src) || [])[1];
+    const add = (file, glob, done) => {
+      if (root[glob]) { if (done) done(); return; }
+      const s = d.createElement('script'); s.src = 'lib/' + file + (v ? '?v=' + v : ''); s.async = false;
+      if (done) s.onload = done; d.head.appendChild(s);
+    };
+    add('format.js', 'SDPFormat');
+    add('codeLabels.js', 'SDPLabels', () => { try { if (root.I18nText && root.I18nText.refresh) root.I18nText.refresh(); } catch (_) { /* best effort */ } });
+  }
+  root.I18nBoot = { install, loadShared };
   if (me && me.dataset && me.dataset.dict) {
     try { install(me.dataset.dict, me.dataset.root); } catch (e) { try { console.warn('[i18n] install failed:', e && e.message); } catch (_) {} }
   }
