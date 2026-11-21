@@ -10,7 +10,7 @@
 | Decision cell in RELEASE-GATES.md | empty — this gate is **NO-GO** until the approver fills it. This dossier fills nothing. |
 | What this gate blocks | blocks the two-site pilot on the TEST instance |
 | Decide after | [G19](G19-qa-ci-green.md) QA: CI green and skipped tests reviewed |
-| Target SHA | `eb162dc5` |
+| Target SHA | `3df35be7` |
 | Generated | 2026-11-21 |
 
 ## 1. Question to decide
@@ -22,8 +22,8 @@ Do the access rules (site perimeter for business accounts CG-01, no fleet-wide r
 | Evidence | What it shows | Regenerate / re-run | Last changed (commit, date) | Content hash |
 |---|---|---|---|---|
 | `docs/ops/authz-matrix.json` | Machine-readable route × guard × capability matrix, regenerated from the code | `AUTHZ_MATRIX_UPDATE=1 node --test --test-force-exit tests/authz-matrix-json.test.js` | afc07f86, 2026-11-20 | `b3f808d2872c981d` |
-| `docs/ops/AUTHZ-MATRIX.md` | Human-readable matrix of every API route and the role it requires | `AUTHZ_MATRIX_UPDATE=1 node --test --test-force-exit tests/authz-route-matrix.test.js` | afc07f86, 2026-11-20 | `50aa56033757c28d` |
-| `tests/authz-route-matrix.test.js` | Fails when a route is added or its guard changes without regenerating the matrix | `node --test --test-force-exit tests/authz-route-matrix.test.js` | 4c7cde73, 2026-11-12 | `5af87df254c4a16d` |
+| `docs/ops/AUTHZ-MATRIX.md` | Human-readable matrix of every API route and the role it requires | `AUTHZ_MATRIX_UPDATE=1 node --test --test-force-exit tests/authz-route-matrix.test.js` | 3df35be7, 2026-11-21 | `b718b64fff1f6f6f` |
+| `tests/authz-route-matrix.test.js` | Fails when a route is added or its guard changes without regenerating the matrix | `node --test --test-force-exit tests/authz-route-matrix.test.js` | 3df35be7, 2026-11-21 | `3d3f4473adcf7cf3` |
 | `tests/authz-enforce.test.js` | Capability enforcement behaviour | `node --test --test-force-exit tests/authz-enforce.test.js` | 30243287, 2026-11-12 | `9298b189390ba23a` |
 | `docs/sdp360/completion/AUTHZ-OBJECT-MATRIX.csv` | Object-level access matrix (who may read or write which object) | `manual (object-level review)` | 040c228f, 2026-10-28 | `ed72b52d09da051b` |
 | `docs/ops/PORTFOLIO-ACCESS-MATRIX.md` | Portfolio/project access rules | `manual` | 2da52d5d, 2026-11-12 | `dc11f6254a1a83cc` |

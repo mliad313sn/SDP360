@@ -10,7 +10,7 @@
 | Case de décision dans RELEASE-GATES.md | vide — cette porte est **NO-GO** tant que l'approbateur ne l'a pas remplie. Ce dossier ne remplit rien. |
 | Ce que cette porte bloque | bloque le pilote sur deux sites (instance de TEST) |
 | À décider après | [G19](G19-qa-ci-green.md) QA : CI verte et tests sautés revus |
-| SHA cible | `eb162dc5` |
+| SHA cible | `3df35be7` |
 | Généré | 2026-11-21 |
 
 ## 1. La question à trancher
@@ -22,8 +22,8 @@ Les règles d'accès (périmètre de site des comptes métier CG-01, plus de lec
 | Preuve | Ce qu'elle montre | Régénérer / rejouer | Dernière modification (commit, date) | Empreinte |
 |---|---|---|---|---|
 | `docs/ops/authz-matrix.json` | Matrice route × garde × capacité lisible par machine, régénérée depuis le code | `AUTHZ_MATRIX_UPDATE=1 node --test --test-force-exit tests/authz-matrix-json.test.js` | afc07f86, 2026-11-20 | `b3f808d2872c981d` |
-| `docs/ops/AUTHZ-MATRIX.md` | Matrice lisible de chaque route d'API et du rôle exigé | `AUTHZ_MATRIX_UPDATE=1 node --test --test-force-exit tests/authz-route-matrix.test.js` | afc07f86, 2026-11-20 | `50aa56033757c28d` |
-| `tests/authz-route-matrix.test.js` | Échoue si une route est ajoutée ou si sa garde change sans régénérer la matrice | `node --test --test-force-exit tests/authz-route-matrix.test.js` | 4c7cde73, 2026-11-12 | `5af87df254c4a16d` |
+| `docs/ops/AUTHZ-MATRIX.md` | Matrice lisible de chaque route d'API et du rôle exigé | `AUTHZ_MATRIX_UPDATE=1 node --test --test-force-exit tests/authz-route-matrix.test.js` | 3df35be7, 2026-11-21 | `b718b64fff1f6f6f` |
+| `tests/authz-route-matrix.test.js` | Échoue si une route est ajoutée ou si sa garde change sans régénérer la matrice | `node --test --test-force-exit tests/authz-route-matrix.test.js` | 3df35be7, 2026-11-21 | `3d3f4473adcf7cf3` |
 | `tests/authz-enforce.test.js` | Comportement de l'application des capacités | `node --test --test-force-exit tests/authz-enforce.test.js` | 30243287, 2026-11-12 | `9298b189390ba23a` |
 | `docs/sdp360/completion/AUTHZ-OBJECT-MATRIX.csv` | Matrice d'accès par objet (qui lit ou écrit quel objet) | `manual (object-level review)` | 040c228f, 2026-10-28 | `ed72b52d09da051b` |
 | `docs/ops/PORTFOLIO-ACCESS-MATRIX.md` | Règles d'accès portefeuille/projet | `manual` | 2da52d5d, 2026-11-12 | `dc11f6254a1a83cc` |
