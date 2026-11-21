@@ -180,3 +180,15 @@ used while working (not committed): `/tmp/claude-0/polish3/ut.sh <test files>` a
 | ia-value F11 / F12, login landing | already done-1 — the field app does not write the shared language; the role chip shows the profile word; login and the brand link share `lib/landing.js` (`ui_role_landing` switch) |
 | ia-value F18 / F19 / F20 | done-3 — module tabs start under the breadcrumb text; Workspace settings uses token-styled controls and a link-styled "Return to Home"; the empty trackers list says what to do next. Drag handles instead of Up / Down were not built (the buttons are the keyboard-accessible control) |
 | ia-value F13 (Ctrl+K recents / actions) | not done — a new feature (recent pages need storage; actions need a registry), outside a polish pass |
+
+### PMO leftovers taken over after the PMO UX merge (trunk `3f029f9c` merged into this branch)
+
+| Item | State |
+|---|---|
+| PMO F21 (cockpit) | done-3 — when nothing is overdue the eight tiles fold into one line; "no due date (unknown)" and "oldest delay —" stay in it |
+| PMO F22 (RFI register) | done-3 — Impact / Effort / Data risk are labelled 1–3 lists (still sent as numbers), a "✓ saved" tick on the row just stored, the score in a neutral badge (no colour: no threshold is defined for it) |
+| PMO F17 (headers) | done-3 — the cockpit's own EN/FR toggle is gone (it already read the shared preference; the header switch is the only one). "My workspace" is an account-menu item and the role chip shows the profile word — both already in the trunk; header controls measured at one height |
+| Ledger action labels | done-3 — 41 action codes that were shown through `humanise()` (readable, English only) have EN + FR labels in `lib/ppmLabels.js` and both page dictionaries; a test scans every `ppmEvent({action})` on the server and fails on a code without a French label |
+| Milestone dates, register numbers | done-3 — the milestone date in the portfolio list goes through the page formatter; register FTE, budget and counts through `SDPFormat.number` (one line per currency, never a sum; unknown stays "—") |
+| Mobile check (register / decisions / capacity) | done-3 — captured at 390 px with their switches on: the register's analysis cards widened the page (592 px) → cards scroll inside themselves, grid `minmax(min(380px,100%),1fr)`; `project.html` overview list (415 px) fixed the same way; decisions and capacity had no overflow |
+| "(help §25)" | none left on portfolio / project (only the mapping note inside the manual) |

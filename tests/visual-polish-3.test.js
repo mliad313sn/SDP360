@@ -293,3 +293,37 @@ test('codes shown as words (SDPLabels): import source, deleted-record module, co
   assert.match(read('exec-view.html'), /SDPLabels\.label\('site_status', l\)/);
   assert.match(read('reports.html'), /SDPLabels\.label\('completion', status\)/);
 });
+
+// ── PMO leftovers handed over after the PMO UX merge ───────────────────────────────────────────────────────────
+test('PMO: every ledger action the server writes has an EN and a FR label; register numbers go through the page formatter', () => {
+  const L = require('../public/lib/ppmLabels.js');
+  const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((f) => (f.isDirectory() ? walk(path.join(d, f.name)) : f.name.endsWith('.js') ? [path.join(d, f.name)] : []));
+  const codes = new Set();
+  for (const f of walk(path.join(ROOT, 'services')).concat(walk(path.join(ROOT, 'routes')))) {
+    const s = fs.readFileSync(f, 'utf8');
+    for (const m of s.matchAll(/ppmEvent\(\s*\{[\s\S]{0,220}?action:\s*(?:[\w.]+\s*\?\s*)?['"]([a-z][a-z_]{2,40})['"](?:\s*:\s*['"]([a-z_]+)['"])?/g)) { codes.add(m[1]); if (m[2]) codes.add(m[2]); }
+  }
+  assert.ok(codes.size > 40, 'the scan found the ledger writers');
+  const missing = [...codes].filter((c) => !L.MAP.action[c] || !L.MAP.action[c][1]).sort();
+  assert.deepStrictEqual(missing, [], 'ledger actions without a French label');
+  const PR = require('../public/lib/portfolioRegister.js');
+  const esc = (x) => String(x);
+  const html = PR.tableHtml([{ id: 1, ref: 'P-1', name: 'N', budget: 1234567, avg_fte: 0.5 }], { cols: ['ref', 'name', 'budget', 'avg_fte'], esc, T: { title: 't', none: '—', yes: 'y', no: 'n' }, lang: 'fr', num: (v, d) => 'N(' + v + (d == null ? '' : ',' + d) + ')' });
+  assert.match(html, /N\(1234567\)/); assert.match(html, /N\(0\.5,2\)/);
+  const unknown = PR.tableHtml([{ id: 2, ref: 'P-2', name: 'N', budget: null, avg_fte: null }], { cols: ['budget', 'avg_fte'], esc, T: { title: 't', none: '—' }, lang: 'en', num: () => 'X' });
+  assert.doesNotMatch(unknown, /X/, 'an unknown budget or FTE stays —, it is never formatted as a number');
+  const g = PR.groupTableHtml([{ key: 'c', total: { USD: 1000, XOF: 5 } }], [['key', 'k'], ['total', 't']], { esc, T: {}, num: (v) => '#' + v });
+  assert.match(g, /#1000 USD<br>#5 XOF/, 'one line per currency, never a sum');
+  assert.match(read('portfolio.html'), /esc\(m\.due \? \(UX \? UX\.date\(m\.due\) : m\.due\) : "—"\)/);
+});
+
+test('PMO F17 / F21 / F22: one language switch on the cockpit, a quiet delay line, labelled RFI pickers', () => {
+  const ck = read('cockpit.html');
+  assert.doesNotMatch(ck, /id="lgEn"|id="lgFr"/);
+  assert.match(ck, /nothingLate = j\.summary\.overdue === 0 && !b\.d1_7 && !b\.d8_30 && !b\.d31_90 && !b\.d90_plus/);
+  assert.match(ck, /T\("No due date \(unknown\)"\)\)\.toLowerCase\(\)/, 'the unknown count stays in the quiet line');
+  const rfi = read('rfi.html');
+  assert.match(rfi, /LV = \{ 1: "1 – low", 2: "2 – medium", 3: "3 – high" \}/);
+  assert.doesNotMatch(rfi, /type=\\"number\\" min=\\"1\\"/);
+  assert.match(rfi, /t\.dataset\.num\) \? Number\(t\.value\)/, 'the value is still sent as a number');
+});

@@ -102,10 +102,11 @@ th[aria-sort=descending] .ppm-sort::after { content: '▼'; color: var(--color-t
 .ppm-progress-bar { display: inline-block; width: 90px; height: 8px; border-radius: 4px; background: var(--color-border); overflow: hidden; vertical-align: middle; }
 .ppm-progress-bar > span { display: block; height: 100%; background: var(--color-success); }
 .ppm-num { font-variant-numeric: tabular-nums; white-space: nowrap; }
-.ppm-dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 0 var(--space-6); margin: 0; }
+.ppm-dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(380px, 100%), 1fr)); gap: 0 var(--space-6); margin: 0; }
 .ppm-dl > div { display: grid; grid-template-columns: 160px 1fr; gap: var(--space-2); padding: 7px 0; border-bottom: 1px solid var(--color-border); font-size: 13px; }
 .ppm-dl dt { color: var(--color-text-muted); font-weight: 600; margin: 0; }
-.ppm-dl dd { margin: 0; }
+.ppm-dl dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 480px) { .ppm-dl > div { grid-template-columns: minmax(96px, 40%) 1fr; } }
 .ppm-page .tile .tn { font-size: 18px; }
 .ppm-page .tile .tl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 

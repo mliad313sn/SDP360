@@ -17,6 +17,8 @@
   // PMO UX — codes read as labels (lib/ppmLabels.js → lib/codeLabels.js), dates through lib/format.js; "—" stays "—"
   const LBL = window.PpmLabels, UX = window.PpmUx, FL = lang === 'fr' ? 'fr' : 'en';
   const lab = (g, c) => (c == null || c === '' ? '—' : LBL ? LBL.label(g, c, FL) : String(c));
+  // FTE, budget and counts in the reader's language (lib/format.js); a value that is not a number stays "—"
+  const fnum = (v, decimals) => (window.SDPFormat ? window.SDPFormat.number(v, decimals == null ? { lang: FL } : { lang: FL, decimals }) : Number(v).toLocaleString('en-US'));
   const fdate = (v) => (v == null || v === '' ? '—' : window.SDPFormat ? window.SDPFormat.date(String(v).slice(0, 10), { lang: FL }) : String(v).slice(0, 10));
   const FILTER_CODES = { priority: 'priority', status: 'status', risk: 'severity' };
   let state = UF.parse(location.search, PR.SCHEMA);
@@ -68,7 +70,7 @@
   $('prCols').addEventListener('change', () => go(readFilters()));
 
   function analysesHtml(a, j) {
-    const g = (rows, cols) => PR.groupTableHtml(rows, cols, { esc, T });
+    const g = (rows, cols) => PR.groupTableHtml(rows, cols, { esc, T, num: fnum });
     const cards = [];
     cards.push(`<div class="pr-card"><h2>${esc(T.bySite)}</h2>${g(a.by_site.map((s) => Object.assign({}, s, { site: s.site || '—' })), [['site', 'Site'], ['count', 'count'], ['critical_high', 'critical_high'], ['high_risk', 'high_risk'], ['fte', 'fte'], ['fte_unknown', 'fte_unknown'], ['dq', 'dq']].concat(j.money_hidden ? [] : [['budget', 'budget']]))}</div>`);
     if (a.by_priority && a.by_priority.length) cards.push(`<div class="pr-card"><h2>${esc(T.byPriority)}</h2>${g(a.by_priority.map((x) => Object.assign({}, x, { priority: x.priority == null ? null : lab('priority', x.priority) })), [['priority', 'Priority'], ['count', 'count'], ['pct', 'pct'], ['fte', 'fte'], ['sites', 'sites']].concat(j.money_hidden ? [] : [['unfunded', 'unfunded'], ['budget', 'budget']]))}</div>`);
@@ -95,11 +97,11 @@
       const j = await api('/api/governance/portfolio/register' + q);
       $('prMeta').textContent = `${j.rows.length} ${T.rows} ${T.of} ${j.total} · ${UX && UX.dateTime ? (window.SDPFormat ? window.SDPFormat.dateTime(j.as_of, { lang: FL }) : UX.dateTime(j.as_of)) : String(j.as_of || '').slice(0, 16).replace('T', ' ')}${j.money_hidden ? ' · ' + T.MONEY_HIDDEN : ''} · ${T.proposed}`;
       if (!drawn) { drawFilters(j); drawn = true; }   // drawn once: a re-render would move the keyboard focus
-      $('prKpis').innerHTML = PR.kpiHtml(j.kpis, { esc, T, merge });
+      $('prKpis').innerHTML = PR.kpiHtml(j.kpis, { esc, T, merge, num: fnum });
       // P11 F-21: each report link opens exactly r.drill; its count is computed on that same state.
       $('prReports').innerHTML = (j.reports || []).map((r) => { const d = PR.REPORTS.find((x) => x.key === r.key); const lab = `${esc(d[lang === 'fr' ? 'fr' : 'en'])} (${r.count == null ? '—' : esc(r.count)})`; return r.drill ? `<a href="${esc(merge(r.drill))}">${lab}</a>` : `<span>${lab}</span>`; }).join(' · ');
       $('prRowsH').textContent = `${T.title} (${j.rows.length})`;
-      $('prTable').innerHTML = PR.tableHtml(j.rows, { cols: j.cols, esc, T, lang, sort: state.sort, dir: state.dir, merge, label: lab, date: fdate });
+      $('prTable').innerHTML = PR.tableHtml(j.rows, { cols: j.cols, esc, T, lang, sort: state.sort, dir: state.dir, merge, label: lab, date: fdate, num: fnum });
       $('prAnalyses').innerHTML = analysesHtml(j.analyses, j);
       ['prFilterCard', 'prKpiCard', 'prTableCard', 'prAnalyses'].forEach((id) => { $(id).hidden = false; });
     } catch (e) { $('prMeta').textContent = e.status === 404 ? T.off : T.loadErr + ': ' + e.message; }

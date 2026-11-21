@@ -93,12 +93,20 @@
     if (c.date && v != null && v !== '' && o && o.date) return '<span class="pr-date">' + esc(o.date(v)) + '</span>';
     if (c.key === 'baselined') return v == null ? '—' : esc(v ? t.yes : t.no);
     if (c.key === 'name' && r.id != null) return '<a href="project.html?id=' + encodeURIComponent(String(r.id)) + '">' + dash(v, esc) + '</a>';
-    if (c.key === 'budget' && v != null) return esc(Number(v).toLocaleString('en-US'));
+    // numbers through the page's formatter (lib/format.js — the reader's language); unknown stays "—"
+    if (c.key === 'budget' && v != null) return esc(fmtNum(v, o));
+    if (c.num && v != null && v !== '' && isFinite(Number(v))) return esc(fmtNum(v, o, c.key === 'avg_fte' ? 2 : undefined));
     return dash(v, esc);
   }
-  function money(v, esc) {
+  // o.num(value, decimals) is injected by the page (SDPFormat.number); without it the previous en-US grouping is kept
+  function fmtNum(v, o, decimals) {
+    if (o && typeof o.num === 'function') return o.num(Number(v), decimals);
+    return Number(v).toLocaleString('en-US');
+  }
+  // one line PER currency — amounts in different currencies are never added
+  function money(v, esc, o) {
     if (v == null) return '—';
-    if (typeof v === 'object') { var ks = Object.keys(v); return ks.length ? ks.map(function (k) { return esc(Number(v[k]).toLocaleString('en-US') + ' ' + k); }).join('<br>') : '—'; }
+    if (typeof v === 'object') { var ks = Object.keys(v); return ks.length ? ks.map(function (k) { return esc(fmtNum(v[k], o) + ' ' + k); }).join('<br>') : '—'; }
     return esc(String(v));
   }
   /** KPI cards: each a link to its drill-through. P11 F-21: k.drill is the exact patch merged into the current address
@@ -106,7 +114,7 @@
   function kpiHtml(kpis, o) {
     var esc = o.esc, t = o.T, merge = o.merge || function () { return '?'; };
     return '<div class="pr-kpis">' + (kpis || []).map(function (k) {
-      var val = k.value == null ? '<span class="pr-unk">—</span>' : (k.unit === 'money' ? money(k.value, esc) : esc(String(k.value)) + (k.unit === '%' ? ' %' : ''));
+      var val = k.value == null ? '<span class="pr-unk">—</span>' : (k.unit === 'money' ? money(k.value, esc, o) : esc(typeof k.value === 'number' ? fmtNum(k.value, o) : String(k.value)) + (k.unit === '%' ? ' %' : ''));
       var why = k.value == null && k.reason ? '<div class="pr-muted">' + esc(t[k.reason] || k.reason) + '</div>' : '';
       if (k.scope) why += '<div class="pr-muted">' + esc(k.scope === 'with_budget_checks' ? t.dq_scope_with : t.dq_scope_without) + '</div>';   // P11 F-22
       var link = k.drill ? '<a class="pr-drill" href="' + esc(merge(k.drill)) + '">' + esc(t.drill) + ' (' + esc(String(k.count == null ? '—' : k.count)) + ')</a>' : '';
@@ -132,7 +140,7 @@
     var esc = o.esc, t = o.T;
     if (!rows || !rows.length) return '<p class="pr-muted">—</p>';
     return '<table class="pr-mini"><thead><tr>' + cols.map(function (c) { return '<th scope="col"' + (t[c[1] + '_tip'] ? ' title="' + esc(t[c[1] + '_tip']) + '"' : '') + '>' + esc(t[c[1]] || c[1]) + (t[c[1] + '_tip'] ? ' <span class="pr-info" aria-hidden="true">i</span><span class="pr-sr"> — ' + esc(t[c[1] + '_tip']) + '</span>' : '') + '</th>'; }).join('') + '</tr></thead><tbody>' +
-      rows.map(function (r) { return '<tr>' + cols.map(function (c) { var v = r[c[0]]; return '<td>' + (v != null && typeof v === 'object' ? money(v, esc) : dash(v, esc)) + '</td>'; }).join('') + '</tr>'; }).join('') + '</tbody></table>';
+      rows.map(function (r) { return '<tr>' + cols.map(function (c) { var v = r[c[0]]; return '<td>' + (v != null && typeof v === 'object' ? money(v, esc, o) : (typeof v === 'number' ? esc(fmtNum(v, o)) : dash(v, esc))) + '</td>'; }).join('') + '</tr>'; }).join('') + '</tbody></table>';
   }
   /** A small horizontal bar chart (SVG attributes only — no inline style, strict CSP page). rows: [{ label, value }].
    *  A null value draws NO bar and reads "—" (not measured is never a zero-length bar passed off as 0). */
