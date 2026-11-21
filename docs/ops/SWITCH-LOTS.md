@@ -111,7 +111,7 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 | `ppm_baseline_slots_enabled` | PMO | once the PMO wants MS-Project-style comparison points: Baseline, Baseline1 | — | — | — | — | 4 | 1 |
 | `ppm_dcma_enabled` | PMO / scheduler | once the PMO wants the DCMA 14-point schedule quality check on the Plan tab  | — | — | — | — | 3 | 2 |
 | `ppm_templates_enabled` | PMO (template validation is a human act) | once the PMO names who validates templates  | — | — | — | — | 5 | 1 |
-| `portfolio_editor_plan_writes` | Owner (access policy) | — | — | — | — | — | 9 | 5 |
+| `portfolio_editor_plan_writes` | Owner (access policy) | — | — | — | — | — | 9 | 6 |
 
 ## Dossier L04 — PMO journey — scheduling, resources and collaboration
 
@@ -324,7 +324,7 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 | `restore_drill_full` | Operations owner | once a backup copy of `data/blobs` exists  | — | — | report_config, system_log | — | 1 | 1 |
 | `entra_deprovision_enabled` | Information Security + tenant administrator | only after the tenant administrator decides on the Graph `User | — | — | users | yes | 3 | 2 |
 | `site_code_shared_block` | Data owner + Owner | Decide who owns each shared site code (e.g. TND) and correct the data first; then test the controlled 409 and the editors' rights. | — | editor | — | — | 5 | 4 |
-| `policy_center_enabled` | to be named | — | — | — | — | — | 9 | 9 |
+| `policy_center_enabled` | to be named | — | — | — | — | — | 9 | 10 |
 
 ## Dossier L14 — PMO journey — portfolio intake register, data quality, register and executive dashboard, decision agenda and management alerts, lifecycle / review / audit (portfolio spec Lots 1–5)
 
