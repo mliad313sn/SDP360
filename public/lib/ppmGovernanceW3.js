@@ -51,7 +51,7 @@
         ['RAG', s.rag_enabled ? RAGL(c.rag) : '<span class="muted">off</span>'],
         ['Schedule complete (work-weighted)', n(c.schedule_complete_pct, ' %')],
         ['Budget burn — actual / planned (non certifié)', s.evm_enabled ? burn : '<span class="muted">earned value off</span>'],
-        ['Active risks · high · blocked tasks', n(c.active_risks) + ' · ' + n(c.high_risks) + ' · ' + n(c.blocked_tasks)],
+        ['Active risks + issues · high · blocked tasks', n(c.active_risks) + ' · ' + n(c.high_risks) + ' · ' + n(c.blocked_tasks)],
         ['Next milestone', c.next_milestone ? esc(c.next_milestone.name) + '<div class="l">' + esc(c.next_milestone.due_date) + '</div>' : '—'],
         ['Forecast finish (slip, working days)', n(c.forecast_finish) + ' (' + n(c.slip_working_days) + ')'],
       ];

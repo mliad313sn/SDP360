@@ -73,7 +73,7 @@ async function buildDeck(view, { money: showMoney = false, exceptions = [], asOf
   // 4 — RAID: top open risks by exposure
   s = pptx.addSlide(); page++; _title(s, 'RAID — top open risks');
   const keyOf = new Map(projects.map((p) => [Number(p.id), p.key]));
-  const top = risks.filter((r) => r.status === 'open').sort((a, b) => (b.exposure || 0) - (a.exposure || 0) || Number(a.id) - Number(b.id));
+  const top = risks.filter(require('./ppm/riskExposure').isOpen).sort((a, b) => (b.exposure || 0) - (a.exposure || 0) || Number(a.id) - Number(b.id));
   const rc = _cap(top);
   _table(s, ['Project', 'Kind', 'Title', 'Exposure', 'Severity', 'Owner', 'Mitigation'], rc.rows.map((r) => [keyOf.get(Number(r.project_id)) || null, r.kind || 'risk', r.title, r.exposure, r.severity, r.owner, r.mitigation]), { colW: [1.3, 0.9, 3.2, 1.0, 1.0, 1.5, 3.83], more: rc.more, empty: 'No open risk.' });
   _footer(s, at, page);

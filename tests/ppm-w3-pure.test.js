@@ -212,7 +212,7 @@ test('KPI cards reconcile to the engines (recomputed from the source rows)', () 
   assert.ok(W > 0);
   assert.equal(out.cards.forecast_finish, s.project_finish);
   const cal = ENGINE.makeCalendar(null); assert.equal(out.cards.slip_working_days, cal.ord(ENGINE.toDay(s.project_finish)) - cal.ord(ENGINE.toDay('2027-01-08')));
-  assert.equal(out.cards.active_risks, 2); assert.equal(out.cards.high_risks, 1);
+  assert.equal(out.cards.active_risks, 3, 'P11 r7 F-30: open risks + issues (same population as high)'); assert.equal(out.cards.high_risks, 1);
   assert.deepEqual(out.cards.next_milestone, { id: 4, name: 'Handover', due_date: '2026-12-01', baseline_date: null, owner: null });
   assert.equal(out.cards.overdue_milestones, 1);
   assert.deepEqual(out.cards.budget_burn, [{ currency: 'USD', ac: 420, pv: 400, bac: 1000, burn_vs_plan: 1.05 }]);

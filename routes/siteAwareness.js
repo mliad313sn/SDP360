@@ -36,6 +36,7 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
     const cell = _cell(c.rag, c.value);
     cell.open_overdue = c.open_overdue;
     if (c.cap) cell.cap = c.cap;
+    if (c.insufficient) { cell.insufficient = true; cell.min_closed = c.min_closed; }
     return cell;
   }
   // inspections: conformity = ok/(ok+minor+major+critical+opp). na when base 0.

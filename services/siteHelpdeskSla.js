@@ -47,7 +47,10 @@ function fleetCell(hw) {
   const den = h.res_sla_den == null ? null : Number(h.res_sla_den);
   const missed = h.res_sla_missed == null ? null : Number(h.res_sla_missed);
   const closedMeasured = Number.isFinite(den) && den > 0 && Number.isFinite(missed) && h.res_sla_pct != null;
-  const closedRag = closedMeasured ? band(missed, den) : null;
+  // P11 r7 F-31 — a closed base below the PROPOSED minimum is shown (value) but not judged (no closed verdict)
+  const minClosed = Number.isInteger(P.min_closed) && P.min_closed > 0 ? P.min_closed : 1;
+  const closedSmall = closedMeasured && den < minClosed;
+  const closedRag = closedMeasured && !closedSmall ? band(missed, den) : null;
   const oo = h.open_overdue == null ? null : Number(h.open_overdue);
   const created = h.created == null ? null : Number(h.created);
   let openRag = null;
@@ -63,7 +66,9 @@ function fleetCell(hw) {
   else if (openRag && openRag !== 'green') rag = openRag;   // nothing closed: only a bad open band gives a verdict
   else rag = 'na';
   const cell = { rag, value: closedMeasured ? missed + '/' + den : null, open_overdue: Number.isFinite(oo) ? oo : null };
-  if (openRag === 'red' || openRag === 'amber') cell.cap = openRag;
+  if (closedSmall) { cell.insufficient = true; cell.min_closed = minClosed; }
+  // P11 r7 F-31 — the cell's own red / amber caps the site overall, whichever band produced it (closed OR open)
+  if (rag === 'red' || rag === 'amber') cell.cap = rag;
   return cell;
 }
 
