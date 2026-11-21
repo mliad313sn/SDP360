@@ -37,8 +37,9 @@ HTML was edited (the visual-polish lot owns the pages). Strict-CSP pages allow i
 - Adjusted: `i18n-coverage` (sentence-block coverage, `@ctx` stripped for the source check), `i18n-shell-charts` /
   `i18n-inline-glossary` (glossary path), `adoption-lota-week` (« S45 »), `error-shape` (ratchet 422).
 - Runs (PostgreSQL 17, throwaway DBs `*i18nq*`): 125 test files touching i18n, a11y, CSP, field, meetings,
-  inspection, shared helpers and error shape — 834 tests, 0 fail after the last fix. E2E journeys: see the commit log
-  of this lot.
+  inspection, shared helpers and error shape — 834 tests, 0 fail after the last fix (one assertion of the new test
+  was updated when the routes moved to `fail()`). E2E journeys (`npm run test:e2e -- --runs=1`): GREEN, 44 journeys.
+  `npx eslint .` clean.
 
 ## Not done, and why
 
