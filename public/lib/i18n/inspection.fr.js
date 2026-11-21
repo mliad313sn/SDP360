@@ -90,6 +90,15 @@
       '{n} action(s) ont été modifiée(s) entre-temps (registre des actions ou téléphone) : le serveur a gardé ce statut / responsable. Le formulaire l’affiche maintenant — modifiez-le à nouveau et enregistrez si vous voulez toujours votre valeur.',
     '{n} stored action(s) could not be matched safely (same text) and were kept. They are now listed in the form — delete the ones you do not want and save.':
       '{n} action(s) enregistrée(s) n’ont pas pu être rapprochée(s) avec certitude (même texte) et ont été conservée(s). Elles figurent maintenant dans le formulaire — supprimez celles dont vous ne voulez pas et enregistrez.',
+    // P11 r8 F-29 — save based on an older version (someone else saved meanwhile)
+    '{n} inspection(s) were changed by someone else since they were opened here and were not sent. Open each one and click Save now to reload the latest version and reapply your changes.':
+      '{n} inspection(s) ont été modifiée(s) par quelqu’un d’autre depuis leur ouverture ici et n’ont pas été envoyée(s). Ouvrez chacune et cliquez sur Enregistrer maintenant pour recharger la dernière version et réappliquer vos modifications.',
+    'Someone else saved this inspection after you opened it. Your changes were NOT sent.': 'Quelqu’un d’autre a enregistré cette inspection après son ouverture ici. Vos modifications n’ont PAS été envoyées.',
+    'OK = load the latest version and reapply your changes (you check them, then click Save now). Cancel = keep editing your copy (use Export JSON to keep it).':
+      'OK = charger la dernière version et réappliquer vos modifications (vous les vérifiez, puis cliquez sur Enregistrer maintenant). Annuler = continuer sur votre copie (utilisez Export JSON pour la garder).',
+    'The latest version could not be loaded — your copy is kept on this device. Try again.': 'La dernière version n’a pas pu être chargée — votre copie est conservée sur cet appareil. Réessayez.',
+    'Latest version loaded and your changes reapplied. Check them, then click Save now.': 'Dernière version chargée et vos modifications réappliquées. Vérifiez-les, puis cliquez sur Enregistrer maintenant.',
+    '⚠ Not saved: changed by someone else since you opened it — reload and reapply, then Save now': '⚠ Non enregistrée : modifiée par quelqu’un d’autre depuis son ouverture — rechargez et réappliquez, puis Enregistrer maintenant',
   };
   root.I18N_FR_INSPECTION = Object.assign({}, STATIC, RUNTIME_KEYS);
   root.I18N_FR_INSPECTION_RUNTIME = Object.keys(RUNTIME_KEYS);

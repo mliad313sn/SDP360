@@ -19,8 +19,8 @@
 | routes in server js | 160 |
 | jobs | 33 |
 | jobs without test reference | 0 |
-| migrations | 118 |
-| test files | 939 |
+| migrations | 117 |
+| test files | 937 |
 
 ## Pages
 
@@ -49,7 +49,7 @@
 | PG-index | public/index.html | any | yes | 1 | 43 |
 | PG-infra-health | public/infra-health.html | any | yes | 2 | 7 |
 | PG-inspection-actions | public/inspection-actions.html | any | no | 1 | 7 |
-| PG-inspection | public/inspection.html | any | no | 2 | 10 |
+| PG-inspection | public/inspection.html | any | no | 2 | 11 |
 | PG-inspections | public/inspections.html | any | yes | 1 | 11 |
 | PG-integrations | public/integrations.html | admin | yes | 1 | 5 |
 | PG-it-review | public/it-review.html | executive / scorecard-viewer | yes | 2 | 9 |
@@ -82,7 +82,7 @@
 | PG-reports | public/reports.html | any | yes | 2 | 41 |
 | PG-rfi | public/rfi.html | any | yes | 1 | 5 |
 | PG-site-actions | public/site-actions.html | any | yes | 1 | 18 |
-| PG-site-awareness | public/site-awareness.html | site-business / group-business / executive | yes | 2 | 12 |
+| PG-site-awareness | public/site-awareness.html | site-business / group-business / executive | yes | 2 | 13 |
 | PG-site-report | public/site-report.html | UNKNOWN | no | 0 | 6 |
 | PG-system-logs | public/system-logs.html | super_admin | yes | 1 | 4 |
 | PG-tracker-builder | public/tracker-builder.html | admin / tracker-admin | no | 1 | 4 |

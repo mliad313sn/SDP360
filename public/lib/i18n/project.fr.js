@@ -122,6 +122,17 @@
     'A project role needs a team member linked to a user account.': 'Un rôle projet demande un membre de l’équipe lié à un compte utilisateur.',
     // P11 r7 F-28 — change-request scope label (lib/ppmWorkbench.js): its own text node, the field names follow
     'May rewrite:': 'Peut réécrire :',
+    // P11 r8 F-31 — simplified-view summary cards (lib/ppmGovernanceW3.js): each label is its own text node
+    'Schedule complete (work-weighted)': 'Avancement du planning (pondéré par la charge)',
+    'Budget burn — actual / planned (non certifié)': 'Consommation du budget — réel / prévu (non certifié)',
+    'Active risks + issues · high · blocked tasks': 'Risques + problèmes actifs · élevés · tâches bloquées',
+    'Next milestone': 'Prochain jalon', 'Next milestones': 'Prochains jalons',
+    'Forecast finish (slip, working days)': 'Fin prévue (glissement, jours ouvrés)',
+    'amounts restricted': 'montants restreints', 'earned value off': 'valeur acquise désactivée',
+    'Phases': 'Phases', 'Top risks and issues': 'Principaux risques et problèmes',
+    'No open risk or issue.': 'Aucun risque ni problème ouvert.', 'No upcoming milestone.': 'Aucun jalon à venir.',
+    'Every number comes from the schedule engine, earned value and the RAID register; “—” = not measured, never 0. Expert view keeps the tabs where you left them.':
+      'Chaque chiffre vient du moteur de planning, de la valeur acquise et du registre RAID ; « — » = non mesuré, jamais 0. La vue experte garde les onglets là où vous les avez laissés.',
   };
   root.I18N_FR_PROJECT = Object.assign({}, STATIC, RUNTIME_KEYS);
   root.I18N_FR_PROJECT_RUNTIME = Object.keys(RUNTIME_KEYS);

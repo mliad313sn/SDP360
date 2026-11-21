@@ -520,7 +520,9 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
         return { site_id: s.site_id, site_name: site_name || null, overall_rag: rollupRag(cells), overall_trend: overall_trend, cells };
       }));
 
-      res.json({ sites: rows, as_of: asOf });
+      // P11 r8 F-31 — the visible helpdesk rule quotes the PROPOSED minimum from the policy, never a literal
+      const hdPolicy = require('../public/lib/kpiRag').POLICIES['helpdesk-fleet-sla'] || {};
+      res.json({ sites: rows, as_of: asOf, helpdesk_min_closed: Number.isInteger(hdPolicy.min_closed) && hdPolicy.min_closed > 0 ? hdPolicy.min_closed : null });
     } catch (_) { res.json({ sites: [] }); }
   });
 

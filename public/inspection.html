@@ -3879,10 +3879,72 @@ document.addEventListener('DOMContentLoaded', init);
     });
     if (!res.ok) {
       const txt = await res.text().catch(() => '');
-      throw new Error('save HTTP ' + res.status + ' — ' + txt.slice(0, 200));
+      const err = new Error('save HTTP ' + res.status + ' — ' + txt.slice(0, 200));
+      err.status = res.status;
+      // P11 r8 F-29 — 409 inspection_changed: someone else saved this inspection after it was loaded here
+      try { const j = JSON.parse(txt); err.reason = j && j.reason; err.server_version = j && j.server_version; } catch (_) { /* not JSON */ }
+      throw err;
     }
     return res.json();
   }
+
+  // ── P11 r8 F-29 — optimistic concurrency helpers (pure) ──────────
+  // The form keeps the version it loaded (server_version), the stored action ids it has seen (known_action_ids) and
+  // a light fingerprint of what it loaded (base_fp), so a "reload and reapply" can re-apply only what the user changed.
+  function _photoSig(p) { return typeof p === 'string' ? p.length : (p && (p.__blob || (p.dataUrl ? p.dataUrl.length : ''))) || ''; }
+  function inspItemFp(it) { it = it || {}; return JSON.stringify([it.status || '', it.notes || '', (Array.isArray(it.photos) ? it.photos : []).map(_photoSig)]); }
+  function inspActionFp(a) { a = a || {}; return JSON.stringify([a.desc || a.description || '', a.link || '', a.priority || '', a.owner || '', a.due || '', a.status || '', a.notes || '']); }
+  function inspSigFp(sg) { sg = sg || {}; return JSON.stringify(Object.keys(sg).sort().map((k) => [k, _photoSig(sg[k])])); }
+  function inspFingerprint(st) {
+    st = st || {};
+    const meta = {}; Object.keys(st.meta || {}).forEach((k) => { meta[k] = st.meta[k]; });
+    const items = {}; Object.keys(st.items || {}).forEach((k) => { items[k] = inspItemFp(st.items[k]); });
+    const actions = {}; (Array.isArray(st.actions) ? st.actions : []).forEach((a) => { if (a && a.id != null && a.id !== '') actions[Number(a.id)] = inspActionFp(a); });
+    return { meta, items, actions, status: st.status || 'draft', sig: inspSigFp(st.signatures) };
+  }
+  // ids this form knows: what it loaded / got back from saves, else (an older local copy) the ids it holds + removed
+  function inspKnownIds(st) {
+    if (st && Array.isArray(st.known_action_ids)) return st.known_action_ids.map(Number).filter((n) => Number.isInteger(n) && n > 0);
+    const out = new Set();
+    (st && Array.isArray(st.actions) ? st.actions : []).forEach((a) => { const n = a && a.id != null && a.id !== '' ? Number(a.id) : NaN; if (Number.isInteger(n) && n > 0) out.add(n); });
+    (st && Array.isArray(st.removed_action_ids) ? st.removed_action_ids : []).forEach((x) => { const n = Number(x); if (Number.isInteger(n) && n > 0) out.add(n); });
+    return [...out];
+  }
+  // Start from the server copy and re-apply what the user changed locally since the load (per field / finding /
+  // action, judged against base_fp; without base_fp every local value is reapplied). Never drops a server action
+  // the user did not remove. Returns { state, reapplied }.
+  function reapplyLocalEdits(local, server) {
+    const out = JSON.parse(JSON.stringify(server || {}));
+    out.meta = out.meta || {}; out.items = out.items || {}; out.actions = Array.isArray(out.actions) ? out.actions : [];
+    local = local || {};
+    const base = local.base_fp || null;
+    let n = 0;
+    const lm = local.meta || {};
+    Object.keys(lm).forEach((k) => { if ((!base || base.meta[k] !== lm[k]) && out.meta[k] !== lm[k]) { out.meta[k] = lm[k]; n++; } });
+    const li = local.items || {};
+    Object.keys(li).forEach((k) => { if ((!base || base.items[k] !== inspItemFp(li[k])) && inspItemFp(out.items[k]) !== inspItemFp(li[k])) { out.items[k] = li[k]; n++; } });
+    if (base) Object.keys(base.items || {}).forEach((k) => { if (!(k in li) && (k in out.items)) { delete out.items[k]; n++; } });
+    if ((!base || base.status !== (local.status || 'draft')) && local.status && local.status !== out.status) { out.status = local.status; n++; }
+    if (local.signatures && (!base || base.sig !== inspSigFp(local.signatures))) { out.signatures = Object.assign({}, out.signatures || {}, local.signatures); n++; }
+    const removed = new Set((Array.isArray(local.removed_action_ids) ? local.removed_action_ids : []).map(Number));
+    const byId = new Map(out.actions.map((a, i) => [a && a.id != null ? Number(a.id) : NaN, i]));
+    (Array.isArray(local.actions) ? local.actions : []).forEach((a) => {
+      if (!a || typeof a !== 'object') return;
+      const id = a.id != null && a.id !== '' ? Number(a.id) : NaN;
+      if (Number.isInteger(id) && byId.has(id)) {
+        if (base && base.actions && base.actions[id] === inspActionFp(a)) return;   // untouched here: keep the server row
+        const i = byId.get(id);
+        out.actions[i] = Object.assign({}, out.actions[i], a); n++;
+      } else if (!Number.isInteger(id)) { out.actions.push(a); n++; }
+    });
+    if (removed.size) {
+      out.actions = out.actions.filter((a) => !(a && a.id != null && removed.has(Number(a.id))));
+      out.removed_action_ids = [...removed];
+    }
+    return { state: out, reapplied: n };
+  }
+  window.__inspConcurrency = { inspFingerprint, inspKnownIds, reapplyLocalEdits };
+  function uiT(key) { return (window.I18nText && window.I18nText.t) ? window.I18nText.t(key) : key; }
 
   // ── Fetch one inspection's full state from the server ────────────
   // Used by init() in the body script when the user lands on
@@ -3901,7 +3963,9 @@ document.addEventListener('DOMContentLoaded', init);
       });
       if (!res.ok) return null;
       const d = await res.json();
-      return (d && d.state) || null;
+      const st = (d && d.state) || null;
+      if (st && typeof st === 'object') st.base_fp = inspFingerprint(st);   // P11 r8 F-29 — what was loaded
+      return st;
     } catch (e) {
       console.warn('[inspection] fetchInspectionFromServer failed:', e && e.message);
       return null;
@@ -3916,7 +3980,7 @@ document.addEventListener('DOMContentLoaded', init);
   async function flushQueue() {
     const q = readQueue().slice();
     if (q.length === 0) return;
-    let ok = 0, fail = 0, missing = 0;
+    let ok = 0, fail = 0, missing = 0, conflicts = 0;
     for (const id of q) {
       let draft = null;
       if (id === currentId && state) draft = state;
@@ -3926,14 +3990,20 @@ document.addEventListener('DOMContentLoaded', init);
       if (!draft) { _missingIds.add(id); missing++; continue; }
       _missingIds.delete(id);
       try {
+        if (draft && !Array.isArray(draft.known_action_ids) && typeof inspKnownIds === 'function') draft.known_action_ids = inspKnownIds(draft);
         await postSave(draft);
         dequeue(id);
         ok++;
       } catch(e) {
+        // P11 r8 F-29 — changed by someone else: never retried blindly (the draft stays on this device)
+        if (e && e.status === 409 && e.reason === 'inspection_changed') { dequeue(id); conflicts++; continue; }
         fail++;
       }
     }
     refreshSyncPill();
+    if (conflicts && typeof showToast === 'function') {
+      showToast(uiF('{n} inspection(s) were changed by someone else since they were opened here and were not sent. Open each one and click Save now to reload the latest version and reapply your changes.', { n: conflicts }), 'warn', 10000);
+    }
     if (typeof showToast === 'function') {
       let msg = fail === 0 ? `Synced ${ok} inspection${ok === 1 ? '' : 's'}` : `Synced ${ok}, ${fail} failed (will retry)`;
       if (missing) msg += ` · ${missing} unsent: draft missing on this device`;
@@ -4356,6 +4426,7 @@ document.addEventListener('DOMContentLoaded', init);
   // action they can see and confirm.
   let _lastServerError = null;     // exposed via __inspectionSync for console debug
   let _localDirty       = false;    // true when local edits made since last server push
+  let _rawSave          = null;     // the unpatched local save (P11 r8 F-29)
   let _lastLocalError   = null;     // A-07: last FAILED local draft write (null = last one ok)
   const describeLocalSaveError = (e) => (window.DraftStore ? window.DraftStore.describeError(e) : ((e && (e.message || e.name)) || 'storage error'));
   function _markStatus(html, kind) {
@@ -4423,6 +4494,7 @@ document.addEventListener('DOMContentLoaded', init);
   function installSavePatch() {
     const orig = window.saveCurrent;
     if (typeof orig !== 'function') return;
+    _rawSave = orig;   // P11 r8 F-29 — persist the new version after a server save without marking the form dirty
     window.saveCurrent = function patched() {
       // Bare `currentId` / `state` resolve through the global lexical
       // environment to the body script's top-level `let` declarations.
@@ -4494,6 +4566,26 @@ document.addEventListener('DOMContentLoaded', init);
     return n;
   }
   window.__inspMergeKeptRows = mergeKeptRows;
+  // P11 r8 F-29 — someone else saved this inspection after it was loaded here. The local edits are kept (a copy is
+  // stored next to the draft); on confirmation the latest server version is loaded and the user's changes reapplied.
+  // Nothing is sent until the user checks the result and clicks Save now.
+  async function handleInspectionConflict(id) {
+    const localCopy = JSON.parse(JSON.stringify(state || {}));
+    try { if (typeof DRAFTS !== 'undefined' && DRAFTS) await DRAFTS.put(id + '__conflict_backup', localCopy); } catch (_) { /* best-effort */ }
+    const ask = uiT('Someone else saved this inspection after you opened it. Your changes were NOT sent.') + '\n\n'
+      + uiT('OK = load the latest version and reapply your changes (you check them, then click Save now). Cancel = keep editing your copy (use Export JSON to keep it).');
+    if (!confirm(ask)) return false;
+    const server = await fetchInspectionFromServer(id);
+    if (!server || currentId !== id) { if (typeof showToast === 'function') showToast(uiT('The latest version could not be loaded — your copy is kept on this device. Try again.'), 'warn', 8000); return false; }
+    const merged = reapplyLocalEdits(localCopy, server);
+    state = Object.assign({ meta:{}, items:{}, actions:[], signatures:{} }, merged.state);
+    if (typeof applyStateToUI === 'function') applyStateToUI();
+    if (typeof renderActions === 'function') renderActions();
+    if (typeof _rawSave === 'function') { try { _rawSave(); } catch (_) { /* best-effort */ } }
+    _localDirty = true;
+    if (typeof showToast === 'function') showToast(uiT('Latest version loaded and your changes reapplied. Check them, then click Save now.'), 'info', 9000);
+    return true;
+  }
   async function forceSyncNow() {
     // Same scoping note as installSavePatch above — these are bare
     // references into the body script's `let` bindings, not window.*
@@ -4510,6 +4602,8 @@ document.addEventListener('DOMContentLoaded', init);
         // updates the same actions (their history and any queued phone close stay attached to them)
         const sentActions = Array.isArray(state.actions) ? state.actions.slice() : [];
         const sentRemoved = Array.isArray(state.removed_action_ids) ? state.removed_action_ids.slice() : [];
+        // P11 r8 F-29 — the server never deletes a stored action this form never loaded
+        state.known_action_ids = inspKnownIds(state);
         const out = await postSave(state);
         if (out && Array.isArray(out.action_ids)) {
           sentActions.forEach((a, i) => { if (a && typeof a === 'object' && out.action_ids[i] != null) a.id = out.action_ids[i]; });
@@ -4541,11 +4635,29 @@ document.addEventListener('DOMContentLoaded', init);
         if (ambN && typeof showToast === 'function') {
           showToast(uiF('{n} stored action(s) could not be matched safely (same text) and were kept. They are now listed in the form — delete the ones you do not want and save.', { n: ambN }), 'warn', 9000);
         }
+        // P11 r8 F-29 — the next save is based on what this save stored
+        if (out) {
+          if (out.version) state.server_version = out.version;
+          const kids = new Set([...(out.action_ids || []), ...((out.kept_rows || []).map((k) => k && k.id))].map(Number).filter((x) => Number.isInteger(x) && x > 0));
+          state.known_action_ids = [...kids];
+          state.base_fp = inspFingerprint(state);
+          if (typeof _rawSave === 'function') { try { _rawSave(); } catch (_) { /* local copy best-effort */ } }
+        }
         dequeue(id);
         _promotedIds.add(id);
         _localDirty       = false;
         _lastServerError  = null;
       } catch(e) {
+        if (e && e.status === 409 && e.reason === 'inspection_changed') {
+          // P11 r8 F-29 — not queued (a retry would be refused again): offer to reload and reapply the local edits
+          dequeue(id);
+          ok = false;
+          _lastServerError = e.message;
+          await handleInspectionConflict(id);
+          if (link) { link.disabled = false; link.textContent = 'Save now'; }
+          _markStatus(uiT('⚠ Not saved: changed by someone else since you opened it — reload and reapply, then Save now'), 'fail');
+          return false;
+        }
         enqueue(id);
         _lastServerError  = e && e.message || String(e);
         ok = false;

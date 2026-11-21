@@ -392,6 +392,8 @@ module.exports = function inspectionRoutes(deps) {
       res.json({ ok: true, ...out, scope: userSite || 'all', status: state.status || 'draft' });
     } catch(e) {
       console.error('[Inspection] save error:', e.message, '| user=' + (req.reportUser && req.reportUser.username) + ' meta=' + JSON.stringify((req.body && req.body.state && req.body.state.meta) || {}).slice(0, 200));
+      // P11 r8 F-29 — a save based on an older version: 409 with the current version, nothing written
+      if (e && e.reason === 'inspection_changed') return fail(res, e, 409, { reason: 'inspection_changed', server_version: e.server_version || null });
       const isScope = /Cross-site/i.test(e.message);
       fail(res, e, isScope ? 403 : undefined);
     }

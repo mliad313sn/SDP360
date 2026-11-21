@@ -79,6 +79,7 @@
       }
       if (j.ok) { B = j; kvSet('bootstrap:' + me, j); kvSet('bootstrap_at:' + me, new Date().toISOString()); pageView(); return B; }
       if (j.__status === 401) { location.href = '../login.html?next=' + encodeURIComponent('/field/index.html'); throw new Error(FT('Session expired — sign in again. Nothing was lost: your entries are kept on this phone.')); }
+      if (j.error === 'database_unavailable' || j.error === 'database_busy') throw new Error(FT('The server database is unavailable — try again in a moment. You are still signed in; nothing was lost.'));
       throw new Error(j.error || FT('The server data could not be loaded.'));
     }).catch(function (e) { return kvGet('bootstrap:' + me).then(function (c) { if (!c) throw e; B = c; msg(FT('Working from cached data (offline).'), ''); return B; }); });
   }
@@ -167,9 +168,12 @@
   function flush(opts) {
     if (flushing || !navigator.onLine) return Promise.resolve();
     var force = !!(opts && opts.force === true);
+    var rearm = !!(opts && opts.rearm === true);
     flushing = true;
     return obAll().then(function (items) {
       if (!me || sessionMismatch) return;                        // no known author or a mismatched session: send nothing
+      // P11 r8 F-30 — Sync now (explicit) also resends the entries parked as "server error — needs attention"
+      if (rearm) items.forEach(function (e) { rearmEntry(e); });
       // P11 r7 F-27 — a failed entry waits for its own next try (backoff); Sync now / back online send it at once
       var now = Date.now();
       items = items.filter(function (e) { var st = stateOf(e); if (st === 'pending') return true; if (st !== 'failed') return false; return force || !e.next_try_at || Date.parse(e.next_try_at) <= now; });
@@ -177,6 +181,12 @@
       var n = items.length;
       return items.reduce(function (p, e, i) { return p.then(function (stop) { if (stop) return stop; if (n > 1) msg(FT('Sending') + ' ' + (i + 1) + '/' + n + '…', ''); return sendOne(e).catch(function (err) { return entryError(e, err); }); }); }, Promise.resolve());
     }).catch(function (e) { msg(FT('Sync problem: ') + e.message, 'err'); }).then(function () { flushing = false; renderOutbox(); });
+  }
+  // P11 r8 F-30 — an entry parked after the retry cap goes back to "will retry" with a fresh attempt count
+  function rearmEntry(e) {
+    if (!e || stateOf(e) !== 'server_error') return false;
+    e.state = 'failed'; e.attempts = 0; e.next_try_at = null;
+    return true;
   }
   // G19 — one failing entry never blocks the others: a 401 stops the sync (sign in again), a refusal of a photo
   // upload marks this entry refused, anything else (network, a proxy HTML page) marks it 'failed' and moves on
@@ -228,6 +238,7 @@
   function serverErrorText(status, code, ref) {
     var t;
     if (code === 'database_busy') t = FT('The server is busy — the entry is kept and will be sent again automatically.');
+    else if (code === 'database_unavailable') t = FT('The server database is unavailable — the entry is kept and will be sent again automatically. You are still signed in.');
     else if (status === 429 || code === 'rate_limited') t = FT('Too many requests to the server — the entry is kept and will be sent again automatically.');
     else if (code === 'internal_error') t = FT('Server error — the entry is kept and will be sent again automatically.');
     else t = FT('The server could not take the entry right now — it is kept and will be sent again automatically.');
@@ -241,7 +252,7 @@
     var BASE = 5, CAP = 300, MAX = 8;
     var prev = Number(prevAttempts); if (!isFinite(prev) || prev < 0) prev = 0;
     var ra = Number(retryAfter);
-    if (code === 'database_busy' || code === 'rate_limited' || status === 429) {
+    if (code === 'database_busy' || code === 'database_unavailable' || code === 'rate_limited' || status === 429) {
       var b = isFinite(ra) && ra >= 5 ? ra : 5; if (b > 120) b = 120;
       return { delaySec: b, attempts: prev, giveUp: false };
     }
@@ -297,7 +308,7 @@
         e.last_error = serverErrorText(j.__status, j.error, j.correlation_id);
         applyServerError(e, j.__status, j.error, j.__retryAfter);   // F-27: backoff + attempt cap (busy: server's pace)
         // the database is busy: stop this round (the others would get the same answer) and retry later
-        var stopRound = j.error === 'database_busy' || j.__status === 429;
+        var stopRound = j.error === 'database_busy' || j.error === 'database_unavailable' || j.__status === 429;
         if (stopRound) msg(e.last_error, '');
         return obPut(e).then(function () { return stopRound || undefined; });
       }
@@ -483,7 +494,7 @@
   // ── wiring ───────────────────────────────────────────────────────────────────────
   document.querySelectorAll('nav.tabs button').forEach(function (b) { b.addEventListener('click', function () { show(b.dataset.view); }); });
   $('site').addEventListener('change', function () { site = $('site').value; kvSet('site', site); renderHome(); });
-  $('sync').addEventListener('click', function () { msg(''); bootstrap().then(renderHome).then(function () { return flush({ force: true }); }).catch(function (e) { msg(e.message, 'err'); }); });
+  $('sync').addEventListener('click', function () { msg(''); bootstrap().then(renderHome).then(function () { return flush({ force: true, rearm: true }); }).catch(function (e) { msg(e.message, 'err'); }); });
   $('lowbw').addEventListener('change', function () { lowbw = $('lowbw').checked; document.body.classList.toggle('lowbw', lowbw); kvSet('lowbw', lowbw); });
   $('i-cat').addEventListener('change', renderItems);
   $('i-items').addEventListener('click', function (ev) { var b = ev.target.closest('button[data-ix]'); if (!b) return; b.parentNode.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', 'false'); }); b.setAttribute('aria-pressed', 'true'); });
