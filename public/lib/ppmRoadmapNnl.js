@@ -13,6 +13,8 @@
   else root.PpmRoadmapNnl = factory();
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
+  // dates through lib/ppmUx.js → lib/format.js when the page loads them; a missing date stays "—"
+  var fd = function (v) { return v ? ((typeof window !== 'undefined' && window.PpmUx && window.PpmUx.date) ? window.PpmUx.date(v) : v) : '—'; };
   var DELIVERY = ['in_progress', 'on_hold', 'closure'];
   var CLOSED_STAGE = ['closed', 'cancelled'];
   var CLOSED_STATUS = ['done', 'closed', 'cancelled', 'completed'];
@@ -43,7 +45,7 @@
     var link = function (p) { return '<a href="project.html?id=' + encodeURIComponent(p.id) + '">' + esc(p.key || ('#' + p.id)) + '</a>'; };
     var col = function (k) {
       return '<section class="nnl-col" aria-label="' + esc(LABELS[k]) + '"><h3>' + esc(LABELS[k]) + ' <span class="muted">' + g[k].length + '</span></h3><ul>' +
-        (g[k].length ? g[k].map(function (p) { return '<li>' + link(p) + ' ' + esc(p.name || '') + ' <span class="muted">' + esc((p.start_date || '—') + ' → ' + (p.end_date || '—')) + '</span>' + (p.late ? ' <span class="pill RED">late</span>' : '') + '</li>'; }).join('') : '<li class="muted">None.</li>') + '</ul></section>';
+        (g[k].length ? g[k].map(function (p) { return '<li>' + link(p) + ' ' + esc(p.name || '') + ' <span class="muted">' + esc(fd(p.start_date) + ' → ' + fd(p.end_date)) + '</span>' + (p.late ? ' <span class="pill RED">late</span>' : '') + '</li>'; }).join('') : '<li class="muted">None.</li>') + '</ul></section>';
     };
     return '<div class="nnl">' + ['now', 'next', 'later', 'unscheduled'].map(col).join('') + '</div>' +
       '<p class="muted">Next = starting within the horizon (up to ' + esc(g.horizon || '—') + '). Closed, cancelled and done projects are not listed (' + g.excluded + ').</p>';

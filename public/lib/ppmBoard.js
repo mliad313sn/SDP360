@@ -76,7 +76,7 @@
       '<div class="pb-name">' + esc([c.wbs_code, c.name].filter(Boolean).join(' ')) + '</div>' +
       (c.lane ? '<div class="pb-lane">' + esc(c.lane) + '</div>' : '') +
       '<div class="ppm-card-foot">' + (c.owner ? '<span class="ppm-avatar" title="' + esc(c.owner) + '" aria-label="' + esc('Owner: ' + c.owner) + '">' + esc(initials(c.owner)) + '</span>' : '<span class="muted">—</span>') +
-      '<span class="' + (late ? 'ppm-due-late' : 'muted') + '">' + (c.end_date ? esc((late ? 'late · ' : 'due ') + String(c.end_date).slice(0, 10)) : '') + '</span>' +
+      '<span class="' + (late ? 'ppm-due-late' : 'muted') + '">' + (c.end_date ? esc((late ? 'late · ' : 'due ') + ((typeof window !== 'undefined' && window.PpmUx && window.PpmUx.date) ? window.PpmUx.date(c.end_date) : String(c.end_date).slice(0, 10))) : '') + '</span>' +
       '<span class="ppm-num">' + esc(c.progress_pct == null ? '—' : c.progress_pct + ' %') + '</span>' + menu + '</div></li>';
   }
   function html(b, esc, ctx) {
