@@ -83,6 +83,7 @@ test('ui_nav_carry_site: off = links untouched; on = site-aware links carry the 
 test('"My workspace" link: only while workspace_profiles = 1 reaches the browser; French label', () => {
   assert.ok(!/workspace-settings\.html/.test(load(['viewer']).mount.innerHTML));
   const on = load(['viewer'], { policy: { workspace_profiles: '1' } });
-  assert.match(on.mount.innerHTML, /<a class="shell-ws-link" href="workspace-settings\.html"[^>]*>My workspace<\/a>/);
+  // ia-value F5 (2026-11): the link lives in the account menu opened by the user pill
+  assert.match(on.mount.innerHTML, /<a role="menuitem" href="workspace-settings\.html">My workspace<\/a>/);
   assert.match(load(['viewer'], { policy: { workspace_profiles: '1' }, navLang: 'fr-FR' }).mount.innerHTML, />Mon espace<\/a>/);
 });

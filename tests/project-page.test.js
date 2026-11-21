@@ -87,11 +87,13 @@ test('portfolio.html edit form offers the task kind and links project keys to pr
   for (const id of ['e-wbs', 'e-tparent', 'e-dur', 'e-alloc', 'e-effort', 'e-deps']) assert.match(p, new RegExp(`id="${id}"`), id);
 });
 
-test('help §25 describes the project page in EN and FR, inside the section container', () => {
+// 2026-11-21: the manual's numbered §25 became the stable anchor #project (one element, both languages inside).
+test('help #project describes the project page in EN and FR, inside the section container', () => {
   const h = read('public/help.html');
-  for (const [id, title] of [['en-25', 'Project page'], ['fr-25', 'Page projet']]) {
-    const start = h.indexOf(`<div class="section" id="${id}">`); assert.ok(start > 0, id);
-    const end = h.indexOf('<div class="section"', start + 10);
-    assert.ok(h.slice(start, end).includes(`<li><strong>${title}</strong>`), `${title} inside #${id}`);
+  const start = h.indexOf('<section class="hsec" id="project">'); assert.ok(start > 0, 'project section');
+  const s = h.slice(start, h.indexOf('</section>', start));
+  for (const [lng, title] of [['en', 'Project page'], ['fr', 'Page projet']]) {
+    const b = s.slice(s.indexOf(`<div data-lng="${lng}"`));
+    assert.ok(b.includes(`<li><strong>${title}</strong>`), `${title} inside #project (${lng})`);
   }
 });

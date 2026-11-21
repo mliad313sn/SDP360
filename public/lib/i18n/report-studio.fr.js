@@ -1,5 +1,5 @@
 /* Adoption Lot B (item 7) — French for public/report-studio.html (static markup; JS-built rows are a later pass).
- * Inert unless report_config ui_i18n_pages = '1'. Terms follow docs/ux/GLOSSARY-FR.md (PROPOSED). NOT translated:
+ * Inert unless report_config ui_i18n_pages = '1'. Terms follow docs/i18n/GLOSSAIRE-FR.md (PROPOSED). NOT translated:
  * the run-status option texts (they are the values sent to the API) and template keys (data). */
 (function (root) {
   'use strict';

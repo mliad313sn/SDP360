@@ -101,13 +101,16 @@
       if (typeof v === 'object') return 'y' in v ? num(v.y) : null;   // {x,y} points (scatter / time)
       var n = Number(v); return isFinite(n) ? n : null;
     }
+    // I18N-QUALITY — numbers follow the page body's language through lib/format.js (French: « 1 629 », « 73,5 % »).
+    function F() { var g = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : {}); var f = g.SDPFormat; return f && f.lang && f.lang() === 'fr' ? f : null; }
     function fmt(v) {
       var n = num(v);
       if (n === null) return '—';
+      var f = F(); if (f) return f.number(n, { lang: 'fr' });
       return n.toLocaleString('en', { maximumFractionDigits: 1 });
     }
     function unitOf(ds, spec) { return ds.unit != null ? ds.unit : (spec.unit || ''); }
-    function withUnit(v, u) { var t = fmt(v); return t === '—' || !u ? t : (u === '%' ? t + '%' : t + ' ' + u); }
+    function withUnit(v, u) { var t = fmt(v); if (t !== '—' && u === '%' && F()) return F().percent(num(v), { lang: 'fr' }); return t === '—' || !u ? t : (u === '%' ? t + '%' : t + ' ' + u); }
 
     function rows(spec) {
       var s = spec || {};

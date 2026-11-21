@@ -20,7 +20,7 @@ function sessionToken(req) {
 }
 
 // Pages served with script-src 'nonce-…' (no 'unsafe-inline'). Others are progressive work.
-const STRICT_PAGES = ['/exec-view.html', '/login.html', '/policy-center.html', '/portfolio-register.html', '/portfolio-decisions.html', '/portfolio-phase2.html'];   // policy-center: no inline script (ADR-POLICY-CENTER); portfolio-register: PORTFOLIO LOT 3, portfolio-decisions: PORTFOLIO LOT 4; portfolio-phase2: PORTFOLIO LOT 6, no inline script
+const STRICT_PAGES = ['/exec-view.html', '/help.html', '/login.html', '/policy-center.html', '/admin-home.html', '/portfolio-register.html', '/portfolio-decisions.html', '/portfolio-phase2.html'];   // policy-center: no inline script (ADR-POLICY-CENTER); portfolio-register: PORTFOLIO LOT 3, portfolio-decisions: PORTFOLIO LOT 4; portfolio-phase2: PORTFOLIO LOT 6, no inline script; help: manual rewrite 2026-11-21, no inline script; admin-home: UX committee Admin home, no inline script
 // F-ARCH-06 — report_config.csp_strict_pages: extra pages enforced without a deploy (a page whose inline
 // scripts and handlers were extracted). Default '' = today. The list can only ADD strict pages: it never
 // removes a built-in one and never touches the allowed origins. Entries are local `/name.html` paths.

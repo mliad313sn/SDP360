@@ -56,12 +56,12 @@ function pageDuplicates(src) {
 
 const PAGES = () => fs.readdirSync(path.join(ROOT, 'public')).filter((f) => f.endsWith('.html')).sort()
   .map((f) => ({ file: 'public/' + f, src: read('public/' + f) }));
-const AVOID = () => glossaryAvoid(read('docs/ux/GLOSSARY-FR.md'));
+const AVOID = () => glossaryAvoid(read('docs/i18n/GLOSSAIRE-FR.md'));
 
 // Hits found on 2026-11-06 — left for the francophone review (gate 17). The list may only shrink.
 const KNOWN_HITS = [
   'public/handoffs.html:46 Escalated → "remontée"',
-  'public/meetings-insights.html:428 Closed → "Fermés"',
+  'public/meetings-insights.html:434 Closed → "Fermés"',
 ];
 
 test('fixture: a variant inside a data-lng="fr" span is found with its line; English text and word fragments are not', () => {
@@ -76,7 +76,7 @@ test('fixture: one English label rendered two ways on one page is reported', () 
 });
 
 test('glossary: the "À éviter" column exists, stays PROPOSED, and every variant is really found in the code', () => {
-  const md = read('docs/ux/GLOSSARY-FR.md');
+  const md = read('docs/i18n/GLOSSAIRE-FR.md');
   assert.match(md, /\| English \| Français \| Note \| À éviter \(PROPOSITION\) \|/);
   assert.match(md, /Statut : PROPOSÉ/);
   const avoid = AVOID();

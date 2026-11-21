@@ -28,17 +28,18 @@ before(async () => {
 });
 after(async () => { try { await cfg.setConfig(rdb.db, { csp_strict_pages: '' }, 'test'); } catch (_) { /* db gone */ } try { server && server.close(); } catch {} });
 
+// help.html became a built-in strict page (manual rewrite, 2026-11-21); reports.html is the legacy example now.
 test('pure: the list accepts local .html paths only and never drops a built-in strict page', () => {
-  assert.deepEqual(sessionAuth.parseStrictPages(' /help.html, site-actions.html ,/help.html'), ['/help.html', '/site-actions.html']);
+  assert.deepEqual(sessionAuth.parseStrictPages(' /reports.html, site-actions.html ,/reports.html'), ['/reports.html', '/site-actions.html']);
   for (const bad of ['https://evil.example/x.html', '//evil.example/x.html', '/../x.html', '/api/data', '/x.html?y', '*', '/a b.html', '']) {
     assert.deepEqual(sessionAuth.parseStrictPages(bad), [], bad);
   }
   assert.deepEqual(sessionAuth.parseStrictPages(null), []);
-  sessionAuth.setStrictPages('/help.html');
-  assert.equal(sessionAuth.isStrictCspPath('/help.html'), true);
+  sessionAuth.setStrictPages('/reports.html');
+  assert.equal(sessionAuth.isStrictCspPath('/reports.html'), true);
   assert.equal(sessionAuth.isStrictCspPath('/index.html'), false);
   sessionAuth.setStrictPages('');
-  assert.equal(sessionAuth.isStrictCspPath('/help.html'), false);
+  assert.equal(sessionAuth.isStrictCspPath('/reports.html'), false);
   for (const p of ['/login.html', '/exec-view.html', '/share/abc']) assert.equal(sessionAuth.isStrictCspPath(p), true, p + ' stays strict');
   assert.ok(!sessionAuth.scriptSrc('n', true).includes('http'), 'the strict policy lists no origin');
 });
@@ -46,15 +47,15 @@ test('pure: the list accepts local .html paths only and never drops a built-in s
 test('default (empty): a legacy page keeps today\'s policy', async () => {
   assert.equal(cfg.DEFAULTS.csp_strict_pages, '');
   await settle();
-  const r = await fetch(base + '/help.html');
+  const r = await fetch(base + '/reports.html');
   assert.equal(r.status, 200);
   assert.ok(scriptSrc(r).includes("'unsafe-inline'"));
 });
 
 test('a listed page gets the nonce-only script-src and its script tags carry the nonce; an unlisted page is unchanged', async () => {
-  await cfg.setConfig(rdb.db, { csp_strict_pages: '/help.html' }, 'test');
+  await cfg.setConfig(rdb.db, { csp_strict_pages: '/reports.html' }, 'test');
   await settle();
-  const r = await fetch(base + '/help.html');
+  const r = await fetch(base + '/reports.html');
   const src = scriptSrc(r);
   assert.ok(!src.includes("'unsafe-inline'"), src);
   const nonce = /'nonce-([^']+)'/.exec(src);
@@ -71,5 +72,5 @@ test('a listed page gets the nonce-only script-src and its script tags carry the
 test('emptying the list returns the page to today\'s policy', async () => {
   await cfg.setConfig(rdb.db, { csp_strict_pages: '' }, 'test');
   await settle();
-  assert.ok(scriptSrc(await fetch(base + '/help.html')).includes("'unsafe-inline'"));
+  assert.ok(scriptSrc(await fetch(base + '/reports.html')).includes("'unsafe-inline'"));
 });

@@ -185,11 +185,18 @@
     background: rgba(232,119,34,0.14);
     color: var(--edv-orange, #E87722);
   }
+
+  /* VISUAL POLISH 2026-11 — UX committee (visual F3/F4/F8): no gradient strip, no decorative KPI colour; the hero stacks on a phone. */
+  .me-hero::before { display: none; }
+  .me-hero { border-radius: var(--radius-lg); box-shadow: var(--shadow-card); border-color: var(--color-border); }
+  .me-hero h1 { font-weight: 700; color: var(--color-heading); letter-spacing: var(--tracking-tight); }
+  @media (max-width: 760px) { .me-hero { grid-template-columns: minmax(0, 1fr); } .me-hero__actions { justify-content: flex-start; } }
 </style>
 </head>
 <body>
 
 <div id="__shell" data-section="operations" data-current="meetings"></div>
+<main id="main" class="edv-main">
 
 <div class="me-wrap">
 
@@ -197,7 +204,7 @@
 
   <section class="me-hero">
     <div>
-      <div class="me-eyebrow">Insights · 5 Engagements monitor</div>
+    <!-- ia-value F8: the stale "Insights ·" eyebrow is gone; the breadcrumb names the section -->
       <h1>Site IT discipline scorecard</h1>
       <p>Live check of the five non-negotiable Engagements: 3 department meetings / month, 48 h diffusion,
          a Champion per action, monthly feedback loop, and escalation discipline. Pick a month to compare
@@ -443,5 +450,6 @@
   else reveal();
 })();
 </script>
+</main>
 </body>
 </html>

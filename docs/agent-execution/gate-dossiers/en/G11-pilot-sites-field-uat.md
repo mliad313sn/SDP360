@@ -10,7 +10,7 @@
 | Decision cell in RELEASE-GATES.md | empty — this gate is **NO-GO** until the approver fills it. This dossier fills nothing. |
 | What this gate blocks | blocks the two-site pilot on the TEST instance |
 | Decide after | [G01](G01-security-access-policy.md) Security: access policy and authorization matrix · [G02](G02-threat-model-findings.md) Security: threat model and findings · [G05](G05-backup-restore-rpo-rto.md) Backup and restore (RPO/RTO) · [G12](G12-data-owner-fixtures-history.md) Data owner: anonymised data and 2026 history |
-| Target SHA | `33d8a0f3` |
+| Target SHA | `e9d6e610` |
 | Generated | 2026-11-21 |
 
 ## 1. Question to decide
@@ -33,7 +33,7 @@ Which two sites run the pilot, with which named users, and what result of the fi
 
 | From lot | Expected evidence | Status |
 |---|---|---|
-| P09 | Adoption and field readiness kit (runbook S1–S10, training, journeys) | delivered: `docs/agent-execution/P09-PAGE-INVENTORY.md` (e1118e1d, `242aaec9fedf8f15`), `docs/agent-execution/P09-adoption-kit.md` (c9bab46d, `8246fb83ee6409fc`) |
+| P09 | Adoption and field readiness kit (runbook S1–S10, training, journeys) | delivered: `docs/agent-execution/P09-PAGE-INVENTORY.md` (557822f5, `233a14cca72cd65c`), `docs/agent-execution/P09-adoption-kit.md` (c9bab46d, `8246fb83ee6409fc`) |
 
 ## 3. Not evidenced, and why
 

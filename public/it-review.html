@@ -34,6 +34,7 @@
      below). auth.js gives the role-gated nav + user pill; _shell.js renders the
      banner into #__shell. Opens in-place now (no target=_blank in the nav). -->
 <link rel="stylesheet" href="_shell.css">
+<link rel="stylesheet" href="module-tabs.css">
 <script src="brand/icons.js"></script>
 <script src="auth.js" data-require="executive|scorecard-viewer" data-redirect="login.html"></script>
 <script src="_shell.js"></script>
@@ -334,6 +335,8 @@ textarea.input { min-height: 90px; resize: vertical; }
 <!-- Top banner — same shell as every other page (replaces the old floating
      back pill; the banner's brand mark is the way home). -->
 <div id="__shell" data-section="executive" data-current="it-review"></div>
+<div id="__moduletabs" class="exec-tabs" data-module="executive" data-current="it-review"></div>
+<main id="main" class="edv-main">
 
 <div id="review-root"><div id="review-fallback">Loading the IT Review&hellip;</div></div>
 
@@ -1493,5 +1496,7 @@ class Component extends DCLogic {
 })();
 </script>
 
+<script src="module-tabs.js"></script>
+</main>
 </body>
 </html>

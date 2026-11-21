@@ -9,14 +9,14 @@
   if (lang === 'fr') { document.body.classList.add('lang-fr'); document.documentElement.lang = 'fr'; }   // F-UX-01: French body, French voice
   const MONTHS = { en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], fr: ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'] };
   const L = {
-    en: { nm: '— not measured', actions: 'Open actions', open: 'open', overdue: 'overdue', oldest: 'oldest', days: 'days', none: 'nothing open',
+    en: { nm: '— not measured', actions: 'Open actions', open: 'open', open1: 'open', overdue: 'overdue', oldest: 'oldest', days: 'days', day1: 'day', none: 'nothing open',
       report: 'Weekly report', unsigned: 'PVs to sign', allSigned: 'all signed', insp: 'Last inspection', never: 'none recorded', ago: 'days ago', today: 'today',
       tracker: 'Activity tracker', empty: 'of {t} activities have nothing entered for {m}', full: 'all {t} activities filled for {m}', noAct: 'no activity due in {m}',
       loading: 'Loading…', more: '+ {n} more site(s) not shown', open_pv: 'Open',
       aw: 'Awaiting me', awEv: 'evidence', awNone: 'nothing is waiting for you', awLate: 'late', awSrc: { commitments: 'Commitments to verify', handoffs: 'Handoffs to accept', benefits: 'Benefits to verify', decisions: 'My decisions due within 7 days', pvs: 'PVs to sign' },
       benefits: 'Benefit reviews due', mine: 'Benefits I own — review due', noBenefit: 'none due', missing: 'value missing', awaiting: 'awaiting verification',
       labels: { 'Not started': 'Not started', 'In progress': 'In progress', 'Complete but not submitted': 'Complete but not submitted', 'Submitted': 'Submitted' } },
-    fr: { nm: '— non mesuré', actions: 'Actions ouvertes', open: 'ouvertes', overdue: 'en retard', oldest: 'la plus ancienne', days: 'jours', none: 'rien d\'ouvert',
+    fr: { nm: '— non mesuré', actions: 'Actions ouvertes', open: 'ouvertes', open1: 'ouverte', overdue: 'en retard', oldest: 'la plus ancienne', days: 'jours', day1: 'jour', none: 'rien d\'ouvert',
       report: 'Rapport hebdomadaire', unsigned: 'PV à signer', allSigned: 'tous signés', insp: 'Dernière inspection', never: 'aucune enregistrée', ago: 'jours', today: 'aujourd\'hui',
       tracker: 'Suivi d\'activité', empty: 'activités sur {t} sans saisie pour {m}', full: 'les {t} activités sont saisies pour {m}', noAct: 'aucune activité prévue en {m}',
       loading: 'Chargement…', more: '+ {n} autre(s) site(s) non affiché(s)', open_pv: 'Ouvrir',
@@ -26,6 +26,8 @@
   };
   const T = L[lang === 'fr' ? 'fr' : 'en'];
   const fill = (s, o) => s.replace(/\{(\w+)\}/g, (_, k) => o[k]);
+  // I18N-QUALITY — agreement: French 0 and 1 are singular (« 1 ouverte », « 0 jour »), English only 1.
+  const one = (n) => (lang === 'fr' ? Math.abs(Number(n)) < 2 : Number(n) === 1);
   // F-UX-09 — report_config ui_home_blocks: '0' (today) = one render, a failed call blanks the page with a message ·
   // '1' = every block shows its own state (StateBadge), a failed call keeps the page and offers a retry, and each
   // site card can be reloaded on its own (focus stays on the card). null is still "not measured", never 0.
@@ -54,7 +56,7 @@
     const code = encodeURIComponent(s.code || '');
     const a = s.actions;
     const actions = !a ? nm : (a.open === 0 ? esc(T.none)
-      : `${a.open} ${esc(T.open)}${a.overdue ? ` · <span class="hm-late">${a.overdue} ${esc(T.overdue)}</span>` : ''}${a.oldest_days != null ? ` · ${esc(T.oldest)} ${a.oldest_days} ${esc(T.days)}` : ''}`);
+      : `${a.open} ${esc(one(a.open) ? T.open1 : T.open)}${a.overdue ? ` · <span class="hm-late">${a.overdue} ${esc(T.overdue)}</span>` : ''}${a.oldest_days != null ? ` · ${esc(T.oldest)} ${a.oldest_days} ${esc(one(a.oldest_days) ? T.day1 : T.days)}` : ''}`);
     const w = s.weekly_report;
     // Adoption Lot A (item 3): "W45 (08–14 nov.)" — the same week, labelled with its dates, as the report picker.
     const wl = w && w.year && w.week && window.ReportingWeek ? window.ReportingWeek.label(w.year, w.week, lang === 'fr' ? 'fr' : 'en') + ' ' + w.year : (w && w.week_label) || '';
@@ -102,9 +104,9 @@
     window.PageHead.mount($('pageHead'), {
       lang: lang === 'fr' ? 'fr' : 'en',
       question: { en: 'What does each of my sites need from me today?', fr: 'De quoi chacun de mes sites a-t-il besoin aujourd\'hui ?' },
-      scope: n == null ? null : { en: 'Your sites only (' + n + ' shown)', fr: 'Vos sites uniquement (' + n + ' affichés)' },
+      scope: n == null ? null : { en: 'Your sites only (' + n + ' shown)', fr: 'Vos sites uniquement (' + n + (Math.abs(n) < 2 ? ' affiché)' : ' affichés)') },
       window: { en: 'Today' + (j && j.as_of ? ' (' + j.as_of + ')' : '') + ' — overdue = past its target date', fr: 'Aujourd\'hui' + (j && j.as_of ? ' (' + j.as_of + ')' : '') + ' — en retard = date cible dépassée' },
-      sources: j && j.generated_at ? [{ label: { en: 'Inbox computed', fr: 'Boîte calculée' }, at: j.generated_at }] : [],
+      sources: j && j.generated_at ? [{ label: { en: 'Inbox computed', fr: 'Liste calculée' }, at: j.generated_at }] : [],
     });
   }
 
@@ -140,7 +142,11 @@
       head(j);
       const groupShown = await lotB(j);
       const msg = [];
-      if (j.message && !groupShown) msg.push(lang === 'fr' ? "Vous n'êtes rattaché à aucun site — utilisez le registre des actions du site." : j.message);
+      // UX committee executive F8: a group-level account (executive, scorecard viewer, admin tier) is not a
+      // mis-configured coordinator — say "group view", with the group pages, instead of "not attached to a site".
+      const groupRole = (() => { try { return ['executive', 'scorecard-viewer', 'admin'].some((r) => window.__userHasRole && window.__userHasRole(r)); } catch (_) { return false; } })();
+      if (j.message && !groupShown && groupRole) msg.push(lang === 'fr' ? 'Vue groupe — votre compte n’est rattaché à aucun site. Les chiffres du groupe sont dans l’Accueil direction et le registre des actions du site.' : 'Group view — your account is not tied to one site. Group figures live in Executive Home and the Site Actions hub.');
+      else if (j.message && !groupShown) msg.push(lang === 'fr' ? "Vous n'êtes rattaché à aucun site — utilisez le registre des actions du site." : j.message);
       if (j.truncated) msg.push(fill(T.more, { n: j.truncated }));
       $('hmMsg').textContent = msg.join(' ');
       window.__markFirstUsable && window.__markFirstUsable('home');   // F-UX-05

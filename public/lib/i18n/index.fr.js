@@ -1,14 +1,14 @@
 /* C-26 (G27) — French for public/index.html (Helpdesk · IT Operations Center). Site / group / category /
  * technician names, statuses read from ServiceDesk Plus and every figure are data: never keys here. The
  * "AP formula" tooltips keep the Analytics Plus function names verbatim (they are code).
- * Inert unless ui_i18n_pages='1'. Glossary: docs/ux/GLOSSARY-FR.md. */
+ * Inert unless ui_i18n_pages='1'. Glossary: docs/i18n/GLOSSAIRE-FR.md. */
 (function (root) {
   'use strict';
   root.I18N_FR_INDEX = {
     'Loading dashboard data…': 'Chargement des données du tableau de bord…', '⟳ Retry': '⟳ Réessayer',
     'Helpdesk · IT Operations Center': 'Helpdesk · Centre des opérations IT', 'Connecting…': 'Connexion…',
-    '⟳ Refresh': '⟳ Actualiser', 'Force Sync': 'Forcer la synchronisation', '📥 Export Risk Register': '📥 Exporter le registre des risques',
-    '👤 Unassigned (—)': '👤 Non assignés (—)', '👤 Unassigned Open Tickets': '👤 Tickets ouverts non assignés',
+    '⟳ Refresh': '⟳ Actualiser', 'Force Sync': 'Forcer la synchronisation', 'Export Risk Register': 'Exporter le registre des risques',
+    'Unassigned (—)': 'Non assignés (—)', '👤 Unassigned Open Tickets': '👤 Tickets ouverts non assignés',
     'Tickets not yet assigned to a technician · sorted oldest first': 'Tickets pas encore assignés à un technicien · les plus anciens d’abord',
     'Download CSV': 'Télécharger le CSV', 'Weekly': 'Hebdomadaire', 'Monthly': 'Mensuel', 'Quarterly': 'Trimestriel', 'Yearly': 'Annuel',
     'All Sites': 'Tous les sites', 'Group': 'Groupe', 'Operations': 'Opérations', 'Applications': 'Applications',

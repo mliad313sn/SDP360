@@ -59,7 +59,7 @@
       complete: 'Complete', snooze: 'Snooze 7 days', delegate: 'Delegate', unsnooze: 'Show again', snoozed: '{n} line(s) snoozed', showSnoozed: 'Show snoozed lines', hideSnoozed: 'Hide snoozed lines',
       snoozedUntil: 'snoozed until {d}', confirmComplete: 'Mark this action as complete?', done: 'Done', failed: 'Not saved: {e}',
       weekly: 'Weekly report {w} — {l}', tracker: '{n} empty tracker cell(s) this month (of {t})',
-      retry: 'Try again', late: 'late', due: 'due', owner: 'owner', noOwner: 'no owner', register: 'register', empty: 'Nothing open in the sources that answered.',
+      srcAll: 'All sources read', srcSome: '{n} source(s) not fully read — details', retry: 'Try again', late: 'late', due: 'due', owner: 'owner', noOwner: 'no owner', register: 'register', empty: 'Nothing open in the sources that answered.',
       limits: 'Limits: up to {s} sites and {n} items are shown. For the full list, open the {reg}.', regLink: 'Site Actions register',
       more: '{shown} of {total} items shown', sitesMore: '{n} more site(s) not read', noCode: 'no site code', off: 'not switched on',
       sitesOk: '{ok} of {all} sites', partsOk: '{ok} of {all} parts', unread: 'could not be read', asOf: 'kept from {t}', items: '{n} item(s)', announce: 'Queue: {n} item(s) loaded' },
@@ -71,7 +71,7 @@
       complete: 'Terminer', snooze: 'Reporter de 7 jours', delegate: 'Déléguer', unsnooze: 'Réafficher', snoozed: '{n} ligne(s) reportée(s)', showSnoozed: 'Afficher les lignes reportées', hideSnoozed: 'Masquer les lignes reportées',
       snoozedUntil: 'reportée jusqu\'au {d}', confirmComplete: 'Marquer cette action comme terminée ?', done: 'Fait', failed: 'Non enregistré : {e}',
       weekly: 'Rapport hebdo {w} — {l}', tracker: '{n} case(s) du suivi vide(s) ce mois-ci (sur {t})',
-      retry: 'Réessayer', late: 'en retard', due: 'échéance', owner: 'responsable', noOwner: 'sans responsable', register: 'registre', empty: 'Rien d\'ouvert dans les sources qui ont répondu.',
+      srcAll: 'Toutes les sources lues', srcSome: '{n} source(s) pas entièrement lue(s) — détails', retry: 'Réessayer', late: 'en retard', due: 'échéance', owner: 'responsable', noOwner: 'sans responsable', register: 'registre', empty: 'Rien d\'ouvert dans les sources qui ont répondu.',
       limits: 'Limites : {s} sites et {n} éléments au plus sont affichés. Pour la liste complète, ouvrez le {reg}.', regLink: 'registre des actions du site',
       more: '{shown} éléments affichés sur {total}', sitesMore: '{n} autre(s) site(s) non lu(s)', noCode: 'pas de code de site', off: 'non activé',
       sitesOk: '{ok} sites sur {all}', partsOk: '{ok} parties sur {all}', unread: 'source illisible', asOf: 'conservé depuis {t}', items: '{n} élément(s)', announce: 'File : {n} élément(s) chargé(s)' },
@@ -438,8 +438,12 @@
     var snz = v.snoozed ? '<p class="hq-note">' + esc(fill(T.snoozed, { n: v.snoozed })) + ' <button type="button" class="hq-act" data-act="toggle-snoozed">' + esc(v.showSnoozed ? T.hideSnoozed : T.showSnoozed) + '</button></p>' : '';
     return '<section class="hm-card hq" aria-labelledby="hq-h" aria-busy="' + (loadingAny ? 'true' : 'false') + '">'
       + '<h2 id="hq-h">' + esc(T.title) + '</h2><p class="hm-muted">' + esc(T.sub) + '</p>'
-      + '<ul class="hq-sources" aria-label="' + esc(T.title) + '">' + srcRows + '</ul>'
       + (items ? '<ol class="hq-list">' + items + '</ol>' : (loadingAny ? '' : '<p class="hm-muted">' + esc(T.empty) + '</p>'))
+      // UX committee (site coordinator P1-6): the per-source status is folded into ONE line under the work. A source
+      // that is unknown / partial / denied is still counted and named in the summary, and listed when opened.
+      + (function () { var bad = v.states.filter(function (s) { return s.state !== 'available' && s.state !== 'loading' && s.reason !== 'off'; }).length;
+        return '<details class="hq-src-box"><summary class="hm-muted">' + esc(bad ? fill(T.srcSome, { n: bad }) : T.srcAll) + '</summary>'
+          + '<ul class="hq-sources" aria-label="' + esc(T.title) + '">' + srcRows + '</ul></details>'; })()
       + (notes.length ? '<p class="hq-note">' + esc(notes.join(' · ')) + '</p>' : '') + snz
       + '<p class="hm-muted hq-limits">' + fill(esc(T.limits), { s: LIMITS.sites, n: LIMITS.shown, reg: '<a href="' + esc(reg) + '">' + esc(T.regLink) + '</a>' }) + '</p>'
       + '</section>';

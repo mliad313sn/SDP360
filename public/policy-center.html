@@ -38,6 +38,13 @@
   .pc-pre { font-family: var(--font-mono); font-size: 12px; white-space: pre-wrap; word-break: break-word; }
   .pc-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   textarea.pc-json { width: 100%; min-height: 120px; font-family: var(--font-mono); font-size: 12px; }
+
+  /* a11y-fr F20 / admin: summary rows reach the 24 px target, buttons use the shared component look */
+  details.pc-rule > summary { min-height: 32px; padding: 6px 0; }
+  button { min-height: var(--control-h-sm); padding: 0 12px; border-radius: var(--radius-md); font-weight: 500; transition: background var(--motion-fast), border-color var(--motion-fast); }
+  button:hover { background: var(--gray-50); border-color: var(--gray-400); }
+  button.pc-primary:hover { background: var(--color-primary-fill-hover); }
+  input, select, textarea { min-height: var(--control-h-sm); border-radius: var(--radius-md); }
 </style>
 </head>
 <body>

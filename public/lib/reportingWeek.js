@@ -58,7 +58,7 @@
     const [, em, ed] = r.end.split('-').map(Number);
     const p = (n) => String(n).padStart(2, '0');
     const span = sm === em ? `${p(sd)}–${p(ed)} ${m[em - 1]}` : `${p(sd)} ${m[sm - 1]} – ${p(ed)} ${m[em - 1]}`;
-    return `W${p(week)} (${span})`;
+    return `${lang === 'fr' ? 'S' : 'W'}${p(week)} (${span})`;   // I18N-QUALITY — « S45 » in French (semaine)
   }
   const api = { firstSunday, weekOf, range, previous, dueWeek, currentWeek, label };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

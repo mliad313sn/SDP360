@@ -108,7 +108,12 @@ function build({ fresh = false, catalogueFile = CATALOGUE_FILE, registerFile = R
   const src = (() => { try { return fs.readFileSync(path.join(__dirname, 'reportConfig.js'), 'utf8'); } catch (_) { return ''; } })();
   const allKeys = [...RC.KEYS, ...GP.PARAMS.map((p) => p.key)];
   if (!_consumers || fresh) _consumers = scanConsumers(allKeys.filter(scannable));
-  const humanize = (k) => { const t = String(k).replace(/[._]+/g, ' ').trim(); return t.charAt(0).toUpperCase() + t.slice(1); };
+  // UX committee admin P1-6 — a readable rule title from its key: acronyms in capitals ("UI deck builder roles",
+  // "CSP strict pages", "SSO mode"), the rest sentence case. The KEY itself is still shown next to it, unchanged.
+  const ACRO = { ui: 'UI', csp: 'CSP', sso: 'SSO', kpi: 'KPI', rag: 'RAG', sla: 'SLA', wan: 'WAN', api: 'API', url: 'URL', uri: 'URI', id: 'ID', it: 'IT', pv: 'PV',
+    smtp: 'SMTP', pptx: 'PPTX', ppm: 'PPM', mfa: 'MFA', pg: 'PostgreSQL', sdp: 'SDP', isp: 'ISP', mrc: 'MRC', opm: 'OpManager', pmo: 'PMO', csv: 'CSV', xlsx: 'XLSX', fr: 'FR', en: 'EN', ux: 'UX' };
+  const humanize = (k) => { const w = String(k).replace(/[._]+/g, ' ').trim().split(/\s+/).map((x) => ACRO[x.toLowerCase()] || x.toLowerCase());
+    const t = w.join(' '); return t.charAt(0).toUpperCase() + t.slice(1); };
   const entries = [];
   for (const k of RC.KEYS) {
     if ((cat.excluded || {})[k]) continue;

@@ -52,6 +52,7 @@
   "ui_kpi_sample_size": "1",
   "ui_lang_default": "fr",
   "ui_nav_profile": "lean",
+  "ui_role_landing": "1",
   "ui_role_landing_profiles": "1",
   "wan_stale_close_at": "last_seen",
   "wan_timeup_loss_pct": "5",
@@ -207,6 +208,9 @@
   ],
   "ui_nav_profile": [
    "HD-U10"
+  ],
+  "ui_role_landing": [
+   "HD-U11"
   ],
   "ui_role_landing_profiles": [
    "HD-U11"

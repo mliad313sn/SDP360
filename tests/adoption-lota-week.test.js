@@ -14,13 +14,13 @@ test('20 Nov 2026: due week W45 (08–14 Nov), week in progress W46 (15–21 Nov
   assert.deepStrictEqual(RW.dueWeek(now), { year: 2026, week: 45 });
   assert.deepStrictEqual(RW.currentWeek(now), { year: 2026, week: 46 });
   assert.deepStrictEqual(RW.range(2026, 45), { start: '2026-11-08', end: '2026-11-14' });
-  assert.strictEqual(RW.label(2026, 45, 'fr'), 'W45 (08–14 nov.)');
+  assert.strictEqual(RW.label(2026, 45, 'fr'), 'S45 (08–14 nov.)');
   assert.strictEqual(RW.label(2026, 45, 'en'), 'W45 (08–14 Nov)');
   assert.strictEqual(RW.label(2026, 44, 'en'), 'W44 (01–07 Nov)');
 });
 
 test('a week spanning two months names both months; year boundary rolls back to the last Zoho week', () => {
-  assert.strictEqual(RW.label(2026, 48, 'fr'), 'W48 (29 nov. – 05 déc.)');
+  assert.strictEqual(RW.label(2026, 48, 'fr'), 'S48 (29 nov. – 05 déc.)');
   // 2 Jan 2027 is before the first Sunday of 2027 (3 Jan) → still in the last week of 2026
   assert.strictEqual(RW.weekOf(new Date(2027, 0, 2)).year, 2026);
   assert.deepStrictEqual(RW.weekOf(new Date(2027, 0, 3)), { year: 2027, week: 1 });

@@ -10,7 +10,7 @@
 | Case de décision dans RELEASE-GATES.md | vide — cette porte est **NO-GO** tant que l'approbateur ne l'a pas remplie. Ce dossier ne remplit rien. |
 | Ce que cette porte bloque | bloque le pilote sur deux sites (instance de TEST) |
 | À décider après | [G01](G01-security-access-policy.md) Sécurité : politique d'accès et matrice d'autorisation |
-| SHA cible | `33d8a0f3` |
+| SHA cible | `e9d6e610` |
 | Généré | 2026-11-21 |
 
 ## 1. La question à trancher
@@ -26,7 +26,7 @@ Acceptez-vous les risques résiduels du modèle de menace et du registre des con
 | `docs/security/EX-01-CREDENTIAL-INCIDENT.md` | Identifiant historique dans la configuration de l'installeur — porte humaine ouverte | `manual` | 7576d012, 2026-10-29 | `c940ae12a71398f0` |
 | `docs/security/ROTATION-RECORD.md` | Où une rotation est consignée une fois faite par une personne | `manual` | d5d3b82f, 2026-11-06 | `9f8be1b68b704da5` |
 | `tools/security/secret-scan.js` | Scanner de secrets sur l'arbre | `node tools/security/secret-scan.js` | cf2b8ae3, 2026-10-29 | `6efe7f2db825d61e` |
-| `docs/security/CSP-JOURNEYS.md` | Observations de Content-Security-Policy par parcours | `node tools/security/csp-journey-report.js` | 33a3c7bb, 2026-11-21 | `34d78f5579e4dc43` |
+| `docs/security/CSP-JOURNEYS.md` | Observations de Content-Security-Policy par parcours | `node tools/security/csp-journey-report.js` | b171d00c, 2026-11-21 | `7ceefae8a9bb272b` |
 
 **Preuves attendues des lots parallèles**
 

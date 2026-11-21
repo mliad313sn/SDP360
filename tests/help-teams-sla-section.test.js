@@ -1,43 +1,33 @@
 'use strict';
-// 2026-10-07 — the Teams SLA alerts are documented in the help, in both languages: what is
-// sent, how to create a channel webhook in Teams Workflows, how to connect it in the
-// dashboard, and the phone-notification setting. Drift guard, not prose review.
+// 2026-10-07 — the Teams SLA alerts are documented in the help, in both languages: what is sent, how to create a
+// channel webhook in Teams Workflows, how to connect it in the dashboard, and the phone-notification setting.
+// 2026-11-21: the numbered section 19 became the stable anchor #teams-sla with four named sub-sections.
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs'), path = require('node:path');
 
 const src = fs.readFileSync(path.join(__dirname, '..', 'public', 'help.html'), 'utf8').replace(/\r\n/g, '\n');
-const SUBS = 4;
+const SUBS = ['teams-sla-what', 'teams-sla-webhook', 'teams-sla-connect', 'teams-sla-phone'];
 
-for (const lang of ['en', 'fr']) {
-  test(`[${lang}] section 19 and its sub-sections exist and are in the table of contents`, () => {
-    assert.ok(src.includes(`id="${lang}-19"`), `section ${lang}-19 exists`);
-    assert.ok(src.includes(`href="#${lang}-19"`), 'linked from the table of contents');
-    for (let i = 1; i <= SUBS; i++) {
-      assert.ok(src.includes(`id="${lang}-19-${i}"`), `sub-section ${lang}-19-${i}`);
-      assert.ok(src.includes(`href="#${lang}-19-${i}"`), `sub-section ${lang}-19-${i} in the table of contents`);
-    }
-  });
+test('the Teams SLA section and its sub-sections exist, in both languages', () => {
+  assert.ok(src.includes('<section class="hsec" id="teams-sla">'));
+  for (const id of SUBS) {
+    const a = src.indexOf(`id="${id}"`); assert.ok(a > 0, id);
+    const sub = src.slice(a, src.indexOf('</div>\n  </div>', a));
+    assert.ok(sub.includes('data-lng="en"') && sub.includes('data-lng="fr"'), `${id} in both languages`);
+  }
+});
 
-  test(`[${lang}] the section 19 entries sit INSIDE the table-of-contents container`, () => {
-    const tocStarts = [...src.matchAll(/<div class="toc">/g)].map(m => m.index);
-    assert.strictEqual(tocStarts.length, 2, 'one table of contents per language');
-    const start = tocStarts[lang === 'en' ? 0 : 1];
-    const close = src.indexOf('\n    </div>', start);
-    const link = src.indexOf(`href="#${lang}-19"`);
-    assert.ok(link > start && link < close, 'the link is inside the TOC div, not after it');
-  });
-
-  test(`[${lang}] the section sits inside the content of its language`, () => {
-    const sec = src.indexOf(`id="${lang}-19"`);
-    const end = src.indexOf(`<!-- /sec-${lang} -->`);
-    const contentEnd = src.lastIndexOf('</div><!-- /content -->', end);
-    assert.ok(sec > 0 && sec < contentEnd, 'before the end of the content column');
-  });
-}
+test('the section is linked from INSIDE the table of contents and sits inside the main content', () => {
+  const start = src.indexOf('<nav class="help-toc"'), end = src.indexOf('</nav>', start);
+  const link = src.indexOf('href="#teams-sla"');
+  assert.ok(link > start && link < end);
+  const sec = src.indexOf('id="teams-sla"');
+  assert.ok(sec > src.indexOf('<main id="main"') && sec < src.indexOf('</main>'));
+});
 
 test('the key facts are stated', () => {
-  const s = src.slice(src.indexOf('id="en-19"'));
+  const s = src.slice(src.indexOf('id="teams-sla"'), src.indexOf('id="security"'));
   assert.match(s, /webhook/i);
   assert.match(s, /5 min/);
   assert.ok(/secret/i.test(s), 'the webhook URL is a secret');

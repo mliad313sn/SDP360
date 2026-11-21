@@ -46,10 +46,13 @@
   .muted{color:#5b6773;font-size:.8rem}
   @media(max-width:820px){.sl-kpis{grid-template-columns:repeat(2,1fr)}.sl-charts{grid-template-columns:1fr}}
   @media(max-width:640px){.sl-tabs{overflow-x:auto;flex-wrap:nowrap}.sl-tab{white-space:nowrap;flex:0 0 auto}}
+  .sl-chip{display:inline-block;font:12px/1.5 var(--font-mono);background:var(--gray-100);border-radius:var(--radius-sm);padding:0 6px;margin:0 4px 2px 0;color:var(--gray-700)}
+  .sl-more pre{white-space:pre-wrap;font:12px/1.4 var(--font-mono);margin:4px 0 0}
 </style>
 </head>
 <body>
 <div id="__shell" data-section="admin" data-current="system-logs"></div>
+<main id="main" class="edv-main">
 
 <div class="sl-wrap">
   <div class="sl-head">
@@ -140,6 +143,15 @@
   var el = function(id){return document.getElementById(id);};
   function api(p){ return fetch(p, { credentials: 'same-origin' }).then(function(r){ return r.json(); }); }
   function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  function _details(v){
+    if(v==null||v==='')return '';
+    let o=v; if(typeof v==='string'){try{o=JSON.parse(v);}catch(_){return esc(v);}}
+    if(!o||typeof o!=='object')return esc(String(v));
+    const flat=Object.entries(o).filter(([,x])=>x==null||typeof x!=='object');
+    const deep=Object.entries(o).filter(([,x])=>x!=null&&typeof x==='object');
+    const chips=flat.map(([k,x])=>'<span class="sl-chip"><b>'+esc(k)+'</b>: '+esc(x==null?'—':String(x))+'</span>').join(' ');
+    return chips+(deep.length?' <details class="sl-more"><summary>Details</summary><pre>'+esc(JSON.stringify(Object.fromEntries(deep),null,1))+'</pre></details>':'');
+  }
 
   // tabs
   Array.prototype.forEach.call(document.querySelectorAll('.sl-tab'), function(b){
@@ -216,7 +228,8 @@
           +'<td>'+esc(r.actor)+'</td><td class="cat">'+esc(r.category)+'</td>'
           +'<td>'+esc(r.action)+'</td><td>'+esc(r.target||'')+'</td><td>'+esc(r.ip||'')+'</td>'
           +'<td>'+(r.risk?'<span class="pill risk">risk</span>':'<span class="pill ok">—</span>')+'</td>'
-          +'<td class="muted">'+esc(r.details||'')+'</td></tr>';
+          // visual F22 / admin P1-6: details read as "key: value" chips; anything nested stays behind a disclosure
+          +'<td class="muted">'+_details(r.details)+'</td></tr>';
       }).join('') : '<tr><td colspan="8" class="muted">No entries in this window.</td></tr>';
       var from = total? page*LIMIT+1 : 0, to = Math.min((page+1)*LIMIT, total);
       el('pInfo').textContent = from+'–'+to+' of '+total;
@@ -257,5 +270,6 @@
   loadEntries();
 })();
 </script>
+</main>
 </body>
 </html>

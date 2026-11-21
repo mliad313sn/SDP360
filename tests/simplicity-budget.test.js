@@ -41,27 +41,29 @@ const PERSONAS = {
   'business-only': [['site-business'], true],
 };
 
-// Today's menu (measured on sdp-waves before A-21) — the 'full' profile must reproduce it entry for entry.
-// Adoption Lot A (item 4): the Activity Tracker entry follows its route roles (admin tier + tracker-*), the KPI
-// policies entry is shown to admin + kpi-committee (item 6), and business-only accounts get Help (item 9).
-const OPS_ANY = ['inspections', 'meetings', 'site-actions', 'trackers', 'dashboards', 'cockpit', 'portfolio', 'rfi', 'report-studio', 'notifications', 'handoffs', 'obligations'];
-const OPS_TRK = ['inspections', 'meetings', 'site-actions', 'tracker', ...OPS_ANY.slice(3)];
+// The full-profile menu per persona. VISUAL POLISH 2026-11 (UX committee ia-value F4) replaced the catch-all
+// "Operations" (17 entries) with intent sections — Work · Plan · Insights · Infrastructure · Admin — and made the
+// Executive section a single door. Ids, hrefs and route roles are unchanged; executives no longer see settings
+// entries in the MENU (config_only), Help moved to the header "?" button, Notifications to the header bell.
+const WORK_ANY = ['site-actions', 'inspections', 'meetings', 'handoffs', 'obligations'];
+const PLAN_ANY = ['trackers', 'portfolio', 'rfi'];
+const INS_ANY = ['dashboard', 'dashboards', 'cockpit', 'site-reports', 'report-studio'];
+const INS_ADM = ['dashboard', 'analytics', 'dashboards', 'cockpit', 'site-reports', 'report-studio'];
 const INFRA = ['assets', 'wan', 'infra-health'];
 const TODAY = {
-  viewer: { home: [], helpdesk: ['dashboard'], operations: OPS_ANY, infrastructure: INFRA, reports: ['site-reports'], help: [] },
-  editor: { home: [], helpdesk: ['dashboard'], operations: [...OPS_ANY, 'field'], infrastructure: INFRA, reports: ['site-reports'], help: [] },
-  'editor+tracker-editor': { home: [], helpdesk: ['dashboard'], operations: [...OPS_TRK, 'field'], infrastructure: INFRA, reports: ['site-reports'], help: [] },
-  'field-tech': { home: [], helpdesk: ['dashboard'], operations: [...OPS_ANY, 'field'], infrastructure: INFRA, reports: ['site-reports'], help: [] },
-  admin: { home: [], helpdesk: ['dashboard', 'analytics'], operations: [...OPS_TRK, 'policies', 'kpi-builder', 'integrations', 'field'], infrastructure: INFRA, reports: ['site-reports'], help: [] },
-  executive: { home: [], 'site-awareness': [], helpdesk: ['dashboard', 'analytics'], operations: [...OPS_TRK, 'policies', 'kpi-builder', 'integrations', 'field'], infrastructure: INFRA, reports: ['site-reports'], executive: ['exec-home', 'it-review', 'scorecard'], help: [] },
-  super_admin: { home: [], 'site-awareness': [], helpdesk: ['dashboard', 'analytics'], operations: [...OPS_TRK, 'policies', 'kpi-builder', 'integrations', 'field'], infrastructure: INFRA, reports: ['site-reports', 'reports-builder'], executive: ['exec-home', 'it-review', 'scorecard'], admin: ['admin-settings', 'system-logs'], help: [] },
-  'committee-member': { helpdesk: ['dashboard'], operations: [...OPS_ANY, 'policies'], infrastructure: INFRA, reports: ['site-reports'], help: [] },
-  'business-only': { 'site-awareness': [], help: [] },
+  viewer: { home: [], work: WORK_ANY, plan: PLAN_ANY, insights: INS_ANY, infrastructure: INFRA },
+  editor: { home: [], work: [...WORK_ANY, 'field'], plan: PLAN_ANY, insights: INS_ANY, infrastructure: INFRA },
+  'editor+tracker-editor': { home: [], work: [...WORK_ANY, 'field'], plan: ['tracker', ...PLAN_ANY], insights: INS_ANY, infrastructure: INFRA },
+  'field-tech': { home: [], work: [...WORK_ANY, 'field'], plan: PLAN_ANY, insights: INS_ANY, infrastructure: INFRA },
+  admin: { home: [], work: [...WORK_ANY, 'field'], plan: ['tracker', ...PLAN_ANY], insights: INS_ADM, infrastructure: INFRA, admin: ['policies', 'kpi-builder', 'integrations'] },
+  executive: { home: [], 'site-awareness': [], work: [...WORK_ANY, 'field'], plan: ['tracker', ...PLAN_ANY], insights: INS_ADM, executive: ['exec-home', 'it-review', 'scorecard'], infrastructure: INFRA },
+  super_admin: { home: [], 'site-awareness': [], work: [...WORK_ANY, 'field'], plan: ['tracker', ...PLAN_ANY], insights: [...INS_ADM, 'reports-builder'], executive: ['exec-home', 'it-review', 'scorecard'], infrastructure: INFRA, admin: ['admin-home', 'admin-settings', 'policies', 'kpi-builder', 'integrations', 'system-logs'] },
+  'committee-member': { work: WORK_ANY, plan: PLAN_ANY, insights: INS_ANY, infrastructure: INFRA, admin: ['policies'] },
+  'business-only': { 'site-awareness': [] },
 };
-const TODAY_TOP = { viewer: 6, editor: 6, 'editor+tracker-editor': 6, 'field-tech': 6, admin: 6, executive: 8, super_admin: 9, 'committee-member': 5, 'business-only': 2 };
+const TODAY_TOP = { viewer: 5, editor: 5, 'editor+tracker-editor': 5, 'field-tech': 5, admin: 6, executive: 7, super_admin: 8, 'committee-member': 5, 'business-only': 1 };
 
-const opsTasks = (shell) => (j(shell.menuModel()).find((s) => s.id === 'operations') || { children: [] }).children.filter((c) => c.group !== 'Configure');
-const opsConfigure = (shell) => (j(shell.menuModel()).find((s) => s.id === 'operations') || { children: [] }).children.filter((c) => c.group === 'Configure');
+const sec = (shell, id) => (j(shell.menuModel()).find((s) => s.id === id) || { children: [] }).children;
 
 test('full profile (default and explicit) reproduces today\'s menu for every persona', () => {
   for (const [name, [roles, biz]] of Object.entries(PERSONAS)) {
@@ -75,26 +77,26 @@ test('full profile (default and explicit) reproduces today\'s menu for every per
   }
 });
 
-test('lean: Operations keeps at most 8 task entries for every persona; Configure is admin tooling (max 3)', () => {
+test('lean: Work keeps at most 8 task entries for every persona; Admin is short tooling (max 3 below super_admin)', () => {
   for (const [name, [roles, biz]] of Object.entries(PERSONAS)) {
     const { shell } = load(roles, { businessOnly: !!biz, profile: 'lean' });
-    assert.ok(opsTasks(shell).length <= 8, `${name}: ${opsTasks(shell).map((c) => c.id)}`);
-    assert.ok(opsConfigure(shell).length <= 3, `${name}: configure ${opsConfigure(shell).map((c) => c.id)}`);
+    assert.ok(sec(shell, 'work').length <= 8, `${name}: ${sec(shell, 'work').map((c) => c.id)}`);
+    if (name !== 'super_admin') assert.ok(sec(shell, 'admin').length <= 3, `${name}: admin ${sec(shell, 'admin').map((c) => c.id)}`);
   }
 });
 
 test('lean: exactly one tracker entry and no Configure item for viewer / editor / field-tech', () => {
   for (const name of ['viewer', 'editor', 'editor+tracker-editor', 'field-tech']) {
     const { shell } = load(PERSONAS[name][0], { profile: 'lean' });
-    const ops = model(shell).operations;
+    const plan = model(shell).plan || [];
     // Lot A: the live Activity Tracker only for accounts its route admits (tracker-*); none for a plain viewer.
     const want = name === 'editor+tracker-editor' ? 1 : 0;
-    assert.strictEqual(ops.filter((id) => id === 'tracker' || id === 'trackers').length, want, name);
-    if (want) assert.ok(ops.includes('tracker'), `${name} keeps the live Activity Tracker`);
-    assert.deepStrictEqual(opsConfigure(shell), [], name);
+    assert.strictEqual(plan.filter((id) => id === 'tracker' || id === 'trackers').length, want, name);
+    if (want) assert.ok(plan.includes('tracker'), `${name} keeps the live Activity Tracker`);
+    assert.deepStrictEqual(sec(shell, 'admin'), [], name);
   }
-  assert.ok(model(load(['admin'], { profile: 'lean' }).shell).operations.includes('trackers'), 'admin keeps the tracker engine');
-  assert.ok(model(load(['viewer', 'tracker-admin'], { profile: 'lean' }).shell).operations.includes('trackers'));
+  assert.ok(model(load(['admin'], { profile: 'lean' }).shell).plan.includes('trackers'), 'admin keeps the tracker engine');
+  assert.ok(model(load(['viewer', 'tracker-admin'], { profile: 'lean' }).shell).plan.includes('trackers'));
 });
 
 test('lean: no Infrastructure section for viewer / editor / field-tech; admin and executive keep it', () => {
@@ -105,9 +107,9 @@ test('lean: no Infrastructure section for viewer / editor / field-tech; admin an
 
 test('lean: entries off the menu stay in the finder for a user allowed to open them', () => {
   const { shell } = load(['viewer'], { profile: 'lean' });
-  const ops = model(shell).operations;
+  const onMenu = Object.values(model(shell)).flat();
   for (const [id, q] of [['handoffs', 'handoffs'], ['notifications', 'notif'], ['obligations', 'obligations'], ['rfi', 'rfi'], ['trackers', 'trackers'], ['assets', 'assets']]) {
-    assert.ok(!ops.includes(id) && !(model(shell).infrastructure || []).includes(id), `${id} is off the lean menu`);
+    assert.ok(!onMenu.includes(id), `${id} is off the lean menu`);
     assert.ok(j(shell.searchEntries(q)).some((e) => e.id === id), `${id} is still found`);
   }
   assert.deepStrictEqual(j(shell.searchEntries('integr')), [], 'the finder still respects the page roles');
@@ -115,19 +117,19 @@ test('lean: entries off the menu stay in the finder for a user allowed to open t
 
 test('Deck Builder entry follows ui_deck_builder_roles (default super_admin only) in both profiles', () => {
   for (const profile of ['full', 'lean']) {
-    assert.ok(model(load(['super_admin'], { profile }).shell).reports.includes('reports-builder'));
-    for (const r of [['executive'], ['admin'], ['viewer', 'report-author']]) assert.ok(!(model(load(r, { profile }).shell).reports || []).includes('reports-builder'), `${r} / ${profile}`);
-    const widened = (r) => (model(load(r, { profile, deck: ['super_admin', 'report-author'] }).shell).reports || []);
+    assert.ok(model(load(['super_admin'], { profile }).shell).insights.includes('reports-builder'));
+    for (const r of [['executive'], ['admin'], ['viewer', 'report-author']]) assert.ok(!(model(load(r, { profile }).shell).insights || []).includes('reports-builder'), `${r} / ${profile}`);
+    const widened = (r) => (model(load(r, { profile, deck: ['super_admin', 'report-author'] }).shell).insights || []);
     assert.ok(widened(['viewer', 'report-author']).includes('reports-builder'));
     assert.ok(!widened(['executive']).includes('reports-builder'));
     assert.ok(!j(load(['executive'], { profile }).shell.searchEntries('deck')).length, 'not offered by the finder either');
   }
-  assert.ok(model(load(['executive'], { deck: ['executive'] }).shell).reports.includes('reports-builder'));
-  assert.ok(!model(load(['executive'], { deck: [] }).shell).reports.includes('reports-builder'), 'an empty list falls back to super_admin');
+  assert.ok(model(load(['executive'], { deck: ['executive'] }).shell).insights.includes('reports-builder'));
+  assert.ok(!model(load(['executive'], { deck: [] }).shell).insights.includes('reports-builder'), 'an empty list falls back to super_admin');
 });
 
 test('business-only user sees only Site Overview in both profiles', () => {
-  for (const profile of ['full', 'lean']) assert.deepStrictEqual(model(load(['site-business'], { businessOnly: true, profile }).shell), { 'site-awareness': [], help: [] });
+  for (const profile of ['full', 'lean']) assert.deepStrictEqual(model(load(['site-business'], { businessOnly: true, profile }).shell), { 'site-awareness': [] });
 });
 
 test('lean: body class toggles and the rendered menu matches the model', () => {

@@ -68,6 +68,7 @@ function testsMentioning(tests, needle) {
 const DEEP_LINK_ONLY = {
   'login.html': 'sign-in page: reached by redirect from every gated page (auth.js), not from a menu',
   'no-access.html': 'denial page: reached by redirect from auth.js when a role is missing',
+  'not-available.html': 'branded 404 body served by routes/policyCenter.js when a switched-off page is requested (UX committee); never linked',
   'exec-view.html': 'public IT status snapshot: reached from the SharePoint Quick Link, outside the app',
   'itsm-roadmap.html': "the manager's personal roadmap tool: reached by its URL (bookmark), deliberately outside the shared menu",
   'workspace-settings.html': 'workspace settings: the header "My workspace" link is drawn by _shell.js only while workspace_profiles_enabled = 1 (not visible to this static scan); 404 while off',
@@ -152,7 +153,7 @@ function build() {
     return {
       id: 'PG-' + slug(name.replace(/\.html$/, '')),
       page: 'public/' + name,
-      requires: req ? req.split('|') : (name === 'login.html' || name === 'no-access.html' || name === 'exec-view.html' ? ['public'] : ['UNKNOWN']),
+      requires: req ? req.split('|') : (name === 'login.html' || name === 'no-access.html' || name === 'not-available.html' || name === 'exec-view.html' ? ['public'] : ['UNKNOWN']),
       in_navigation: navHrefs.has(name),
       entry_points: (() => { const r = reach.get(name); return { shell: r.shell, module_tab: r.module_tab, linked_from: r.linked_from, redirect_to: r.redirect_to, deep_link_only: r.deep_link_only, known_dead_end: r.known_dead_end }; })(),
       parent: reach.get(name).parent,

@@ -556,6 +556,8 @@ function sdpTicketLink(displayId, longId, extraStyle) {
  */
 function fmtDowntime(hours) {
   if (hours == null) return '—';
+  // I18N-QUALITY — a French page body gets « 1 j 22 h » through lib/format.js; English output unchanged.
+  if (typeof window !== 'undefined' && window.SDPFormat && window.SDPFormat.lang() === 'fr') return window.SDPFormat.duration(hours, { lang: 'fr' });
   const h = parseFloat(hours);
   if (isNaN(h)) return '—';
   if (h === 0) return '0h';

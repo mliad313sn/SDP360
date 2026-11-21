@@ -936,6 +936,20 @@ function InputPanel({ D, S, setS, roles, onMutate }) {
   const ML = window.TrackerMonthLock;
   const isClosedMonth = (mi) => !!(ML && !roles.IS_SUPER && ML.isClosed(S.year, mi));
   const anyClosed = canSave && Array.from({ length: 12 }, (_, mi) => isClosedMonth(mi)).some(Boolean);
+  // UX committee (site coordinator P1-4): an editor opening Input lands on the month they can still EDIT (the current
+  // month, or the previous one until the 5th — the same trackerMonthLock rule the server applies), not on the last
+  // month with data, which is usually closed. Only the default selection changes, once, on opening the tab.
+  const openedOnEditable = useRef(false);
+  useEffect(() => {
+    if (openedOnEditable.current || !canSave || roles.IS_SUPER || !ML || !ML.label) return;
+    openedOnEditable.current = true;
+    const ed = ML.label();
+    if (ed.year === S.year && S.month !== ed.month0 + 1) setS((s) => ({ ...s, month: ed.month0 + 1 }));
+  }, []);
+  // ... and the editable column is scrolled into view on a narrow screen
+  useEffect(() => {
+    try { const th = document.querySelector('.ip-grid__month.is-current'); if (th && th.scrollIntoView) th.scrollIntoView({ block: 'nearest', inline: 'center' }); } catch (_) { /* best effort */ }
+  }, [S.month]);
   const [importing, setImporting] = useState(false);
   // Bumped whenever cell values change OUTSIDE the inputs themselves (e.g. the
   // dept-meetings import writes into D via si2). The number cells are

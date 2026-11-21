@@ -23,9 +23,10 @@ runJourney('T7 switch to French and open the manual', async ({ app, world, brows
   const [manual] = await Promise.all([ctx.waitForEvent('page'), help.click()]);
   await manual.waitForLoadState('load');
   assert.match(manual.url(), /\/help\.html$/);
-  await manual.waitForSelector('#sec-fr.active');
-  assert.strictEqual(await manual.isVisible('#sec-en'), false, 'English manual hidden');
-  assert.match(await manual.textContent('#sec-fr h2'), /Vue d'ensemble/);
+  // 2026-11-21: one bilingual document (stable anchors) instead of two language sections — body.lang-fr shows French
+  await manual.waitForSelector('body.lang-fr');
+  assert.strictEqual(await manual.isVisible('#getting-started h2 [data-lng="en"]'), false, 'English text hidden');
+  assert.match(await manual.textContent('#getting-started h2 [data-lng="fr"]'), /Prise en main/);
   assert.strictEqual(await manual.getAttribute('html', 'lang'), 'fr');
   await j.measure(manual, 'help-fr');
 

@@ -28,10 +28,14 @@ test('every language read goes through sdp_lang first and every language write a
   assert.deepStrictEqual(bad, []);
 });
 
-test('the manual remembers the language and opens in it', () => {
-  const src = fs.readFileSync(path.join(PUB, 'help.html'), 'utf8');
-  assert.match(src, /localStorage\.setItem\('sdp_lang', lang\)/);
-  assert.match(src, /localStorage\.getItem\('sdp_lang'\)/);
+// 2026-11-21: the manual no longer has its own language toggle (it followed the shell's FR/EN button only after
+// a reload anyway); it opens in the shared preference written by the shell, from its external script.
+test('the manual opens in the shared language preference (no second toggle)', () => {
+  const html = fs.readFileSync(path.join(PUB, 'help.html'), 'utf8');
+  const js = fs.readFileSync(path.join(PUB, 'lib', 'help-page.js'), 'utf8');
+  assert.match(html, /src="lib\/help-page\.js"/);
+  assert.match(js, /localStorage\.getItem\('sdp_lang'\)/);
+  assert.ok(!/id="btn-fr"/.test(html), 'no page-level language button');
 });
 
 test('the shared translation layer reads and writes sdp_lang', () => {
