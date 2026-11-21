@@ -23,15 +23,15 @@
   // ---- Board -----------------------------------------------------------------------------------------------------
   function mountBoard(X) {
     var B = root.PpmBoard, box = X.$('board'); if (!B || !box) return;
-    var V = X.V(), ctx = { committee: !!V.committee, canEditPlan: !!V.can_edit_plan, projectRole: V.project_role || null, user: me() };
+    var V = X.V(), ctx = { committee: !!V.committee, canEditPlan: !!V.can_edit_plan, projectRole: V.project_role || null, user: me(), today: V.as_of ? String(V.as_of).slice(0, 10) : new Date().toISOString().slice(0, 10) };
     var data = B.board(V.tasks || []);
-    box.innerHTML = B.html(data, X.esc, ctx) + '<p class="muted">Work packages are the tasks without sub-tasks; a summary task rolls up from its children. Drag a card, or use “Move to”.</p>';
+    box.innerHTML = B.html(data, X.esc, ctx) + '<p class="muted">Work packages are the tasks without sub-tasks; a summary task rolls up from its children. Drag a card, or use its “⋯” menu.</p>';
     var find = function (id) { var all = data.other.slice(); data.columns.forEach(function (c) { all = all.concat(c.cards); }); return all.filter(function (c) { return String(c.id) === String(id); })[0]; };
     var move = function (id, to) {
       var b = B.movePayload(find(id), to); if (!b) return;
       X.api('/api/governance/portfolio/task', { method: 'PUT', body: JSON.stringify(b) }).then(function (j) { X.msg(j && j.queued ? 'Saved on this device — it will be sent when the connection is back.' : 'Task moved to ' + B.LABELS[to] + '.'); return X.reload(); }).catch(function (e) { X.msg(said(e), 'errors'); mountBoard(X); });
     };
-    box.onchange = function (ev) { var s = ev.target; if (s && s.getAttribute && s.getAttribute('data-move')) move(s.getAttribute('data-move'), s.value); };
+    box.onclick = function (ev) { var b = ev.target.closest && ev.target.closest('button[data-move-to], button[data-open-task]'); if (!b) return; if (b.hasAttribute('data-move-to')) move(b.getAttribute('data-move'), b.getAttribute('data-move-to')); else if (X.openTask) X.openTask(Number(b.getAttribute('data-open-task'))); };
     box.ondragstart = function (ev) { var li = ev.target.closest && ev.target.closest('.pb-card'); if (li && ev.dataTransfer) ev.dataTransfer.setData('text/plain', li.getAttribute('data-task')); };
     box.ondragover = function (ev) { if (ev.target.closest && ev.target.closest('.pb-col')) ev.preventDefault(); };
     box.ondrop = function (ev) { var col = ev.target.closest && ev.target.closest('.pb-col'); if (!col || !ev.dataTransfer) return; ev.preventDefault(); move(ev.dataTransfer.getData('text/plain'), col.getAttribute('data-col')); };

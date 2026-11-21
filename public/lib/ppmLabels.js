@@ -1,0 +1,99 @@
+/* PMO UX (2026-11) — ONE label map for every PPM code a user may see (status, stage, kind, action, field,
+ * gate refusal codes, RAID responses, report kinds…). Display only: the code posted to the API never changes.
+ *   label(group, code[, lang])   → "On track" / "En bonne voie"; an unknown code is humanised (underscores → spaces,
+ *                                 first letter upper-case) so a new server code never shows as raw snake_case.
+ *   pill(group, code, esc[, lang, cls]) → <span class="pill CODE">Label</span> (the CSS class stays the code)
+ *   options(group, codes, sel, esc[, lang]) → <option value="code">Label</option>… (value = code, text = label)
+ *   lang()                       → 'fr' only when the page body is translated (data-i18n="on") and the shell says fr;
+ *                                 a self-translated page passes its own lang instead.
+ * Pure (no network); the DOM is read only by lang(). Unknown stays "—" — never a made-up status.
+ */
+(function (root) {
+  'use strict';
+  var L = {
+    status: {
+      on_track: ['On track', 'En bonne voie'], at_risk: ['At risk', 'À risque'], off_track: ['Off track', 'Hors trajectoire'],
+      planned: ['Planned', 'Planifié'], active: ['Active', 'Actif'], done: ['Done', 'Terminé'], open: ['Open', 'Ouvert'], closed: ['Closed', 'Clos'],
+      todo: ['To do', 'À faire'], in_progress: ['In progress', 'En cours'], blocked: ['Blocked', 'Bloqué'], cancelled: ['Cancelled', 'Annulé'],
+      late: ['Late', 'En retard'], on_hold: ['On hold', 'En pause'], delivered: ['Delivered', 'Livré'], accepted: ['Accepted', 'Accepté'],
+      rejected: ['Rejected', 'Rejeté'], submitted: ['Submitted', 'Soumis'], triaged: ['Triaged', 'Trié'], scheduled: ['Scheduled', 'Planifié'],
+      live: ['Live', 'En ligne'], expired: ['Expired', 'Expiré'], revoked: ['Revoked', 'Révoqué'], draft: ['Draft', 'Brouillon'],
+      approved: ['Approved', 'Approuvé'], proposed: ['Proposed', 'Proposé'], assessed: ['Assessed', 'Évalué'], applied: ['Applied', 'Appliqué'],
+      withdrawn: ['Withdrawn', 'Retiré'], complete: ['Complete', 'Complet'], pending: ['Pending', 'En attente'], verified: ['Verified', 'Vérifié'],
+      GREEN: ['On track', 'En bonne voie'], AMBER: ['Watch', 'À surveiller'], RED: ['Off track', 'Hors trajectoire'], NA: ['Not measured', 'Non mesuré'],
+      green: ['On track', 'En bonne voie'], amber: ['Watch', 'À surveiller'], red: ['Off track', 'Hors trajectoire'],
+    },
+    stage: {
+      idea: ['Idea', 'Idée'], assessment: ['Assessment', 'Évaluation'], proposal: ['Proposal', 'Proposition'], approval: ['Approval', 'Approbation'],
+      in_progress: ['In delivery', 'En réalisation'], on_hold: ['On hold', 'En pause'], handover: ['Handover', 'Transfert'],
+      benefits_review: ['Benefits review', 'Revue des bénéfices'], closure: ['Closure', 'Clôture'], closed: ['Closed', 'Clos'],
+      deferred: ['Deferred', 'Reporté'], rejected: ['Rejected', 'Rejeté'], cancelled: ['Cancelled', 'Annulé'],
+    },
+    kind: {
+      programme: ['Programme', 'Programme'], objective: ['Objective', 'Objectif'], project: ['Project', 'Projet'], milestone: ['Milestone', 'Jalon'],
+      deliverable: ['Deliverable', 'Livrable'], risk: ['Risk', 'Risque'], task: ['Task', 'Tâche'], issue: ['Issue', 'Problème'],
+      assumption: ['Assumption', 'Hypothèse'], dependency: ['Dependency', 'Dépendance'], benefit: ['Benefit', 'Bénéfice'],
+      group_monthly: ['Group monthly review', 'Revue mensuelle groupe'], site_weekly: ['Site weekly review', 'Revue hebdomadaire site'],
+      site_monthly: ['Site monthly review', 'Revue mensuelle site'], committee: ['Committee', 'Comité'], exec: ['Executive', 'Direction'], site: ['Site', 'Site'],
+      artifact: ['Document', 'Document'], check: ['Check', 'Vérification'],
+    },
+    severity: { high: ['High', 'Élevée'], medium: ['Medium', 'Moyenne'], low: ['Low', 'Faible'] },
+    response: { avoid: ['Avoid', 'Éviter'], mitigate: ['Mitigate', 'Atténuer'], transfer: ['Transfer', 'Transférer'], accept: ['Accept', 'Accepter'], exploit: ['Exploit', 'Exploiter'], escalate: ['Escalate', 'Escalader'] },
+    action: {
+      create: ['Created', 'Créé'], created: ['Created', 'Créé'], update: ['Updated', 'Modifié'], updated: ['Updated', 'Modifié'], delete: ['Deleted', 'Supprimé'], deleted: ['Deleted', 'Supprimé'],
+      stage: ['Stage changed', 'Phase changée'], stage_move: ['Stage changed', 'Phase changée'], budget: ['Budget entry', 'Saisie budgétaire'], reassign: ['Task reassigned', 'Tâche réaffectée'],
+      baseline: ['Baseline captured', 'Référence figée'], rebaseline: ['Re-baselined', 'Référence révisée'], verify: ['Verified', 'Vérifié'], realised: ['Realised value recorded', 'Valeur réalisée saisie'],
+      signoff: ['Sign-off', 'Visa'], approve: ['Approved', 'Approuvé'], reject: ['Rejected', 'Rejeté'],
+    },
+    field: {
+      stage: ['Stage', 'Phase'], status: ['Status', 'Statut'], owner: ['Owner', 'Responsable'], sponsor: ['Sponsor', 'Sponsor'], budget: ['Budget', 'Budget'], spent: ['Spent', 'Dépensé'],
+      start_date: ['Start', 'Début'], end_date: ['End', 'Fin'], baseline_end: ['Baseline end', 'Fin de référence'], progress_pct: ['Progress', 'Avancement'], charter: ['Charter', 'Charte'],
+      name: ['Name', 'Nom'], due_date: ['Due', 'Échéance'], amount: ['Amount', 'Montant'], currency: ['Currency', 'Devise'],
+    },
+    gate: {
+      GATE_CHARTER: ['A charter (objective, scope, benefits — 20 characters or more) is needed first.', 'Une charte (objectif, périmètre, bénéfices — 20 caractères ou plus) est nécessaire.'],
+      GATE_SPONSOR: ['A sponsor is needed first.', 'Un sponsor est nécessaire.'],
+      GATE_BASELINE: ['Start, end and baseline end dates are needed (the baseline is frozen at approval).', 'Les dates de début, de fin et de fin de référence sont nécessaires (la référence est figée à l’approbation).'],
+      GATE_SOD: ['The project owner cannot decide on their own project — another committee member must.', 'Le responsable du projet ne peut pas décider de son propre projet — un autre membre du comité doit le faire.'],
+      GATE_SOD_SPONSOR: ['The sponsor cannot decide on the project they sponsor.', 'Le sponsor ne peut pas décider du projet qu’il parraine.'],
+      GATE_OPEN_TASKS: ['Some tasks are still open.', 'Des tâches sont encore ouvertes.'],
+      GATE_OPEN_RISKS: ['High risks are still open.', 'Des risques élevés sont encore ouverts.'],
+      GATE_REASON: ['A written reason (10 characters or more) is needed.', 'Une raison écrite (10 caractères ou plus) est nécessaire.'],
+      GATE_OWNER: ['An IT owner is needed before the project is planned.', 'Un responsable IT est nécessaire avant de planifier le projet.'],
+      GATE_CHECKLIST: ['The gate checklist is not complete.', 'La liste de contrôle du jalon n’est pas complète.'],
+      GATE_SIGNOFF: ['The gate still needs its sign-offs.', 'Le jalon attend encore ses visas.'],
+      GATE_REJECTED: ['A gate approver rejected this move.', 'Un approbateur a refusé ce passage.'],
+      GATE_DATA_QUALITY: ['The data-quality check blocks this move.', 'Le contrôle de qualité des données bloque ce passage.'],
+    },
+    rag: { GREEN: ['On baseline', 'Dans la référence'], AMBER: ['Slipping', 'En glissement'], RED: ['Late', 'En retard'], NA: ['Not measured', 'Non mesuré'] },
+  };
+  function humanise(code) {
+    var s = String(code).replace(/_/g, ' ').trim();
+    return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+  }
+  function lang() {
+    try {
+      var de = root.document && root.document.documentElement;
+      if (!(de && de.dataset && de.dataset.i18n === 'on')) return 'en';
+      var s = root.__shell && root.__shell.shellLang ? root.__shell.shellLang() : 'en';
+      return s === 'fr' ? 'fr' : 'en';
+    } catch (_) { return 'en'; }
+  }
+  function label(group, code, lg) {
+    if (code == null || code === '') return '—';
+    var g = L[group] || {}, hit = g[code] || g[String(code).toLowerCase()];
+    if (!hit) for (var k in L) if (L[k][code]) { hit = L[k][code]; break; }
+    var i = (lg || lang()) === 'fr' ? 1 : 0;
+    return hit ? hit[i] : humanise(code);
+  }
+  function pill(group, code, esc, lg, cls) {
+    if (code == null || code === '') return '<span class="pill NA">—</span>';
+    return '<span class="pill ' + esc(cls || code) + '" data-code="' + esc(code) + '">' + esc(label(group, code, lg)) + '</span>';
+  }
+  function options(group, codes, sel, esc, lg) {
+    return codes.map(function (c) { return '<option value="' + esc(c) + '"' + (String(c) === String(sel) ? ' selected' : '') + '>' + esc(label(group, c, lg)) + '</option>'; }).join('');
+  }
+  var api = { MAP: L, label: label, pill: pill, options: options, lang: lang, humanise: humanise };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  else root.PpmLabels = api;
+})(typeof window !== 'undefined' ? window : globalThis);
