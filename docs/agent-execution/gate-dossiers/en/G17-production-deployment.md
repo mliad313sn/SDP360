@@ -10,7 +10,7 @@
 | Decision cell in RELEASE-GATES.md | empty — this gate is **NO-GO** until the approver fills it. This dossier fills nothing. |
 | What this gate blocks | blocks general deployment only |
 | Decide after | [G01](G01-security-access-policy.md) Security: access policy and authorization matrix · [G02](G02-threat-model-findings.md) Security: threat model and findings · [G03](G03-cab-dependencies-postgres-only.md) CAB: dependency upgrade and PostgreSQL-only cutover · [G04](G04-signing-key-ci-shas.md) Signing key and pinned CI actions · [G05](G05-backup-restore-rpo-rto.md) Backup and restore (RPO/RTO) · [G15](G15-product-business-acceptance.md) Product: business acceptance · [G18](G18-penetration-test.md) Penetration test · [G19](G19-qa-ci-green.md) QA: CI green and skipped tests reviewed · [G20](G20-capacity-load-soak.md) Capacity: load and soak |
-| Target SHA | `ade91139` |
+| Target SHA | `2e1f3a54` |
 | Generated | 2026-11-21 |
 
 ## 1. Question to decide
@@ -24,7 +24,7 @@ With every release gate it depends on signed, may the target SHA be deployed to 
 | `docs/sdp360/completion/RELEASE-RUNBOOK-2026-10-29.md` | Release runbook | `manual` | dcd10bae, 2026-11-19 | `03787ae70ce91ca6` |
 | `docs/INSTALLER.md` | Installer guide | `manual` | 214c0d1b, 2026-10-19 | `efe0f7d529c0819b` |
 | `docs/ops/INSTALLATION.md` | Installation procedure | `manual` | 210f11b3, 2026-10-29 | `b874df5007fae452` |
-| `docs/ops/EXPLOITATION.md` | Operations guide | `manual` | 4320dbd6, 2026-11-21 | `6742e8a3bbc537f9` |
+| `docs/ops/EXPLOITATION.md` | Operations guide | `manual` | 2e1f3a54, 2026-11-21 | `0679c73558262363` |
 | `docs/agent-execution/G24-DOSSIER-GO-NOGO-FR.md` | Earlier dossier: production NO-GO | `node --test --test-force-exit tests/release-dossier.test.js` | d6695109, 2026-11-05 | `0130ead17d7d9889` |
 
 ## 3. Not evidenced, and why
