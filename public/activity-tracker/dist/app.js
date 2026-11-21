@@ -529,6 +529,20 @@
     const ML = window.TrackerMonthLock;
     const isClosedMonth = (mi) => !!(ML && !roles.IS_SUPER && ML.isClosed(S.year, mi));
     const anyClosed = canSave && Array.from({ length: 12 }, (_, mi) => isClosedMonth(mi)).some(Boolean);
+    const openedOnEditable = useRef(false);
+    useEffect(() => {
+      if (openedOnEditable.current || !canSave || roles.IS_SUPER || !ML || !ML.label) return;
+      openedOnEditable.current = true;
+      const ed = ML.label();
+      if (ed.year === S.year && S.month !== ed.month0 + 1) setS((s) => ({ ...s, month: ed.month0 + 1 }));
+    }, []);
+    useEffect(() => {
+      try {
+        const th = document.querySelector(".ip-grid__month.is-current");
+        if (th && th.scrollIntoView) th.scrollIntoView({ block: "nearest", inline: "center" });
+      } catch (_) {
+      }
+    }, [S.month]);
     const [importing, setImporting] = useState(false);
     const [gridGen, setGridGen] = useState(0);
     const tg = ((_b = D.targets) == null ? void 0 : _b[site]) || [];

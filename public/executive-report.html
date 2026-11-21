@@ -456,7 +456,15 @@
 
   /* ── Brand-orange accent on hover for table rows + interactive bits ── */
   tr.clickable:hover { background: rgba(239,99,26,0.04) !important; }
-  </style>
+  
+  /* VISUAL POLISH 2026-11 — UX committee executive: print the figures, not the controls. */
+  @media print {
+    #__shell, nav.shell-breadcrumb, button, select, input, .no-print, [role="toolbar"] { display: none !important; }
+    body { background: #fff !important; }
+    section, .card, .panel, .edv-widget, .kpi, .tile { break-inside: avoid; box-shadow: none !important; }
+    a { color: inherit; text-decoration: none; }
+  }
+</style>
 <script src="auth.js" data-require="super_admin" data-require-policy="deck_builder_roles"></script>
 <script src="lib/dashboard-shared.js"></script>
 <script src="lib/execDeckPayload.js"></script>

@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Endeavour Mining — IT Executive Scorecard</title>
-<!-- Libre Baskerville is intentional editorial serif for the scorecard's
-     prestige feel — kept by design. Libre Franklin + JetBrains Mono come
+<!-- VISUAL POLISH 2026-11: the editorial serif (Libre Baskerville, never shipped — it rendered as Times) is retired;
+     headings use the brand sans like every other page. Libre Franklin + JetBrains Mono come
      from the EDV design system (Franklin Gothic substitute + canonical mono). -->
 <link rel="stylesheet" href="fonts.css">
 <!-- Chart.js loaded synchronously (NO defer) — the inline script at the
@@ -18,8 +18,7 @@
 /* ── EDV Design System adoption ────────────────────────────────────────
    Page-local aliases mapped onto the canonical _tokens.css palette.
    Every hex value in this :root block now resolves through the design
-   system. Editorial serif (Libre Baskerville) kept by design — it's the
-   scorecard's intentional prestige typeface.
+   system. The editorial serif was retired in the 2026-11 polish (brand sans everywhere).
 */
 :root {
   --navy:           var(--edv-slate);        /* #3A4A60 — header / accent dark */
@@ -90,7 +89,7 @@ body {
   background: var(--color-primary-fill, #C2410C);
   border-radius: 7px;
   display: flex; align-items: center; justify-content: center;
-  font-family: 'Libre Baskerville', serif;
+  font-family: var(--font-sans);
   font-weight: 700; font-size: 15px;
   color: white;
   box-shadow: 0 2px 8px rgba(245,134,10,0.35);
@@ -98,7 +97,7 @@ body {
 }
 
 .header-name {
-  font-family: 'Libre Baskerville', serif;
+  font-family: var(--font-sans);
   font-size: 14px; font-weight: 700;
   color: white; line-height: 1.2;
 }
@@ -368,7 +367,7 @@ body {
 }
 
 .section-title {
-  font-family: 'Libre Baskerville', serif;
+  font-family: var(--font-sans);
   font-size: 16px;
   font-weight: 700;
   color: var(--navy);
@@ -463,7 +462,7 @@ body {
 }
 
 .kpi-tile-value {
-  font-family: 'Libre Baskerville', serif;
+  font-family: var(--font-sans);
   font-size: 32px; font-weight: 700;
   line-height: 1;
   margin-bottom: 8px;
@@ -529,7 +528,7 @@ body {
 }
 
 .card-title {
-  font-family: 'Libre Baskerville', serif;
+  font-family: var(--font-sans);
   font-size: 13px; font-weight: 700;
   color: var(--navy);
 }
@@ -609,7 +608,7 @@ body {
 }
 
 .az-title {
-  font-family: 'Libre Baskerville', serif;
+  font-family: var(--font-sans);
   font-size: 14px; font-weight: 700;
   color: white;
 }
@@ -760,7 +759,7 @@ body {
 }
 
 .ct-num {
-  font-family: 'Libre Baskerville', serif;
+  font-family: var(--font-sans);
   font-size: 28px; font-weight: 700;
   line-height: 1;
 }
@@ -790,7 +789,7 @@ body {
   display: flex; align-items: center; gap: 12px;
 }
 
-.atp-title { font-family: 'Libre Baskerville', serif; font-size: 14px; font-weight: 700; color: white; }
+.atp-title { font-family: var(--font-sans); font-size: 14px; font-weight: 700; color: white; }
 .atp-sub { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 1px; }
 
 .atp-body { padding: 0; overflow-x: auto; }
@@ -876,7 +875,7 @@ body {
 
 .lesson-num {
   position: absolute; top: 10px; right: 16px;
-  font-family: 'Libre Baskerville', serif;
+  font-family: var(--font-sans);
   font-size: 40px; font-weight: 700;
   color: rgba(245,134,10,0.07);
   line-height: 1;
@@ -891,7 +890,7 @@ body {
 }
 
 .lesson-title {
-  font-family: 'Libre Baskerville', serif;
+  font-family: var(--font-sans);
   font-size: 13px; font-weight: 700;
   color: var(--navy);
   margin-bottom: 8px;
@@ -955,7 +954,7 @@ body {
 }
 
 .modal h2 {
-  font-family: 'Libre Baskerville', serif;
+  font-family: var(--font-sans);
   font-size: 20px;
   color: var(--navy);
   margin-bottom: 6px;
@@ -993,7 +992,7 @@ body {
 }
 .loader.gone { opacity:0; pointer-events:none; visibility:hidden; }
 .ps-unavailable { color:#8a94a3 !important; background:transparent !important; font-weight:500; }
-.loader-brand { font-family: 'Libre Baskerville', serif; font-size: 26px; font-weight:700; color:white; margin-bottom:6px; }
+.loader-brand { font-family: var(--font-sans); font-size: 26px; font-weight:700; color:white; margin-bottom:6px; }
 .loader-sub { font-size: 12px; color: rgba(255,255,255,0.4); letter-spacing:0.12em; text-transform:uppercase; margin-bottom:32px; }
 .loader-bar { width:160px; height:2px; background:rgba(255,255,255,0.1); border-radius:2px; overflow:hidden; }
 .loader-fill { height:100%; background: var(--orange); animation: loadBar 1.6s ease forwards; }
@@ -1422,6 +1421,20 @@ table tbody tr:hover td { background: var(--color-bg); }
    the brand slate variable. Skip text that's intentionally white (e.g.
    on dark-bg badges) by only targeting common bare-tone selectors. */
 .atp-title, .card-title, .section-title { color: var(--edv-slate); }
+
+/* VISUAL POLISH 2026-11 — UX committee (visual F4, executive F5): one neutral executive KPI card modelled on the IT
+   Review — no decorative left bar (the colours cycled, they were never a verdict), no lift on hover, sans headings. */
+.kpi-tile::before { display: none; }
+.kpi-tile { border-color: var(--color-border); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); }
+.kpi-tile:hover { transform: none; box-shadow: var(--shadow-card); }
+.kpi-tile-label { font-size: var(--text-sm); letter-spacing: 0; text-transform: none; font-weight: 600; color: var(--color-text-muted); }
+.kpi-tile-value { color: var(--color-text-strong); font-variant-numeric: tabular-nums; }
+.kpi-group-label { border-bottom-width: 1px; letter-spacing: var(--tracking-caps); }
+@media print {
+  #__shell, .shell-header, nav.shell-breadcrumb, .shell-page-bar, button, select, .no-print, .filters, .filter-bar, .action-bar { display: none !important; }
+  body { background: #fff !important; }
+  .kpi-tile, .card, section { break-inside: avoid; box-shadow: none !important; }
+}
 </style>
 <script src="auth.js" data-require="executive|scorecard-viewer"></script>
 <!-- F-UX-12 — chart standard v2 (small multiples / bars), INERT unless report_config ui_exec_charts_v2 = 1 -->
@@ -1710,19 +1723,19 @@ table tbody tr:hover td { background: var(--color-bg); }
     <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr)">
       <div class="kpi-tile kpi-blue">
         <div class="kpi-tile-label">Tickets This Month</div>
-        <div class="kpi-tile-value" id="kv-tickets">1,629</div>
+        <div class="kpi-tile-value" id="kv-tickets">—</div>
         <div class="kpi-tile-meta">
-          <span class="kpi-trend trend-bad" id="kt-tickets">▲ +11%</span>
-          <span class="kpi-prev" id="kp-tickets">Dec: 1,472</span>
+          <span class="kpi-trend" id="kt-tickets">—</span>
+          <span class="kpi-prev" id="kp-tickets"></span>
           <div class="rag-indicator rag-amber"></div>
         </div>
       </div>
       <div class="kpi-tile kpi-amber" id="kv-sla-tile" data-sla-definition="closed_only" title="Resolution SLA Compliance — % of tickets resolved within their SLA deadline. Headline = closed tickets only unless the KPI committee switches it (sla_headline_definition); the line below gives the rate counting open tickets already past target as failures, and the open &amp; breached count. Higher is better. Target ≥90%.">
         <div class="kpi-tile-label">Resolution SLA % <span style="font-size:9px;opacity:.7" id="kv-sla-def">(closed tickets only)</span></div>
-        <div class="kpi-tile-value" id="kv-sla">73%</div>
+        <div class="kpi-tile-value" id="kv-sla">—</div>
         <div class="kpi-prev" id="kv-sla-dual" style="font-size:10px"></div>
         <div class="kpi-tile-meta">
-          <span class="kpi-trend trend-bad" id="kt-sla">▼ −1pt</span>
+          <span class="kpi-trend" id="kt-sla">—</span>
           <span class="kpi-prev">Target: 80%</span>
           <div class="rag-indicator rag-amber"></div>
         </div>
@@ -1738,7 +1751,7 @@ table tbody tr:hover td { background: var(--color-bg); }
       </div>
       <div class="kpi-tile kpi-green" title="Avg First Response Time: average hours from ticket creation to first technician response. Source: Time to Respond in Hrs field. Lower is better.">
         <div class="kpi-tile-label">Avg First Response</div>
-        <div class="kpi-tile-value" id="kv-assign">— hrs</div>
+        <div class="kpi-tile-value" id="kv-assign">—</div>
         <div class="kpi-tile-meta">
           <span class="kpi-trend trend-good" id="kt-assign">—</span>
           <span class="kpi-prev" id="kp-assign"></span>
@@ -1963,7 +1976,7 @@ table tbody tr:hover td { background: var(--color-bg); }
   <!-- ══ IT MANAGEMENT DECISION PANEL ══════════════════════════════════════ -->
   <div class="charts-grid-1" style="margin-top:16px">
     <div class="card" style="border:1.5px solid #ddd6fe;padding:0;overflow:hidden">
-      <div style="background:linear-gradient(90deg,#6d28d9,#4f46e5);padding:14px 20px;display:flex;align-items:center;gap:12px">
+      <div style="background:var(--edv-slate);padding:14px 20px;display:flex;align-items:center;gap:12px">
         <span style="font-size:18px">⚡</span>
         <div>
           <div style="font-size:14px;font-weight:700;color:#fff;letter-spacing:0.3px">IT Management Decision Panel</div>
@@ -2163,7 +2176,7 @@ table tbody tr:hover td { background: var(--color-bg); }
 
   <!-- ═══ CUSTOMER SATISFACTION — IT Survey ═══════════════════════════════ -->
   <div style="margin-bottom:16px">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:10px 14px;background:linear-gradient(135deg,#1a5ea8 0%,#0e4a8e 100%);border-radius:10px;color:#fff">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:10px 14px;background:var(--edv-slate);border-radius:10px;color:#fff">
       <span style="font-size:18px">⭐</span>
       <div>
         <div style="font-size:13px;font-weight:700;letter-spacing:0.5px">CUSTOMER SATISFACTION</div>
@@ -2346,7 +2359,7 @@ table tbody tr:hover td { background: var(--color-bg); }
   </div>
 
   <!-- Performance Score Formula Banner -->
-  <div id="scoreBanner" style="background:linear-gradient(135deg,#ea580c,#c2410c);border-radius:10px;padding:14px 20px;margin-bottom:16px;color:#fff;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+  <div id="scoreBanner" style="background:var(--color-primary-fill);border-radius:10px;padding:14px 20px;margin-bottom:16px;color:#fff;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
     <span style="font-size:13px;font-weight:700;letter-spacing:0.5px;min-width:150px">PERFORMANCE SCORE  =</span>
     <div style="display:flex;gap:8px;flex-wrap:wrap;flex:1">
       <span style="background:rgba(255,255,255,0.2);padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700">Volume <span style="opacity:0.75;font-weight:400">(20pts)</span></span>
@@ -6418,9 +6431,9 @@ function _applyFilterToRawRows() {
     return ay!==by ? parseInt(ay)-parseInt(by) : monthOrder.indexOf(am)-monthOrder.indexOf(bm);
   }).map(m => ({
     month: m.month, inbound: m.inbound, closed: m.closed,
-    slaViolatedPct:   m.inbound>0 ? Math.round(m.slaViolated/m.inbound*1000)/10 : 0,
+    slaViolatedPct:   m.inbound>0 ? Math.round(m.slaViolated/m.inbound*1000)/10 : null,   // ia-value 8: no ticket = no rate
     frViolatedPct:    m.inbound>0 ? Math.round(m.frViolated/m.inbound*1000)/10  : 0,
-    slaCompliancePct: m.inbound>0 ? Math.round((m.inbound-m.slaViolated)/m.inbound*1000)/10 : 100,
+    slaCompliancePct: m.inbound>0 ? Math.round((m.inbound-m.slaViolated)/m.inbound*1000)/10 : null,   // was 100: a month with 0 tickets read "100% SLA"
     // Resolution: integer days (AP-aligned: Math.round avg of Math.floor per-ticket values)
     avgResolveDays: m.rdN>0 ? Math.round(m.rdSum/m.rdN) : null,
     // Assign/FRT: integer hours (AP-aligned: Math.floor avg of Zoho pre-computed field)
@@ -9803,7 +9816,7 @@ function applyLiveDataToCharts(ld) {
       return parseInt(am[1])!==parseInt(bm[1]) ? parseInt(am[1])-parseInt(bm[1]) : _tMoO[am[0]]-_tMoO[bm[0]];
     }).map(function(m){
       return { month:m.month, inbound:m.inbound, closed:m.closed,
-               slaViolatedPct: m.inbound>0?Math.round(m.slaViol/m.inbound*1000)/10:0,
+               slaViolatedPct: m.inbound>0?Math.round(m.slaViol/m.inbound*1000)/10:null,
                frViolatedPct:  m.inbound>0?Math.round(m.frViol/m.inbound*1000)/10:0 };
     });
     _fullSlaRows = []; // SLA % is embedded in sumRows.slaViolatedPct when using raw aggregation
@@ -9984,10 +9997,17 @@ function applyLiveDataToCharts(ld) {
     const _slaHL = (window.SlaDual && window.__uiPolicy) ? SlaDual.normalizeHeadline(window.__uiPolicy.sla_headline) : 'closed_only';
     const _lastRow = sumRows.length ? sumRows[sumRows.length - 1] : null;
     const _slaUseIO = _slaHL === 'incl_open' && !!_lastRow && _lastRow[_SLA_IO] != null;
+    // UX committee ia-value 8 (DATA RULE): a period with 0 tickets has NO SLA rate — the tile reads "—" and no
+    // colour, never "100%" green. A row that counts its tickets and counts 0 returns null before any formula.
+    const _slaZeroBase = function(row) {
+      const n = row.inbound != null ? row.inbound : (row['Requests'] != null ? row['Requests'] : (row['Total'] != null ? row['Total'] : null));
+      return n != null && Number(n) === 0;
+    };
     const _slaComplianceFromRow = function(row) {
       if (!row) return null;
+      if (_slaZeroBase(row)) return null;
       if (_slaUseIO) return row[_SLA_IO] != null ? Math.round(100 - parseFloat(row[_SLA_IO])) : null;
-      if (isPrebuiltView) return Math.round(100 - (parseFloat(row['% of SLA Violated']) || 0));
+      if (isPrebuiltView) { const v = parseFloat(row['% of SLA Violated']); return Number.isFinite(v) ? Math.round(100 - v) : null; }
       if (row.slaCompliancePct != null) return row.slaCompliancePct;
       if (row.slaViolatedPct   != null) return Math.round((100 - row.slaViolatedPct) * 10) / 10;
       return null;

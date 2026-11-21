@@ -96,7 +96,18 @@ module.exports = function policyCenterRoutes(deps) {
     J.journal((ev) => rdb().logEvent(ev), J.diffConfig({ [key]: before }, { [key]: next }, { keys: RC.KEYS, secretSet: RC._SECRET_BLANK_KEEP }), rdb()._logCtx(req), '[policy-center] ' + why);
   }
 
-  router.get('/policy-center.html', enabled, (req, res) => sendHtmlPage(res, 'policy-center.html', false, 'Policy center unavailable'));
+  // UX committee (visual F13, ia-value 6): the PAGE answers a branded HTML 404 while the switch is off — same status,
+  // same silence about the feature as the JSON 404 of the API routes (which keep answering JSON).
+  async function enabledPage(req, res, next) {
+    try { if (String((await cfg()).policy_center_enabled) === '1') return next(); } catch (_) { /* off */ }
+    let html = null;
+    try { html = require('fs').readFileSync(require('path').join(__dirname, '..', 'public', 'not-available.html'), 'utf8'); } catch (_) { html = null; }
+    if (!html) return httpFail(res, typed('NOT_FOUND', 'not found', 404), 404, { ok: false });
+    res.status(404).setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    return res.send(html);
+  }
+  router.get('/policy-center.html', enabledPage, (req, res) => sendHtmlPage(res, 'policy-center.html', false, 'Policy center unavailable'));
 
   router.get('/api/policy-center/catalogue', requireReportSession, requireSuperAdmin, enabled, async (req, res) => {
     try {

@@ -491,3 +491,8 @@ nav.shell-breadcrumb [aria-current="page"] { color: var(--color-heading, #1F2D3D
 }
 /* UX committee a11y F10 — a page-level `button { color… }` reset (reports.html) must not reach the dark header. */
 #__shell button, #__shell .shell-search-btn, #__shell .shell-lang-btn { color: var(--shell-text-strong, #fff); -webkit-text-fill-color: currentColor; }
+/* UX committee executive — print: a page prints its content, never the navigation chrome. */
+@media print {
+  .shell-header, nav.shell-breadcrumb, .shell-page-bar, .shell-skip, .shell-search, .mt-tabs { display: none !important; }
+  body { background: #fff !important; }
+}

@@ -1196,3 +1196,14 @@ body {
   .dash-chart-card canvas { max-width: 100% !important; }
   .dash-lb { min-width: 0; overflow-x: auto; }
 }
+
+/* UX committee (site coordinator P1-5) — the Input grid at phone width: the KPI column goes (its type is in the
+   activity's own row), the activity name keeps a real width and stays pinned on the left while the months scroll,
+   so the header no longer sits on top of the names. */
+@media (max-width: 720px) {
+  .ip-grid__head, .ip-grid__row { grid-template-columns: 28px minmax(150px, 190px) repeat(12, 52px); width: max-content; min-width: 100%; }
+  .ip-grid__head > span:nth-child(3), .ip-grid__row > .ip-grid__kpi { display: none; }
+  .ip-grid__head > span:nth-child(2), .ip-grid__row > .ip-grid__name { position: sticky; left: 0; z-index: 1; }
+  .ip-grid__row > .ip-grid__name { background: var(--color-card); box-shadow: 4px 0 6px -4px rgba(16,24,40,.18); padding-right: 6px; }
+  .ip-grid__head > span:nth-child(2) { background: var(--edv-slate); }
+}

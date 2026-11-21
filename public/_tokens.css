@@ -307,3 +307,7 @@
 :where(table) { font-variant-numeric: tabular-nums; }
 :where(summary) { cursor: pointer; }
 ::selection { background: rgba(239,99,26,.20); }
+/* UX committee a11y — one global reduced-motion rule (WCAG 2.3.3): animations and transitions become instant. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}

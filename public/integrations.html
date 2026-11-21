@@ -14,6 +14,7 @@
 <script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/stateBadge.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/dashboardRender.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/reasonDialog.js"></script>
 <style nonce="%%CSP_NONCE%%">
   body { margin:0; background:var(--color-bg); color:var(--gray-800); font-family:var(--font-sans); font-size:14px; }
   .wrap { max-width:1360px; margin:0 auto; padding:24px; }
@@ -75,8 +76,12 @@
   }
   document.addEventListener("click", function (ev) { var b = ev.target.closest("button"); if (!b) return;
     if (b.dataset.edit) { var x = RU.rules.find(function (r) { return r.key === b.dataset.edit; }); if (!x) return; $("a-key").value = x.key; $("a-name").value = x.name; $("a-metric").value = x.metric; $("a-scope").value = x.scope; $("a-site").value = x.site_id == null ? "" : x.site_id; $("a-op").value = x.op; $("a-thr").value = x.threshold; $("a-streak").value = x.streak; $("a-cool").value = x.cooldown_min; $("a-ch").value = x.channels.join(","); $("a-roles").value = (x.recipients.roles || []).join(","); $("a-mails").value = (x.recipients.emails || []).join(","); $("a-on").value = x.enabled ? "1" : "0"; $("a-sev").value = x.severity || "warning"; $("a-key").closest("details").open = true; }
-    if (b.dataset.revoke) api("/api/engagement/consumers/" + b.dataset.revoke, { method: "DELETE" }).then(load).catch(fail);
-    if (b.dataset.revl) api("/api/engagement/share/" + b.dataset.revl, { method: "DELETE" }).then(load).catch(fail);
+    // UX committee admin P1-2 — revoking a key or a share link is immediate and final for its user: confirm it, naming
+    // the row (its first cell), before the DELETE.
+    var rowName = function () { var tr = b.closest("tr"); return tr && tr.cells[0] ? tr.cells[0].textContent.trim() : ""; };
+    var sure = function (title, then) { var D = window.ReasonDialog; (D ? D.confirm({ title: title, target: rowName(), message: "Anyone using it loses access immediately. This cannot be undone.", okLabel: title, danger: true }) : Promise.resolve(window.confirm(title + " — " + rowName() + "?"))).then(function (ok) { if (ok) then(); }); };
+    if (b.dataset.revoke) { var rk = b.dataset.revoke; sure("Revoke API key", function () { api("/api/engagement/consumers/" + rk, { method: "DELETE" }).then(load).catch(fail); }); }
+    if (b.dataset.revl) { var rl = b.dataset.revl; sure("Revoke share link", function () { api("/api/engagement/share/" + rl, { method: "DELETE" }).then(load).catch(fail); }); }
     if (b.dataset.rcpt) api("/api/engagement/share/" + b.dataset.rcpt + "/receipts").then(function (j) { msg(j.receipts.length ? "Opened " + j.receipts.length + " time(s): " + j.receipts.slice(0, 5).map(function (r) { return String(r.viewed_at).slice(0, 16).replace("T", " "); }).join(", ") : "Never opened."); }).catch(fail);
   });
   document.addEventListener("change", function (ev) { var t = ev.target; if (t.dataset && t.dataset.fp) api("/api/engagement/firings/" + t.dataset.fp, { method: "PUT", body: JSON.stringify({ false_positive: t.checked }) }).then(load).catch(fail); });

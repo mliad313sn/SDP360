@@ -31,6 +31,8 @@
   .hm-shortcuts a:hover { border-color: var(--gray-300); background: var(--gray-50); color: var(--color-link); }
   a { color: var(--color-link); }
   .hm-retry { margin-left: 8px; font-size: 12px; }
+  .hm-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; margin: 0 0 8px; } .hm-title h1 { margin: 0; }
+  .hm-about > summary { font-weight: 600; color: var(--gray-600); } .hm-about[open] > summary { margin-bottom: 8px; }
   /* R2-QUEUE — progressive queue "S1" (shown only while ui_home_queue = '1'); tokens only, wraps at 320 px */
   .hq-sources { list-style: none; margin: 8px 0 12px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
   .hq-sources li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
@@ -60,10 +62,10 @@
 <a class="edv-skip" href="#main">Skip to content</a>
 <div id="__shell" data-section="home" data-current="home"></div>
 <main id="main" class="hm-wrap">
-  <div class="hm-card">
+  <!-- UX committee (site coordinator P1-6): the work comes first — a compact title, the scope strip, then the queue
+       and the site cards; the explanation of the page moves into a disclosure under them. -->
+  <div class="hm-title">
     <h1><span data-lng="en">My work</span><span data-lng="fr">Mon travail</span></h1>
-    <p class="hm-muted" data-lng="en">What each of your sites needs today: open and overdue actions, this week's report, PVs waiting for a signature, the last inspection and the tracker cells still empty this month. Each line opens the page that fixes it. "— not measured" means the source could not be read; it is never a zero.</p>
-    <p class="hm-muted" data-lng="fr">Ce que chacun de vos sites demande aujourd'hui : actions ouvertes et en retard, rapport de la semaine, PV en attente de signature, dernière inspection et cases du suivi d'activité encore vides ce mois-ci. Chaque ligne ouvre la page qui permet de régler le point. « — non mesuré » signifie que la source n'a pas pu être lue ; ce n'est jamais un zéro.</p>
     <div id="hmMsg" class="hm-muted" role="status" aria-live="polite"></div>
   </div>
   <!-- E-U03 — shared page head (lib/pageHead.js): question · scope · window · freshness -->
@@ -72,6 +74,11 @@
   <div id="hmFreshBox"></div>
   <div id="hmQueue"></div>
   <div id="hmSites" class="hm-sites"></div>
+  <details class="hm-card hm-about">
+    <summary><span data-lng="en">About this page</span><span data-lng="fr">À propos de cette page</span></summary>
+    <p class="hm-muted" data-lng="en">What each of your sites needs today: open and overdue actions, this week's report, PVs waiting for a signature, the last inspection and the tracker cells still empty this month. Each line opens the page that fixes it. "— not measured" means the source could not be read; it is never a zero.</p>
+    <p class="hm-muted" data-lng="fr">Ce que chacun de vos sites demande aujourd'hui : actions ouvertes et en retard, rapport de la semaine, PV en attente de signature, dernière inspection et cases du suivi d'activité encore vides ce mois-ci. Chaque ligne ouvre la page qui permet de régler le point. « — non mesuré » signifie que la source n'a pas pu être lue ; ce n'est jamais un zéro.</p>
+  </details>
   <div class="hm-card">
     <h2><span data-lng="en">Shortcuts</span><span data-lng="fr">Raccourcis</span></h2>
     <ul id="hmShortcuts" class="hm-shortcuts"></ul>

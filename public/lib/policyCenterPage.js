@@ -11,8 +11,8 @@
       importTitle: 'Environment profile', profile: 'Profile', dryRun: 'Dry run', applyPlan: 'Apply this plan',
       intro: 'Every rule the platform applies, in one place. Each rule starts at its best-practice default (today\'s behaviour); change it to fit a site\'s reality, with a reason. Recommendations are proposals until a human approves them. High-risk changes need a second super_admin.',
       importIntro: 'Paste a profile (the JSON export of another environment, or { "profile": { "values": {…}, "sites": { "<site id>": {…} } } }). A dry run shows what would change; nothing is applied until you confirm that exact plan. Secrets are never imported.',
-      deviates: 'deviates from best practice', siteDev: 'site values differ', pending: 'awaiting approval', fourEyes: 'second person', secret: 'secret', readOnly: 'read only',
-      current: 'Current', def: 'Best-practice default', rec: 'Recommendation (PROPOSED)', noRec: 'No recommendation yet', desc: 'What it does', noDesc: 'No description in the code yet.',
+      deviates: 'deviates from best practice', siteDev: 'site values differ', pending: 'awaiting approval', fourEyes: 'Needs a second approver', secret: 'secret', readOnly: 'read only',
+      current: 'Current', notSet: 'Not set', secretSet: 'Set', secretNotSet: 'Not set', def: 'Best-practice default', rec: 'Recommendation (PROPOSED)', noRec: 'No recommendation yet', desc: 'What it does', noDesc: 'No description in the code yet.',
       frMissing: '', owner: 'Owner role (PROPOSED)', consumers: 'Affects (files that read it)', notScanned: 'Not scanned — the key name is too generic.', none: 'none found',
       scope: 'Scope', platform: 'Platform', site: 'Site', value: 'New value', save: 'Save…', reset: 'Reset to recommended…', history: 'History', siteValues: 'Per-site values',
       who: 'Who', when: 'When', from: 'From', to: 'To', why: 'Reason', approver: 'Second person', noHistory: 'No change recorded.', approve: 'Approve…', reject: 'Reject…', cancel: 'Withdraw',
@@ -32,8 +32,8 @@
       importTitle: 'Profil d\'environnement', profile: 'Profil', dryRun: 'Simulation', applyPlan: 'Appliquer ce plan',
       intro: 'Toutes les règles de la plateforme, au même endroit. Chaque règle part de sa valeur de bonne pratique (le fonctionnement actuel) ; adaptez-la à la réalité d\'un site, avec un motif. Les recommandations restent des propositions tant qu\'un humain ne les a pas approuvées. Un changement à risque élevé exige un second super_admin.',
       importIntro: 'Collez un profil (l\'export JSON d\'un autre environnement, ou { "profile": { "values": {…}, "sites": { "<id du site>": {…} } } }). La simulation montre ce qui changerait ; rien n\'est appliqué avant que vous confirmiez ce plan précis. Les secrets ne sont jamais importés.',
-      deviates: 's\'écarte de la bonne pratique', siteDev: 'valeurs de site différentes', pending: 'en attente d\'approbation', fourEyes: 'double contrôle', secret: 'secret', readOnly: 'lecture seule',
-      current: 'Valeur actuelle', def: 'Valeur de bonne pratique', rec: 'Recommandation (PROPOSÉE)', noRec: 'Pas encore de recommandation', desc: 'Rôle', noDesc: 'Pas encore de description dans le code.',
+      deviates: 's\'écarte de la bonne pratique', siteDev: 'valeurs de site différentes', pending: 'en attente d\'approbation', fourEyes: 'Nécessite un second approbateur', secret: 'secret', readOnly: 'lecture seule',
+      current: 'Valeur actuelle', notSet: 'Non défini', secretSet: 'Défini', secretNotSet: 'Non défini', def: 'Valeur de bonne pratique', rec: 'Recommandation (PROPOSÉE)', noRec: 'Pas encore de recommandation', desc: 'Rôle', noDesc: 'Pas encore de description dans le code.',
       frMissing: '(description disponible en anglais seulement)', owner: 'Rôle responsable (PROPOSÉ)', consumers: 'Concerne (fichiers qui la lisent)', notScanned: 'Non analysé — nom de clé trop générique.', none: 'aucun trouvé',
       scope: 'Portée', platform: 'Plateforme', site: 'Site', value: 'Nouvelle valeur', save: 'Enregistrer…', reset: 'Revenir à la recommandation…', history: 'Historique', siteValues: 'Valeurs par site',
       who: 'Qui', when: 'Quand', from: 'Avant', to: 'Après', why: 'Motif', approver: 'Seconde personne', noHistory: 'Aucun changement enregistré.', approve: 'Approuver…', reject: 'Refuser…', cancel: 'Retirer',
@@ -54,7 +54,8 @@
 
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const show = (v) => (v === null || v === undefined ? '—' : v === '' ? '""' : typeof v === 'object' ? JSON.stringify(v) : String(v));
+  // UX committee admin P1-6: an empty value reads "Not set" (never a bare ""), an object value is summarised.
+  const show = (v) => (v === null || v === undefined ? '—' : v === '' ? S.notSet : typeof v === 'object' ? JSON.stringify(v) : String(v));
   function hdr(extra) {
     const h = extra || {}; const at = window.__authToken; let tok = null;
     if (typeof at === 'function') { try { tok = at(); } catch (_) { tok = null; } } else if (typeof at === 'string' && at) tok = at;
@@ -104,7 +105,7 @@
     const canEdit = data.can_write && r.editable;
     const cons = r.consumers === null ? S.notScanned : (r.consumers.length ? r.consumers.map((f) => `<span class="pc-key">${esc(f)}</span>`).join(', ') : S.none);
     return `<details class="pc-rule" data-key="${esc(r.key)}"><summary><strong>${esc(r.title)}</strong> <span class="pc-key">${esc(r.key)}</span> ${tags.join('')}
-      <span class="pc-muted"> ${esc(S.current)}: ${esc(r.secret ? (r.secret_set ? '(set)' : '(not set)') : show(r.current))} · ${esc(S.def)}: ${esc(show(r.default))}</span></summary>
+      <span class="pc-muted"> ${esc(S.current)}: ${esc(r.secret ? (r.secret_set ? S.secretSet : S.secretNotSet) : show(r.current))} · ${esc(S.def)}: ${esc(show(r.default))}</span></summary>
       <div class="pc-edit">
         <span class="pc-muted">${esc(S.desc)}</span><span>${esc(desc || S.noDesc)}</span>
         <span class="pc-muted">${esc(S.rec)}</span><span>${r.recommendation ? esc(r.recommendation.text) + (r.recommendation.reference ? ` <span class="pc-muted">(${esc(r.recommendation.reference)})</span>` : '') : esc(S.noRec)}</span>

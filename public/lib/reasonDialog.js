@@ -21,17 +21,19 @@
       + '.rd-box textarea,.rd-box input,.rd-box select{width:100%;box-sizing:border-box;padding:8px;border:1px solid #9AA4B2;border-radius:6px;font:inherit}'
       + '.rd-meta{display:flex;justify-content:space-between;font-size:12px;color:#5B6573;margin-top:4px}.rd-bad{color:#A0002C}'
       + '.rd-act{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}.rd-act button{font:inherit;padding:8px 14px;border-radius:6px;border:1px solid #9AA4B2;background:#fff;cursor:pointer;min-height:40px}'
-      + '.rd-act button.rd-ok{background:#1F2A33;color:#fff;border-color:#1F2A33}.rd-act button[disabled]{opacity:.5;cursor:not-allowed}';
+      + '.rd-act button.rd-ok{background:#1F2A33;color:#fff;border-color:#1F2A33}.rd-act button.rd-danger{background:#B91C1C;border-color:#B91C1C}.rd-act button[disabled]{opacity:.5;cursor:not-allowed}'
+      + '.rd-target{font-weight:700}.rd-hint{font-size:12px;color:#5B6573;margin:6px 0 0}';
     const s = document.createElement('style');
     const n = document.querySelector('script[nonce]'); if (n && n.nonce) s.nonce = n.nonce;
     s.textContent = css; document.head.appendChild(s);
   }
-  function shell(title, lang, body, valid, collect) {
+  function shell(title, lang, body, valid, collect, opts) {
+    opts = opts || {};
     style();
     const t = T[lang === 'fr' ? 'fr' : 'en'];
     return new Promise((resolve) => {
       const prev = document.activeElement;
-      const ok = el('button', { type: 'button', className: 'rd-ok', textContent: t.ok });
+      const ok = el('button', { type: 'button', className: 'rd-ok' + (opts.danger ? ' rd-danger' : ''), textContent: opts.okLabel || t.ok });
       const cancel = el('button', { type: 'button', textContent: t.cancel });
       const h = el('h2', { textContent: title, id: 'rd-title-' + Date.now() });
       const box = el('div', { className: 'rd-box' }, [h, body, el('div', { className: 'rd-act' }, [cancel, ok])]);
@@ -76,10 +78,22 @@
     return shell(o.title || '', lang, body, valid, collect);
   }
   /** Yes / no confirmation (window.confirm is suppressed in some embedded browsers). → Promise<boolean> */
+  // UX committee admin P1-2: a destructive confirmation NAMES its object (o.target) and, for a delete, can require
+  // the user to type it (o.typeToConfirm). o.okLabel names the action ("Delete user"), o.danger paints it red.
   function confirm(o) {
     o = o || {}; const lang = o.lang === 'fr' ? 'fr' : 'en';
-    const body = el('div', {}, [el('p', { textContent: o.message || '' })]);
-    return shell(o.title || '', lang, body, () => true, () => true).then((v) => v === true);
+    const kids = [el('p', { textContent: o.message || '' })];
+    if (o.target) kids.unshift(el('p', { className: 'rd-target', textContent: o.target }));
+    let typed = null;
+    if (o.typeToConfirm) {
+      const id = 'rd-type-' + Date.now();
+      typed = el('input', { id, type: 'text', autocomplete: 'off' });
+      kids.push(el('label', { htmlFor: id, textContent: (lang === 'fr' ? 'Pour confirmer, tapez : ' : 'To confirm, type: ') + o.typeToConfirm }), typed);
+    }
+    if (o.hint) kids.push(el('p', { className: 'rd-hint', textContent: o.hint }));
+    const body = el('div', {}, kids);
+    const valid = () => !typed || typed.value.trim() === String(o.typeToConfirm);
+    return shell(o.title || '', lang, body, valid, () => true, { okLabel: o.okLabel, danger: o.danger }).then((v) => v === true);
   }
   root.ReasonDialog = { ask, form, confirm };
 })(window);
