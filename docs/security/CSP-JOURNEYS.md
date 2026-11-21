@@ -80,7 +80,7 @@ Journeys: 47 — strict 0, enforceable 11, blocked 36, unknown 0.
 | `/dashboards.html` | 1 | 0 | blocked | — |
 | `/executive.html` | 1 | 65 | blocked | — |
 | `/field/index.html` | 0 | 0 | enforceable | — |
-| `/help.html` | 0 | 0 | enforceable | — |
+| `/help.html` | 0 | 0 | strict | — |
 | `/home.html` | 0 | 0 | enforceable | — |
 | `/index.html` | 1 | 51 | blocked | — |
 | `/infra-health.html` | 2 | 0 | blocked | — |
@@ -106,7 +106,7 @@ by the nonce-only policy just like handlers in the markup. **Nonce** = rendered 
 tags receive the request nonce. **candidate** = nothing a static scan can see would be blocked; it is a proposal for
 `report_config.csp_strict_pages` after a report-only run, not an approval.
 
-Pages: 67 — strict 6, candidate 55, blocked 6.
+Pages: 67 — strict 7, candidate 54, blocked 6.
 
 | Page | Inline scripts | Markup handlers | Script-built handlers | Nonce | Readiness |
 |---|---|---|---|---|---|
@@ -129,7 +129,7 @@ Pages: 67 — strict 6, candidate 55, blocked 6.
 | `/field/index.html` | 0 | 0 | 0 | no | candidate |
 | `/finance.html` | 0 | 0 | 0 | yes | candidate |
 | `/handoffs.html` | 1 | 0 | 0 | yes | candidate |
-| `/help.html` | 0 | 0 | 0 | yes | candidate |
+| `/help.html` | 0 | 0 | 0 | yes | strict |
 | `/home.html` | 0 | 0 | 0 | yes | candidate |
 | `/index.html` | 1 | 51 | 5 | yes | blocked |
 | `/infra-health.html` | 2 | 0 | 0 | yes | candidate |
@@ -181,7 +181,7 @@ Pages: 67 — strict 6, candidate 55, blocked 6.
 Candidate list (PROPOSED value for `csp_strict_pages`, not applied — default stays empty):
 
 ```
-/access.html,/activity-tracker.html,/assets-finance.html,/assets-hygiene.html,/assets.html,/cockpit.html,/commitments.html,/connector-health.html,/coverage.html,/dashboard-composer.html,/dashboards.html,/data-quality.html,/field/index.html,/finance.html,/handoffs.html,/help.html,/home.html,/infra-health.html,/inspection-actions.html,/inspections.html,/integrations.html,/it-review.html,/itsm-integrations-plan.html,/itsm-roadmap.html,/kpi-builder.html,/meeting.html,/meetings-actions.html,/meetings-compliance.html,/meetings-council.html,/meetings-import.html,/meetings-insights.html,/meetings-issues.html,/meetings-progress.html,/meetings-setup.html,/meetings-unsigned.html,/meetings.html,/no-access.html,/notifications.html,/obligations.html,/policies.html,/portfolio.html,/project.html,/report-studio.html,/rfi.html,/site-actions.html,/site-awareness.html,/site-report.html,/system-logs.html,/tracker-builder.html,/trackers.html,/value-scoreboard.html,/wan-health.html,/wan-sla.html,/wan.html,/workspace-settings.html
+/access.html,/activity-tracker.html,/assets-finance.html,/assets-hygiene.html,/assets.html,/cockpit.html,/commitments.html,/connector-health.html,/coverage.html,/dashboard-composer.html,/dashboards.html,/data-quality.html,/field/index.html,/finance.html,/handoffs.html,/home.html,/infra-health.html,/inspection-actions.html,/inspections.html,/integrations.html,/it-review.html,/itsm-integrations-plan.html,/itsm-roadmap.html,/kpi-builder.html,/meeting.html,/meetings-actions.html,/meetings-compliance.html,/meetings-council.html,/meetings-import.html,/meetings-insights.html,/meetings-issues.html,/meetings-progress.html,/meetings-setup.html,/meetings-unsigned.html,/meetings.html,/no-access.html,/notifications.html,/obligations.html,/policies.html,/portfolio.html,/project.html,/report-studio.html,/rfi.html,/site-actions.html,/site-awareness.html,/site-report.html,/system-logs.html,/tracker-builder.html,/trackers.html,/value-scoreboard.html,/wan-health.html,/wan-sla.html,/wan.html,/workspace-settings.html
 ```
 
 ## Order of work (proposal)

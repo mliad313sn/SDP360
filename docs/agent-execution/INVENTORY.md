@@ -79,7 +79,7 @@
 | PG-portfolio | public/portfolio.html | any | yes | 1 | 22 |
 | PG-project | public/project.html | any | no | 1 | 25 |
 | PG-report-studio | public/report-studio.html | any | yes | 1 | 4 |
-| PG-reports | public/reports.html | any | yes | 2 | 41 |
+| PG-reports | public/reports.html | any | yes | 2 | 42 |
 | PG-rfi | public/rfi.html | any | yes | 1 | 5 |
 | PG-site-actions | public/site-actions.html | any | yes | 1 | 18 |
 | PG-site-awareness | public/site-awareness.html | site-business / group-business / executive | yes | 2 | 13 |

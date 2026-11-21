@@ -61,7 +61,7 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 | `ui_role_landing` | Owner (UI policy) | — | — | — | — | — | 6 | 4 |
 | `ui_home_queue` | Owner (UI policy) | after a browser review in EN and FR at 320 px: Home shows one queue of the person's own work read from the existing per-site readers  | — | — | portfolio_benefits, portfolio_milestones, portfolio_objectives, portfolio_programmes, portfolio_projects, portfolio_tasks +2 | — | 8 | 6 |
 | `ui_home_blocks` | Owner (UI policy) | after a browser review: per-block states and per-card reload on Home | — | — | — | — | 2 | 2 |
-| `commitments_enabled` | to be named | — | — | — | action_items, audit_log, commitments, connector_fix_tasks, field_outbox, gov_control_tests +22 | yes | 24 | 14 |
+| `commitments_enabled` | to be named | — | — | — | action_items, audit_log, commitments, connector_fix_tasks, field_outbox, gov_control_tests +22 | yes | 23 | 14 |
 | `mywork_awaiting_me_enabled` | Product owner | once the product owner has compared it with the review | `commitments_enabled` | — | portfolio_benefits, portfolio_milestones, portfolio_objectives, portfolio_programmes, portfolio_projects, portfolio_tasks +2 | — | 4 | 2 |
 | `ui_data_quality_page` | Data owner | A data steward per source to act on the board. | — | admin | — | — | 4 | 2 |
 | `ui_nav_active_from_url` | Owner (UI policy) | — | — | — | — | — | 2 | 2 |
@@ -103,8 +103,8 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 
 | Switch | Who decides (register) | Human prerequisite (register text) | Depends on | Roles named | Tables touched | Job | Consumer files | Tests naming it |
 |---|---|---|---|---|---|---|---|---|
-| `ppm_baseline_versions` | Committee | — | — | — | decisions, meeting_cadences, meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits +19 | — | 7 | 3 |
-| `ppm_rebaseline_enabled` | Committee | — | — | — | portfolio_deliverables, portfolio_objectives, portfolio_programmes, portfolio_projects, portfolio_tasks, ppm_change_requests +4 | — | 7 | 5 |
+| `ppm_baseline_versions` | Committee | — | — | — | decisions, meeting_cadences, meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits +19 | — | 6 | 3 |
+| `ppm_rebaseline_enabled` | Committee | — | — | — | portfolio_deliverables, portfolio_objectives, portfolio_programmes, portfolio_projects, portfolio_tasks, ppm_change_requests +4 | — | 6 | 5 |
 | `ppm_change_requests_enabled` | PMO | once the PMO adopts a change-control step on projects  | `ppm_rebaseline_enabled` | — | dashboard_definition_versions, dashboard_definitions, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_objectives +9 | — | 7 | 3 |
 | `ppm_cr_simulation_enabled` | PMO | once the PMO wants change requests decided on simulated numbers: a request may list task changes  | `ppm_change_requests_enabled`, `ppm_rebaseline_enabled` | — | portfolio_deliverables, portfolio_objectives, portfolio_programmes, portfolio_projects | — | 4 | 2 |
 | `ppm_gate_checklist_enabled` | PMO | once the PMO defines gate checklists: per project and target stage, required artifacts  | — | — | users | — | 8 | 2 |
@@ -216,7 +216,7 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 | `controls_register_enabled` | GRC owner + Security owner | once GRC names who adopts controls  | — | — | gov_control_tests, gov_controls, site_module_codes, sites | — | 6 | 1 |
 | `pir_reviews_enabled` | Incident manager + business sponsor | once the Incident manager names who signs a post-incident review and the business sponsor per major incident  | — | — | — | — | 5 | 1 |
 | `problem_candidates_enabled` | Problem owner + Owner | once a problem owner is named  | — | — | — | — | 2 | 1 |
-| `handoffs_enabled` | to be named | — | — | — | portfolio_benefits, portfolio_milestones, portfolio_objectives, portfolio_programmes, portfolio_projects, portfolio_tasks +2 | — | 12 | 5 |
+| `handoffs_enabled` | to be named | — | — | — | portfolio_benefits, portfolio_milestones, portfolio_objectives, portfolio_programmes, portfolio_projects, portfolio_tasks +2 | — | 11 | 5 |
 | `shift_handover_enabled` | Site IT lead + Owner | once the incoming / outgoing people of each shift are on the duty roster  | — | — | — | — | 5 | 1 |
 | `a01_missing_due_date` | Commitments owner (D-04) | — | `commitments_enabled` | — | — | — | 3 | 1 |
 
@@ -324,7 +324,7 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 | `restore_drill_full` | Operations owner | once a backup copy of `data/blobs` exists  | — | — | report_config, system_log | — | 1 | 1 |
 | `entra_deprovision_enabled` | Information Security + tenant administrator | only after the tenant administrator decides on the Graph `User | — | — | users | yes | 4 | 2 |
 | `site_code_shared_block` | Data owner + Owner | Decide who owns each shared site code (e.g. TND) and correct the data first; then test the controlled 409 and the editors' rights. | — | editor | — | — | 5 | 4 |
-| `policy_center_enabled` | to be named | — | — | — | — | — | 10 | 11 |
+| `policy_center_enabled` | to be named | — | — | — | — | — | 9 | 11 |
 
 ## Dossier L14 — PMO journey — portfolio intake register, data quality, register and executive dashboard, decision agenda and management alerts, lifecycle / review / audit (portfolio spec Lots 1–5)
 
@@ -543,14 +543,13 @@ Hub files excluded: `public/lib/home-page.js`, `public/portfolio.html`, `public/
 
 | Lot pair | Overlapping switch pairs |
 |---|---|
-| L01 × L03 | 2 |
 | L01 × L05 | 2 |
 | L01 × L08 | 5 |
 | L01 × L09 | 2 |
 | L01 × L10 | 3 |
 | L01 × L11 | 3 |
 | L01 × L12 | 1 |
-| L01 × L13 | 3 |
+| L01 × L13 | 2 |
 | L01 × L15 | 6 |
 | L02 × L03 | 9 |
 | L02 × L04 | 1 |
@@ -564,10 +563,8 @@ Hub files excluded: `public/lib/home-page.js`, `public/portfolio.html`, `public/
 | L03 × L05 | 8 |
 | L03 × L06 | 1 |
 | L03 × L07 | 1 |
-| L03 × L08 | 2 |
 | L03 × L11 | 2 |
 | L03 × L12 | 2 |
-| L03 × L13 | 2 |
 | L03 × L14 | 5 |
 | L04 × L06 | 4 |
 | L05 × L09 | 1 |
@@ -581,7 +578,6 @@ Hub files excluded: `public/lib/home-page.js`, `public/portfolio.html`, `public/
 | L07 × L13 | 1 |
 | L08 × L09 | 2 |
 | L08 × L11 | 1 |
-| L08 × L13 | 1 |
 | L09 × L10 | 1 |
 | L09 × L11 | 4 |
 | L09 × L15 | 1 |
@@ -599,12 +595,10 @@ Hub files excluded: `public/lib/home-page.js`, `public/portfolio.html`, `public/
 
 | Lots | Switch A | Switch B | Shared files | Shared tables |
 |---|---|---|---|---|
-| L01 × L03 | `commitments_enabled` | `ppm_baseline_versions` | `public/help.html` | — |
-| L01 × L03 | `commitments_enabled` | `ppm_rebaseline_enabled` | `public/help.html` | — |
 | L01 × L05 | `benefit_owner_link_enabled` | `mywork_awaiting_me_enabled` | `services/myWork.js` | — |
 | L01 × L05 | `benefit_owner_link_enabled` | `ui_home_queue` | `services/myWork.js` | — |
 | L01 × L08 | `commitments_enabled` | `controls_register_enabled` | `routes/policies.js`, `services/controlRegister.js` | gov_control_tests, gov_controls, site_module_codes |
-| L01 × L08 | `commitments_enabled` | `handoffs_enabled` | `public/help.html`, `routes/handoffs.js`, `routes/obligations.js`, `services/governanceValues.js`, `tools/release/gate-dossiers.source.js` | — |
+| L01 × L08 | `commitments_enabled` | `handoffs_enabled` | `routes/handoffs.js`, `routes/obligations.js`, `services/governanceValues.js`, `tools/release/gate-dossiers.source.js` | — |
 | L01 × L08 | `commitments_enabled` | `obligations_include_decisions` | `routes/obligations.js` | — |
 | L01 × L08 | `commitments_enabled` | `pir_reviews_enabled` | `routes/commitments.js` | — |
 | L01 × L08 | `commitments_enabled` | `problem_candidates_enabled` | `routes/commitments.js` | — |
@@ -618,7 +612,6 @@ Hub files excluded: `public/lib/home-page.js`, `public/portfolio.html`, `public/
 | L01 × L11 | `commitments_enabled` | `wan_sla_claims_enabled` | — | insp_actions, insp_inspections, md_actions, md_meetings, system_log |
 | L01 × L12 | `access_require_approval` | `commitments_enabled` | — | system_log |
 | L01 × L13 | `commitments_enabled` | `delivery_failure_alert_enabled` | — | sync_runs |
-| L01 × L13 | `commitments_enabled` | `policy_center_enabled` | `public/help.html` | — |
 | L01 × L13 | `commitments_enabled` | `restore_drill_full` | — | report_config, system_log |
 | L01 × L15 | `ui_feedback_enabled` | `ui_role_landing_profiles` | `public/_shell.js` | — |
 | L01 × L15 | `ui_home_freshness_strip` | `ui_home_queue` | `public/home.html` | — |
@@ -661,14 +654,10 @@ Hub files excluded: `public/lib/home-page.js`, `public/portfolio.html`, `public/
 | L03 × L05 | `ppm_rebaseline_enabled` | `ppm_timesheet_approval_enabled` | `services/ppmWorkbenchStore.js` | portfolio_tasks, ppm_change_requests, ppm_project_members, ppm_time_entries, ppm_timesheet_weeks |
 | L03 × L06 | `ppm_baseline_slots_enabled` | `ppm_mspdi_enabled` | `db/postgres_rollback/105_ppm_engine_w2_drop.sql`, `routes/ppmEngine.js` | — |
 | L03 × L07 | `portfolio_editor_plan_writes` | `portfolio_sensitive_projects` | `services/portfolioAccess.js` | — |
-| L03 × L08 | `handoffs_enabled` | `ppm_baseline_versions` | `public/help.html` | — |
-| L03 × L08 | `handoffs_enabled` | `ppm_rebaseline_enabled` | `public/help.html` | — |
 | L03 × L11 | `insp_repeat_findings` | `ppm_change_requests_enabled` | — | portfolio_projects |
 | L03 × L11 | `ppm_change_requests_enabled` | `wan_sla_claims_enabled` | — | portfolio_projects |
 | L03 × L12 | `access_require_approval` | `ppm_change_requests_enabled` | — | sessions |
 | L03 × L12 | `breakglass_timebox_enabled` | `ppm_change_requests_enabled` | — | sessions |
-| L03 × L13 | `policy_center_enabled` | `ppm_baseline_versions` | `public/help.html` | — |
-| L03 × L13 | `policy_center_enabled` | `ppm_rebaseline_enabled` | `public/help.html` | — |
 | L03 × L14 | `portfolio_editor_plan_writes` | `ppm_business_case_freeze_enabled` | `services/ppm/reviewWorkflow.js` | — |
 | L03 × L14 | `ppm_change_requests_enabled` | `ppm_intake_register_enabled` | — | portfolio_projects |
 | L03 × L14 | `ppm_extended_lifecycle_enabled` | `ppm_gate_checklist_enabled` | `routes/governanceReview.js` | — |
@@ -701,7 +690,6 @@ Hub files excluded: `public/lib/home-page.js`, `public/portfolio.html`, `public/
 | L08 × L09 | `dashboard_red_action_links` | `pir_reviews_enabled` | `routes/commitments.js` | — |
 | L08 × L09 | `dashboard_red_action_links` | `problem_candidates_enabled` | `routes/commitments.js` | — |
 | L08 × L11 | `controls_register_enabled` | `field_task_timing` | — | site_module_codes |
-| L08 × L13 | `handoffs_enabled` | `policy_center_enabled` | `public/help.html` | — |
 | L09 × L10 | `report_drift_banner` | `ui_i18n_pages` | `public/reports.html` | — |
 | L09 × L11 | `asset_money_certify_display` | `ui_i18n_pages` | `public/assets.html` | — |
 | L09 × L11 | `insp_repeat_findings` | `ui_i18n_pages` | `public/inspections.html` | — |

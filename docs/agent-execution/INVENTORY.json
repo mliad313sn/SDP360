@@ -1801,6 +1801,7 @@
     "tests/csp-journey-report.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/csp-report.smoke.test.js",
+    "tests/csp-strict-pages-config.test.js",
     "tests/csv-guard-coverage.test.js",
     "tests/field-pwa-static.test.js",
     "tests/first-usable.test.js",
@@ -15821,7 +15822,6 @@
    "file": "server.js",
    "line": 1434,
    "tests": [
-    "tests/csp-strict-pages-config.test.js",
     "tests/ppm-visuals.test.js",
     "tests/project-page.test.js",
     "tests/ui-design-ratchet.test.js"
@@ -16165,6 +16165,7 @@
     "tests/csp-headers.smoke.test.js",
     "tests/csp-journey-report.test.js",
     "tests/csp-report.smoke.test.js",
+    "tests/csp-strict-pages-config.test.js",
     "tests/csv-guard-coverage.test.js",
     "tests/first-usable.test.js",
     "tests/login-next-redirect.test.js",
