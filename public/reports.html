@@ -348,6 +348,8 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 <link rel="stylesheet" href="brand/components.css">
 <script nonce="%%CSP_NONCE%%" src="brand/icons.js" defer></script>
 <script src="_shell.js" defer></script>
+<script nonce="%%CSP_NONCE%%" src="lib/format.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/codeLabels.js"></script>
 </head>
 <body>
 
@@ -3691,7 +3693,7 @@ function renderHelpdesk() {
     buildBreakPool(hdChartData);
     showWeekNav(hdChartData);
     const grpLabel = siteGroup || h.selected_group;
-    const fa = h.fetched_at ? ' — ' + new Date(h.fetched_at).toLocaleTimeString() : '';
+    const fa = h.fetched_at ? ' — ' + new Date(h.fetched_at).toLocaleTimeString(SDPLocale()) : '';
     const statusEl = document.getElementById(siteGroup ? 'hd-fetch-status' : 'hd-fetch-status-manual');
     if (statusEl) { statusEl.textContent = `✓ Saved: ${grpLabel}${fa}`; statusEl.style.color = 'var(--green)'; }
   } else if (siteGroup) {
@@ -4250,7 +4252,7 @@ function _renderOpenChangesPanel(changes, panel) {
   const fmtDate = d => {
     if (!d) return null;
     const dt = new Date(d); if (isNaN(dt)) return d;
-    return dt.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'2-digit' });
+    return dt.toLocaleDateString(SDPLocale(), { day:'2-digit', month:'short', year:'2-digit' });
   };
   const isOverdue = d => d && new Date(d) < today;
   const daysOpen = d => {
@@ -4314,7 +4316,7 @@ function _renderActiveIncidentsPanel(incidents, panel) {
   const fmtDate = d => {
     if (!d) return null;
     const dt = new Date(d); if (isNaN(dt)) return d;
-    return dt.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'2-digit' });
+    return dt.toLocaleDateString(SDPLocale(), { day:'2-digit', month:'short', year:'2-digit' });
   };
   const daysOpen = d => {
     if (!d) return '';
@@ -6749,7 +6751,7 @@ function _sessFmtRelative(iso) {
   if (!iso) return '—';
   const d = new Date(iso);
   if (isNaN(d)) return iso;
-  return d.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+  return d.toLocaleTimeString(SDPLocale(), { hour:'2-digit', minute:'2-digit', second:'2-digit' });
 }
 
 // 30-second auto-refresh while the admin tab is visible. Cleared on
@@ -6835,7 +6837,7 @@ function _rrFmtTs(s) {
   // SQLite TIMESTAMP arrives as 'YYYY-MM-DD HH:MM:SS' in UTC; turn into ISO
   const d = new Date(String(s).replace(' ', 'T') + 'Z');
   if (isNaN(d)) return s;
-  return d.toLocaleString('en-GB', { year:'numeric', month:'short', day:'2-digit', hour:'2-digit', minute:'2-digit' });
+  return d.toLocaleString(SDPLocale(), { year:'numeric', month:'short', day:'2-digit', hour:'2-digit', minute:'2-digit' });
 }
 
 // Pre-populate code dropdown when the modal opens. Pass an alias
@@ -8577,7 +8579,7 @@ function loadTeamsSlaCard() {
     set('tsla-paused', (c.rules && Array.isArray(c.rules.paused_statuses) ? c.rules.paused_statuses : []).join('\n'));
     document.getElementById('tsla-dedup').value = (c.rules && c.rules.dedup_mode === 'per_due') ? 'per_due' : 'once';
     document.getElementById('tsla-groups').innerHTML = (c.known_groups || []).map(g => `<option value="${esc(g)}"></option>`).join('');
-    document.getElementById('tsla-last-run').textContent = c.last_run ? ('Dernier passage : ' + new Date(c.last_run).toLocaleString()) : 'Aucun passage encore (désarmé ou non configuré).';
+    document.getElementById('tsla-last-run').textContent = c.last_run ? ('Dernier passage : ' + new Date(c.last_run).toLocaleString(SDPLocale())) : 'Aucun passage encore (désarmé ou non configuré).';
     _tslaChannels = (c.channels || []).map(ch => ({ group: ch.group, url: '', configured: true }));
     _tslaRenderChannels();
   }).catch(e => toast('Alertes Teams : ' + e, 'error'));
@@ -8661,7 +8663,7 @@ function loadAnalyticsApiCard() {
     const st = document.getElementById('an-status');
     st.innerHTML = (t.valid ? '<span style="color:#15803d">● Connecté</span>' : '<span style="color:#b91c1c">● Pas de jeton valide</span>') +
       (t.granted_scope ? ` · scope <code>${esc(t.granted_scope)}</code>` : '') +
-      (t.expires_at && t.valid ? ` · expire ${new Date(t.expires_at).toLocaleTimeString()}` : '') +
+      (t.expires_at && t.valid ? ` · expire ${new Date(t.expires_at).toLocaleTimeString(SDPLocale())}` : '') +
       (t.last_error ? `<div style="color:#b91c1c;margin-top:4px">Dernière erreur : ${esc(String(t.last_error).slice(0, 240))}</div>` : '') +
       (!c.ready ? '<div style="color:#b91c1c;margin-top:4px">Identifiants incomplets (Client ID, secret ou refresh token).</div>' : '');
   }).catch(e => toast('Analytics : ' + e, 'error'));

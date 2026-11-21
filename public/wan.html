@@ -115,6 +115,8 @@
   .sl-scroll { overflow-x:auto; }
   .sl-cfg { background:#fff7ed; border:1px solid #f0c9a0; color:#7a3d12; border-radius:10px; padding:10px 12px; font-size:12px; }
 </style>
+<script nonce="%%CSP_NONCE%%" src="lib/format.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/codeLabels.js"></script>
 </head>
 <body>
 <div id="__shell" data-section="infrastructure" data-current="wan"></div>
@@ -522,13 +524,13 @@
   function fmtPct(v) { return v == null ? '—' : (Math.round(v * 100) / 100) + '%'; }
   function fmtNum(v, d) { if (v == null) return '—'; const m = Math.pow(10, d || 0); return String(Math.round(v * m) / m); }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
-  function fmtAmount(a, cur) { return a == null ? '—' : (a.toLocaleString() + ' ' + esc(cur || '')); }
+  function fmtAmount(a, cur) { return a == null ? '—' : (a.toLocaleString(SDPLocale()) + ' ' + esc(cur || '')); }
   function fmtDur(s) {
     if (s == null) return '—';
     const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
     return h ? (h + 'h ' + m + 'm') : (m + 'm');
   }
-  function fmtTs(t) { if (!t) return '—'; const d = new Date(t); return isNaN(d) ? esc(t) : d.toLocaleString(); }
+  function fmtTs(t) { if (!t) return '—'; const d = new Date(t); return isNaN(d) ? esc(t) : d.toLocaleString(SDPLocale()); }
 
   async function loadSummary() {
     let data;
@@ -698,7 +700,7 @@
         <td>${fmtTs(o.restored_end)}</td>
         <td>${fmtTs(o.notified_at)}</td>
         <td class="sl-num">${fmtDur(o.duration_s)}</td>
-        <td>${esc(o.attribution)}</td>
+        <td title="${esc(o.attribution)}">${esc(({ isp: 'Opérateur (ISP)', site: 'Site (électricité / deux liens)', maintenance: 'Maintenance' })[o.attribution] || o.attribution || '—')}</td>
         <td class="sl-muted">${esc(o.attribution_reason)}</td>
       </tr>`).join('') : '<tr><td colspan="10" class="sl-muted">Aucune coupure ne correspond au filtre.</td></tr>';
     const c = $('sl-of-count'); if (c) c.textContent = rows.length + ' / ' + outageRows.length + ' coupure(s)';

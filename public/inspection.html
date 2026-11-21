@@ -1036,6 +1036,8 @@ body.submission-locked .submit-row::before{
   body.print-compact .photo-thumb{width:70px;height:70px}
 }
 </style>
+<script nonce="%%CSP_NONCE%%" src="lib/format.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/codeLabels.js"></script>
 </head>
 <body>
 
@@ -3120,7 +3122,7 @@ async function _runAutosave(){
   // fallback for when it is not installed. Never "Saved" unless the write resolved ok.
   if (!status || status.textContent !== 'Saving...') return;
   if (r && r.ok) {
-    status.textContent = `✓ Saved locally ${new Date().toLocaleTimeString()}`;
+    status.textContent = `✓ Saved locally ${new Date().toLocaleTimeString(SDPLocale())}`;
     status.classList.add('saved');
   } else {
     status.textContent = '⚠ NOT saved on this device — click Save now or Export (JSON)';
@@ -3611,7 +3613,7 @@ function buildSummary(){
   if (m.f_pos) out += `👍 *Positive Findings:*\n${m.f_pos}\n\n`;
 
   out += `━━━━━━━━━━━━━━━━━━\n`;
-  out += `_Generated ${new Date().toLocaleString()}_\n`;
+  out += `_Generated ${new Date().toLocaleString(SDPLocale())}_\n`;
   out += `_Endeavour Mining · IT Operations_`;
 
   return out;

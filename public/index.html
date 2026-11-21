@@ -185,6 +185,8 @@ select.flt:focus{outline:2px solid var(--orange);border-color:transparent}
 <link rel="stylesheet" href="_shell.css">
 <script src="_shell.js"></script>
 <script src="lib/pageStates.js" data-last-resort="off"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/format.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/codeLabels.js"></script>
 </head>
 <body>
 
@@ -541,7 +543,7 @@ function lastCompleteWk(){
   const now=new Date(),cw=isoWk(now),cy=isoWkYr(now);
   return prevWk(cy,cw);
 }
-function fmtD(d){return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'});}
+function fmtD(d){return d.toLocaleDateString(SDPLocale(),{day:'2-digit',month:'short'});}
 function wkLabel(yr,wk){
   const s=wkStart(yr,wk),e=wkEnd(yr,wk);
   // Adoption Lot A (item 3): the week in progress (this dashboard's default, live tickets) and the week the weekly
@@ -625,25 +627,25 @@ function defaultP(mode){
 function pLabel(pKey){
   const mode=pMode(pKey);
   if(mode==='weekly'){const[ys,ws]=pKey.slice(1).split('-');return wkLabel(+ys,+ws);}
-  if(mode==='monthly'){const[ys,ms]=pKey.slice(1).split('-');return new Date(+ys,+ms-1,1).toLocaleDateString('en-GB',{month:'long',year:'numeric'});}
+  if(mode==='monthly'){const[ys,ms]=pKey.slice(1).split('-');return new Date(+ys,+ms-1,1).toLocaleDateString(SDPLocale(),{month:'long',year:'numeric'});}
   if(mode==='quarterly'){
     const[ys,qs]=pKey.slice(1).split('-');
     const s=new Date(+ys,(+qs-1)*3,1),e=new Date(+ys,+qs*3-1,1);
-    return 'Q'+qs+' '+ys+'  ('+s.toLocaleDateString('en-GB',{month:'short'})+'–'+e.toLocaleDateString('en-GB',{month:'short'})+')';
+    return 'Q'+qs+' '+ys+'  ('+s.toLocaleDateString(SDPLocale(),{month:'short'})+'–'+e.toLocaleDateString(SDPLocale(),{month:'short'})+')';
   }
   return pKey.slice(1);
 }
 function pShort(pKey){
   const mode=pMode(pKey);
   if(mode==='weekly'){const[ys,ws]=pKey.slice(1).split('-');return 'W'+String(+ws).padStart(2,'0')+'\n'+ys;}
-  if(mode==='monthly'){const[ys,ms]=pKey.slice(1).split('-');return new Date(+ys,+ms-1,1).toLocaleDateString('en-GB',{month:'short'})+'\n'+ys;}
+  if(mode==='monthly'){const[ys,ms]=pKey.slice(1).split('-');return new Date(+ys,+ms-1,1).toLocaleDateString(SDPLocale(),{month:'short'})+'\n'+ys;}
   if(mode==='quarterly'){const[ys,qs]=pKey.slice(1).split('-');return 'Q'+qs+'\n'+ys;}
   return pKey.slice(1);
 }
 function pCmpLabel(cmpKey){
   const mode=pMode(cmpKey);
   if(mode==='weekly'){const[ys,ws]=cmpKey.slice(1).split('-');return 'W'+String(+ws).padStart(2,'0')+' '+ys;}
-  if(mode==='monthly'){const[ys,ms]=cmpKey.slice(1).split('-');return new Date(+ys,+ms-1,1).toLocaleDateString('en-GB',{month:'short',year:'numeric'});}
+  if(mode==='monthly'){const[ys,ms]=cmpKey.slice(1).split('-');return new Date(+ys,+ms-1,1).toLocaleDateString(SDPLocale(),{month:'short',year:'numeric'});}
   if(mode==='quarterly'){const[ys,qs]=cmpKey.slice(1).split('-');return 'Q'+qs+' '+ys;}
   return cmpKey.slice(1);
 }
@@ -2048,7 +2050,7 @@ async function loadData(){
     // C-31 — the committee-ADOPTED resolution-SLA policy, only when report_config kpi_policy_enforced='1' (else page_opts is null: today's rule)
     try{const ep=await pgGet('/api/kpi-policies/effective/helpdesk.resolution_sla_pct',10000);const po=ep&&ep.enforced&&ep.page_opts;if(po)Object.assign(HD_SLA_POLICY,{definition:po.definition,excludeCancelled:!!po.excludeCancelled,minN:po.minN});}catch(_){}
     dot.className='status-dot ok';
-    stxt.textContent=RAW.length.toLocaleString()+' tickets loaded';
+    stxt.textContent=RAW.length.toLocaleString(SDPLocale())+' tickets loaded';
     document.getElementById('loadOverlay').style.display='none';
     // Initialise default weekly view
     VIEW_MODE='weekly';
@@ -2126,9 +2128,9 @@ async function initFreshnessBar() {
     const ageMs = Date.now() - d.ts;
     const ageH  = ageMs / 3_600_000;
     const when  = new Date(d.ts);
-    const fmt   = when.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' })
-                + ' ' + when.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
-    const rows  = d.rows ? ` · ${d.rows.toLocaleString()} tickets` : '';
+    const fmt   = when.toLocaleDateString(SDPLocale(), { day:'2-digit', month:'short', year:'numeric' })
+                + ' ' + when.toLocaleTimeString(SDPLocale(), { hour:'2-digit', minute:'2-digit' });
+    const rows  = d.rows ? ` · ${d.rows.toLocaleString(SDPLocale())} tickets` : '';
     bar.style.display = 'flex';
     const _zap = (window.EDV_ICONS ? window.EDV_ICONS.html('zap') : '');
     const syncBtn = isAdmin ? `<button class="fb-sync-btn" onclick="forceSync()">${_zap} Sync Now</button>` : '';

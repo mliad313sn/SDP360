@@ -9,6 +9,22 @@
 (function (root) {
   'use strict';
   const STATIC = {
+    // VISUAL POLISH 2 — admin rail and group tabs written in English (were French-only labels)
+    'Integrations': 'Intégrations',
+    'API integration': 'Intégration API',
+    'SLA alerts & Analytics': 'Alertes SLA et Analytics',
+    'Last restore exercise': 'Dernier exercice de restauration',
+    'Automatic sends': 'Envois automatiques',
+    'Scheduled digests': 'Récapitulatifs programmés',
+    'Assets — Valuation': 'Actifs — Valorisation',
+    'Finance & depreciation': 'Finance et dépréciation',
+    'Availability': 'Disponibilité',
+    'SLA / Chargeback': 'SLA / Refacturation',
+    'Depreciation': 'Dépréciation',
+    'SLA alerts': 'Alertes SLA',
+    'Hygiene': 'Hygiène',
+    'Asset reminders': 'Rappels parc',
+    'Last restore drill': 'Dernier exercice de restauration',
     // VISUAL POLISH 2 — the same labels without their emoji (icons are SVG now)
     'Team': 'Équipe',
     'Comments': 'Commentaires',

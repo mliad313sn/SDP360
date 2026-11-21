@@ -10,7 +10,7 @@
   var status = null;
   function $(id) { return document.getElementById(id); }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
-  function money(v, cur) { return v == null ? '—' : Number(v).toLocaleString() + ' ' + esc(cur || ''); }
+  function money(v, cur) { return v == null ? '—' : Number(v).toLocaleString(window.SDPLocale ? window.SDPLocale() : undefined) + ' ' + esc(cur || ''); }
   function num(v) { return v == null ? '—' : String(v); }
   function msg(t) { var m = $('cl-msg'); if (m) m.textContent = t || ''; }
   function api(method, path, body) {
@@ -96,7 +96,7 @@
           + '<button class="sl-btn" type="button" data-notify="approve">Approve (another person)</button> <button class="sl-btn" type="button" data-notify="send">Send</button><pre id="cl-preview" class="sl-note" style="white-space:pre-wrap"></pre></div>';
       }
       html += '<h3>Trail</h3><ul>' + (d.events || []).map(function (e) {
-        return '<li>' + esc(e.at) + ' · ' + esc(e.actor_name || 'system') + ' · ' + esc(e.action) + (e.to_status ? ' → ' + esc(e.to_status) : '') + (e.motive ? ' — ' + esc(e.motive) : '') + '</li>';
+        return '<li>' + esc(window.SDPFormat ? window.SDPFormat.dateTime(e.at) : e.at) + ' · ' + esc(e.actor_name || 'system') + ' · ' + esc(String(e.action || '').replace(/_/g, ' ')) + (e.to_status ? ' → ' + esc(LABEL[e.to_status] || e.to_status) : '') + (e.motive ? ' — ' + esc(e.motive) : '') + '</li>';
       }).join('') + '</ul>';
       p.innerHTML = html; p.style.display = ''; p.dataset.id = c.id;
       p.scrollIntoView({ behavior: 'smooth', block: 'start' });
