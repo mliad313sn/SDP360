@@ -103,7 +103,8 @@ function computeRag(inputs, prev, thresholds) {
   const components = {
     schedule: { rag: worst([metrics.spi.rag, metrics.slip_wd.rag]), spi: metrics.spi, slip_wd: metrics.slip_wd },
     cost: { rag: metrics.cpi.rag, cpi: metrics.cpi },
-    risk: { rag: metrics.risk_score.rag, risk_score: metrics.risk_score },
+    // P11 r8 R8-2 — partial: an open unscored entry sits beside the known high (the value is "at least", PROPOSED)
+    risk: { rag: metrics.risk_score.rag, risk_score: metrics.risk_score, partial: !!(inputs && inputs.risk_score_partial) },
   };
   let rag;
   if (components.schedule.rag == null && components.cost.rag == null) rag = components.risk.rag === 'red' || components.risk.rag === 'amber' ? components.risk.rag : null;

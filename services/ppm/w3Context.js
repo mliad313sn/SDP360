@@ -43,7 +43,7 @@ async function projectContext({ store, rdb, cfg, projectId, money, persistRag = 
   let rag = null, ragInputs = null, ragTh = null;
   if (on(cfg, 'ppm_project_rag_enabled')) {
     ragTh = RAG.parseThresholds(cfg.ppm_rag_thresholds);
-    ragInputs = { spi: KPI.worstIndex(evm, 'spi'), cpi: KPI.worstIndex(evm, 'cpi'), slip_wd: KPI.slipWorkingDays(p, schedule, calendar), risk_score: KPI.riskScore(risks) };
+    ragInputs = { spi: KPI.worstIndex(evm, 'spi'), cpi: KPI.worstIndex(evm, 'cpi'), slip_wd: KPI.slipWorkingDays(p, schedule, calendar), risk_score: KPI.riskScore(risks), risk_score_partial: require('./riskExposure').projectScoreDetail(risks).partial };
     const prev = await w3.ragState(p.id);
     rag = RAG.computeRag(ragInputs, prev, ragTh.thresholds);
     if (persistRag) await w3.saveRagState(p.id, rag, ragInputs, { user });

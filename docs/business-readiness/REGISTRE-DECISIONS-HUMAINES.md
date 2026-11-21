@@ -6,7 +6,7 @@
 > remplissent dans la copie tenue par le comité de mise en production (et, pour une porte, dans
 > `docs/sdp360/completion/RELEASE-GATES.md`). Aucune décision, approbation ou signature n'a été prise par l'IA.
 
-Total : **111 décisions en attente**. Sources consolidées : dossiers des portes (`docs/agent-execution/gate-dossiers/`), ADR au statut PROPOSED (`docs/ai-decisions/`), journal de décisions 2027, rapport P11 (tours 1 à 4), profil pilote, revue d'adoption, plan de lots d'interrupteurs.
+Total : **113 décisions en attente**. Sources consolidées : dossiers des portes (`docs/agent-execution/gate-dossiers/`), ADR au statut PROPOSED (`docs/ai-decisions/`), journal de décisions 2027, rapport P11 (tours 1 à 4), profil pilote, revue d'adoption, plan de lots d'interrupteurs.
 
 ## Décomptes par décideur
 
@@ -21,7 +21,7 @@ Total : **111 décisions en attente**. Sources consolidées : dossiers des porte
 | Finance | 9 |
 | Comité KPI | 15 |
 | Comité de gouvernance | 7 |
-| PMO | 14 |
+| PMO | 16 |
 | CAB | 2 |
 | CAB + SRE | 1 |
 | SRE | 3 |
@@ -38,7 +38,7 @@ Total : **111 décisions en attente**. Sources consolidées : dossiers des porte
 | DPO | 1 |
 | HSE | 1 |
 | Juridique + commercial | 1 |
-| **Total** | **111** |
+| **Total** | **113** |
 
 Légende de la colonne « Bloque » : `Lnn` = lot d'interrupteurs (`docs/ops/switch-lots.json`), `Gnn` = porte de mise en production (`docs/agent-execution/gate-dossiers/INDEX.md`), `K:` suivi d'un nom = groupe gardé éteint par le plan de lots.
 
@@ -153,7 +153,7 @@ Légende de la colonne « Bloque » : `Lnn` = lot d'interrupteurs (`docs/ops/swi
 | HD-C03 | Gouvernance du re-baselining : qui peut re-baseliner et seuils d'exception (ADR-G11b). | Comité seul · Chef de projet sous seuil | Comité seul pendant le pilote. | L03 | `docs/ai-decisions/ADR-G11b-baseline-versions.md` | | | | |
 | HD-C05 | Rétention de la corbeille (`soft_delete_enabled`, 30 jours) et purge (`soft_delete_purge_enabled`). | 30 jours sans purge · Autre durée | 30 jours, purge éteinte pendant le pilote. | L07 | `docs/ai-decisions/ADR-A19-soft-delete.md` | | | | |
 
-## PMO (14)
+## PMO (16)
 
 | Id | À trancher | Options | Recommandation IA | Bloque | Source | Décision | Nom | Date | Signature |
 |---|---|---|---|---|---|---|---|---|---|
@@ -171,6 +171,8 @@ Légende de la colonne « Bloque » : `Lnn` = lot d'interrupteurs (`docs/ops/swi
 | HD-P11 | Critères de score des RFI nées de l'incubation (`incubation_rfi_link_enabled`). | Adopter des critères · Score provisoire | Score provisoire. | L07 | `docs/ops/pilot/PILOT-PROFILE.md` | | | | |
 | HD-P12 | Redirection de la feuille de route vers le portefeuille (`roadmap_redirect_to_portfolio`) après un cycle de parité propre ; suppression des données = CAB. | Après parité · Jamais | Éteinte pendant le pilote. | K:irreversible_or_destructive | `docs/ops/pilot/PILOT-PROFILE.md` | | | | |
 | HD-P13 | Portefeuille phase 2 (L16 : dépendances structurées, demande de ressources et capacité, documents, score d'effort, scénarios, export BI `ext_api_portfolio_enabled`) — absent du plan de pilote tant que le PMO, la sécurité (stockage des documents sans antivirus, export vers un outil tiers) et le propriétaire des données ne l'ont pas planifié. | Hors pilote · Planifier une vague dédiée après revue | Hors pilote ; à replanifier après une revue humaine (avis panel IA du tour 6 : sécurité GO PILOT, PPM CONDITIONAL — R6-1 avant toute vague ; consolidé CONDITIONAL). | L16 | `docs/ai-decisions/ADR-PORTFOLIO-LOT6-phase2.md` | | | | |
+| HD-P14 | Règle de la porte de clôture (R7-4, D-04) livrée avec F-27 et appliquée par défaut : un PROBLÈME (issue) ouvert de niveau élevé bloque la clôture comme un risque, et un risque élevé est débloqué dès qu'un niveau résiduel faible ou moyen est enregistré (`services/governanceStore.js` gateCounts, règle unique `services/ppm/riskExposure.js` isHigh). Règle PROPOSÉE, jamais approuvée. | Confirmer la règle · Risques seulement (les problèmes ne bloquent pas) · Exiger aussi la clôture du risque (le résiduel ne débloque pas) | Confirmer pour le pilote : un problème ouvert élevé est un risque matérialisé, et le résiduel est saisi avec sa date d'échéance ; à rediscuter après le premier cycle de clôture réel. | L03, G07 | `services/governanceStore.js`<br>`services/ppm/riskExposure.js` | | | | |
+| HD-P15 | Risques non cotés (R8-1, R8-2) : depuis la migration 139, un risque saisi sans probabilité ni impact reste NULL (inconnu, jamais vert) ; les lignes déjà stockées en 2 × 2 ne peuvent pas être distinguées d'une vraie cotation. Un risque élevé connu à côté d'un risque non coté garde son score avec la mention « partiel » (règle PROPOSÉE). | Faire revoir les lignes 2 × 2 existantes par leurs propriétaires · Les considérer comme cotées · Les remettre à « non coté » (opération de données, CAB) | Faire revoir les lignes 2 × 2 existantes par leurs propriétaires avant d'armer `ppm_project_rag_enabled` ; aucune réécriture automatique. | L03 | `db/postgres/reports/139_portfolio_risk_unscored_default.sql`<br>`docs/agent-execution/FIX-34-DATA-PPM.md` | | | | |
 
 ## CAB (2)
 

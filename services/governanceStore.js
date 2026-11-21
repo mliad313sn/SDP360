@@ -405,7 +405,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
   const RISK_STATUSES = ['open', 'closed'];   // P11 r6 F-28 — the RAID writer's vocabulary (services/ppm/raid.js)   // A-14 RAID (dependencies live in depends_on, decisions in DEC-…)
   // PORTFOLIO LOT 6 — the residual / due-date columns (migration 130) are served only by services/ppm/portfolioPhase2Store
   // (switch ppm_structured_dependencies_enabled); every existing risk payload keeps today's shape.
-  const riskRow = (r) => { const { residual_probability, residual_impact, due_date, ...rest } = r || {}; return { ...idRow(rest), project_id: Number(r.project_id), probability: Number(r.probability), impact: Number(r.impact), kind: r.kind || 'risk' }; };
+  const riskRow = (r) => { const { residual_probability, residual_impact, due_date, ...rest } = r || {}; return { ...idRow(rest), project_id: Number(r.project_id), probability: r.probability == null ? null : Number(r.probability), impact: r.impact == null ? null : Number(r.impact), kind: r.kind || 'risk' }; };
   const projectRow = (r, ik = false) => _intakeShape({ ...idRow(r), currency_defaulted: r.currency_defaulted == null ? null : Number(r.currency_defaulted), objective_id: Number(r.objective_id), site_id: r.site_id == null ? null : Number(r.site_id), progress_pct: num(r.progress_pct), budget: num(r.budget), spent: num(r.spent), depends_on: P_(r.depends_on, []), rfi_id: r.rfi_id == null ? null : Number(r.rfi_id) }, r, ik);
   /** PORTFOLIO LOT 1 — intake columns parsed when the switch is on, absent when it is off (today's payload). */
   function _intakeShape(o, r, ik) { if (!ik) return _withoutIntake(o); return { ...o, ...IF.readIntake(r) }; }

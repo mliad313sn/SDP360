@@ -49,7 +49,8 @@ test('F-29: an unscored open risk is UNKNOWN (null → component NA), never a me
   // unchanged edges: empty register → null; rows but none open → 0; assumptions ignored
   assert.equal(KPI.riskScore([]), null);
   assert.equal(KPI.riskScore([risk({ status: 'closed', probability: 3, impact: 3 })]), 0);
-  assert.equal(KPI.riskScore([risk({ kind: 'assumption', probability: 3, impact: 3 })]), 0);
+  // P11 r8 data R8-2 (fix 34): an assumptions-only list is "nothing in scope" — null like an empty list, not 0 (green)
+  assert.equal(KPI.riskScore([risk({ kind: 'assumption', probability: 3, impact: 3 })]), null);
   // a legacy 'Open' row is open
   assert.equal(KPI.riskScore([risk({ status: 'Open', probability: 3, impact: 3 })]), 9);
 });

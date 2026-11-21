@@ -87,7 +87,7 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 | `ppm_project_roles_enabled` | PMO | once the PMO decides who holds which PROJECT role  | `ppm_project_team_enabled` | admin | — | — | 8 | 2 |
 | `ppm_raci_enabled` | PMO | — | — | — | — | — | 3 | 1 |
 | `ppm_raid_enabled` | PMO + Finance | once the PMO wants the RAID log  | — | admin, finance-viewer | — | — | 6 | 1 |
-| `ppm_project_rag_enabled` | PMO | once the PMO adopts a composite project RAG  | — | — | — | — | 5 | 2 |
+| `ppm_project_rag_enabled` | PMO | once the PMO adopts a composite project RAG  | — | — | — | — | 6 | 2 |
 | `ppm_project_report_enabled` | PMO | once the PMO wants the project status report on demand  | — | admin, finance-viewer | — | — | 3 | 1 |
 | `ppm_simplified_view_enabled` | PMO | once the PMO wants the Simplified ↔ Expert switch on the project page  | — | admin, finance-viewer | — | — | 5 | 2 |
 

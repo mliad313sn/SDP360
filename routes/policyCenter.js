@@ -194,13 +194,24 @@ module.exports = function policyCenterRoutes(deps) {
         await log(req, { category: 'governance', action: out.status === 'approved' ? 'policy_relaxed' : 'policy_relaxation_rejected', target: `${out.scope}:${out.key}`, details: { proposal: out.id, via: 'policy_center' }, risk: 1 });
         return res.json({ ok: true, request: 'gp-' + out.id, status: out.status });
       }
-      const out = await cstore().decide(Number(m[2]), decision, { actor: actorOf(u), reason,
+      let out;
+      try {
+        out = await cstore().decide(Number(m[2]), decision, { actor: actorOf(u), reason,
         currentValue: async (key) => (await cfg())[key],
         apply: async (r) => {
           const e = entryOr404(r.key);
           const next = PC.validateConfigValue(e, r.new_value);   // re-validated against today's rules
           await applyConfig(req, r.key, r.old_value, next, `approved request pc-${r.id} (requested by ${r.requested_by_name}): ${r.reason} | approval: ${String(reason || '').trim()}`);
         } });
+      } catch (e) {
+        // P11 r8 N-R8-1 — the approval was recorded but the apply refused: the store marked the request 'failed';
+        // journal it (who approved, the cause) so the register and the journal both tell the truth.
+        if (e && e.policyRequest && e.policyRequest.status === 'failed') {
+          const f = e.policyRequest;
+          await log(req, { category: 'config', action: 'policy_change_failed', target: f.key, details: { request: f.id, from: f.old_value, to: f.new_value, reason: String(reason || '').slice(0, 300), cause: String(e.message || '').slice(0, 300) }, risk: 1 });
+        }
+        throw e;
+      }
       await log(req, { category: 'config', action: 'policy_change_' + out.status, target: out.key, details: { request: out.id, from: out.old_value, to: out.new_value, reason: String(reason || '').slice(0, 300) }, risk: 1 });
       res.json({ ok: true, request: 'pc-' + out.id, status: out.status });
     } catch (e) { fail(res, e); }

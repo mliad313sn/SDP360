@@ -99,7 +99,7 @@ function projectSummary({ project, tasks, milestones, risks, schedule, evm, rag,
       on_hold: p.key === 'execution' && stage === 'on_hold',
     };
   });
-  const top_risks = (risks || []).filter((r) => RE.isOpen(r) && RE.inScope(r)).map((r) => ({ id: Number(r.id), kind: r.kind || 'risk', title: r.title, probability: Number(r.probability), impact: Number(r.impact), score: RE.effectiveScore(r), owner: r.owner || null }))
+  const top_risks = (risks || []).filter((r) => RE.isOpen(r) && RE.inScope(r)).map((r) => ({ id: Number(r.id), kind: r.kind || 'risk', title: r.title, probability: r.probability == null ? null : Number(r.probability), impact: r.impact == null ? null : Number(r.impact), score: RE.effectiveScore(r), owner: r.owner || null }))
     .filter((r) => r.score != null).sort((a, b) => b.score - a.score || a.id - b.id).slice(0, 5);
   return {
     cards: {

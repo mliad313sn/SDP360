@@ -102,6 +102,9 @@ function makeW3Store(db, gov, { now = () => new Date().toISOString() } = {}) {
   async function saveRaid(projectId, body, { user, keepMoney = false } = {}) {
     const n = RAID.normalise(body);
     const pid = Number(projectId);
+    // P11 r8 R8-1 — on update, a score field that is SENT (even '' / null = "unknown") replaces the stored one, so a
+    // RAID user can reset a score to unknown; a field left out of the body keeps the stored value.
+    const sent = (k) => !!body && Object.prototype.hasOwnProperty.call(body, k);
     return tx(async () => {
       let id = body && body.id != null ? Number(body.id) : null;
       const ts = now();
@@ -109,11 +112,13 @@ function makeW3Store(db, gov, { now = () => new Date().toISOString() } = {}) {
         const ex = await P(`SELECT * FROM portfolio_risks WHERE id=? AND project_id=? AND deleted_at IS NULL`).get(id, pid);
         if (!ex) throw Object.assign(new Error('RAID entry not found'), { code: 'NOT_FOUND', status: 404 });
         await P(`UPDATE portfolio_risks SET kind=?, title=?, probability=?, impact=?, owner=?, status=?, mitigation=?, updated_at=now(), closed_at=? WHERE id=?`)
-          .run(n.row.kind, n.row.title, n.row.probability == null ? ex.probability : n.row.probability, n.row.impact == null ? ex.impact : n.row.impact, n.row.owner, n.row.status, n.row.mitigation, n.row.status === 'closed' ? (ex.closed_at || ts.slice(0, 10)) : null, id);
+          .run(n.row.kind, n.row.title, sent('probability') ? n.row.probability : ex.probability, sent('impact') ? n.row.impact : ex.impact, n.row.owner, n.row.status, n.row.mitigation, n.row.status === 'closed' ? (ex.closed_at || ts.slice(0, 10)) : null, id);
       } else {
-        await P(`INSERT INTO portfolio_risks (project_id, kind, title, probability, impact, owner, status, mitigation, closed_at) VALUES (?,?,?,?,?,?,?,?,?)`)
-          .run(pid, n.row.kind, n.row.title, n.row.probability == null ? 2 : n.row.probability, n.row.impact == null ? 2 : n.row.impact, n.row.owner, n.row.status, n.row.mitigation, n.row.status === 'closed' ? ts.slice(0, 10) : null);
-        id = Number((await P(`SELECT MAX(id) AS id FROM portfolio_risks WHERE project_id=?`).get(pid)).id);
+        // P11 r8 R8-1 — no score sent = NULL (unscored, UNKNOWN), never a default 2 × 2. R8-5 — the id comes from
+        // RETURNING (the row this statement inserted), never from MAX(id).
+        const ins = await P(`INSERT INTO portfolio_risks (project_id, kind, title, probability, impact, owner, status, mitigation, closed_at) VALUES (?,?,?,?,?,?,?,?,?) RETURNING id`)
+          .get(pid, n.row.kind, n.row.title, n.row.probability, n.row.impact, n.row.owner, n.row.status, n.row.mitigation, n.row.status === 'closed' ? ts.slice(0, 10) : null);
+        id = Number(ins.id);
       }
       const prev = await P(`SELECT * FROM ppm_raid_details WHERE risk_id=?`).get(id);
       const d = { ...n.details };

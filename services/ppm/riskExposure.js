@@ -47,19 +47,25 @@ const pairScore = (p, i) => (level(p, i) == null ? null : sc(p) * sc(i));
 /** Effective SCORE of one risk, residual first (same precedence as effective()): null when no pair is known. */
 const effectiveScore = (r) => (level(r.residual_probability, r.residual_impact) ? pairScore(r.residual_probability, r.residual_impact) : pairScore(r.probability, r.impact));
 /** P11 r7 F-29 — the project RAG risk input: highest effective (residual-first) score of an OPEN risk or issue.
- *  0 only when the register holds rows and none is open; null (UNKNOWN, never green) when no open entry has a known
- *  score, or when an unknown-score entry sits beside known entries that are not high / critical (it could be worse —
- *  same rule as rollup(): a known high / critical is never hidden by an unknown sibling). */
-function projectScore(risks) {
-  const open = (risks || []).filter((r) => r && isOpen(r) && inScope(r));
-  if (!open.length) return (risks || []).length ? 0 : null;
+ *  0 only when the register holds IN-SCOPE rows (risk / issue / dependency, not deleted) and none is open; null
+ *  (UNKNOWN, never green) for an empty list or a list of assumptions / deleted rows only (P11 r8 data R8-2), when no
+ *  open entry has a known score, or when an unknown-score entry sits beside known entries that are not high / critical
+ *  (it could be worse — same rule as rollup(): a known high / critical is never hidden by an unknown sibling).
+ *  P11 r8 R8-2 (PROPOSED, PMO to confirm with the mapping): a known HIGH beside an unscored sibling keeps its score
+ *  (never hidden) but is PARTIAL — the unknown one could be critical, so the value is "at least", like
+ *  rollup().level_at_least / partial. A known CRITICAL (the maximum, 9) cannot be exceeded: not partial. */
+function projectScoreDetail(risks) {
+  const list = (risks || []).filter(Boolean);
+  const open = list.filter((r) => isOpen(r) && inScope(r));
+  if (!open.length) return { score: list.some((r) => inScope(r) && r.deleted_at == null) ? 0 : null, partial: false, unknown: 0 };
   const known = open.map(effectiveScore).filter((x) => x != null);
-  if (!known.length) return null;
+  const unknown = open.length - known.length;
+  if (!known.length) return { score: null, partial: unknown > 0, unknown };
   const top = Math.max(...known);
-  const unknown = known.length < open.length;
-  if (unknown && top < SCORE_MIN.high) return null;
-  return top;
+  if (unknown && top < SCORE_MIN.high) return { score: null, partial: true, unknown };
+  return { score: top, partial: unknown > 0 && top < SCORE_MIN.critical, unknown };
 }
+function projectScore(risks) { return projectScoreDetail(risks).score; }
 // P11 r7 F-29 — the project RAG risk bands DERIVED from the one mapping above (PROPOSED like the mapping):
 // critical (score >= 9) → red, high (score >= 6) → amber, below → green. projectRag reads these; no second literal.
 const SCORE_MIN = Object.freeze({ medium: 3, high: 6, critical: 9 });
@@ -91,4 +97,4 @@ function portfolio(projects, risks, { today } = {}) {
   for (const r of rows) totals[r.level || 'unknown'] += 1;
   return { rows, totals, mapping: MAPPING };
 }
-module.exports = { LEVELS, MAPPING, TERMINAL, SCORE_MIN, RAG_THRESHOLDS, level, pairScore, effective, effectiveScore, projectScore, isOpen, inScope, isHigh, normaliseResidual, view, rollup, portfolio };
+module.exports = { LEVELS, MAPPING, TERMINAL, SCORE_MIN, RAG_THRESHOLDS, level, pairScore, effective, effectiveScore, projectScore, projectScoreDetail, isOpen, inScope, isHigh, normaliseResidual, view, rollup, portfolio };

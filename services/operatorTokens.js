@@ -9,8 +9,13 @@
 // carries a BINDING = HMAC-SHA256 keyed from SDP_CONFIG_KEY (not in the database) over token hash ‖ account ‖ purpose ‖
 // expiry. A row INSERTed with the application database login — which the CLI needs anyway — has no valid binding and
 // is refused; so is a token whose operator_token_issued event is missing from system_log. Without SDP_CONFIG_KEY the
-// flow is refused (fail closed). Residual: the issuance event is written by the same application role, so it is a
-// cross-check, not a control on its own; the HMAC key held outside the database is the control.
+// flow is refused (fail closed). The issuance event is written by the same application role, so it is a cross-check,
+// not a control on its own. What the binding stops: someone holding ONLY the database login. P11 r8 N-R8-2 — residual,
+// stated honestly: whoever holds BOTH the application database credentials AND SDP_CONFIG_KEY — in practice anyone who
+// can read the server's .env, which tools/ops/activate-switches.js loads and which holds PG_URL and SDP_CONFIG_KEY side
+// by side — can forge a bound token plus its issuance event. Keeping the key out of the CLI operator's reach (separate
+// service account / secret store) is a separation-of-duties decision for humans (InfoSec, gate G01 / HD-S04), not
+// something this code can enforce.
 const crypto = require('crypto');
 
 const TTL_MINUTES = 10;
