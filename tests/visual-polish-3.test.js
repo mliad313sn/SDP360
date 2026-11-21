@@ -94,3 +94,58 @@ test('helpdesk (visual F15): secondary filters fold behind "More filters"; the c
   const menu = src.slice(src.indexOf('<details class="pb-menu"'), src.indexOf('</details>', src.indexOf('<details class="pb-menu"')));
   assert.ok(menu.includes('id="btnExport"') && menu.includes('id="btnRiskRegister"'));
 });
+
+// ── Site coordinator seat ───────────────────────────────────────────────────────────────────────────────────────
+test('weekly report: ONE status vocabulary — the reports page uses the words Home gets from the server', () => {
+  const { weeklyLabel } = require('../services/myWork');
+  const ctx = vm.createContext({});
+  vm.runInContext(fnSource(read('reports.html'), 'reportStatusLabel') + '\nthis.f = reportStatusLabel;', ctx);
+  for (const st of ['draft', 'in_progress', 'ready', 'submitted', null, undefined]) assert.strictEqual(ctx.f(st), weeklyLabel(st), String(st));
+  const src = read('reports.html');
+  assert.doesNotMatch(src, /'✏ Draft'|'⏳ In Progress'|'✔ Ready to Submit'/, 'the old per-page labels are gone');
+});
+
+test('report editor (P2-10): a tab is green by its completeness rule, never just because it was saved', () => {
+  const src = read('reports.html');
+  const ctx = vm.createContext({});
+  vm.runInContext('var currentReport = {}; var _actionsSavedEmpty = false;\n' + fnSource(src, '_infraComplete') + '\n' + fnSource(src, '_assetReviewDone') + '\n' + fnSource(src, '_sectionComplete') + '\nthis.c = _sectionComplete; this.set = (r, e) => { currentReport = r; _actionsSavedEmpty = !!e; };', ctx);
+  ctx.set({ infra_kpis: [{ status_value: '' }], helpdesk: null, lights: [], action_items: [], asset_review: null });
+  assert.deepStrictEqual([0, 1, 2, 3, 4].map((n) => ctx.c(n)), [false, false, false, false, false], 'an empty saved report has no green tab');
+  ctx.set({ infra_kpis: [{ status_value: '99' }], helpdesk: { fetched_at: 'x' }, lights: [{}], action_items: [{}], asset_review: { applicable: false } });
+  assert.deepStrictEqual([0, 1, 2, 3, 4].map((n) => ctx.c(n)), [true, true, true, true, true]);
+  ctx.set({ action_items: [] }, true);
+  assert.strictEqual(ctx.c(3), true, 'an action list explicitly saved empty is a complete answer');
+  // no blind tick is left in the save paths
+  assert.doesNotMatch(src, /getElementById\('stab-[0-3]'\)\.classList\.add\('done'\)/);
+  assert.match(fnSource(src, '_afterSectionSaved'), /if \(n !== 4\) _paintSectionTab\(n\);/);
+  assert.match(src, /id="report-progress"/);
+});
+
+test('report editor (P2-9, P2-11): one save signal with a retry state; one primary per row; imports in one menu', () => {
+  const src = read('reports.html');
+  const sv = fnSource(src, 'setSaving');
+  assert.match(sv, /Saved at /); assert.match(sv, /Not saved — retry/); assert.match(sv, /saveSection\(/);
+  assert.doesNotMatch(fnSource(src, 'saveSection'), /toast\('Saved/, 'no success toast on top of the inline signal');
+  assert.match(fnSource(src, 'autoSaveSection'), /setSaving\('failed', n\)/, 'an autosave failure is shown');
+  const row = src.slice(src.indexOf('<div class="act-row">'), src.indexOf('<div style="margin-top:18px">', src.indexOf('<div class="act-row">')));
+  assert.strictEqual((row.match(/btn-primary/g) || []).length, 1, 'one primary in the action row');
+  for (const id of ['btn-carry-over', 'btn-import-modules', 'btn-merge-dupes', 'actions-csv-file']) assert.ok(row.includes(`id="${id}"`), id);
+  assert.strictEqual((src.slice(src.indexOf('id="page-form"')).match(/class="btn btn-primary" onclick="saveSection/g) || []).length, 0, 'section saves are secondary — Submit is the primary');
+  assert.match(src, /<button class="btn btn-primary" id="btn-submit"/);
+});
+
+test('reports landing (P2-17): the due report leads with one primary button that uses the picker path', () => {
+  const src = read('reports.html');
+  assert.ok(src.indexOf('id="rl-lead"') < src.indexOf('Open or Create a Weekly Report'));
+  const fn = fnSource(src, 'renderLeadCard');
+  assert.match(fn, /openReportById\(rep\.id\) : openOrCreateReport\(\)/);
+  assert.match(fn, /known \? reportStatusLabel\(status\) : '—'/, 'a failed read shows —, never "Not started"');
+});
+
+test('home (P2-14): the two PV lines say what each counts; the oldest action is dated from its opening', () => {
+  const src = read('lib/home-page.js');
+  assert.match(src, /unsigned: 'Unsigned PVs of the site'/); assert.match(src, /pvs: 'PVs waiting for my signature'/);
+  assert.match(src, /unsigned: 'PV du site non signés'/); assert.match(src, /pvs: 'PV en attente de ma signature'/);
+  assert.match(src, /oldest: 'oldest opened', days: 'days ago'/);
+  assert.doesNotMatch(src, /PVs to sign|PV à signer/);
+});

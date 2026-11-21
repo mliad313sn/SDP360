@@ -9,6 +9,8 @@
 (function (root) {
   'use strict';
   const STATIC = {
+    // VISUAL POLISH 3 — report editor action row, save signal, landing lead card
+    'Weekly report due': 'Rapport hebdomadaire dû', 'Status:': 'Statut :', 'Save now': 'Enregistrer maintenant', 'Import': 'Importer', 'Open actions from a previous week': 'Actions ouvertes d’une semaine précédente', 'From Meetings / Inspections': 'Depuis Réunions / Inspections', 'From a CSV file': 'Depuis un fichier CSV', 'Download the CSV template': 'Télécharger le modèle CSV', 'CSV allowed values': 'Valeurs autorisées du CSV', 'More actions': 'Autres actions', 'Merge duplicates': 'Fusionner des doublons', 'Group duplicate actions of the site (all weeks)': 'Regrouper des actions en double du site (toutes semaines)', 'Continue': 'Continuer',
     // VISUAL POLISH 2 — admin rail and group tabs written in English (were French-only labels)
     'Integrations': 'Intégrations',
     'API integration': 'Intégration API',
@@ -146,7 +148,7 @@
     'They go to the confirmed contacts.': 'Ils partent aux contacts confirmés.',
     'Send now': 'Envoyer maintenant',
     // report cards and status label
-    '✅ Submitted': '✅ Soumis', '✔ Ready': '✔ Prêt', '⏳ In Progress': '⏳ En cours', '✏ Draft': '✏ Brouillon', '✔ Ready to Submit': '✔ Prêt à soumettre',
+    'In progress': 'En cours', 'Complete but not submitted': 'Complet mais non soumis', 'Submitted': 'Soumis', 'Not started': 'Pas commencé', 'Saving…': 'Enregistrement…', 'Changes are saved automatically': 'Les modifications sont enregistrées automatiquement', 'Not saved — retry': 'Non enregistré — réessayer',
     'No reports yet. Create the first one above.': 'Aucun rapport pour l’instant. Créez le premier ci-dessus.', 'No reports found for this month': 'Aucun rapport pour ce mois',
     // action rows (option text only — the option values stay the codes)
     '— Select —': '— Choisir —', '🔴 High': '🔴 Haute', '🟡 Medium': '🟡 Moyenne', '🟢 Low': '🟢 Basse', 'Open@status': 'Ouverte', 'On Hold': 'En attente',

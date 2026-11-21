@@ -104,6 +104,14 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 .btn-remove{background:none;border:none;color:#bbb;cursor:pointer;font-size:1rem;padding:2px 6px;border-radius:4px;transition:color 0.15s}
 .btn-remove:hover{color:var(--red)}
 .btn-add-row{margin-top:10px;font-size:0.82rem}
+.act-row .btn-add-row{margin-top:0}
+.act-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px}
+.act-menu{position:relative}
+.act-menu>summary{list-style:none}
+.act-menu>summary::-webkit-details-marker{display:none}
+.act-menu__list{position:absolute;left:0;top:calc(100% + 6px);z-index:60;min-width:260px;padding:6px;display:flex;flex-direction:column;gap:2px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:8px;box-shadow:var(--shadow-md)}
+.act-menu__list button{display:flex;align-items:center;gap:8px;min-height:36px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:var(--color-text-strong);font:inherit;font-size:0.85rem;font-weight:600;text-align:left;cursor:pointer}
+.act-menu__list button:hover,.act-menu__list button:focus-visible{background:var(--gray-50)}
 
 /* ── Lights section ──────────────────────────────────────────── */
 .lights-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
@@ -200,6 +208,18 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 .section-tab{padding:7px 16px;border-radius:6px;border:1.5px solid var(--border);background:#fff;font-size:0.83rem;font-weight:600;cursor:pointer;color:#6b7a99;transition:all 0.15s}
 .section-tab.active{background:var(--color-primary-fill, #C2410C);color:#fff;border-color:var(--orange)}
 .section-tab.done{border-color:var(--green);color:var(--green)}
+.section-tab.done::before{content:"✓ ";font-weight:700}
+.rl-lead{display:flex;align-items:center;gap:16px;flex-wrap:wrap;border-left:4px solid var(--color-primary-fill);margin-bottom:18px}
+.rl-lead[hidden]{display:none}
+.rl-lead__copy{flex:1 1 280px;min-width:0}
+.rl-lead__eyebrow{font-size:0.75rem;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--color-text-muted)}
+.rl-lead__title{font-size:1.2rem;font-weight:700;color:var(--dark-blue);margin:2px 0}
+.rl-lead__site{font-weight:600;color:var(--color-text-muted)}
+.rl-lead__status{font-size:0.9rem;color:var(--color-text)}
+.rl-lead__btn{min-height:44px;padding:0 22px;font-size:0.95rem}
+/* with the lead card on screen its button is the page's one primary action */
+body.rl-has-lead #btn-open-create{background:var(--light-bg);color:var(--dark-blue) !important;-webkit-text-fill-color:var(--dark-blue) !important;border:1.5px solid var(--border)}
+.report-progress{font-size:0.8rem;color:var(--color-text-muted);font-weight:600;margin-top:2px}
 
 /* ── Submit bar ──────────────────────────────────────────────── */
 .submit-bar{position:sticky;bottom:0;background:#fff;border-top:2px solid var(--border);padding:14px 32px;display:flex;align-items:center;gap:12px;z-index:50;box-shadow:0 -2px 10px rgba(0,0,0,0.07)}
@@ -269,6 +289,9 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 .saving-indicator{font-size:0.78rem;color:#6b7a99;display:flex;align-items:center;gap:4px}
 .saving-indicator.saving{color:var(--amber)}
 .saving-indicator.saved{color:var(--green)}
+.saving-indicator.failed{color:var(--red)}
+.saving-retry{border:1px solid var(--rag-red);background:var(--color-surface);color:var(--rag-red);border-radius:6px;padding:4px 10px;font:inherit;font-weight:700;cursor:pointer}
+.saving-retry:hover{background:var(--color-danger-bg)}
 
 /* ── Admin left-rail (settings-style two-column layout) ─────────── */
 .admin-layout{display:flex;gap:22px;align-items:flex-start}
@@ -424,6 +447,16 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
     <div class="page-title">Site Reports</div>
     <div class="page-subtitle">Open or create weekly reports · Export monthly &amp; all-sites PPTX · Browse recent submissions</div>
 
+    <!-- Lead card (site coordinator P2-17): the report that is due, its state, one primary action -->
+    <div class="card rl-lead" id="rl-lead" hidden>
+      <div class="rl-lead__copy">
+        <div class="rl-lead__eyebrow">Weekly report due</div>
+        <div class="rl-lead__title"><span id="rl-lead-week"></span> <span class="rl-lead__site" id="rl-lead-site"></span></div>
+        <div class="rl-lead__status">Status: <b id="rl-lead-status">—</b></div>
+      </div>
+      <button type="button" class="btn btn-primary rl-lead__btn" id="rl-lead-btn">Continue</button>
+    </div>
+
     <!-- ① Open / Create Weekly Report ─────────────────────────────── -->
     <div class="card" style="background:#fff;border-left:4px solid var(--mid-blue);margin-bottom:18px">
       <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px">
@@ -440,7 +473,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <input id="sel-week" type="number" style="width:70px" min="1" max="53" onchange="onSiteWeekChange()">
         <div class="week-badge" id="week-range-badge">—</div>
         <div class="spacer"></div>
-        <button class="btn btn-primary" onclick="openOrCreateReport()">Open / Create Report</button>
+        <button class="btn btn-primary" id="btn-open-create" onclick="openOrCreateReport()">Open / Create Report</button>
       </div>
     </div>
 
@@ -549,7 +582,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <div class="page-subtitle" id="form-subtitle"></div>
       </div>
       <div class="spacer"></div>
-      <div class="saving-indicator" id="saving-indicator"></div>
+      <div class="saving-indicator" id="saving-indicator" role="status" aria-live="polite"></div>
     </div>
 
     <div class="section-tabs" id="section-tabs">
@@ -591,7 +624,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         </div>
         <div id="infra-auto-banner" style="display:none;margin-top:8px;padding:8px 12px;border-radius:8px;background:#fff7ed;border:1px solid #f0c9a0;color:#7a3d12;font-size:0.85rem"></div>
         <div style="margin-top:14px;display:flex;gap:10px;align-items:center">
-          <button class="btn btn-primary" onclick="saveSection(0)"><i class="icon icon-save"></i>Save Infrastructure KPIs</button>
+          <button class="btn btn-secondary" onclick="saveSection(0)" title="Save Infrastructure KPIs"><i class="icon icon-save"></i>Save now</button>
           <button class="btn btn-secondary btn-sm" onclick="resetInfraDefaults()"
             title="Replace all rows with the standard defaults (WAN1/WAN2/LAN/WLAN/Servers/Backup/Radio)"
             style="opacity:0.75">↺ Reset to defaults</button>
@@ -701,7 +734,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         </div>
 
         <div style="margin-top:18px">
-          <button class="btn btn-primary" onclick="saveSection(1)"><i class="icon icon-save"></i>Save Helpdesk Metrics</button>
+          <button class="btn btn-secondary" onclick="saveSection(1)" title="Save Helpdesk Metrics"><i class="icon icon-save"></i>Save now</button>
         </div>
       </div>
     </div>
@@ -750,7 +783,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
           </div>
         </div>
         <div style="margin-top:18px">
-          <button class="btn btn-primary" onclick="saveSection(2)"><i class="icon icon-save"></i>Save Lights</button>
+          <button class="btn btn-secondary" onclick="saveSection(2)" title="Save Lights"><i class="icon icon-save"></i>Save now</button>
         </div>
       </div>
     </div>
@@ -780,16 +813,30 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         </table>
         <!-- Technician autocomplete source (populated by loadTechnicianList) -->
         <datalist id="ai-tech-datalist"></datalist>
-        <button class="btn btn-secondary btn-sm btn-add-row" onclick="addActionRow()">+ Add Action</button>
-        <button class="btn btn-secondary btn-sm" id="btn-carry-over" onclick="carryOverActions()" style="margin-left:10px">&#8629; Import open actions from a previous week</button>
-        <button class="btn btn-secondary btn-sm" id="btn-merge-dupes" onclick="openMergeCleanup()" style="margin-left:8px" title="Regrouper des actions en double du site (toutes semaines)"><i class="icon icon-git-merge" aria-hidden="true"></i> Fusionner des doublons</button>
-        <button class="btn btn-secondary btn-sm" id="btn-import-modules" onclick="openImportFromModules()" style="margin-left:8px">&#8629; Import from Meetings / Inspections</button>
-        <button class="btn btn-secondary btn-sm" onclick="downloadActionsTemplate()" style="margin-left:10px" title="Download a CSV template with column headers + 3 sample rows"><i class="icon icon-download"></i>CSV Template</button>
-        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('actions-csv-file').click()" style="margin-left:6px" title="Bulk-import action items from a CSV file">⬆ Import CSV</button>
-        <input type="file" id="actions-csv-file" aria-label="Import CSV" accept=".csv,text/csv" style="display:none" onchange="onActionsCsvSelected(event)">
-        <a href="#" onclick="event.preventDefault(); showCsvAllowedValuesModal();" style="margin-left:8px;font-size:0.78rem;color:#6b7a99;text-decoration:none" title="Allowed values reference">ℹ Allowed values</a>
+        <!-- site coordinator P2-11: one primary action; the four ways to import sit in one menu; merging duplicates
+             under "more". Same buttons, same ids, same handlers. -->
+        <div class="act-row">
+          <button class="btn btn-primary btn-sm btn-add-row" onclick="addActionRow()">+ Add Action</button>
+          <details class="act-menu">
+            <summary class="btn btn-secondary btn-sm"><i class="icon icon-download" aria-hidden="true"></i>Import</summary>
+            <div class="act-menu__list">
+              <button type="button" id="btn-carry-over" onclick="carryOverActions()">Open actions from a previous week</button>
+              <button type="button" id="btn-import-modules" onclick="openImportFromModules()">From Meetings / Inspections</button>
+              <button type="button" onclick="document.getElementById('actions-csv-file').click()" title="Bulk-import action items from a CSV file">From a CSV file</button>
+              <button type="button" onclick="downloadActionsTemplate()" title="Download a CSV template with column headers + 3 sample rows">Download the CSV template</button>
+              <button type="button" onclick="showCsvAllowedValuesModal()" title="Allowed values reference">CSV allowed values</button>
+            </div>
+          </details>
+          <details class="act-menu">
+            <summary class="btn btn-secondary btn-sm" aria-label="More actions" title="More actions"><i class="icon icon-more-horizontal" aria-hidden="true"></i></summary>
+            <div class="act-menu__list">
+              <button type="button" id="btn-merge-dupes" onclick="openMergeCleanup()" title="Group duplicate actions of the site (all weeks)"><i class="icon icon-git-merge" aria-hidden="true"></i> Merge duplicates</button>
+            </div>
+          </details>
+          <input type="file" id="actions-csv-file" aria-label="Import CSV" accept=".csv,text/csv" style="display:none" onchange="onActionsCsvSelected(event)">
+        </div>
         <div style="margin-top:18px">
-          <button class="btn btn-primary" onclick="saveSection(3)"><i class="icon icon-save"></i>Save Action Items</button>
+          <button class="btn btn-secondary" onclick="saveSection(3)" title="Save Action Items"><i class="icon icon-save"></i>Save now</button>
         </div>
       </div>
     </div>
@@ -873,7 +920,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
           <label for="ar-plan-note">Plan / blocages</label>
           <textarea id="ar-plan-note" rows="3" style="width:100%" placeholder="Ex. coûts en attente de la comptabilité…"></textarea>
         </div>
-        <div style="margin-top:10px"><button class="btn btn-primary btn-sm" id="ar-save-btn" onclick="saveSection(4)">Enregistrer</button></div>
+        <div style="margin-top:10px"><button class="btn btn-secondary btn-sm" id="ar-save-btn" onclick="saveSection(4)"><i class="icon icon-save"></i>Save now</button></div>
       </div>
     </div>
 
@@ -885,9 +932,10 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
       <div class="report-info">
         <div class="ri-label">Report Status</div>
         <div class="ri-value" id="report-status-label">—</div>
+        <div class="report-progress" id="report-progress" aria-live="polite"></div>
       </div>
       <button class="btn btn-secondary" id="btn-pptx-weekly" onclick="downloadWeeklyPptx()"><i class="icon icon-download"></i>Weekly PPTX</button>
-      <button class="btn btn-success" id="btn-submit" onclick="submitReport()"><i class="icon icon-check" aria-hidden="true"></i> Submit Report</button>
+      <button class="btn btn-primary" id="btn-submit" onclick="submitReport()"><i class="icon icon-check" aria-hidden="true"></i> Submit Report</button>
       <button class="btn btn-secondary" id="btn-revert" onclick="revertReport()" style="display:none">↩ Revert to Draft</button>
       <button class="btn btn-danger btn-sm" id="btn-delete-draft" onclick="deleteCurrentReport()" style="display:none;margin-left:8px" title="Delete this draft report"><i class="icon icon-trash" aria-hidden="true"></i> Delete</button>
     </div>
@@ -2726,12 +2774,25 @@ function toast(msg, type='info') {
   setTimeout(() => t.remove(), 3500);
 }
 
-function setSaving(state) {
+// ONE save signal for the editor (site coordinator P2-9): "Saving…" → "Saved at 07:18" (it stays, so the user can
+// always see when the last save landed) → "Not saved — retry" (a button; autosave failures are no longer silent).
+// A call with '' keeps the last "Saved at" text instead of blanking the line.
+let _lastSavedAt = null;
+function setSaving(state, section) {
   const el = document.getElementById('saving-indicator');
   if (!el) return;
-  if (state === 'saving') { el.className='saving-indicator saving'; el.textContent='💾 Saving…'; }
-  else if (state === 'saved') { el.className='saving-indicator saved'; el.textContent='✓ Saved'; }
-  else { el.className='saving-indicator'; el.textContent=''; }
+  const hhmm = (d) => String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  if (state === 'saving') { el.className='saving-indicator saving'; el.textContent='Saving…'; }
+  else if (state === 'saved') { _lastSavedAt = new Date(); el.className='saving-indicator saved'; el.textContent='✓ Saved at ' + hhmm(_lastSavedAt); }
+  else if (state === 'failed') {
+    el.className='saving-indicator failed'; el.textContent='';
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'saving-retry'; b.textContent = 'Not saved — retry';
+    b.addEventListener('click', () => saveSection(section == null ? currentSection : section));
+    el.appendChild(b);
+  }
+  else if (state === 'reset') { _lastSavedAt = null; el.className='saving-indicator'; el.textContent=''; }
+  else if (_lastSavedAt) { el.className='saving-indicator saved'; el.textContent='✓ Saved at ' + hhmm(_lastSavedAt); }
+  else { el.className='saving-indicator'; el.textContent='Changes are saved automatically'; }
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -2861,6 +2922,7 @@ async function initApp() {
   if (currentUser.site_id) {
     document.getElementById('sel-site').value = currentUser.site_id;
   }
+  renderLeadCard();
 
   loadReportList();
 
@@ -2996,17 +3058,55 @@ async function loadReportList(offset) {
       window.__markFirstUsable && window.__markFirstUsable('reports:list');   // F-UX-05
       return;
     }
-    const STATUS = { submitted: '✅ Submitted', ready: '✔ Ready', in_progress: '⏳ In Progress' };
     grid.innerHTML = reports.map(r => `
       <div class="report-card ${esc(r.status)}" onclick="openReportById(${Number(r.id)})">
         <div class="rc-site">${esc(r.site_name)}</div>
         <div class="rc-week">${r.week_display ? esc(r.week_display) : `${esc(r.week_label)} &nbsp;(${esc(r.start_date)} → ${esc(r.end_date)})`}</div>
-        <span class="rc-status ${esc(r.status)}">${STATUS[r.status] || '✏ Draft'}</span>
+        <span class="rc-status ${esc(r.status)}">${esc(reportStatusLabel(r.status))}</span>
         <span style="font-size:0.77rem;color:#bbb;margin-left:8px">Updated ${r.updated_at ? esc(String(r.updated_at).slice(0,10)) : '—'}</span>
       </div>
     `).join('');
     window.__markFirstUsable && window.__markFirstUsable('reports:list');   // F-UX-05
   } catch(e) { grid.innerHTML = `<div class="empty-state"><p>Error loading reports: ${esc(e)}</p></div>`; window.__markFirstUsable && window.__markFirstUsable('reports:error'); }
+}
+
+// ONE status vocabulary for a weekly report — the words Home ("My work") already shows for the same report
+// (services/myWork.js weeklyLabel): the list, the editor and the lead card no longer say "Draft" where Home says
+// "In progress" (site coordinator P2-17).
+function reportStatusLabel(status) {
+  if (status === 'ready') return 'Complete but not submitted';
+  if (status === 'submitted') return 'Submitted';
+  if (status === 'draft' || status === 'in_progress') return 'In progress';
+  return 'Not started';
+}
+
+// Site coordinator P2-17 — the landing page leads with the ONE thing a coordinator comes for: the report that is
+// due, with its state and a single primary button. It uses the picker's own defaults (the user's site, the due
+// week) and the picker's own open/create path; the Group / Year / Week picker stays below for any other week.
+async function renderLeadCard() {
+  const box = document.getElementById('rl-lead'); if (!box) return;
+  const site_id = currentUser && currentUser.site_id ? Number(currentUser.site_id) : null;
+  const year = parseInt(document.getElementById('sel-year').value), week = parseInt(document.getElementById('sel-week').value);
+  if (!site_id || !year || !week) { box.hidden = true; document.body.classList.remove('rl-has-lead'); return; }
+  const site = allSites.find(x => Number(x.id) === site_id);
+  let rep = null, known = true;
+  try {
+    const page = await api('GET', `/api/reports?${new URLSearchParams({ limit: '1', offset: '0', site_id: String(site_id), year: String(year), week: String(week) })}`);
+    rep = ((page && page.rows) || [])[0] || null;
+  } catch (_) { known = false; }
+  const w = 'W' + String(week).padStart(2, '0');
+  const status = rep ? rep.status : null;
+  document.getElementById('rl-lead-week').textContent = _weekBadge(year, week);
+  document.getElementById('rl-lead-site').textContent = site ? (site.name || site.zoho_group || '') : '';
+  // the state is unknown when the list could not be read — never "Not started" on a failed read
+  document.getElementById('rl-lead-status').textContent = known ? reportStatusLabel(status) : '—';
+  const btn = document.getElementById('rl-lead-btn');
+  btn.textContent = (status === 'submitted' ? 'Open ' : rep ? 'Continue ' : 'Start ') + w;
+  btn.onclick = () => {
+    document.getElementById('sel-site').value = site_id; document.getElementById('sel-year').value = year; document.getElementById('sel-week').value = week;
+    return rep ? openReportById(rep.id) : openOrCreateReport();
+  };
+  box.hidden = false; document.body.classList.add('rl-has-lead');
 }
 
 async function openOrCreateReport() {
@@ -3076,6 +3176,7 @@ function renderForm() {
   renderLights();
   renderActions();
   _markSectionTabsFromData();
+  setSaving('reset'); setSaving('');   // a new report: no "Saved at" carried over from the previous one
   loadAssetFollowups();
   // Show audit trail panel and load entries
   document.getElementById('audit-panel').style.display = 'block';
@@ -3084,6 +3185,10 @@ function renderForm() {
 
 // Tabs are marked done from what is already saved (they used to be marked only on
 // a save in the current session, and the class leaked from one report to the next).
+let _actionsSavedEmpty = false;
+// the Import / "more" menus of the action row close after a choice, on a click outside and on Escape
+document.addEventListener('click', (e) => { document.querySelectorAll('.act-menu[open]').forEach((d) => { if (!d.contains(e.target) || e.target.closest('.act-menu__list button')) d.open = false; }); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') document.querySelectorAll('.act-menu[open]').forEach((d) => { d.open = false; }); });
 function _assetReviewDone(ar) {
   return !!ar && (ar.applicable === false ||
     (String(ar.handled_note || '').trim() !== '' && String(ar.plan_note || '').trim() !== ''));
@@ -3091,15 +3196,33 @@ function _assetReviewDone(ar) {
 // a tab turns green only when its content is complete: every infra KPI row carries a typed value (an empty row is
 // "— Not measured", not done)
 function _infraComplete(rows) { return Array.isArray(rows) && rows.length > 0 && rows.every((k) => String((k && k.status_value) || '').trim() !== ''); }
-function _markSectionTabsFromData() {
+// ONE rule per tab, used when a report opens AND after every save (site coordinator P2-10: a save alone never
+// turns a tab green). 3 = Action Items: rows present, or the section was saved empty in this session ("nothing to
+// follow up this week" is a complete answer once the editor has said so).
+function _sectionComplete(n) {
   const r = currentReport || {};
-  for (let i = 0; i < 5; i++) { const t = document.getElementById('stab-' + i); if (t) t.classList.remove('done'); }
-  const mark = (i, on) => { const t = document.getElementById('stab-' + i); if (t && on) t.classList.add('done'); };
-  mark(0, _infraComplete(r.infra_kpis));   // site coordinator P2: green only when every KPI row has a value
-  mark(1, !!(r.helpdesk && (r.helpdesk.fetched_at || r.helpdesk.updated_at)));
-  mark(2, (r.lights || []).length > 0);
-  mark(3, (r.action_items || []).length > 0);
-  mark(4, _assetReviewDone(r.asset_review));
+  if (n === 0) return _infraComplete(r.infra_kpis);
+  if (n === 1) { const h = r.helpdesk; return !!(h && (h.fetched_at || h.updated_at || (h.chart_data && Array.isArray(h.chart_data.weeks) && h.chart_data.weeks.length))); }
+  if (n === 2) return (r.lights || []).length > 0;
+  if (n === 3) return (r.action_items || []).length > 0 || _actionsSavedEmpty;
+  if (n === 4) return _assetReviewDone(r.asset_review);
+  return false;
+}
+function _paintSectionTab(n, done) {
+  const t = document.getElementById('stab-' + n); if (!t) return;
+  const on = done === undefined ? _sectionComplete(n) : !!done;
+  t.classList.toggle('done', on);
+  t.setAttribute('data-state', on ? 'complete' : 'todo');
+  _paintSectionProgress();
+}
+function _paintSectionProgress() {
+  const el = document.getElementById('report-progress'); if (!el) return;
+  const n = document.querySelectorAll('#section-tabs .section-tab.done').length;
+  el.textContent = n + ' / 5 sections complete';
+}
+function _markSectionTabsFromData() {
+  _actionsSavedEmpty = false;
+  for (let i = 0; i < 5; i++) _paintSectionTab(i);
 }
 
 let _assetFollowups = null;   // last /asset-followups payload for the open report
@@ -3171,7 +3294,7 @@ function renderAssetReview() {
   const tab = document.getElementById('stab-4');
   if (!d.applicable) {
     box.innerHTML = '<div style="color:#64748b">Aucun matériel rattaché à ce site.</div>';
-    if (tab) tab.classList.add('done');
+    if (tab) _paintSectionTab(4, true);
     return;
   }
   const submitted = currentReport.status === 'submitted' && currentReport.asset_review && currentReport.asset_review.counts;
@@ -3201,7 +3324,7 @@ function renderAssetReview() {
   }).join('');
   const note = submitted ? '<div style="font-size:0.75rem;color:#64748b;margin-bottom:6px">Compteurs figés à la soumission.</div>' : '';
   box.innerHTML = `${note}<div style="display:flex;gap:10px;flex-wrap:wrap">${cards}</div>`;
-  if (tab) tab.classList.toggle('done', _assetTabDone());
+  if (tab) _paintSectionTab(4, _assetTabDone());
 }
 function collectAssetReview() {
   return { handled_note: document.getElementById('ar-handled-note').value, plan_note: document.getElementById('ar-plan-note').value };
@@ -3317,7 +3440,7 @@ function updateStatusBar() {
   const btnRevert = document.getElementById('btn-revert');
   const btnDelete = document.getElementById('btn-delete-draft');
   if (r.status === 'submitted') {
-    lbl.textContent = '✅ Submitted — ' + (r.submitted_at ? r.submitted_at.slice(0,10) : '');
+    lbl.textContent = '✓ ' + reportStatusLabel('submitted') + ' — ' + (r.submitted_at ? r.submitted_at.slice(0,10) : '');
     lbl.style.color = 'var(--green)';
     btnSubmit.style.display = 'none';
     // Same rule as PUT /api/reports/:id/status: an editor of the report's site, the admin
@@ -3325,19 +3448,19 @@ function updateStatusBar() {
     btnRevert.style.display = (window.__userHasRole && window.__userHasRole('editor')) ? 'inline-flex' : 'none';
     if (btnDelete) btnDelete.style.display = 'none';
   } else if (r.status === 'ready') {
-    lbl.textContent = '✔ Ready to Submit';
+    lbl.textContent = reportStatusLabel('ready');
     lbl.style.color = '#059669';
     btnSubmit.style.display = 'inline-flex';
     btnRevert.style.display = 'none';
     if (btnDelete) btnDelete.style.display = 'inline-flex';
   } else if (r.status === 'in_progress') {
-    lbl.textContent = '⏳ In Progress';
+    lbl.textContent = reportStatusLabel('in_progress');
     lbl.style.color = '#2563eb';
     btnSubmit.style.display = 'inline-flex';
     btnRevert.style.display = 'none';
     if (btnDelete) btnDelete.style.display = 'inline-flex';
   } else {
-    lbl.textContent = '✏ Draft';
+    lbl.textContent = reportStatusLabel('draft');
     lbl.style.color = 'var(--amber)';
     btnSubmit.style.display = 'inline-flex';
     btnRevert.style.display = 'none';
@@ -5179,17 +5302,14 @@ async function saveSection(n) {
       const kpis = collectInfra();
       await api('PUT', `/api/reports/${id}/infra`, kpis);
       currentReport.infra_kpis = kpis;
-      document.getElementById('stab-0').classList.toggle('done', _infraComplete(kpis));
     } else if (n === 1) {
       const hd = collectHelpdesk();
       await api('PUT', `/api/reports/${id}/helpdesk`, hd);
       currentReport.helpdesk = hd;
-      document.getElementById('stab-1').classList.add('done');
     } else if (n === 2) {
       const lights = collectLights();
       await api('PUT', `/api/reports/${id}/lights`, lights);
       currentReport.lights = lights;
-      document.getElementById('stab-2').classList.add('done');
     } else if (n === 3) {
       const actions = collectActions();
       // Client-side block: every row with a non-empty task must have a department.
@@ -5214,19 +5334,17 @@ async function saveSection(n) {
       }
       await api('PUT', `/api/reports/${id}/actions`, actions);
       currentReport.action_items = actions;
-      document.getElementById('stab-3').classList.add('done');
+      _actionsSavedEmpty = actions.length === 0;   // an explicit Save of an empty list = "nothing to follow up"
     } else if (n === 4) {
       const rev = await api('PUT', `/api/reports/${id}/asset-review`, collectAssetReview());
       currentReport.asset_review = rev;
-      document.getElementById('stab-4').classList.toggle('done', _assetTabDone());
+      _paintSectionTab(4, _assetTabDone());
     }
     setSaving('saved');
-    toast('Saved ✓', 'success');
-    setTimeout(() => setSaving(''), 3000);
     loadAuditLog(); // refresh audit trail after each save
     await _afterSectionSaved(n);   // mark section done + auto-advance status
   } catch(e) {
-    setSaving('');
+    setSaving('failed', n);
     toast('Save failed: ' + e, 'error');
   } finally {
     _autoSaveBusy = false;
@@ -5242,8 +5360,7 @@ async function saveSection(n) {
 async function _afterSectionSaved(n) {
   // Tab 4 (Parc informatique) has its own done rule (both notes, or not applicable),
   // applied by its save path — a plain save of an empty note must not tick it.
-  const tab = document.getElementById('stab-' + n);
-  if (tab && n !== 4) tab.classList.add('done');
+  if (n !== 4) _paintSectionTab(n);
   if (!currentReport || !['draft','in_progress'].includes(currentReport.status)) return;
   // Weekly strip ONLY (the monthly editor also uses .section-tab). The old
   // stab-done class selector matched nothing, so auto-ready never fired.
@@ -5315,14 +5432,13 @@ async function autoSaveSection(n) {
       _autoSaveBusy = true; setSaving('saving');
       const rev = await api('PUT', `/api/reports/${id}/asset-review`, collectAssetReview());
       currentReport.asset_review = rev;
-      document.getElementById('stab-4').classList.toggle('done', _assetTabDone());
+      _paintSectionTab(4, _assetTabDone());
     } else { return; }
     setSaving('saved');
     await _afterSectionSaved(n);   // mark section done + auto-advance status
-    setTimeout(() => setSaving(''), 1500);
   } catch (e) {
-    // Silent: the manual Save remains the authoritative path that reports errors.
-    setSaving('');
+    // Not silent any more: the save signal turns into "Not saved — retry" (no toast — the user did not ask to save).
+    setSaving('failed', n);
     console.warn('[autosave] section ' + n + ' failed:', e);
   } finally {
     _autoSaveBusy = false;

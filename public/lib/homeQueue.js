@@ -53,7 +53,7 @@
   var L = {
     en: { title: 'My queue', sub: 'Your open work across your sites, oldest risk first. Each source loads on its own.',
       src: { meetings: 'Meeting actions', inspections: 'Inspection actions', report: 'Report follow-ups', commitments: 'Commitments', awaiting: 'Awaiting me', pending: 'Approvals & projects', obligations: 'Site obligations' },
-      aw: { commitments: 'commitment to verify', handoffs: 'handoff to accept', benefits: 'benefit to verify', decisions: 'decision due', pvs: 'PV to sign',
+      aw: { commitments: 'commitment to verify', handoffs: 'handoff to accept', benefits: 'benefit to verify', decisions: 'decision due', pvs: 'PV waiting for my signature',
         access: 'access request to decide', change_requests: 'change request', gates: 'stage gate to sign', rfis: 'RFI', tasks: 'my overdue task',
         weekly: 'weekly report not submitted', tracker: 'tracker cells empty' },
       complete: 'Complete', snooze: 'Snooze 7 days', delegate: 'Delegate', unsnooze: 'Show again', snoozed: '{n} line(s) snoozed', showSnoozed: 'Show snoozed lines', hideSnoozed: 'Hide snoozed lines',
@@ -65,7 +65,7 @@
       sitesOk: '{ok} of {all} sites', partsOk: '{ok} of {all} parts', unread: 'could not be read', asOf: 'kept from {t}', items: '{n} item(s)', announce: 'Queue: {n} item(s) loaded' },
     fr: { title: 'Ma file de travail', sub: 'Votre travail ouvert sur vos sites, le plus à risque d\'abord. Chaque source se charge seule.',
       src: { meetings: 'Actions de réunion', inspections: 'Actions d\'inspection', report: 'Suivis de rapport', commitments: 'Engagements', awaiting: 'En attente de moi', pending: 'Approbations & projets', obligations: 'Obligations du site' },
-      aw: { commitments: 'engagement à vérifier', handoffs: 'passation à accepter', benefits: 'bénéfice à vérifier', decisions: 'décision due', pvs: 'PV à signer',
+      aw: { commitments: 'engagement à vérifier', handoffs: 'passation à accepter', benefits: 'bénéfice à vérifier', decisions: 'décision due', pvs: 'PV en attente de ma signature',
         access: 'demande d\'accès à décider', change_requests: 'demande de changement', gates: 'jalon à signer', rfis: 'RFI', tasks: 'ma tâche en retard',
         weekly: 'rapport hebdo non soumis', tracker: 'cases du suivi vides' },
       complete: 'Terminer', snooze: 'Reporter de 7 jours', delegate: 'Déléguer', unsnooze: 'Réafficher', snoozed: '{n} ligne(s) reportée(s)', showSnoozed: 'Afficher les lignes reportées', hideSnoozed: 'Masquer les lignes reportées',
