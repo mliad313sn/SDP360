@@ -42,12 +42,12 @@
     h += '<h3>' + esc(t('reviewers')) + '</h3>' + (R.reviewers.length ? '<ul>' + R.reviewers.map(function (r) { return '<li>' + esc(stepLabel(R, r.step)) + ' — ' + esc(r.name || ('#' + r.user_id)) + '</li>'; }).join('') + '</ul>' : '<p class="muted">' + esc(t('none')) + '</p>');
     h += '<h3>' + esc(t('requests')) + '</h3>' + (R.requests.length ? '<ul>' + R.requests.map(function (q) {
       var ans = q.answer != null ? '<div class="muted">' + esc(t('answer')) + ' : ' + esc(q.answer) + ' — ' + esc(q.answered_by || '') + '</div>'
-        : (R.can_respond ? '<div class="row"><label>' + esc(t('answer')) + ' <input id="rv-ans-' + q.id + '" maxlength="4000"></label> <button type="button" class="btn" data-rv="respond" data-req="' + q.id + '">' + esc(t('respond')) + '</button></div>' : '');
+        : (R.can_respond ? '<div class="bar ppm-form-line"><label>' + esc(t('answer')) + ' <input id="rv-ans-' + q.id + '" maxlength="4000"></label> <button type="button" class="btn" data-rv="respond" data-req="' + q.id + '">' + esc(t('respond')) + '</button></div>' : '');
       return '<li>' + esc(stepLabel(R, q.step)) + ' — ' + esc(q.question) + ' <small class="muted">(' + esc(q.by || '') + ', ' + esc(q.answer != null ? t('answered') : t('open')) + ')</small>' + ans + '</li>'; }).join('') + '</ul>' : '<p class="muted">' + esc(t('none')) + '</p>');
     if (R.returns.length) h += '<h3>' + esc(t('returns')) + '</h3><ul>' + R.returns.map(function (r) { return '<li>' + esc(String(r.at || '').slice(0, 10)) + ' — ' + esc(r.reason) + ' <small class="muted">(' + esc(r.by || '') + ')</small></li>'; }).join('') + '</ul>';
-    if (R.can_assign) h += '<div class="row"><label>' + esc(t('step')) + ' ' + stepSelect(R, 'rv-as-step') + '</label> ' + reviewerControl(R) + ' <button type="button" class="btn" data-rv="assign">' + esc(t('assign')) + '</button></div>';
-    if (R.can_request) h += '<div class="row"><label>' + esc(t('step')) + ' ' + stepSelect(R, 'rv-q-step') + '</label> <label>' + esc(t('question')) + ' <input id="rv-q-text" maxlength="2000"></label> <button type="button" class="btn" data-rv="ask">' + esc(t('ask')) + '</button></div>';
-    if (R.can_return) h += '<div class="row"><label>' + esc(t('reason')) + ' <input id="rv-ret-reason" maxlength="2000"></label> <button type="button" class="btn" data-rv="return">' + esc(t('ret')) + '</button> <button type="button" class="btn" data-rv="template">' + esc(t('template')) + '</button></div>';
+    if (R.can_assign) h += '<div class="bar ppm-form-line"><label>' + esc(t('step')) + ' ' + stepSelect(R, 'rv-as-step') + '</label> ' + reviewerControl(R) + ' <button type="button" class="btn" data-rv="assign">' + esc(t('assign')) + '</button></div>';
+    if (R.can_request) h += '<div class="bar ppm-form-line"><label>' + esc(t('step')) + ' ' + stepSelect(R, 'rv-q-step') + '</label> <label>' + esc(t('question')) + ' <input id="rv-q-text" maxlength="2000"></label> <button type="button" class="btn" data-rv="ask">' + esc(t('ask')) + '</button></div>';
+    if (R.can_return) h += '<div class="bar ppm-form-line"><label>' + esc(t('reason')) + ' <input id="rv-ret-reason" maxlength="2000"></label> <button type="button" class="btn" data-rv="return">' + esc(t('ret')) + '</button> <button type="button" class="btn" data-rv="template">' + esc(t('template')) + '</button></div>';
     host.innerHTML = h;
   }
 

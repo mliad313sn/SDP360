@@ -240,8 +240,8 @@ not the browser-checked level.
 
 | File | SHA-256 |
 |---|---|
-| `docs/agent-execution/INVENTORY.json` | `3242648f617e3f1475fa7259491ddf2de703ff96f64b7118e9778d635c9022df` |
-| `docs/agent-execution/INVENTORY.md` | `e052ff8c6d83a73c5b31fdad8159715cd374d6d2942ee7ff9b6bd65a4dce6934` |
+| `docs/agent-execution/INVENTORY.json` | `daf8ec0c54fec4eca901b72abe51d51ecb8b1fb087f8a72d501e55f0b0c4dbd3` |
+| `docs/agent-execution/INVENTORY.md` | `2ae8949ccc21623fa0a8d645e53549dee2d514a67450321daff80f3568b776a3` |
 | `docs/agent-execution/TRACEABILITY.md` | `bab98d60573cc653947f1acead471e8655cbc78134969e91ee7f281ff9876c0a` |
 | `docs/ops/AUTHZ-MATRIX.md` | `b718b64fff1f6f6f4fc6ea729f66ad9565c988f5dc601b9073dfc20b4ab4e93e` |
 | `docs/ops/FLAG-REGISTER.md` | `f0c695c7960cac781d281c1bb4f929890911542445c0bc2338df5a5e40019cb4` |

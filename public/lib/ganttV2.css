@@ -4,14 +4,14 @@
 .g2-grp { display:inline-flex; gap:4px; align-items:center; }
 .g2-live { min-height:1em; }
 .g2-split { display:flex; border:1px solid #e4e8ee; border-radius:10px; overflow:hidden; background:#fff; }
-.g2-grid { flex:0 0 auto; max-width:46%; display:flex; flex-direction:column; border-right:2px solid #e4e8ee; overflow-x:auto; overflow-y:hidden; }
+.g2-grid { flex:0 0 auto; max-width:54%; display:flex; flex-direction:column; border-right:2px solid #e4e8ee; overflow-x:auto; overflow-y:hidden; }
 .g2-ghead { height:40px; display:flex; background:#f4f6f7; border-bottom:1px solid #e4e8ee; flex:0 0 auto; }
 .g2-ghead .g2-c { font-weight:600; line-height:40px; }
 .g2-gbody { flex:1 1 auto; overflow:hidden; position:relative; }
 .g2-gin { position:relative; }
 .g2-row { position:absolute; left:0; right:0; height:26px; display:flex; border-bottom:1px solid #f0f2f5; }
 .g2-row:nth-child(even) { background:#fafbfc; }
-.g2-rcrit .g2-c:first-child { box-shadow:inset 3px 0 0 #B91C1C; }
+/* PMO UX — no red stripe on every critical row: the bar's outline says it */
 .g2-c { flex:0 0 auto; box-sizing:border-box; padding:0 6px; font-size:12px; line-height:26px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; border-right:1px solid #f0f2f5; }
 .g2-c:focus { outline:2px solid var(--edv-orange,#E87722); outline-offset:-2px; }
 .g2-ed { cursor:text; }
@@ -26,7 +26,7 @@
 .g2-zebra { fill:#fafbfc; }
 .g2-bar .g2-fill { fill:#3A4A60; }
 .g2-bar.g2-comp .g2-fill { fill:url(#g2hatch); stroke:#3A4A60; }
-.g2-bar.g2-crit .g2-fill, .g2-ms.g2-crit path { fill:#B91C1C; }
+.g2-bar.g2-crit .g2-fill, .g2-ms.g2-crit path { stroke:#B91C1C; stroke-width:2; }   /* PMO UX: critical = red OUTLINE (MS Project), solid red is kept for late */
 .g2-bar.g2-sum .g2-fill { fill:#1F2A33; }
 .g2-ms path { fill:#3A4A60; }
 .g2-bar { cursor:grab; }
@@ -52,7 +52,7 @@
 .g2-node .g2-nsub { font-size:10.5px; fill:#6b7785; }
 .g2-list { list-style:none; margin:0; padding:0; }
 .g2-li { padding:8px 4px; border-bottom:1px solid #f0f2f5; }
-.g2-li.g2-rcrit { box-shadow:inset 3px 0 0 #B91C1C; padding-left:8px; }
+.g2-li.g2-rcrit { padding-left:4px; }   /* PMO UX: "critical" is written on the row — no red stripe on every line (red = late) */
 .g2-open { background:none; border:none; padding:0; font:inherit; font-weight:600; color:#1F2A33; cursor:pointer; text-align:left; }
 @media (max-width: 560px) { .g2-split { height:auto !important; } .g2-grid { max-width:60%; } }
 @media (prefers-reduced-motion: reduce) { .g2-lh { transition:none; } }
@@ -61,3 +61,15 @@
 .g2-hatch-bg { fill:var(--color-border,#E2E5EA); }
 .g2-hatch-line { stroke:var(--edv-slate,#3A4A60); }
 .g2-arrow { fill:var(--edv-slate-75,#70798B); }
+
+/* PMO UX — one legend as chips; the editing help behind (i) */
+.g2-legend { display:flex; flex-wrap:wrap; align-items:center; gap:4px 14px; font-size:12px; color:var(--color-text-muted,#4A5563); margin:6px 0 8px; }
+.g2-chip { display:inline-flex; align-items:center; gap:5px; }
+.g2-sw { display:inline-block; width:22px; height:10px; border-radius:4px; background:var(--edv-slate,#3A4A60); }
+.g2-sw-comp { background:repeating-linear-gradient(45deg,var(--color-border,#cfd6e0) 0 3px,var(--edv-slate,#3A4A60) 3px 5px); }
+.g2-sw-crit { box-shadow:0 0 0 2px var(--color-danger,#B91C1C) inset; }
+.g2-sw-base { background:none; border:1.5px dashed var(--color-border-strong,#9AA4B2); }
+.g2-sw-ms { width:10px; height:10px; transform:rotate(45deg); border-radius:1px; }
+.g2-sw-today { width:2px; height:14px; border-radius:0; background:var(--edv-orange,#E87722); }
+.g2-sr { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
+.g2-ghead .g2-c { min-width:40px; }

@@ -11,6 +11,10 @@
 <script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
 <script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
 <script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/format.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/codeLabels.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/ppmLabels.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/ppmUx.js"></script>
 <style nonce="%%CSP_NONCE%%">
   body { margin: 0; background: var(--color-bg); color: var(--color-text-strong); font-family: var(--font-sans); font-size: 14px; }
   .pd-wrap { max-width: 1280px; margin: 0 auto; padding: var(--space-6) var(--space-6) var(--space-12); }
@@ -31,16 +35,16 @@
   a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--color-secondary); outline-offset: 2px; }
   .pd-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 </style>
+<!-- PMO UX (2026-11) — one page frame + components, loaded last --><link rel="stylesheet" href="lib/ppmUx.css">
 </head>
 <body>
 <a class="edv-skip" href="#main">Skip to content</a>
 <div id="__shell" data-section="operations" data-current="portfolio"></div>
-<main id="main" class="pd-wrap">
-  <div class="pd-card">
-    <h1 id="pdTitle">Portfolio decisions &amp; alerts</h1>
-    <p class="pd-muted" id="pdIntro"></p>
-    <p class="pd-muted" id="pdMeta" role="status" aria-live="polite"></p>
-  </div>
+<main id="main" class="pd-wrap ppm-page">
+  <header class="ppm-page-header"><div class="ppm-title"><h1 id="pdTitle">Portfolio decisions &amp; alerts</h1></div>
+    <div class="ppm-actions"><a class="ppm-back" id="pdBack" href="portfolio.html">← Portfolio</a></div></header>
+  <p class="ppm-sub" id="pdIntro"></p>
+  <p class="pd-muted" id="pdMeta" role="status" aria-live="polite"></p>
   <section class="pd-card" id="pdAgendaCard" hidden aria-labelledby="pdAgendaH"><h2 id="pdAgendaH"></h2><p class="pd-muted" id="pdAgendaSum"></p><div class="pd-scroll" id="pdAgenda"></div></section>
   <section class="pd-card" id="pdAlertsCard" hidden aria-labelledby="pdAlertsH"><h2 id="pdAlertsH"></h2><p class="pd-muted" id="pdAlertsNote"></p><div class="pd-scroll" id="pdAlerts"></div></section>
 </main>

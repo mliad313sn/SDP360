@@ -63,7 +63,8 @@ test('project.html wires its handlers in JS (no inline on…= attributes) and us
   assert.ok(!/\son[a-z]+="/i.test(page));
   assert.match(page, /role="tablist"/);
   // 8 tabs always shown; the W2-PPM add-on tabs (Budget, RACI) and R2-WB-01 Changes are hidden until their switch answers
-  const tabs = page.match(/<button[^>]*role="tab"[^>]*>/g) || [];
+  // PMO UX (2026-11): the Plan tab has its own sub-view tablist (data-sub buttons) — only the section tabs (id="tab-…") count here
+  const tabs = (page.match(/<button[^>]*role="tab"[^>]*>/g) || []).filter((t) => /\sid="tab-/.test(t));
   assert.equal(tabs.filter((t) => !/\shidden[\s>]/.test(t)).length, 8);
   assert.ok(tabs.filter((t) => /\shidden[\s>]/.test(t)).every((t) => /id="tab-(budget|raci|changes|board|comments|intake|p2deps|p2demand|p2docs)"/.test(t)), 'only the add-on tabs are hidden (W4: board, comments; PORTFOLIO LOT 1: intake; LOT 6: p2deps, p2demand, p2docs)');
   assert.match(script, /ArrowRight/); assert.match(script, /ArrowLeft/);

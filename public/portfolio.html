@@ -16,6 +16,11 @@
 <script nonce="%%CSP_NONCE%%" src="lib/dashboardRender.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/allocationContract.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/ppmVisuals.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/format.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/codeLabels.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/ppmLabels.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/ppmUx.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/reasonDialog.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/ppmExtras.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/urlFilters.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/portfolioViews.js"></script>
@@ -56,54 +61,81 @@
   .pf-card { background:var(--color-card); border:1px solid var(--color-border); border-radius:8px; padding:6px 8px; font-size:12.5px; } .pf-card a:focus { outline:2px solid var(--color-primary); outline-offset:2px; }
   @media (max-width:760px) { .tl-row { grid-template-columns:1fr; } }
 </style>
+<!-- PMO UX (2026-11) — one page frame + components, tokens only, loaded last --><link rel="stylesheet" href="lib/ppmUx.css">
 </head>
 <body>
 <a class="edv-skip" href="#main">Skip to content</a>
 <div id="__shell" data-section="operations" data-current="portfolio"></div>
-<main id="main" class="wrap">
-  <h1>Portfolio</h1>
-  <div class="sub">Programmes → objectives (evidence from the KPI dictionary) → projects → milestones → deliverables, with risks. “—” means not measured, never 0 (help §25).</div>
+<main id="main" class="wrap ppm-page">
+  <header class="ppm-page-header">
+    <div class="ppm-title"><h1>Portfolio</h1></div>
+    <div class="ppm-actions">
+      <a class="btn" id="register-link" href="portfolio-register.html" hidden>Register &amp; executive dashboard</a><a class="btn" id="decisions-link" href="portfolio-decisions.html" hidden>Decisions &amp; alerts</a><a class="btn" id="phase2-link" href="portfolio-phase2.html" hidden>Capacity &amp; scenarios</a>
+      <details class="ppm-more"><summary class="btn">Export ▾</summary><div class="ppm-more-menu"><a id="report" href="/api/governance/portfolio/report.html" target="_blank" rel="noopener">Monthly report (HTML)</a></div></details>
+      <button class="btn primary" id="add-programme" type="button" hidden>+ Programme</button>
+    </div>
+  </header>
+  <p class="ppm-sub">Programmes → objectives (evidence from the KPI dictionary) → projects → milestones → deliverables, with risks.</p>
   <!-- A-21 — the lean menu leaves the RFI register out; shown only when report_config ui_nav_profile='lean' -->
   <p class="shell-lean-only">Requests that may become projects: <a href="rfi.html">RFI register</a></p>
   <div id="msg" role="status" aria-live="polite"></div>
   <div class="tiles" id="tiles"></div>
-  <!-- B3 (P7a) — "My projects" default, only while portfolio_my_projects_default = '1' (presentation; grants nothing) -->
-  <div class="bar" id="pf-mine" hidden><label>Show <select id="pf-mine-sel"><option value="mine">My projects</option><option value="all">All projects</option></select></label><span class="muted" id="pf-mine-note">Totals and money still cover every project you may read.</span></div>
-  <div class="bar"><a class="btn" id="report" href="/api/governance/portfolio/report.html" target="_blank" rel="noopener">Monthly report (HTML)</a><a class="btn" id="register-link" href="portfolio-register.html" hidden>Register &amp; executive dashboard</a><a class="btn" id="decisions-link" href="portfolio-decisions.html" hidden>Decisions &amp; alerts</a><a class="btn" id="phase2-link" href="portfolio-phase2.html" hidden>Capacity &amp; scenarios</a><button class="btn" id="mig-dry" type="button" hidden>Roadmap Manager migration — dry run</button><button class="btn danger" id="mig-apply" type="button" hidden>Apply migration</button></div>
-  <pre id="mig" class="panel" hidden style="font-size:12px;white-space:pre-wrap"></pre>
-  <div class="panel"><h2>Programmes &amp; objectives</h2><div class="scroll" id="tree"></div></div>
-  <div class="panel"><h2>Money by programme</h2><div class="scroll" id="money"></div></div>
+  <!-- PMO UX — executive strip: delivery status mix, money per currency (never added across currencies), next milestones, decisions waiting -->
+  <div class="ppm-strip" id="exec-strip"></div>
+  <!-- PMO UX — one filter bar for the whole page, kept in the address (lib/urlFilters.js) -->
+  <form class="ppm-filters" id="pf-filters" aria-label="Filter the portfolio">
+    <label>Programme <select id="f-prog" name="prog"><option value="">All</option></select></label>
+    <label>Site <select id="f-site" name="site"><option value="">All</option></select></label>
+    <label>Owner <select id="f-owner" name="owner"><option value="">All</option></select></label>
+    <label>Stage <select id="f-stage" name="stage"><option value="">All</option></select></label>
+    <label class="ppm-check"><input type="checkbox" id="f-late" name="late" value="1"> Late only</label>
+    <!-- B3 (P7a) — "My projects" default, only while portfolio_my_projects_default = '1' (presentation; grants nothing) -->
+    <span id="pf-mine" hidden><label>Show <select id="pf-mine-sel"><option value="mine">My projects</option><option value="all">All projects</option></select></label><span class="muted" id="pf-mine-note">Totals and money still cover every project you may read.</span></span>
+    <button class="btn" type="button" id="f-reset">Clear filters</button><span class="muted" id="f-count" role="status" aria-live="polite"></span>
+  </form>
   <div class="panel"><h2>Schedule (projects &amp; milestones)</h2>
     <nav class="bar" id="pf-views" aria-label="Portfolio views" hidden><a class="btn pf-view primary" href="?view=timeline" data-view="timeline" aria-current="page">Timeline</a> <a class="btn pf-view" href="?view=list" data-view="list">List</a> <a class="btn pf-view" href="?view=board" data-view="board">Board</a></nav>
-    <div id="list-view" hidden></div><div id="board" hidden></div><div id="timeline"></div><p class="muted">Keyboard: Tab to a project key, then the arrow keys move between projects and Enter opens the project page. The table view holds the same data.</p><details><summary class="muted">Table view (dates, plan, alerts)</summary><div class="scroll" id="gantt"></div></details></div>
+    <div id="list-view" hidden></div><div id="board" hidden></div><div id="timeline"></div><p class="muted">Keyboard: Tab to a project name, then the arrow keys move between projects and Enter opens the project page. The table view holds the same data.</p><details><summary class="muted">Table view (dates, plan, alerts)</summary><div class="scroll" id="gantt"></div></details></div>
+  <div class="panel"><div class="ppm-page-header"><h2 class="ppm-title">Programmes &amp; objectives</h2></div><div class="scroll" id="tree"></div></div>
   <!-- W4 (PPM parity) — Now / Next / Later, only while ppm_roadmap_nnl_enabled = '1' (a pure grouping of the projects shown) -->
   <div class="panel" id="nnl-panel" hidden><h2>Roadmap — now, next, later</h2><div class="scroll" id="nnl"></div></div>
-  <div class="panel"><h2>Resource conflicts</h2><div class="scroll" id="conflicts"></div></div>
-  <div class="panel"><h2>Resource pressure per person and week</h2><div class="scroll" id="pressure"></div></div>
-  <div class="panel" id="capacity-panel" hidden><h2>Capacity per site and week</h2><div class="scroll" id="capacity"></div></div>
-  <div class="panel"><h2>Risks</h2><div class="scroll" id="risks"></div></div>
-  <div class="panel"><h2>Risk matrix (probability × impact)</h2><div class="scroll" id="risk-matrix"></div></div>
-  <div class="panel" id="annual-panel" hidden><h2>Annual planning pack (draft)</h2><div class="row"><label>Year <input id="ap-year" type="number" min="2000" max="2100"></label><a class="btn" id="ap-get" href="#">Download the draft pack (XLSX)</a></div></div>
+  <div class="panel"><h2>Top risks</h2><div class="scroll" id="risks"></div></div>
+  <div class="ppm-nothing" id="nothing" hidden></div>
+  <details class="ppm-collapse" id="sec-money"><summary>Money by programme <span class="muted">— per currency, never added together</span></summary><div class="ppm-collapse-body"><div class="scroll" id="money"></div></div></details>
+  <details class="ppm-collapse" id="sec-risk"><summary>Risk matrix <span class="muted">— probability × impact</span></summary><div class="ppm-collapse-body"><div class="scroll" id="risk-matrix"></div></div></details>
+  <details class="ppm-collapse" id="sec-res"><summary>Resources &amp; capacity <span class="muted" id="sec-res-note"></span></summary><div class="ppm-collapse-body">
+    <div class="panel"><h2>Resource conflicts</h2><div class="scroll" id="conflicts"></div></div>
+    <div class="panel"><h2>Resource pressure per person and week</h2><div class="scroll" id="pressure"></div></div>
+    <div class="panel" id="capacity-panel" hidden><h2>Capacity per site and week</h2><div class="scroll" id="capacity"></div></div>
+  </div></details>
+  <details class="ppm-collapse" id="sec-tools"><summary>Planning tools <span class="muted">— annual pack, templates, published roadmaps</span></summary><div class="ppm-collapse-body">
+  <div class="panel" id="annual-panel" hidden><h2>Annual planning pack (draft)</h2><div class="bar"><label>Year <input id="ap-year" type="number" min="2000" max="2100"></label><a class="btn" id="ap-get" href="#">Download the draft pack (XLSX)</a></div></div>
   <div class="panel" id="templates-panel" hidden><h2>Project templates</h2><div class="scroll" id="templates"></div>
-    <div class="row" id="tpl-use" hidden><label>Objective id <input id="tpl-obj" type="number"></label><label>Project key <input id="tpl-key"></label><label>Project name <input id="tpl-pname"></label><button class="btn primary" id="tpl-create" type="button">Create the project</button></div></div>
+    <div class="row" id="tpl-use" hidden><label>Objective <select id="tpl-obj"></select></label><label>Project key <input id="tpl-key"></label><label>Project name <input id="tpl-pname"></label><button class="btn primary" id="tpl-create" type="button">Create the project</button></div></div>
   <!-- B6 (P7a) — audience-scoped roadmap publications, only while roadmap_audience_publication_enabled = '1' -->
   <div class="panel" id="pub-panel" hidden><h2>Published roadmaps</h2><div class="scroll" id="pubs"></div>
     <details id="pub-new"><summary class="btn">Publish a roadmap snapshot</summary>
       <div class="row" style="margin-top:8px">
         <label>Audience <select id="pub-aud"><option value="site">Site</option><option value="programme">Programme</option><option value="committee">Committee</option><option value="exec">Executive</option></select></label>
-        <label>Site or programme id <input id="pub-ref" type="number" min="1"></label>
+        <label id="pub-ref-box">Site or programme <select id="pub-ref"></select></label>
         <label>Title <input id="pub-title" maxlength="200"></label>
         <label>Expires after (days, blank = never) <input id="pub-exp" type="number" min="1" max="365"></label>
         <label>Include amounts (committee / executive only) <input id="pub-amt" type="checkbox"></label>
       </div><div class="bar"><button class="btn primary" id="pub-go" type="button">Publish</button></div></details>
     <div id="pub-view"></div></div>
+  <!-- B3 (P7a) — sensitive flag, committee / admin tier, only while portfolio_sensitive_projects = '1' -->
+  <div class="panel" id="sens-bar" hidden><h2>Sensitive projects</h2><div class="bar"><label>Project <select id="sens-id"></select></label><label class="ppm-inline"><input id="sens-on" type="checkbox"> Sensitive project</label><button class="btn" id="sens-save" type="button">Save sensitivity</button></div></div>
+  <div class="panel" id="mig-panel" hidden><h2>Roadmap Manager migration (super administrator)</h2><div class="bar"><button class="btn" id="mig-dry" type="button" hidden>Roadmap Manager migration — dry run</button><button class="btn danger" id="mig-apply" type="button" hidden>Apply migration</button></div><pre id="mig" hidden style="font-size:12px;white-space:pre-wrap"></pre></div>
+  </div></details>
+  <!-- PMO UX — the generic form keyed on typed ids is kept ONLY as an advanced fallback for the super administrator;
+       everyone else creates from the context (+ Programme / + Objective / + Project / + Deliverable) in a drawer -->
   <details class="panel" id="edit" hidden><summary class="btn" id="e-sum">Add / edit an element (committee)</summary>
     <div class="row" style="margin-top:8px">
-      <label>Kind <select id="e-kind"><option>programme</option><option>objective</option><option>project</option><option>milestone</option><option>deliverable</option><option>risk</option><option>task</option></select></label>
+      <label>Kind <select id="e-kind"><option value="programme">Programme</option><option value="objective">Objective</option><option value="project">Project</option><option value="milestone">Milestone</option><option value="deliverable">Deliverable</option><option value="risk">Risk</option><option value="task">Task</option></select></label>
       <label>Id (blank = new) <input id="e-id" type="number"></label>
       <label>Parent id (programme / objective / project) <input id="e-parent" type="number"><datalist id="e-parents"></datalist></label>
       <label>Key <input id="e-key"></label><label>Name / title <input id="e-name"></label><label>Owner <input id="e-owner"></label>
-      <label>Status <input id="e-status" placeholder="on_track · at_risk · planned · active · done · open"></label>
+      <label>Status <input id="e-status" list="e-statuses"><datalist id="e-statuses"><option value="on_track">On track</option><option value="at_risk">At risk</option><option value="planned">Planned</option><option value="active">Active</option><option value="done">Done</option><option value="open">Open</option></datalist></label>
       <label>Start <input id="e-start" type="date"></label><label>Due / end <input id="e-end" type="date"></label><label>Baseline end <input id="e-base" type="date"></label>
       <label>Progress % <input id="e-prog" type="number" min="0" max="100"></label><label>Weight <input id="e-weight" type="number" step="0.1"></label>
       <label>Evidence metric key <input id="e-metric" placeholder="helpdesk.resolution_sla_pct"></label><label>Evidence target <input id="e-target" type="number" step="0.1"></label>
@@ -112,11 +144,32 @@
       <label>Effort hours (task) <input id="e-effort" type="number" min="0" step="0.5"></label><label>Depends on task ids (task, comma) <input id="e-deps" placeholder="12, 13"></label>
       <label>Probability (1-3) <input id="e-prob" type="number" min="1" max="3"></label><label>Impact (1-3) <input id="e-imp" type="number" min="1" max="3"></label>
       <label style="grid-column:1/-1">Description / mitigation / manual evidence <textarea id="e-text" rows="2"></textarea></label>
-    </div><div class="bar"><button class="btn primary" id="e-save" type="button">Save</button><button class="btn danger" id="e-del" type="button">Delete</button></div>
-    <!-- B3 (P7a) — sensitive flag, committee / admin tier, only while portfolio_sensitive_projects = '1' -->
-    <div class="bar" id="sens-bar" hidden><label>Project id (sensitivity) <input id="sens-id" type="number" min="1"></label><label>Sensitive project <input id="sens-on" type="checkbox"></label><button class="btn" id="sens-save" type="button">Save sensitivity</button></div></details>
+    </div><div class="bar"><button class="btn primary" id="e-save" type="button">Save</button><button class="btn danger" id="e-del" type="button">Delete</button></div></details>
   <!-- PORTFOLIO LOT 1 — reference lists (admin tier, ppm_intake_register_enabled; lib/ppmIntakeAdmin.js) --><section id="intake-admin" hidden></section>
+  <p class="ppm-footnote">“—” means not measured, never 0. <a href="help.html#portfolio">Help: portfolio</a></p>
 </main>
+<div class="ppm-drawer-back" id="ppm-drawer-back" hidden></div>
+<aside class="ppm-drawer" id="cx-drawer" role="dialog" aria-labelledby="cx-head" hidden>
+  <div class="ppm-drawer-head"><h2 id="cx-head">New element</h2><button type="button" class="ppm-drawer-x" data-drawer-close="cx-drawer" aria-label="Close">×</button></div>
+  <div class="ppm-drawer-body"><p class="muted" id="cx-parent"></p>
+    <div class="row">
+      <label data-cx="programme objective project" style="grid-column:1/-1">Name <input id="cx-name"></label>
+      <label data-cx="deliverable" style="grid-column:1/-1">Deliverable <input id="cx-dname"></label>
+      <label data-cx="programme objective project">Key <input id="cx-key" placeholder="e.g. NET-12"></label>
+      <label data-cx="programme">Sponsor <input id="cx-sponsor"></label>
+      <label data-cx="objective project deliverable">Owner <input id="cx-owner"></label>
+      <label data-cx="objective project deliverable">Status <select id="cx-status"></select></label>
+      <label data-cx="project">Start <input id="cx-start" type="date"></label>
+      <label data-cx="project objective deliverable">Due / end <input id="cx-end" type="date"></label>
+      <label data-cx="project">Baseline end <input id="cx-base" type="date"></label>
+      <label data-cx="objective project">Progress % <input id="cx-prog" type="number" min="0" max="100"></label>
+      <label data-cx="objective">Weight <input id="cx-weight" type="number" step="0.1"></label>
+      <label data-cx="objective">Evidence metric key <input id="cx-metric" placeholder="helpdesk.resolution_sla_pct"></label>
+      <label data-cx="objective">Evidence target <input id="cx-target" type="number" step="0.1"></label>
+      <label data-cx="programme objective" style="grid-column:1/-1">Description / manual evidence <textarea id="cx-text" rows="3"></textarea></label>
+    </div></div>
+  <div class="ppm-drawer-foot"><button class="btn primary" id="cx-save" type="button">Save</button><button class="btn danger" id="cx-del" type="button" hidden>Delete</button><button class="btn" type="button" data-drawer-close="cx-drawer">Cancel</button><div class="form-msg" id="cx-msg" role="status" aria-live="polite"></div></div>
+</aside>
 <script nonce="%%CSP_NONCE%%" src="lib/ppmIntakeAdmin.js" data-mount="intake-admin"></script>
 <script nonce="%%CSP_NONCE%%">
 (function () {
@@ -124,13 +177,23 @@
   var R = window.DashboardRender, $ = function (id) { return document.getElementById(id); }, esc = R.escapeHtml;
   var H = function (x) { return Object.assign({}, x || {}); };
   function api(p, o) { return fetch(p, Object.assign({ headers: H(o && o.body ? { "content-type": "application/json" } : {}) }, o || {})).then(function (r) { return r.json().then(function (j) { if (!r.ok) { var e = new Error(j.error || ("HTTP " + r.status)); e.status = r.status; e.code = j.code; throw e; } return j; }); }); }
-  var msg = function (h, cls) { $("msg").innerHTML = h ? "<div class=\"" + (cls || "ok") + "\">" + esc(h) + "</div>" : ""; };
+  // PMO UX — success → toast, an error in an open drawer → under its Save button, else the page banner
+  var UX = window.PpmUx || null, LBL = window.PpmLabels || null;
+  var lab = function (g, c) { return LBL ? LBL.label(g, c) : (c == null || c === "" ? "—" : String(c).replace(/_/g, " ")); };
+  var pillOf = function (g, c, cls) { return LBL ? LBL.pill(g, c, esc, null, cls) : "<span class=\"pill " + esc(cls || c || "NA") + "\">" + esc(lab(g, c)) + "</span>"; };
+  var msg = function (h, cls) {
+    var dr = document.querySelector(".ppm-drawer.open"), box = dr && dr.querySelector(".form-msg");
+    if (UX && box && h) { if (cls === "errors") { UX.formMsg(box, h, true); return; } UX.closeDrawer(dr.id); UX.toast(h); return; }
+    if (UX && h && cls !== "errors") { $("msg").innerHTML = ""; UX.toast(h); return; }
+    $("msg").innerHTML = h ? "<div class=\"" + (cls || "ok") + "\">" + esc(h) + "</div>" : "";
+  };
   // I-CONC-1 — someone saved the same item in between: say it in plain words (the server refused, nothing was overwritten)
   var fail = function (e) { msg(e && e.code === "STALE_VERSION" ? "Someone else changed this item since this page was loaded. Reload the page to see their change, then make your edit again." : e.message, "errors"); };
   var V = null, committee = false, isSuper = !!(window.__userHasRole && window.__userHasRole("super_admin"));
   var p = function (v) { return v == null ? "—" : v + " %"; };
-  // A-14 — a project key opens its record page
+  // A-14 — a project key opens its record page; PMO UX: the NAME leads, the key follows muted
   var pLink = function (id, key) { return "<a href=\"project.html?id=" + encodeURIComponent(id) + "\">" + esc(key) + "</a>"; };
+  var pName = function (id, key, name) { return "<a href=\"project.html?id=" + encodeURIComponent(id) + "\" title=\"" + esc((name || key) + (key ? " (" + key + ")" : "")) + "\">" + esc(name || key) + "</a>" + (name && key ? " <span class=\"ppm-key\">" + esc(key) + "</span>" : ""); };
   var RM = null, RISKS = [];
   $("risk-matrix").addEventListener("click", function (ev) {
     var b = ev.target.closest && ev.target.closest("[data-cell]"); if (!b || !RM) return;
@@ -145,7 +208,7 @@
   });
   // C-14 (F28) — the timeline rows are keyboard-operable: each project key is a link; arrows move between rows.
   $("timeline").addEventListener("keydown", function (ev) {
-    var links = Array.prototype.slice.call($("timeline").querySelectorAll(".tl-row a")), cur = links.indexOf(ev.target); if (cur < 0) return;
+    var links = Array.prototype.slice.call($("timeline").querySelectorAll(".tl-row .tl-lbl > a")), cur = links.indexOf(ev.target); if (cur < 0) return;
     var to = window.PpmVisuals ? window.PpmVisuals.navIndex(ev.key, cur, links.length) : -1;
     if (to < 0) return; ev.preventDefault(); if (links[to]) links[to].focus();
   });
@@ -159,7 +222,7 @@
   $("templates").addEventListener("click", function (ev) {
     var a = ev.target.closest && ev.target.closest("[data-tpl-approve]"), u = ev.target.closest && ev.target.closest("[data-tpl-use]");
     if (a) api("/api/governance/ppm/templates/" + encodeURIComponent(a.getAttribute("data-tpl-approve")) + "/approve", { method: "POST", body: JSON.stringify({}) }).then(function () { msg("Template approved."); loadTemplates(); }).catch(fail);
-    if (u) { TPL = u.getAttribute("data-tpl-use"); $("tpl-use").hidden = false; }
+    if (u) { TPL = u.getAttribute("data-tpl-use"); $("tpl-obj").innerHTML = (V && V.objectives || []).map(function (o) { return "<option value=\"" + esc(o.id) + "\">" + esc(o.name + " (" + o.key + ")") + "</option>"; }).join(""); $("tpl-use").hidden = false; }
   });
   $("tpl-create").addEventListener("click", function () {
     if (!TPL) return;
@@ -196,11 +259,117 @@
   });
   $("sens-save").addEventListener("click", function () {
     var id = Number($("sens-id").value); if (!id) return;
-    api("/api/governance/portfolio/project/" + encodeURIComponent(id) + "/sensitive", { method: "PUT", body: JSON.stringify({ sensitive: $("sens-on").checked }) }).then(function (j) { msg("Project #" + id + (j.sensitive ? " is now sensitive." : " is no longer sensitive.")); load(); }).catch(fail);
+    var key = ((V && V.projects || []).filter(function (x) { return x.id === id; })[0] || {}).key || "";
+    api("/api/governance/portfolio/project/" + encodeURIComponent(id) + "/sensitive", { method: "PUT", body: JSON.stringify({ sensitive: $("sens-on").checked }) }).then(function (j) { msg("Project " + key + (j.sensitive ? " is now sensitive." : " is no longer sensitive.")); load(); }).catch(fail);
   });
+  // ---- PMO UX — filter bar (Programme · Site · Owner · Stage · Late only), kept in the address ---------------------
+  var FSCHEMA = { prog: { type: "string", def: "" }, site: { type: "string", def: "" }, owner: { type: "string", def: "" }, stage: { type: "string", def: "" }, late: { type: "string", def: "" } };
+  var readF = function () { var q = new URLSearchParams(location.search), o = {}; Object.keys(FSCHEMA).forEach(function (k) { o[k] = q.get(k) || ""; }); return o; };
+  var FILTER = readF(), BASE = null, SITES = null;
+  function fillFilters(v) {
+    var sel = function (id, list, cur) { var el = $(id), keep = el.options[0].outerHTML; el.innerHTML = keep + list.map(function (o) { return "<option value=\"" + esc(o[0]) + "\"" + (String(o[0]) === cur ? " selected" : "") + ">" + esc(o[1]) + "</option>"; }).join(""); };
+    sel("f-prog", (v.programmes || []).map(function (x) { return [x.id, x.name]; }), FILTER.prog);
+    var owners = {}; (v.projects || []).forEach(function (x) { if (x.owner) owners[x.owner] = 1; });
+    sel("f-owner", Object.keys(owners).sort().map(function (o) { return [o, o]; }), FILTER.owner);
+    sel("f-stage", (v.stages || []).map(function (x) { return [x, lab("stage", x)]; }), FILTER.stage);
+    var ids = {}; (v.projects || []).forEach(function (x) { if (x.site_id != null) ids[x.site_id] = 1; }); (v.project_sites || []).forEach(function (x) { ids[x.site_id] = 1; });
+    var drawSites = function () { sel("f-site", Object.keys(ids).map(function (k) { var nm = SITES && SITES[k]; return [k, nm || ("Site " + k)]; }).sort(function (a, b) { return String(a[1]).localeCompare(String(b[1])); }), FILTER.site); };
+    drawSites();
+    if (!SITES) api("/api/reports/sites").then(function (r) { SITES = {}; (Array.isArray(r) ? r : r.sites || []).forEach(function (x) { SITES[x.id] = x.name; }); drawSites(); fillPubRef(V); }).catch(function () { SITES = {}; });
+    $("f-late").checked = FILTER.late === "1";
+  }
+  function applyFilters(v) {
+    var f = FILTER; if (!f.prog && !f.site && !f.owner && !f.stage && !f.late) return v;
+    var objOk = {}; (v.objectives || []).forEach(function (o) { if (!f.prog || String(o.programme_id) === f.prog) objOk[o.id] = 1; });
+    var extra = {}; (v.project_sites || []).forEach(function (x) { (extra[x.project_id] = extra[x.project_id] || []).push(String(x.site_id)); });
+    var late = {}; (v.gantt || []).forEach(function (g) { if (g.late || g.slip_days > 0) late[g.id] = 1; });
+    var ids = (v.projects || []).filter(function (x) {
+      return objOk[x.objective_id] && (!f.site || String(x.site_id) === f.site || (extra[x.id] || []).indexOf(f.site) >= 0) && (!f.owner || x.owner === f.owner) && (!f.stage || (x.stage || "proposal") === f.stage) && (!f.late || late[x.id]);
+    }).map(function (x) { return x.id; });
+    return window.PortfolioMine ? window.PortfolioMine.filterView(v, ids) : v;
+  }
+  $("pf-filters").addEventListener("change", function (ev) {
+    if (ev.target && ev.target.id === "pf-mine-sel") return;
+    FILTER = { prog: $("f-prog").value, site: $("f-site").value, owner: $("f-owner").value, stage: $("f-stage").value, late: $("f-late").checked ? "1" : "" };
+    var u = new URL(location.href); Object.keys(FILTER).forEach(function (k) { if (FILTER[k]) u.searchParams.set(k, FILTER[k]); else u.searchParams.delete(k); });
+    if (window.history && window.history.replaceState) window.history.replaceState(null, "", u.pathname + u.search + u.hash);
+    load();
+  });
+  $("pf-filters").addEventListener("submit", function (ev) { ev.preventDefault(); });
+  $("f-reset").addEventListener("click", function () { ["f-prog", "f-site", "f-owner", "f-stage"].forEach(function (k) { $(k).value = ""; }); $("f-late").checked = false; $("pf-filters").dispatchEvent(new Event("change")); });
+  // ---- PMO UX — executive strip: built from the same view, no new number -------------------------------------------
+  function drawStrip(v, all) {
+    var counts = { GREEN: 0, AMBER: 0, RED: 0, NA: 0 }, map = { on_track: "GREEN", done: "GREEN", at_risk: "AMBER", on_hold: "AMBER", off_track: "RED", late: "RED", blocked: "RED" };
+    (v.projects || []).forEach(function (x) { counts[map[x.status] || "NA"]++; });
+    var tot = (v.projects || []).length || 1, seg = function (k, cls) { return counts[k] ? "<span class=\"" + cls + "\" style=\"width:" + (100 * counts[k] / tot) + "%\" title=\"" + esc(counts[k] + " " + lab("status", k)) + "\"></span>" : ""; };
+    var rag = "<div class=\"ppm-card\"><h3>Delivery status</h3><div class=\"ppm-stack\" role=\"img\" aria-label=\"" + esc(counts.GREEN + " on track, " + counts.AMBER + " to watch, " + counts.RED + " off track, " + counts.NA + " not rated") + "\">" + seg("GREEN", "s-green") + seg("AMBER", "s-amber") + seg("RED", "s-red") + seg("NA", "s-na") + "</div><div class=\"ppm-stack-legend\"><span>" + esc(counts.GREEN + " " + lab("status", "on_track")) + "</span><span>" + esc(counts.AMBER + " " + lab("status", "at_risk")) + "</span><span>" + esc(counts.RED + " " + lab("status", "off_track")) + "</span><span>" + esc(counts.NA + " not rated") + "</span></div></div>";
+    // money: per currency only (never added across currencies), hidden below the money roles, "—" when unreported
+    var money = "";
+    if (!all.money_hidden) {
+      var by = {}; (v.projects || []).forEach(function (x) { if (x.budget == null) return; var c = x.currency || "USD"; by[c] = by[c] || { b: 0, s: 0, unk: 0 }; by[c].b += Number(x.budget) || 0; if (x.spent == null) by[c].unk++; else by[c].s += Number(x.spent) || 0; });
+      var fm = function (n) { return Math.round(n).toLocaleString("en-GB"); };
+      money = "<div class=\"ppm-card\"><h3>Spent vs approved budget</h3>" + (Object.keys(by).length ? Object.keys(by).sort().map(function (c) { var x = by[c], pc = x.b > 0 ? Math.min(100, 100 * x.s / x.b) : 0; return "<div class=\"ppm-hbar\"><span>" + esc(c) + "</span><span class=\"ppm-hbar-track\"><span style=\"width:" + pc + "%\"></span></span><span class=\"ppm-num\">" + esc(fm(x.s) + " / " + fm(x.b)) + "</span></div>" + (x.unk ? "<p class=\"muted\">" + esc(x.unk + " project(s) without a reported spend (not counted as 0)") + "</p>" : ""); }).join("") + "<p class=\"muted\">Each currency apart — never added together.</p>" : "<p class=\"muted\">—</p>") + "</div>";
+    }
+    var ms = []; (v.gantt || []).forEach(function (g) { (g.milestones || []).forEach(function (m) { if (m.due && !m.done_at && m.status !== "done") ms.push({ g: g, m: m }); }); });
+    ms.sort(function (a, b) { return a.m.due < b.m.due ? -1 : a.m.due > b.m.due ? 1 : 0; });
+    var next = "<div class=\"ppm-card\"><h3>Next milestones</h3>" + (ms.length ? "<ul class=\"ppm-mini-list\">" + ms.slice(0, 5).map(function (x) { return "<li><span>" + esc(x.m.name) + " <span class=\"ppm-key\">" + esc(x.g.key) + "</span></span><span class=\"ppm-date" + (x.m.late ? " ppm-due-late" : "") + "\">" + esc(UX ? UX.date(x.m.due) : x.m.due) + "</span></li>"; }).join("") + "</ul>" : "<p class=\"muted\">No upcoming milestone.</p>") + "</div>";
+    var waiting = (v.projects || []).filter(function (x) { return x.stage === "approval"; });
+    var dec = "<div class=\"ppm-card\"><h3>Waiting for a gate decision</h3>" + (waiting.length ? "<ul class=\"ppm-mini-list\">" + waiting.slice(0, 5).map(function (x) { return "<li><span>" + pName(x.id, x.key, x.name) + "</span><span class=\"muted\">" + esc(lab("stage", x.stage)) + "</span></li>"; }).join("") + "</ul>" : "<p class=\"muted\">No project waiting for approval.</p>") + "</div>";
+    $("exec-strip").innerHTML = rag + money + next + dec;
+  }
+  // ---- PMO UX — contextual creation / edition in a drawer (parent implicit, status chosen from words) -----------------
+  var CX = { kind: null, id: null, parent: null };
+  var CX_STATUS = { objective: ["on_track", "at_risk", "off_track", "done"], project: ["planned", "active", "on_track", "at_risk", "on_hold", "done"], deliverable: ["planned", "in_progress", "delivered", "accepted", "rejected"] };
+  function openCx(kind, parentId, id, opener) {
+    CX = { kind: kind, id: id || null, parent: parentId || null };
+    var src = id ? ({ programme: V.programmes, objective: V.objectives })[kind] : null, row = src ? src.filter(function (x) { return x.id === Number(id); })[0] || {} : {};
+    Array.prototype.forEach.call(document.querySelectorAll("#cx-drawer [data-cx]"), function (l) { l.hidden = l.getAttribute("data-cx").split(" ").indexOf(kind) < 0; });
+    var par = kind === "objective" ? (V.programmes || []).filter(function (x) { return x.id === Number(parentId || row.programme_id); })[0] : kind === "project" ? (V.objectives || []).filter(function (x) { return x.id === Number(parentId); })[0] : kind === "deliverable" ? (V.projects || []).filter(function (x) { return x.id === Number(parentId); })[0] : null;
+    $("cx-head").textContent = (id ? "Edit " : "New ") + lab("kind", kind).toLowerCase();
+    $("cx-parent").textContent = par ? "In " + lab("kind", kind === "objective" ? "programme" : kind === "project" ? "objective" : "project").toLowerCase() + ": " + par.name : "";
+    $("cx-status").innerHTML = LBL ? LBL.options("status", CX_STATUS[kind] || ["planned"], row.status || (CX_STATUS[kind] || ["planned"])[0], esc) : "";
+    $("cx-name").value = row.name || ""; $("cx-dname").value = ""; $("cx-key").value = row.key || ""; $("cx-sponsor").value = row.sponsor || ""; $("cx-owner").value = row.owner || "";
+    $("cx-start").value = ""; $("cx-end").value = row.target_date || ""; $("cx-base").value = ""; $("cx-prog").value = row.progress_pct == null ? "" : row.progress_pct; $("cx-weight").value = row.weight == null ? "" : row.weight;
+    $("cx-metric").value = row.evidence_metric || ""; $("cx-target").value = row.evidence_target == null ? "" : row.evidence_target; $("cx-text").value = row.description || row.manual_evidence || "";
+    $("cx-del").hidden = !id;
+    if (UX) { UX.formMsg($("cx-msg"), ""); UX.openDrawer("cx-drawer", opener); }
+  }
+  $("add-programme").addEventListener("click", function () { openCx("programme", null, null, this); });
+  $("tree").addEventListener("click", function (ev) {
+    var n = ev.target.closest && ev.target.closest("[data-cx-new]"), e = ev.target.closest && ev.target.closest("[data-cx-edit]");
+    if (n || e) { ev.preventDefault(); ev.stopPropagation(); }
+    if (n) openCx(n.getAttribute("data-cx-new"), n.getAttribute("data-cx-parent"), null, n);
+    if (e) openCx(e.getAttribute("data-cx-edit"), null, e.getAttribute("data-cx-id"), e);
+  });
+  var cnum = function (id) { var x = $(id).value; return x === "" ? null : Number(x); };
+  $("cx-save").addEventListener("click", function () {
+    var k = CX.kind, b = CX.id ? { id: Number(CX.id) } : {}, name = k === "deliverable" ? $("cx-dname").value.trim() : $("cx-name").value.trim();
+    if (!name) { var inp = $(k === "deliverable" ? "cx-dname" : "cx-name"); if (UX) { UX.invalid(inp, "A name is required."); UX.formMsg($("cx-msg"), "A name is required.", true); } inp.focus(); return; }
+    if (UX) UX.invalid($(k === "deliverable" ? "cx-dname" : "cx-name"), "");
+    b.name = name;
+    if (k === "objective" && CX.parent) b.programme_id = Number(CX.parent); if (k === "project") b.objective_id = Number(CX.parent); if (k === "deliverable") b.project_id = Number(CX.parent);
+    if (k !== "deliverable") b.key = $("cx-key").value.trim();
+    if (k === "programme") { b.sponsor = $("cx-sponsor").value.trim(); b.description = $("cx-text").value.trim(); } else { b.owner = $("cx-owner").value.trim(); b.status = $("cx-status").value; }
+    if (k === "objective") { b.weight = cnum("cx-weight"); b.progress_pct = cnum("cx-prog"); b.target_date = $("cx-end").value || null; b.evidence_metric = $("cx-metric").value.trim() || null; b.evidence_target = cnum("cx-target"); b.manual_evidence = $("cx-text").value.trim() || null; }
+    if (k === "project") { b.start_date = $("cx-start").value || null; b.end_date = $("cx-end").value || null; b.baseline_end = $("cx-base").value || null; b.progress_pct = cnum("cx-prog"); }
+    if (k === "deliverable") b.due_date = $("cx-end").value || null;
+    Object.keys(b).forEach(function (x) { if (b[x] === null || b[x] === "") delete b[x]; });
+    api("/api/governance/portfolio/" + k, { method: "PUT", body: JSON.stringify(b) }).then(function (j) { msg(lab("kind", k) + " “" + name + "” saved."); if (k === "project" && !CX.id && j && j.id) { window.location.href = "project.html?id=" + encodeURIComponent(j.id); return; } return load(); }).catch(fail);
+  });
+  $("cx-del").addEventListener("click", function () {
+    if (!CX.id || !window.confirm("Delete this " + lab("kind", CX.kind).toLowerCase() + " and its children?")) return;
+    var url = "/api/governance/portfolio/" + CX.kind + "/" + CX.id, done = function (j) { msg(j && j.pending ? j.message : "Deleted."); return load(); };
+    api(url, { method: "DELETE" }).then(done).catch(function (e) { if (!/reason is required/i.test(String(e && e.message))) throw e; return (window.ReasonDialog ? window.ReasonDialog.ask({ title: "Delete", label: "Reason for the deletion (at least 10 characters)", min: 10 }) : Promise.resolve(window.prompt("Reason for the deletion (at least 10 characters):"))).then(function (why) { if (!why) return null; return api(url, { method: "DELETE", body: JSON.stringify({ reason: why }) }).then(done); }); }).catch(fail);
+  });
+  function fillPubRef(v) {
+    if (!v) return; var a = $("pub-aud").value, list = a === "programme" ? (v.programmes || []).map(function (x) { return [x.id, x.name]; }) : a === "site" ? Object.keys(SITES || {}).map(function (k) { return [k, SITES[k]]; }) : [];
+    $("pub-ref-box").hidden = !list.length && a !== "site" && a !== "programme";
+    $("pub-ref").innerHTML = list.map(function (o) { return "<option value=\"" + esc(o[0]) + "\">" + esc(o[1]) + "</option>"; }).join("");
+  }
+  $("pub-aud").addEventListener("change", function () { fillPubRef(V); });
   function mineView(v) {
     var mp = v.my_projects, box = $("pf-mine");
-    box.hidden = !mp || !PM;
+    box.hidden = !mp || !PM;   // shown inside the filter bar
     if (!mp || !PM) return v;
     var c = PM.choice(location.search, mp), sel = $("pf-mine-sel");
     sel.querySelector("option[value=all]").hidden = !mp.can_see_all; sel.value = c;
@@ -210,7 +379,12 @@
     return api("/api/governance/portfolio").then(function (v0) {
       var v = mineView(v0);
       $("sens-bar").hidden = !v0.can_mark_sensitive; loadPubs();
-      V = v; committee = v.committee; planEdit(v); $("mig-dry").hidden = !isSuper; $("mig-apply").hidden = !isSuper;
+      if (v0.can_mark_sensitive) $("sens-id").innerHTML = (v0.projects || []).map(function (p) { return "<option value=\"" + esc(p.id) + "\">" + esc(p.name + " (" + p.key + ")") + "</option>"; }).join("");
+      V = v; committee = v.committee; planEdit(v); $("mig-dry").hidden = !isSuper; $("mig-apply").hidden = !isSuper; $("mig-panel").hidden = !isSuper;
+      $("add-programme").hidden = !committee;
+      fillFilters(v); fillPubRef(v);
+      var all = v; v = applyFilters(v); BASE = all;
+      $("f-count").textContent = v.projects.length === all.projects.length ? all.projects.length + " project(s)" : v.projects.length + " of " + all.projects.length + " project(s) shown";
       var s = v.summary || [];
       // design review #12: what needs attention first, coloured AND worded (colour is never the only signal)
       var late = s.reduce(function (a, x) { return a + (x.late_projects || 0); }, 0), hr = s.reduce(function (a, x) { return a + (x.high_risks || 0); }, 0), rc = (v.resource_conflicts || []).length, cov = v.resource_coverage || null, blind = cov ? cov.unknown + cov.invalid : 0;
@@ -249,36 +423,60 @@
       BOARD = { gantt: v.gantt, stages: v.stages || [] };
       var plans = {}; (v.plans || []).forEach(function (x) { plans[x.project_id] = x; });
       var stages = v.stages || [];
-      var stageDots = function (st) { var i = stages.indexOf(st); return st ? "<span class=\"stage\" title=\"" + esc(st) + "\">" + stages.map(function (_, k) { return k === i ? "●" : "○"; }).join("") + "</span> " + esc(String(st).replace(/_/g, " ")) : "—"; };
-      // design review #7: a timeline — bar = plan, dashed outline = baseline, ◆ milestones, orange line = today
+      var stageDots = function (st) { return UX ? UX.stepperHtml(stages, st || "proposal", function (x) { return lab("stage", x); }, esc) : esc(lab("stage", st)); };
+      // PMO UX — timeline with a month axis (quarter labels, light gridlines), a "No dates" note in an empty track,
+      // names first (key muted), labels cut with an ellipsis and the full text in the tooltip
       var dates = []; v.gantt.forEach(function (g) { [g.start, g.end, g.baseline_end].concat((g.milestones || []).map(function (m) { return m.due; })).forEach(function (d) { if (d) dates.push(Date.parse(d)); }); });
       if (dates.length) {
         var t0 = Math.min.apply(null, dates), t1 = Math.max.apply(null, dates.concat([Date.now()])), span = Math.max(1, t1 - t0);
         var pos = function (d) { return Math.max(0, Math.min(100, 100 * (Date.parse(d) - t0) / span)); };
-        var crit = {}; (v.plans || []).forEach(function (x) { if (x.critical_path && x.critical_path.length) crit[x.project_id] = 1; });
-        $("timeline").innerHTML = "<div class=\"tl-legend\">" + esc(new Date(t0).toISOString().slice(0, 10)) + " → " + esc(new Date(t1).toISOString().slice(0, 10)) + " · <span class=\"tl-legend-sw bar\"></span>bar = planned <span class=\"tl-legend-sw crit\"></span>slipped <span class=\"tl-legend-sw base\"></span>dashed = baseline · ◆ milestone (✓ done, ! late) <span class=\"tl-legend-sw today\"></span>orange line = today</div>" + v.gantt.map(function (g) {
+        var ticks = [], qs = [], d0 = new Date(t0); d0 = new Date(Date.UTC(d0.getUTCFullYear(), d0.getUTCMonth(), 1));
+        var MON = LBL && LBL.lang() === "fr" ? ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."] : ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        for (var dm = d0; dm.getTime() <= t1 && ticks.length < 72; dm = new Date(Date.UTC(dm.getUTCFullYear(), dm.getUTCMonth() + 1, 1))) {
+          var iso = dm.toISOString().slice(0, 10), lp = pos(iso); if (dm.getTime() < t0) continue;
+          ticks.push({ p: lp, label: MON[dm.getUTCMonth()] }); if (dm.getUTCMonth() % 3 === 0) qs.push({ p: lp, label: "Q" + (dm.getUTCMonth() / 3 + 1) + " " + dm.getUTCFullYear() });
+        }
+        var everyN = ticks.length > 24 ? 3 : ticks.length > 12 ? 2 : 1;
+        var grid = ticks.map(function (t) { return "<span class=\"tl-grid\" style=\"left:" + t.p + "%\"></span>"; }).join("");
+        var axis = "<div class=\"tl-axis\" aria-hidden=\"true\"><span></span><div class=\"tl-axis-track\">" + qs.map(function (q) { return "<span class=\"tl-q\" style=\"left:" + q.p + "%\">" + esc(q.label) + "</span>"; }).join("") + ticks.map(function (t, k) { return k % everyN ? "" : "<span class=\"tl-tick\" style=\"left:" + t.p + "%\">" + esc(t.label) + "</span>"; }).join("") + "</div></div>";
+        $("timeline").innerHTML = "<div class=\"tl-legend\"><span class=\"tl-legend-sw bar\"></span>planned <span class=\"tl-legend-sw crit\"></span>slipped <span class=\"tl-legend-sw base\"></span>baseline (dashed) · ◆ milestone (✓ done, ! late) <span class=\"tl-legend-sw today\"></span>today · <span class=\"ppm-date\">" + esc(UX ? UX.date(new Date(t0).toISOString().slice(0, 10)) : new Date(t0).toISOString().slice(0, 10)) + " → " + esc(UX ? UX.date(new Date(t1).toISOString().slice(0, 10)) : new Date(t1).toISOString().slice(0, 10)) + "</span></div>" + axis + v.gantt.map(function (g) {
           var bar = g.start && g.end ? "<span class=\"tl-bar" + (g.slip_days ? " crit" : "") + "\" style=\"left:" + pos(g.start) + "%;width:" + Math.max(1, pos(g.end) - pos(g.start)) + "%\"></span>" : "";
           var base = g.start && g.baseline_end ? "<span class=\"tl-base\" style=\"left:" + pos(g.start) + "%;width:" + Math.max(1, pos(g.baseline_end) - pos(g.start)) + "%\"></span>" : "";
           var ms = (g.milestones || []).filter(function (m) { return m.due; }).map(function (m) { return "<span class=\"tl-ms\" style=\"left:" + pos(m.due) + "%\" title=\"" + esc(m.name + " " + m.due) + "\">◆" + (m.done_at ? "✓" : m.late ? "!" : "") + "</span>"; }).join("");
-          var label = pLink(g.id, g.key) + " " + esc(g.name) + (g.slip_days ? " — <b>+" + g.slip_days + " d</b>" : "") + (g.late ? " — <b>late</b>" : "");
-          return "<div class=\"tl-row\"><div>" + label + "</div><div class=\"tl-track\" role=\"img\" aria-label=\"" + esc(g.key + ": " + (g.start || "?") + " to " + (g.end || "?") + (g.slip_days ? ", " + g.slip_days + " days after baseline" : "")) + "\">" + base + bar + ms + "<span class=\"tl-today\" style=\"left:" + pos(new Date().toISOString().slice(0, 10)) + "%\"></span></div></div>";
+          var label = pName(g.id, g.key, g.name) + (g.slip_days ? " — <b>+" + g.slip_days + " d</b>" : "") + (g.late ? " — <b>late</b>" : "");
+          return "<div class=\"tl-row\"><div class=\"tl-lbl\" title=\"" + esc(g.name + " (" + g.key + ")") + "\">" + label + "</div><div class=\"tl-track\" role=\"img\" aria-label=\"" + esc(g.key + ": " + (g.start || "?") + " to " + (g.end || "?") + (g.slip_days ? ", " + g.slip_days + " days after baseline" : "")) + "\">" + grid + (bar || base ? "" : "<span class=\"tl-nodates\">No dates</span>") + base + bar + ms + "<span class=\"tl-today\" style=\"left:" + pos(new Date().toISOString().slice(0, 10)) + "%\"></span></div></div>";
         }).join("");
       } else $("timeline").innerHTML = "<p class=\"muted\">No dated project.</p>";
-      $("tree").innerHTML = v.programmes.length ? v.programmes.map(function (pr) {
+      // PMO UX — programmes and objectives: names first, words for statuses, "+ Objective" / "+ Project" in context
+      var progs = FILTER.prog ? v.programmes.filter(function (pr) { return String(pr.id) === FILTER.prog; }) : v.programmes;
+      var shown = {}; v.projects.forEach(function (x) { shown[x.id] = 1; });
+      $("tree").innerHTML = progs.length ? progs.map(function (pr) {
         var objs = v.objective_views.filter(function (o) { return o.programme_id === pr.id; });
-        return "<details open><summary><b>" + esc(pr.name) + "</b> <small class=\"muted\">" + esc(pr.key) + " · " + esc(pr.sponsor || "") + " · #" + pr.id + "</small></summary>" +
+        return "<details open><summary><b>" + esc(pr.name) + "</b> <small class=\"muted\">" + esc(pr.key) + (pr.sponsor ? " · " + esc(pr.sponsor) : "") + "</small>" + (committee ? " <button class=\"btn\" type=\"button\" data-cx-new=\"objective\" data-cx-parent=\"" + esc(pr.id) + "\">+ Objective</button> <button class=\"btn\" type=\"button\" data-cx-edit=\"programme\" data-cx-id=\"" + esc(pr.id) + "\">Edit</button>" : "") + "</summary>" +
           (objs.length ? "<table><thead><tr><th>Objective</th><th>Status</th><th>Confidence</th><th>Evidence</th><th>Slip</th><th>Projects</th></tr></thead><tbody>" + objs.map(function (o) {
             var prjs = v.projects.filter(function (x) { return x.objective_id === o.id; });
-            return "<tr><td><b>" + esc(o.name) + "</b> <small class=\"muted\">#" + o.id + "</small></td><td><span class=\"pill " + esc(o.status) + "\">" + esc(o.status) + "</span></td><td>" + esc(o.confidence || "") + "</td><td>" + p(o.evidence_pct) + " <small class=\"muted\">" + esc(o.evidence_source || "") + (o.metric ? " · " + esc(o.metric.key) : "") + (o.evidence_source === "projects" && o.projects_total ? " · " + esc(o.projects_reporting + " of " + o.projects_total + " projects reporting") : "") + "</small></td><td>" + (o.slip_days == null ? "—" : o.slip_days + " d") + "</td><td>" + prjs.map(function (x) { return pLink(x.id, x.key) + " <span class=\"pill " + esc(x.status) + "\">" + esc(x.status) + "</span> <small class=\"muted\">#" + x.id + "</small>"; }).join("<br>") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No objective.</p>") + "</details>"; }).join("") : "<p class=\"muted\">No programme yet." + (committee ? " Add one below" + (isSuper ? " or migrate the Roadmap Manager." : ".") : "") + "</p>";
-      $("gantt").innerHTML = v.gantt.length ? "<table><thead><tr><th>Project</th><th>Stage</th><th>Plan</th><th>Start</th><th>End</th><th>Baseline</th><th>Progress</th><th>Milestones</th><th>Alerts</th></tr></thead><tbody>" + v.gantt.map(function (g) { return "<tr><td><b>" + pLink(g.id, g.key) + "</b> " + esc(g.name) + " <small class=\"muted\">#" + g.id + "</small></td><td>" + stageDots(g.stage) + "</td><td>" + (function (pl) { if (!pl || !pl.tasks) return "—"; var vr = pl.variance && pl.variance.finish_variance_days; return pl.open_tasks + " / " + pl.tasks + " tasks open" + (pl.critical_length_days != null ? "<br>critical path " + pl.critical_length_days + " d" : "") + (vr ? "<br>" + (vr > 0 ? "+" : "") + vr + " d vs baseline" : ""); })(plans[g.id]) + "</td><td>" + esc(g.start || "—") + "</td><td>" + esc(g.end || "—") + "</td><td>" + esc(g.baseline_end || "—") + (g.slip_days ? " <span class=\"pill RED\">+" + g.slip_days + " d</span>" : "") + "</td><td>" + p(g.progress_pct) + "</td><td>" + (g.milestones || []).map(function (m) { return esc(m.name) + " (" + esc(m.due || "—") + ") <span class=\"pill " + esc(m.status) + "\">" + esc(m.status) + "</span> <small class=\"muted\">#" + m.id + "</small>"; }).join("<br>") + "</td><td>" + (g.alerts.length ? g.alerts.map(esc).join("<br>") : "—") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No project.</p>";
-      $("risks").innerHTML = v.risks.length ? "<table><thead><tr><th>Risk</th><th>Project</th><th>P × I</th><th>Severity</th><th>Status</th><th>Mitigation</th></tr></thead><tbody>" + v.risks.map(function (r) { return "<tr><td>" + esc(r.title) + " <small class=\"muted\">#" + r.id + "</small></td><td>#" + r.project_id + "</td><td>" + r.exposure + "</td><td><span class=\"pill " + (r.severity === "high" ? "RED" : r.severity === "medium" ? "AMBER" : "GREEN") + "\">" + esc(r.severity) + "</span></td><td>" + esc(r.status) + "</td><td>" + esc(r.mitigation || "") + (r.incident_ref ? " · incident " + esc(r.incident_ref) : "") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No risk.</p>";
+            return "<tr><td><b>" + esc(o.name) + "</b> <span class=\"ppm-key\">" + esc(o.key || "") + "</span>" + (committee ? "<br><button class=\"btn\" type=\"button\" data-cx-new=\"project\" data-cx-parent=\"" + esc(o.id) + "\">+ Project</button> <button class=\"btn\" type=\"button\" data-cx-edit=\"objective\" data-cx-id=\"" + esc(o.id) + "\">Edit</button>" : "") + "</td><td>" + pillOf("status", o.status) + "</td><td>" + esc(o.confidence ? lab("status", o.confidence) : "—") + "</td><td class=\"ppm-num\">" + p(o.evidence_pct) + " <small class=\"muted\">" + esc(o.evidence_source || "") + (o.metric ? " · " + esc(o.metric.key) : "") + (o.evidence_source === "projects" && o.projects_total ? " · " + esc(o.projects_reporting + " of " + o.projects_total + " projects reporting") : "") + "</small></td><td class=\"ppm-num\">" + (o.slip_days == null ? "—" : o.slip_days + " d") + "</td><td>" + (prjs.length ? prjs.map(function (x) { return pName(x.id, x.key, x.name) + " " + pillOf("status", x.status) + (committee || ((V && V.can_edit_plan_projects) || []).indexOf(x.id) >= 0 ? " <button class=\"btn\" type=\"button\" data-cx-new=\"deliverable\" data-cx-parent=\"" + esc(x.id) + "\" aria-label=\"" + esc("Add a deliverable to " + x.name) + "\">+ Deliverable</button>" : ""); }).join("<br>") : "—") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No objective.</p>") + "</details>"; }).join("") : "<p class=\"muted\">No programme yet." + (committee ? " Use “+ Programme” above" + (isSuper ? " or migrate the Roadmap Manager (Planning tools)." : ".") : "") + "</p>";
+      $("gantt").innerHTML = v.gantt.length ? "<table class=\"pf-list\"><thead><tr><th>Project</th><th>Stage</th><th>Plan</th><th>Start</th><th>End</th><th>Baseline</th><th>Progress</th><th>Milestones</th><th>Alerts</th></tr></thead><tbody>" + v.gantt.map(function (g) { return "<tr><td data-sort=\"" + esc(g.name) + "\"><b>" + pName(g.id, g.key, g.name) + "</b></td><td data-sort=\"" + esc(String(stages.indexOf(g.stage || "proposal"))) + "\">" + stageDots(g.stage) + "</td><td>" + (function (pl) { if (!pl || !pl.tasks) return "—"; var vr = pl.variance && pl.variance.finish_variance_days; return pl.open_tasks + " / " + pl.tasks + " tasks open" + (pl.critical_length_days != null ? "<br>critical path " + pl.critical_length_days + " working days" : "") + (vr ? "<br>" + (vr > 0 ? "+" : "") + vr + " d vs baseline" : ""); })(plans[g.id]) + "</td><td class=\"ppm-date\" data-sort=\"" + esc(g.start || "") + "\">" + esc(g.start ? (UX ? UX.date(g.start) : g.start) : "—") + "</td><td class=\"ppm-date\" data-sort=\"" + esc(g.end || "") + "\">" + esc(g.end ? (UX ? UX.date(g.end) : g.end) : "—") + "</td><td class=\"ppm-date\" data-sort=\"" + esc(g.baseline_end || "") + "\">" + esc(g.baseline_end ? (UX ? UX.date(g.baseline_end) : g.baseline_end) : "—") + (g.slip_days ? " <span class=\"pill RED\">+" + g.slip_days + " d</span>" : "") + "</td><td class=\"ppm-num\">" + p(g.progress_pct) + "</td><td>" + (g.milestones || []).map(function (m) { return esc(m.name) + " <span class=\"ppm-date\">(" + esc(m.due || "—") + ")</span> " + pillOf("status", m.status); }).join("<br>") + "</td><td>" + (g.alerts.length ? g.alerts.map(esc).join("<br>") : "—") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No project.</p>";
+      if (UX) { var tb = $("gantt").querySelector("table"); if (tb) UX.sortable(tb); }
+      var keyOf = {}; (BASE.projects || []).forEach(function (x) { keyOf[x.id] = x; });
+      var top = v.risks.filter(function (r) { return r.status !== "closed"; }).slice().sort(function (a, b) { return (b.exposure || 0) - (a.exposure || 0); }).slice(0, 8);
+      $("risks").innerHTML = top.length ? "<table><thead><tr><th>Risk</th><th>Project</th><th>P × I</th><th>Severity</th><th>Status</th><th>Mitigation</th></tr></thead><tbody>" + top.map(function (r) { var pj = keyOf[r.project_id]; return "<tr><td>" + esc(r.title) + "</td><td>" + (pj ? pName(pj.id, pj.key, pj.name) : "—") + "</td><td class=\"ppm-num\">" + (r.exposure == null ? "—" : r.exposure) + "</td><td>" + (r.severity ? "<span class=\"pill " + (r.severity === "high" ? "RED" : r.severity === "medium" ? "AMBER" : "GREEN") + "\">" + esc(lab("severity", r.severity)) + "</span>" : "—") + "</td><td>" + pillOf("status", r.status) + "</td><td>" + esc(r.mitigation || "") + (r.incident_ref ? " · incident " + esc(r.incident_ref) : "") + "</td></tr>"; }).join("") + "</tbody></table>" + (v.risks.length > top.length ? "<p class=\"muted\">" + esc(top.length + " of " + v.risks.length + " shown (open, highest exposure first). The risk matrix below holds every open risk.") + "</p>" : "") : "<p class=\"muted\">No risk.</p>";
+      // PMO UX — empty panels fold into one line instead of six "none" cards
+      var empty = [];
+      if (!top.length) empty.push("risks");
+      if (!conf.length && !(cov && (cov.unknown || cov.invalid))) empty.push("resource conflicts");
+      if (!((v.tasks || []).some(function (t) { return t.owner && t.allocation_pct != null; }))) empty.push("resource pressure");
+      $("nothing").hidden = !empty.length; $("nothing").textContent = empty.length ? "Nothing to report: " + empty.join(" · ") + "." : "";
+      $("risks").closest(".panel").hidden = !top.length;
+      $("sec-res-note").textContent = conf.length ? "— " + conf.length + " conflict(s) over 100 %" : cov && (cov.unknown || cov.invalid) ? "— allocations partly unknown" : "— no conflict";
+      drawStrip(v, all);
     }).catch(fail);
   }
   // B6 — audience-scoped roadmap publications (404 while roadmap_audience_publication_enabled = '0' → panel hidden)
   function loadPubs() {
     api("/api/governance/roadmap-publications").then(function (r) {
       $("pub-panel").hidden = false;
-      var d = function (x) { return x ? esc(String(x).slice(0, 10)) : "—"; };
+      var d = function (x) { return x ? esc(UX ? UX.date(x) : String(x).slice(0, 10)) : "—"; };   // through lib/format.js
       $("pubs").innerHTML = r.publications.length ? "<table><thead><tr><th>Title</th><th>Audience</th><th>Published</th><th>Expires</th><th>State</th><th></th></tr></thead><tbody>" + r.publications.map(function (p) {
         return "<tr><td>" + esc(p.title) + "</td><td>" + esc(p.audience + (p.audience_ref != null ? " #" + p.audience_ref : "")) + "</td><td>" + d(p.created_at) + " <small class=\"muted\">" + esc(p.created_by_name || "") + "</small></td><td>" + d(p.expires_at) + "</td><td>" + (p.revoked_at ? "revoked" : p.live ? "live" : "expired") + "</td><td>" +
           (p.live ? "<button class=\"btn\" type=\"button\" data-pub-open=\"" + p.id + "\">Open</button> " : "") + (p.shareable ? "<button class=\"btn\" type=\"button\" data-pub-share=\"" + p.id + "\">Share link</button> " : "") + (p.can_revoke ? "<button class=\"btn danger\" type=\"button\" data-pub-revoke=\"" + p.id + "\">Revoke</button>" : "") + "</td></tr>";
@@ -290,7 +488,7 @@
     if (o) api("/api/governance/roadmap-publications/" + encodeURIComponent(o.getAttribute("data-pub-open"))).then(function (j) {
       var rm = j.roadmap, money = !!rm.has_amounts, f = function (x) { return x == null || x === "" ? "—" : esc(String(x)); };
       $("pub-view").innerHTML = "<h2>" + esc(j.publication.title) + "</h2><p class=\"muted\">Frozen snapshot · audience " + esc(j.publication.audience) + (rm.amounts_hidden ? " · amounts restricted to the admin tier and the finance role" : "") + "</p><table><thead><tr><th>Key</th><th>Project</th><th>Programme</th><th>Stage</th><th>Start</th><th>End</th><th>Baseline end</th><th>Progress</th>" + (money ? "<th>Spent / budget</th>" : "") + "</tr></thead><tbody>" +
-        rm.projects.map(function (p) { return "<tr><td>" + esc(p.key) + (p.sensitive ? " <small class=\"muted\">(sensitive)</small>" : "") + "</td><td>" + esc(p.name) + "</td><td>" + f(p.programme && p.programme.name) + "</td><td>" + f(p.stage) + "</td><td>" + f(p.start_date) + "</td><td>" + f(p.end_date) + "</td><td>" + f(p.baseline_end) + "</td><td>" + (p.progress_pct == null ? "—" : esc(p.progress_pct + " %")) + "</td>" + (money ? "<td>" + f(p.spent) + " / " + f(p.budget) + " " + f(p.currency) + "</td>" : "") + "</tr>"; }).join("") + "</tbody></table>";
+        rm.projects.map(function (p) { return "<tr><td>" + esc(p.key) + (p.sensitive ? " <small class=\"muted\">(sensitive)</small>" : "") + "</td><td>" + esc(p.name) + "</td><td>" + f(p.programme && p.programme.name) + "</td><td>" + f(p.stage) + "</td><td>" + (p.start_date ? esc(UX ? UX.date(p.start_date) : p.start_date) : "—") + "</td><td>" + (p.end_date ? esc(UX ? UX.date(p.end_date) : p.end_date) : "—") + "</td><td>" + (p.baseline_end ? esc(UX ? UX.date(p.baseline_end) : p.baseline_end) : "—") + "</td><td>" + (p.progress_pct == null ? "—" : esc(p.progress_pct + " %")) + "</td>" + (money ? "<td>" + f(p.spent) + " / " + f(p.budget) + " " + f(p.currency) + "</td>" : "") + "</tr>"; }).join("") + "</tbody></table>";
     }).catch(fail);
     if (sh) api("/api/governance/roadmap-publications/" + encodeURIComponent(sh.getAttribute("data-pub-share")) + "/share", { method: "POST", body: JSON.stringify({ ttl_hours: 72 }) }).then(function (j) { msg("Share link (shown once, read-only, no amounts, expires " + String(j.expires_at).slice(0, 16).replace("T", " ") + " UTC): " + (j.url || "")); }).catch(fail);
     if (rv) api("/api/governance/roadmap-publications/" + encodeURIComponent(rv.getAttribute("data-pub-revoke")) + "/revoke", { method: "POST", body: JSON.stringify({}) }).then(function () { msg("Publication revoked."); loadPubs(); }).catch(fail);
@@ -305,11 +503,11 @@
   var ALL_KINDS = ["programme", "objective", "project", "milestone", "deliverable", "risk", "task"], PLAN_KINDS = ["milestone", "deliverable", "risk", "task"];
   function planEdit(v) {
     var ids = v.can_edit_plan_projects || [], mine = !committee && ids.length > 0;
-    $("edit").hidden = !(committee || mine);
+    $("edit").hidden = !isSuper || !(committee || mine);   // PMO UX: advanced fallback (typed ids) — super administrator only
     var kinds = committee ? ALL_KINDS : PLAN_KINDS, sel = $("e-kind"), cur = sel.value;
-    sel.innerHTML = kinds.map(function (k) { return "<option>" + k + "</option>"; }).join("");
+    sel.innerHTML = kinds.map(function (k) { return "<option value=\"" + k + "\">" + esc(lab("kind", k)) + "</option>"; }).join("");
     if (kinds.indexOf(cur) >= 0) sel.value = cur;
-    $("e-sum").textContent = committee ? "Add / edit an element (committee)" : "Add / edit a milestone, deliverable, risk or task of your projects";
+    $("e-sum").textContent = committee ? "Advanced — add / edit an element by its id (super administrator)" : "Add / edit a milestone, deliverable, risk or task of your projects";
     var dl = $("e-parents"); dl.innerHTML = committee ? "" : (v.projects || []).filter(function (p) { return ids.indexOf(p.id) >= 0; }).map(function (p) { return "<option value=\"" + p.id + "\">" + esc(p.key + " — " + p.name) + "</option>"; }).join("");
     $("e-parent").setAttribute("list", committee ? "" : "e-parents");
   }

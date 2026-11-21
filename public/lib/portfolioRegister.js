@@ -18,11 +18,11 @@
     C('site', 'Site', 'Site', { frozen: true }),
     C('name', 'Project name', 'Nom du projet', { frozen: true }),
     C('project_type', 'Type', 'Type'),
-    C('priority', 'Priority', 'Priorité'),
-    C('status', 'Status', 'Statut'),
-    C('stage', 'Stage', 'Étape'),
+    C('priority', 'Priority', 'Priorité', { code: 'priority' }),
+    C('status', 'Delivery status', 'Statut d’avancement', { code: 'status', tip_en: 'How delivery is going today (planned, active, on track, at risk…).', tip_fr: 'Où en est la réalisation aujourd’hui (planifié, actif, dans les temps, à risque…).' }),
+    C('stage', 'Lifecycle stage', 'Étape du cycle de vie', { code: 'stage', tip_en: 'Where the project stands in its life cycle (proposal, approval, in delivery, closure…); a stage changes through its gate.', tip_fr: 'Où se trouve le projet dans son cycle de vie (proposition, approbation, réalisation, clôture…) ; une étape change par son jalon.' }),
     C('stage_age_days', 'Days in stage', 'Jours dans l’étape', { num: true }),
-    C('risk_exposure', 'Risk exposure', 'Exposition au risque'),
+    C('risk_exposure', 'Risk exposure', 'Exposition au risque', { code: 'severity' }),
     C('high_risks', 'Open high risks', 'Risques élevés ouverts', { num: true }),
     C('owner', 'IT owner', 'Responsable IT'),
     C('sponsor', 'Business sponsor', 'Sponsor métier'),
@@ -33,8 +33,8 @@
     C('currency', 'Currency', 'Devise', { money: true }),
     C('avg_fte', 'Average FTE', 'ETP moyen', { num: true }),
     C('delivery_effort', 'Delivery effort', 'Effort'),
-    C('start_date', 'Start', 'Début'),
-    C('end_date', 'Finish', 'Fin'),
+    C('start_date', 'Start', 'Début', { date: true }),
+    C('end_date', 'Finish', 'Fin', { date: true }),
     C('duration_days', 'Duration (days)', 'Durée (jours)', { num: true }),
     C('baselined', 'Schedule baselined', 'Planning de référence'),
     C('dq_score', 'Data quality', 'Qualité des données', { num: true }),
@@ -65,28 +65,32 @@
       kpis: 'Executive dashboard', total_projects: 'Total projects', data_quality: 'Data quality', critical_high: 'Critical + High', budget_identified: 'Budget identified', decisions_required: 'Decisions required',
       drill: 'Show these projects', search: 'Search', filters: 'Filters', reset: 'Clear filters', apply: 'Apply filters', reports: 'Standard reports', columns: 'Columns', exportCsv: 'Export CSV', exportXlsx: 'Export Excel',
       rows: 'projects shown', of: 'of', none: 'No project matches these filters.', unknown: '—', yes: 'yes', no: 'no', bySite: 'By site', byPriority: 'By priority', status: 'Status',
-      risk: 'Risk (high-risk projects)', budget: 'Budget (per currency, never added across currencies)', load: 'Monthly active load', proposed: 'PROPOSED rules — not approved policy',
+      risk: 'Risk (high-risk projects)', budget: 'Budget', budget_tip: 'Per currency, never added across currencies.', load: 'Monthly active load', proposed: 'PROPOSED rules — not approved policy',
       MONEY_HIDDEN: 'amounts are shown to the admin tier, the committee and finance', DQ_DISABLED: 'data quality is not switched on', INTAKE_DISABLED: 'the intake register is not switched on', NO_SCORE: 'no project has a score yet',
       count: 'Projects', pct: '% of portfolio', fte: 'FTE', fte_unknown: 'FTE unknown', sites: 'Sites', unfunded: 'Unfunded', high_risk: 'High risk', dq: 'DQ',
       on_hold: 'On hold', stalled: 'Stalled in stage', avg_stage_age: 'Average days in stage', approved_not_started: 'In approval, not started', in_progress_without_lead: 'In progress without a delivery lead',
       month: 'Month', active: 'Active', critical: 'Critical', very_large: 'Very large', undated: 'projects without dates are not in the monthly load', total: 'Total', approved: 'Approved', requested: 'Requested', not_budgeted: 'Not budgeted', tbc: 'TBC',
-      key: 'Value', loadErr: 'Could not load', off: 'This page is not switched on.',
+      key: 'Value', by_status: 'Projects by delivery status', by_stage: 'Projects by lifecycle stage', load_chart: 'Active projects per month', no_bar: 'not measured', loadErr: 'Could not load', off: 'This page is not switched on.',
       dq_scope_with: 'Score includes the budget checks (amount reader).', dq_scope_without: 'Score without the budget checks: amounts are hidden for you, so those checks are left out.' },
     fr: { title: 'Registre du portefeuille', intro: 'Une ligne par projet, sur le portefeuille que vous pouvez lire. Une valeur inconnue s’affiche « — », jamais 0. Filtres, tri et colonnes sont dans l’adresse : copiez le lien pour enregistrer ou partager une vue.',
       kpis: 'Tableau de bord de direction', total_projects: 'Projets', data_quality: 'Qualité des données', critical_high: 'Critiques + hauts', budget_identified: 'Budget identifié', decisions_required: 'Décisions requises',
       drill: 'Voir ces projets', search: 'Recherche', filters: 'Filtres', reset: 'Effacer les filtres', apply: 'Appliquer les filtres', reports: 'Rapports types', columns: 'Colonnes', exportCsv: 'Exporter CSV', exportXlsx: 'Exporter Excel',
       rows: 'projets affichés', of: 'sur', none: 'Aucun projet ne correspond à ces filtres.', unknown: '—', yes: 'oui', no: 'non', bySite: 'Par site', byPriority: 'Par priorité', status: 'Statut',
-      risk: 'Risque (projets à risque élevé)', budget: 'Budget (par devise, jamais additionné entre devises)', load: 'Charge mensuelle active', proposed: 'Règles PROPOSÉES — non approuvées',
+      risk: 'Risque (projets à risque élevé)', budget: 'Budget', budget_tip: 'Par devise, jamais additionné entre devises.', load: 'Charge mensuelle active', proposed: 'Règles PROPOSÉES — non approuvées',
       MONEY_HIDDEN: 'les montants sont réservés au palier admin, au comité et à la finance', DQ_DISABLED: 'la qualité des données n’est pas activée', INTAKE_DISABLED: 'le registre d’intake n’est pas activé', NO_SCORE: 'aucun projet n’a encore de score',
       count: 'Projets', pct: '% du portefeuille', fte: 'ETP', fte_unknown: 'ETP inconnus', sites: 'Sites', unfunded: 'Non financés', high_risk: 'Risque élevé', dq: 'QD',
       on_hold: 'En attente', stalled: 'Bloqués dans l’étape', avg_stage_age: 'Jours moyens dans l’étape', approved_not_started: 'En approbation, non démarrés', in_progress_without_lead: 'En cours sans responsable de réalisation',
       month: 'Mois', active: 'Actifs', critical: 'Critiques', very_large: 'Très grands', undated: 'les projets sans dates ne figurent pas dans la charge mensuelle', total: 'Total', approved: 'Approuvé', requested: 'Demandé', not_budgeted: 'Non budgété', tbc: 'À confirmer',
-      key: 'Valeur', loadErr: 'Chargement impossible', off: 'Cette page n’est pas activée.',
+      key: 'Valeur', by_status: 'Projets par statut d’avancement', by_stage: 'Projets par étape du cycle de vie', load_chart: 'Projets actifs par mois', no_bar: 'non mesuré', loadErr: 'Chargement impossible', off: 'Cette page n’est pas activée.',
       dq_scope_with: 'Score avec les contrôles budgétaires (lecteur des montants).', dq_scope_without: 'Score sans les contrôles budgétaires : les montants vous sont masqués, ces contrôles sont donc exclus.' },
   };
   function dash(v, esc) { return v == null || v === '' ? '—' : esc(String(v)); }
-  function cell(r, c, esc, t) {
+  // o.label(group, code) and o.date(v) come from the page (lib/ppmLabels.js, lib/format.js); without them the raw value
+  // is shown — the lib stays pure. The value sent in a filter or an export is always the code.
+  function cell(r, c, esc, t, o) {
     var v = r[c.key];
+    if (c.code && v != null && v !== '' && o && o.label) return '<span class="pr-code" data-code="' + esc(String(v)) + '">' + esc(o.label(c.code, v)) + '</span>';
+    if (c.date && v != null && v !== '' && o && o.date) return '<span class="pr-date">' + esc(o.date(v)) + '</span>';
     if (c.key === 'baselined') return v == null ? '—' : esc(v ? t.yes : t.no);
     if (c.key === 'name' && r.id != null) return '<a href="project.html?id=' + encodeURIComponent(String(r.id)) + '">' + dash(v, esc) + '</a>';
     if (c.key === 'budget' && v != null) return esc(Number(v).toLocaleString('en-US'));
@@ -115,11 +119,11 @@
     var cols = (o.cols || DEFAULT_COLS).map(function (k) { return COLUMNS.find(function (c) { return c.key === k; }); }).filter(Boolean);
     var head = cols.map(function (c, i) {
       var on = o.sort === c.key; var nextDir = on && o.dir === 'asc' ? 'desc' : 'asc';
-      return '<th scope="col" class="' + (c.frozen ? 'pr-frz pr-frz' + i : '') + (c.num ? ' pr-num' : '') + '"' + (on ? ' aria-sort="' + (o.dir === 'desc' ? 'descending' : 'ascending') + '"' : '') + '><a href="' + esc(merge({ sort: c.key, dir: nextDir })) + '">' + esc(c[lang]) + (on ? (o.dir === 'desc' ? ' ▼' : ' ▲') : '') + '</a></th>';
+      return '<th scope="col" class="' + (c.frozen ? 'pr-frz pr-frz' + i : '') + (c.num ? ' pr-num' : '') + '"' + (on ? ' aria-sort="' + (o.dir === 'desc' ? 'descending' : 'ascending') + '"' : '') + (c['tip_' + lang] ? ' title="' + esc(c['tip_' + lang]) + '"' : '') + '><a href="' + esc(merge({ sort: c.key, dir: nextDir })) + '">' + esc(c[lang]) + (on ? (o.dir === 'desc' ? ' ▼' : ' ▲') : '') + '</a></th>';
     }).join('');
     if (!rows || !rows.length) return '<p class="pr-muted">' + esc(t.none) + '</p>';
     var body = rows.map(function (r) {
-      return '<tr>' + cols.map(function (c, i) { return (c.frozen && i === 0 ? '<th scope="row" class="pr-frz pr-frz0">' : '<td class="' + (c.frozen ? 'pr-frz pr-frz' + i : '') + (c.num ? ' pr-num' : '') + '">') + cell(r, c, esc, t) + (c.frozen && i === 0 ? '</th>' : '</td>'); }).join('') + '</tr>';
+      return '<tr>' + cols.map(function (c, i) { return (c.frozen && i === 0 ? '<th scope="row" class="pr-frz pr-frz0">' : '<td class="' + (c.frozen ? 'pr-frz pr-frz' + i : '') + (c.num ? ' pr-num' : '') + '">') + cell(r, c, esc, t, o) + (c.frozen && i === 0 ? '</th>' : '</td>'); }).join('') + '</tr>';
     }).join('');
     return '<div class="pr-scroll" tabindex="0" role="region" aria-label="' + esc(t.title) + '"><table class="pr-table"><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table></div>';
   }
@@ -127,8 +131,26 @@
   function groupTableHtml(rows, cols, o) {
     var esc = o.esc, t = o.T;
     if (!rows || !rows.length) return '<p class="pr-muted">—</p>';
-    return '<table class="pr-mini"><thead><tr>' + cols.map(function (c) { return '<th scope="col">' + esc(t[c[1]] || c[1]) + '</th>'; }).join('') + '</tr></thead><tbody>' +
+    return '<table class="pr-mini"><thead><tr>' + cols.map(function (c) { return '<th scope="col"' + (t[c[1] + '_tip'] ? ' title="' + esc(t[c[1] + '_tip']) + '"' : '') + '>' + esc(t[c[1]] || c[1]) + (t[c[1] + '_tip'] ? ' <span class="pr-info" aria-hidden="true">i</span><span class="pr-sr"> — ' + esc(t[c[1] + '_tip']) + '</span>' : '') + '</th>'; }).join('') + '</tr></thead><tbody>' +
       rows.map(function (r) { return '<tr>' + cols.map(function (c) { var v = r[c[0]]; return '<td>' + (v != null && typeof v === 'object' ? money(v, esc) : dash(v, esc)) + '</td>'; }).join('') + '</tr>'; }).join('') + '</tbody></table>';
   }
-  return { COLUMNS: COLUMNS, DEFAULT_COLS: DEFAULT_COLS, REPORTS: REPORTS, SCHEMA: SCHEMA, T: T, kpiHtml: kpiHtml, tableHtml: tableHtml, groupTableHtml: groupTableHtml };
+  /** A small horizontal bar chart (SVG attributes only — no inline style, strict CSP page). rows: [{ label, value }].
+   *  A null value draws NO bar and reads "—" (not measured is never a zero-length bar passed off as 0). */
+  function barsHtml(rows, o) {
+    var esc = o.esc, t = o.T || {};
+    if (!rows || !rows.length) return '<p class="pr-muted">—</p>';
+    var max = 0; rows.forEach(function (r) { if (r.value != null && isFinite(Number(r.value)) && Number(r.value) > max) max = Number(r.value); });
+    var LW = o.labelWidth || 110, W = 360, RH = 20, H = rows.length * RH + 4;
+    var out = '<svg class="pr-bars" viewBox="0 0 ' + (LW + W + 44) + ' ' + H + '" role="img" aria-label="' + esc(o.title || '') + '" preserveAspectRatio="xMinYMin meet">';
+    rows.forEach(function (r, i) {
+      var y = i * RH + 2, known = r.value != null && isFinite(Number(r.value)), w = known && max > 0 ? Math.round(Number(r.value) / max * W) : 0;
+      out += '<text class="pr-bars-l" x="' + (LW - 6) + '" y="' + (y + 13) + '" text-anchor="end">' + esc(String(r.label)) + '</text>' +
+        '<rect class="pr-bars-t" x="' + LW + '" y="' + (y + 3) + '" width="' + W + '" height="12" rx="3"></rect>' +
+        (known && w > 0 ? '<rect class="pr-bars-b' + (r.cls ? ' ' + esc(r.cls) : '') + '" x="' + LW + '" y="' + (y + 3) + '" width="' + w + '" height="12" rx="3"></rect>' : '') +
+        '<text class="pr-bars-v" x="' + (LW + W + 6) + '" y="' + (y + 13) + '">' + (known ? esc(String(r.value)) : '—') + '</text>' +
+        (known ? '' : '<title>' + esc(t.no_bar || 'not measured') + '</title>');
+    });
+    return out + '</svg>';
+  }
+  return { barsHtml: barsHtml, COLUMNS: COLUMNS, DEFAULT_COLS: DEFAULT_COLS, REPORTS: REPORTS, SCHEMA: SCHEMA, T: T, kpiHtml: kpiHtml, tableHtml: tableHtml, groupTableHtml: groupTableHtml };
 }));
