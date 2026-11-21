@@ -256,7 +256,7 @@ consentement, avis, exercice). L'IA ne peut ni le faire ni le déclarer fait.
 - **Justification :** Le panel IA du tour 9 recommande L15 GO PILOT ; la condition est de vérifier les graphies de site du filtre Helpdesk aux sites pilotes (registre).
 - **À vérifier au test final :** Se connecter avec chaque profil pilote et vérifier sa page d'arrivée et le filtre Helpdesk sur son site.
 - **Réversible :** oui
-- **Valeurs proposées (base de TEST seulement) :** `ui_role_landing_profiles` = `1`, `ui_home_group_variant` = `1`, `ui_home_freshness_strip` = `1`, `ui_helpdesk_site_default` = `1`
+- **Valeurs proposées (base de TEST seulement) :** `ui_role_landing` = `1`, `ui_role_landing_profiles` = `1`, `ui_home_group_variant` = `1`, `ui_home_freshness_strip` = `1`, `ui_helpdesk_site_default` = `1`
 - **Risque si accepté :** Une graphie de site non reconnue afficherait un Helpdesk vide.
 
 ## Sécurité de l'information (16)
