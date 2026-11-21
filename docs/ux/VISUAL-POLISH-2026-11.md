@@ -15,6 +15,105 @@ E2E_ARTIFACT_DIR=/tmp/claude-0/polish2-e2e node --test --test-force-exit --test-
 | V1 viewport | legacy bodies wrapped in `<main class="edv-main">` (display:contents, no box) — the helper skipped it and found nothing | `tests/e2e/fixtures/layout.js` steps INTO a display:contents element; the 6 known 320 px overflows fixed, allow-list emptied (ceiling 0) | green |
 | UAT S1, S2, S7, S8 | same layout helper (the UAT fixture measures each visited page with it) | none beyond the helper | green (run one by one, 2026-11-21) |
 
-## Priority 2 — committee findings
+All 44 e2e journeys were then run one by one on this branch (2026-11-21): 44 pass.
 
-(filled as items land)
+## Priority 2 — committee findings (state per seat)
+
+Legend: **done-1** = handled by the first four polish commits (merged in the trunk before this branch);
+**done-2** = handled on this branch; **partial** = part done, the rest named; **not done** = reason given.
+
+### Field seat (`field.md`, 25 findings)
+
+| # | Finding | State |
+|---|---|---|
+| F1 | Quick inspection overflows (495 px page) | done-2 — label on top, 5-column grid, `main{overflow-x:clip}`, short labels ≤ 480 px with the full word in `aria-label` |
+| F2 | Pressed status has no severity colour | done-2 — ok / minor / major / critical / n-a colours (AA, white text) + ✓ + left border on the row |
+| F3 | Action register unreadable on a phone | done-2 — card layout under 720 px, list before the charts (`inspection-actions.html`, same fix on `meetings-actions.html`) |
+| F4 | French UI with English content | done-2 — areas, categories, checklist items and status labels from the lookups' French fields; tiles, kinds, sources, action statuses (SDPLabels), dashboard titles; validation in the page language (no browser bubble) |
+| F5 | Unstyled dialogs, `window.confirm` | done-2 — bottom sheets; one confirmation sheet naming its target (discard, send as me, clear) |
+| F6 | Raw file input | done-2 — "Take a photo" / "Gallery" buttons, 88 px thumbnails with size and a remove button, several photos from the gallery; 300 KB limit and low-bandwidth rule unchanged |
+| F7 | Outbox shows machine data | done-2 — one card per entry: state + kind, plain title, relative time, reason on a tinted block, buttons on their own row; uuid / inspection id / exact timestamp under "Details"; header counter hidden at 0, amber when waiting, red when a decision is needed |
+| F8 | Sunlight contrast | done-2 — green #15803D, amber #B45309, red #B91C1C, muted #4B5563, active tab text #B4410E; ● / ⚠ on the network pill |
+| F9 | Low-bandwidth toggle misaligned (inline style) | done-2 — `.check` class; no inline style left in `index.html` or `app.js` |
+| F10 | Bottom nav text-only, clips at 320 px | done-2 — icon + one-word label, safe-area padding, badge on Home when the outbox is not empty |
+| F11 | Open actions: no context, tight destructive button | done-2 — card (source + status pills, description, owner, due date with days late); primary Close full width; "Cancel this action" as a text button on its own row, justification still mandatory. Not done: sort overdue first (the row order is pinned by a browser test; left as is) |
+| F12 | Feedback off-screen | done-2 — `#msg` is a toast above the bottom bar; a success fades after 5 s, an error stays; the checklist is outlined and scrolled to |
+| F13 | `inspection.html` opens on tools | done-2 (phone) — header tools on one row, save bar on one sticky line, print options hidden under 720 px; first field at ~390 px instead of ~600 px. Not done: a "⋯" menu |
+| F14 | Touch targets under 44 px | done-2 — inputs 48 px / 16 px text, chips, mic, save link, signature buttons ≥ 44 px, status buttons a 3 × 2 grid |
+| F15 | 17 category tabs stacked | done-2 — one horizontally scrolling sticky chip row |
+| F16 | Doubled EN/FR labels | done-2 — `lib/oneLanguage.js` shows the half that matches the interface language (labels, section titles, options, buttons, placeholders, tiles); stored option values are unchanged. Labels that never had a French half follow the page dictionary switch (`ui_i18n_pages`, a human decision) |
+| F17 | Technical strings | done-2 — dates through SDPFormat, "count" dropped, tracker empty state |
+| F18 | Language switch in the header | done-2 — moved to the Home card; the network status is larger |
+| F19 | Home tiles | done-2 — 3 equal tiles, tappable, overdue in red when > 0 |
+| F20 | Sync gives no progress | done-2 — `aria-busy` + "Syncing…" |
+| F21 | Native selects | done-2 — styled select with a chevron, 48 px |
+| F22 | Inspector retyped | done-2 — prefilled from the signed-in user of the bootstrap (per-user cache) |
+| F23 | Queue next to Clear | done-2 — full-width primary; Clear is a text button with a confirmation naming what is cleared |
+| F24 | No way back to SDP360 | done-2 — link on the Home card |
+| F25 | Field app is one of six chips on Home | not done — `home.html` ordering is shared with the adoption work (landing per profile already sends a technician to the field app, journey B1) |
+| data | "0 count" beside an "NA" pill | done-2 — null = "—"; a measured 0 stays 0; the RAG pill is shown only for GREEN / AMBER / RED (NA = no threshold on that metric) |
+
+### Visual seat (`visual.md`)
+
+| # | Finding | State |
+|---|---|---|
+| F1 | Brand font missing | done-1 (tokens import the font) + done-2 (the two ITSM pages). The four remaining pages without tokens are 11-line redirect stubs |
+| F2 | No shared component layer | done-1 (components) + partial-2 — the duplicated `.btn`/control rules of 6 pages moved to `body.edv-house`. Not done: 13 pages still define their own `.btn` (assets, executive, deck builder, inspection, inspections, it-review, login, reports, trackers, dashboards, dashboard-composer; portfolio and project belong to the PMO work). Each needs a visual pass page by page |
+| F3 | Meetings hero on a phone | done-1 |
+| F4 / F8 | Rainbow KPI borders, gradient strips, purple | done-1; done-2: a scorecard tile whose value is not measured carries no colour (`lib/kpiUnknown.js`) |
+| F5 | Emoji as icons | done-1 (shell, tabs) + done-2 — 219 emoji replaced by Lucide SVG on 15 pages (17 icons added, placeholders hydrated when scripts render them). Kept: 🟢🟡🔴 RAG, 😊😐😟 CSAT, ✓ ✕ ⚠, emoji inside share / prompt texts and in JS toasts |
+| F6 | Icon-only top nav | done-1 |
+| F7 | Provenance box | done-1 (compact strip; scope, window and unknown visible) |
+| F9, F17, F19, F20 | Type scale, widths, elevation, radii | partial — tokens exist (done-1); not applied page by page here |
+| F10 | Four kinds of tab bar | partial — module tabs shared; in-page tabs of assets / tracker / admin unchanged |
+| F11 | Header logo | done-1 |
+| F12 | Unstyled native controls | partial-2 — field app, inspection phone layout, house pages |
+| F13 | Policy Center raw JSON | done-1 |
+| F14 | Empty / loading states | partial — helpdesk (done-1), tracker entry on the phone (done-2) |
+| F15 | Helpdesk filter wall | not done — needs a design decision on which filters fold |
+| F16 | Semantic button colours | partial-2 — field app |
+| F18 | Bilingual inline labels | done-2 on the inspection form (oneLanguage); meeting.html handled by its dictionary |
+| F21 | Status badges | partial — `.edv-badge` exists; pages not migrated |
+| F22 | Raw codes in tables | done-1 (system logs) + done-2 (roles as words, WAN attribution, claim history, site overview) |
+| F23 | US date inputs | not fixable in the page: a native date input follows the browser locale |
+| F24 | Motion | done-1 (reduced-motion rule) |
+
+### Site coordinator seat (`site-coordinator.md`)
+
+P1-1 … P1-8: done-1 (empty KPI not green, meetings hero, PV editor sideways scroll, tracker month, tracker phone grid,
+home order, PV validation). P1-7 (report editor in French) follows `ui_i18n_pages`.
+P2-12 emoji: done-2. P2-13 native buttons: partial (see visual F2). P2-9, P2-10, P2-11, P2-14 … P2-17, P3: done-1 for
+P2-10 and P2-14; the others not done here (report editor action row, save feedback, reports landing — each is a
+workflow change of the weekly report, to be decided with a coordinator).
+
+### Executive seat (`executive.md`)
+
+F1 done-1 · F2 done-1 (labels) · F3 partial (done-1 chrome) · F4 partial · F5 partial (one door, tabs — done-1; tiles neutral —
+done-2) · F6 PMO work (portfolio) · F7 done-1 (print rules) · F8 done-1 · F9 done-1 · F10 disclosed on the page (ported model, not
+moved) · F11 not done · F12 partial · F13 done-2 · F14 done-2 ("Computing…" → "—", no colour on unknown) · F15 partial (done-2:
+no colour contradiction on an unknown tile) · F16–F18 not done (chart and panel layout) · F19 done-1 · F20–F25 not done.
+
+### Admin seat (`admin.md`)
+
+P1-1 done-1 · P1-2 done-1 · P1-3 done-1 · P1-4 done-1 · P1-5 done-1 · P1-6 done-1 + done-2 (roles as words) · P2-1 done-2 (one
+scope heading) · P2-2 done-2 (rail and group tabs in English, French in the dictionary) · P2-8 done-1 · P2-12 done-1 · P3-8
+done-2 (icons). Not done: P2-3 … P2-7, P2-9 … P2-11, P3-1 … P3-7 (users table features, inline site editing, four-eyes badges,
+policy list grouping, API key reveal dialog, dormant connectors) — each is a feature, not polish.
+
+### Accessibility and French seat (`a11y-fr.md`)
+
+F1 a configuration decision (not taken here) · F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F15, F17, F19, F20, F21,
+F22: done-1 · F12 done-2 as well (one interface locale for `toLocale*` on 11 files) · F16 done-2 (the six 320 px overflows
+are fixed, the allow-list is empty) · F17 done-2 (`<main>` + h1 on helpdesk, h1 on reports and scorecard) · F18 partial
+(field app) · F23 not done (the French checklist lines drop the ranges: the source data `inspection-init.json`) · F24, F25
+not done · F14 glossary applied by the French-quality merge.
+
+### IA and value seat (`ia-value.md`)
+
+F1 … F5, F8, F9, F12, F15: done-1 · F6 done-1 + done-2 (no "(help §NN)" text; the "?" opens the chapter for 15 more
+pages) · F7 done-1 · F10 done-1 · F11 done-1 · F13, F14 partial · F16 partial · F17 done-2 · F18, F19, F20 not done.
+
+## Screenshots
+
+`docs/ux/polish-shots/` — before (commit `5588a2ba`) and after, desktop 1440 px and phone 390 px, and the contact
+sheet `before-after.png`. Screenshots are for a person to look at; nothing is compared automatically.
