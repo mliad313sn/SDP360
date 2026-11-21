@@ -6,13 +6,13 @@
 
 | Item | Count |
 |---|---:|
-| pages | 66 |
+| pages | 68 |
 | pages without test reference | 0 |
-| pages without declared role | 6 |
-| pages not in navigation | 32 |
-| pages not in shell or module tabs | 23 |
+| pages without declared role | 7 |
+| pages not in navigation | 33 |
+| pages not in shell or module tabs | 24 |
 | pages deep link only | 9 |
-| pages without entry point | 2 |
+| pages without entry point | 3 |
 | pages with inline scripts | 45 |
 | routes | 810 |
 | routes without test reference | 30 |
@@ -20,7 +20,7 @@
 | jobs | 33 |
 | jobs without test reference | 0 |
 | migrations | 119 |
-| test files | 950 |
+| test files | 953 |
 
 ## Pages
 
@@ -28,6 +28,7 @@
 |---|---|---|---|---:|---:|
 | PG-access | public/access.html | any | no | 0 | 7 |
 | PG-activity-tracker | public/activity-tracker.html | admin / tracker-admin / tracker-editor | yes | 0 | 8 |
+| PG-admin-home | public/admin-home.html | super_admin | yes | 0 | 4 |
 | PG-analytics | public/analytics.html | admin / scorecard-viewer | yes | 1 | 10 |
 | PG-assets-finance | public/assets-finance.html | UNKNOWN | no | 1 | 2 |
 | PG-assets-hygiene | public/assets-hygiene.html | UNKNOWN | no | 1 | 3 |
@@ -41,18 +42,18 @@
 | PG-data-quality | public/data-quality.html | admin | yes | 0 | 3 |
 | PG-exec-view | public/exec-view.html | public | no | 1 | 8 |
 | PG-executive-report | public/executive-report.html | super_admin | yes | 1 | 14 |
-| PG-executive | public/executive.html | executive / scorecard-viewer | yes | 1 | 18 |
+| PG-executive | public/executive.html | executive / scorecard-viewer | yes | 1 | 19 |
 | PG-finance | public/finance.html | admin / finance-viewer | yes | 0 | 4 |
 | PG-handoffs | public/handoffs.html | any | yes | 1 | 10 |
 | PG-help | public/help.html | any | yes | 0 | 13 |
-| PG-home | public/home.html | any | yes | 0 | 19 |
-| PG-index | public/index.html | any | yes | 1 | 43 |
+| PG-home | public/home.html | any | yes | 0 | 20 |
+| PG-index | public/index.html | any | yes | 1 | 44 |
 | PG-infra-health | public/infra-health.html | any | yes | 2 | 7 |
 | PG-inspection-actions | public/inspection-actions.html | any | no | 1 | 7 |
 | PG-inspection | public/inspection.html | any | no | 2 | 12 |
 | PG-inspections | public/inspections.html | any | yes | 1 | 11 |
 | PG-integrations | public/integrations.html | admin | yes | 1 | 5 |
-| PG-it-review | public/it-review.html | executive / scorecard-viewer | yes | 2 | 9 |
+| PG-it-review | public/it-review.html | executive / scorecard-viewer | yes | 2 | 8 |
 | PG-itsm-integrations-plan | public/itsm-integrations-plan.html | UNKNOWN | no | 0 | 5 |
 | PG-itsm-roadmap | public/itsm-roadmap.html | super_admin | no | 1 | 5 |
 | PG-kpi-builder | public/kpi-builder.html | any | yes | 0 | 5 |
@@ -69,9 +70,10 @@
 | PG-meetings-unsigned | public/meetings-unsigned.html | any | no | 2 | 4 |
 | PG-meetings | public/meetings.html | any | yes | 2 | 10 |
 | PG-no-access | public/no-access.html | any | no | 0 | 2 |
+| PG-not-available | public/not-available.html | UNKNOWN | no | 0 | 1 |
 | PG-notifications | public/notifications.html | any | yes | 1 | 4 |
 | PG-obligations | public/obligations.html | any | yes | 0 | 5 |
-| PG-policies | public/policies.html | admin / committee-member | yes | 1 | 6 |
+| PG-policies | public/policies.html | admin / committee-member | yes | 1 | 7 |
 | PG-policy-center | public/policy-center.html | super_admin | yes | 0 | 6 |
 | PG-portfolio-decisions | public/portfolio-decisions.html | any | no | 0 | 3 |
 | PG-portfolio-phase2 | public/portfolio-phase2.html | any | no | 0 | 3 |
@@ -79,9 +81,9 @@
 | PG-portfolio | public/portfolio.html | any | yes | 1 | 22 |
 | PG-project | public/project.html | any | no | 1 | 25 |
 | PG-report-studio | public/report-studio.html | any | yes | 1 | 4 |
-| PG-reports | public/reports.html | any | yes | 2 | 42 |
+| PG-reports | public/reports.html | any | yes | 2 | 43 |
 | PG-rfi | public/rfi.html | any | yes | 1 | 5 |
-| PG-site-actions | public/site-actions.html | any | yes | 1 | 19 |
+| PG-site-actions | public/site-actions.html | any | yes | 1 | 20 |
 | PG-site-awareness | public/site-awareness.html | site-business / group-business / executive | yes | 2 | 13 |
 | PG-site-report | public/site-report.html | UNKNOWN | no | 0 | 6 |
 | PG-system-logs | public/system-logs.html | super_admin | yes | 1 | 4 |
@@ -101,34 +103,35 @@
 |---|---|---|---|---|---|---|
 | public/access.html | — | — | no-access.html, no-access.js | — | — | no-access.html |
 | public/activity-tracker.html | yes | — | lib/homeQueue.js, lib/workspaceProfiles.js | — | — | shell |
+| public/admin-home.html | yes | — | — | — | — | shell |
 | public/analytics.html | yes | — | lib/workspaceProfiles.js | — | — | shell |
 | public/assets-finance.html | — | — | — | assets.html | legacy redirect stub kept for old bookmarks → assets.html | assets.html |
 | public/assets-hygiene.html | — | — | — | assets.html | legacy redirect stub kept for old bookmarks → assets.html | assets.html |
 | public/assets.html | yes | — | assets-finance.html, assets-hygiene.html, lib/workspaceProfiles.js | — | — | shell |
 | public/cockpit.html | yes | — | lib/workspaceProfiles.js | — | — | shell |
 | public/commitments.html | — | — | lib/dashboardRender.js, lib/portfolioDecisionsPage.js, site-actions.html | — | — | site-actions.html |
-| public/connector-health.html | yes | — | lib/homeGroup.js | — | — | shell |
+| public/connector-health.html | yes | — | admin-home.html, lib/homeGroup.js | — | — | shell |
 | public/coverage.html | — | — | — | — | — | **NO ENTRY POINT** — duty coverage page — no menu entry, no link from another page |
 | public/dashboard-composer.html | — | — | dashboards.html | — | — | dashboards.html |
-| public/dashboards.html | yes | — | lib/workspaceProfiles.js | — | — | shell |
-| public/data-quality.html | yes | — | — | — | — | shell |
+| public/dashboards.html | yes | yes | lib/workspaceProfiles.js | — | — | shell |
+| public/data-quality.html | yes | — | admin-home.html | — | — | shell |
 | public/exec-view.html | — | — | — | — | public IT status snapshot: reached from the SharePoint Quick Link, outside the app | — |
 | public/executive-report.html | yes | — | — | — | — | shell |
-| public/executive.html | yes | — | dashboards.html | — | — | shell |
+| public/executive.html | yes | yes | dashboards.html | — | — | shell |
 | public/finance.html | yes | — | lib/moneyCertBand.js | — | — | shell |
 | public/handoffs.html | yes | — | home.html, site-actions.html | — | — | shell |
-| public/help.html | yes | — | — | — | — | shell |
-| public/home.html | yes | — | index.html, lib/pageStates.js, lib/workspaceProfiles.js, workspace-settings.html | — | — | shell |
-| public/index.html | yes | — | lib/workspaceProfiles.js, login.html, no-access.html | — | — | shell |
+| public/help.html | yes | — | not-available.html | — | — | shell |
+| public/home.html | yes | — | index.html, lib/pageStates.js, lib/workspaceProfiles.js, not-available.html (+1) | — | — | shell |
+| public/index.html | yes | — | lib/workspaceProfiles.js, no-access.html | — | — | shell |
 | public/infra-health.html | yes | — | — | — | — | shell |
 | public/inspection-actions.html | — | yes | inspections.html | — | — | inspections.html |
 | public/inspection.html | — | yes | inspection-actions.html, inspections.html | — | — | inspections.html |
 | public/inspections.html | yes | yes | inspection-actions.html, lib/workspaceProfiles.js | — | — | shell |
-| public/integrations.html | yes | — | lib/workspaceProfiles.js | — | — | shell |
-| public/it-review.html | yes | — | lib/workspaceProfiles.js | — | — | shell |
+| public/integrations.html | yes | — | admin-home.html, lib/workspaceProfiles.js | — | — | shell |
+| public/it-review.html | yes | yes | lib/workspaceProfiles.js | — | — | shell |
 | public/itsm-integrations-plan.html | — | — | itsm-roadmap.html | — | — | itsm-roadmap.html |
 | public/itsm-roadmap.html | — | — | — | — | the manager's personal roadmap tool: reached by its URL (bookmark), deliberately outside the shared menu | — |
-| public/kpi-builder.html | yes | — | lib/policyCenterPage.js | — | — | shell |
+| public/kpi-builder.html | yes | — | admin-home.html, lib/policyCenterPage.js | — | — | shell |
 | public/login.html | — | — | auth.js, executive-report.html, reports.html | — | sign-in page: reached by redirect from every gated page (auth.js), not from a menu | executive-report.html |
 | public/meeting.html | — | — | lib/home-page.js, meetings-actions.html, meetings-council.html, meetings-issues.html (+4) | — | — | meetings-actions.html |
 | public/meetings-actions.html | — | yes | — | — | — | meetings.html |
@@ -142,22 +145,23 @@
 | public/meetings-unsigned.html | — | yes | — | — | — | meetings.html |
 | public/meetings.html | yes | yes | lib/workspaceProfiles.js, meeting.html, meetings-import.html | — | — | shell |
 | public/no-access.html | — | — | auth.js | — | denial page: reached by redirect from auth.js when a role is missing | auth.js |
+| public/not-available.html | — | — | — | — | — | **NO ENTRY POINT** |
 | public/notifications.html | yes | — | home.html, site-actions.html | — | — | shell |
 | public/obligations.html | yes | — | home.html, site-actions.html | — | — | shell |
-| public/policies.html | yes | — | access.html, lib/workspaceProfiles.js | — | — | shell |
-| public/policy-center.html | yes | — | — | — | — | shell |
+| public/policies.html | yes | — | access.html, admin-home.html, lib/workspaceProfiles.js | — | — | shell |
+| public/policy-center.html | yes | — | admin-home.html | — | — | shell |
 | public/portfolio-decisions.html | — | — | portfolio.html | — | — | portfolio.html |
 | public/portfolio-phase2.html | — | — | portfolio.html | — | — | portfolio.html |
 | public/portfolio-register.html | — | — | portfolio.html | — | — | portfolio.html |
 | public/portfolio.html | yes | — | itsm-roadmap.html, lib/workspaceProfiles.js, project.html | — | — | shell |
 | public/project.html | — | — | lib/home-page.js, lib/portfolioPhase2Page.js, lib/portfolioRegister.js, lib/portfolioViews.js (+3) | — | — | meeting.html |
 | public/report-studio.html | yes | — | lib/workspaceProfiles.js | — | — | shell |
-| public/reports.html | yes | — | access.html, site-report.html, wan.html | — | — | shell |
+| public/reports.html | yes | — | access.html, admin-home.html, site-report.html, wan.html | — | — | shell |
 | public/rfi.html | yes | — | meeting.html, portfolio.html | — | — | shell |
 | public/site-actions.html | yes | yes | commitments.html, handoffs.html, lib/workspaceProfiles.js | — | — | shell |
 | public/site-awareness.html | yes | — | auth.js, lib/workspaceProfiles.js | — | — | shell |
 | public/site-report.html | — | — | — | — | — | **NO ENTRY POINT** — live site scoreboard — no link from the app (the coordinator e-mail names it but carries no link) |
-| public/system-logs.html | yes | — | lib/workspaceProfiles.js | — | — | shell |
+| public/system-logs.html | yes | — | admin-home.html, lib/workspaceProfiles.js | — | — | shell |
 | public/tracker-builder.html | — | — | trackers.html | — | — | trackers.html |
 | public/trackers.html | yes | — | tracker-builder.html | — | — | shell |
 | public/value-scoreboard.html | yes | — | — | — | — | shell |
