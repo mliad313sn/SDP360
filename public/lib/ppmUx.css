@@ -218,3 +218,5 @@ th[aria-sort=descending] .ppm-sort::after { content: '▼'; color: var(--color-t
 .ppm-page .pr-btn, .ppm-page .pd-btn { min-height: 32px; box-sizing: border-box; padding: 5px 12px; border-radius: var(--radius-md); font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; text-decoration: none; }
 .ppm-page .pr-bar label .ppm-chips { min-width: 170px; max-width: 240px; }
 .ppm-back { font-size: 13px; }
+.ppm-page thead th { white-space: nowrap; }
+.ppm-page .pr-table thead th, .ppm-page .p2-table thead th { white-space: normal; }

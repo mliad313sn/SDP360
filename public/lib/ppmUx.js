@@ -139,6 +139,7 @@
     var rows = box.querySelector('.ppm-cl-rows'), roles = box.querySelector('.ppm-cl-roles');
     var ROLES = opts.roles || ['committee-member', 'executive', 'admin', 'super_admin'];
     var extraUsers = [];
+    var roleLabel = opts.roleLabel || function (r) { return root.PpmLabels ? root.PpmLabels.label('role', r) : r; };   // the value saved stays the role code
     function rowHtml(it) {
       return '<div class="ppm-cl-row"><input type="text" data-cl-label aria-label="' + escD(t('label', 'Item label')) + '" placeholder="' + escD(t('label', 'Item label')) + '" value="' + escD(it.label || '') + '">' +
         '<select data-cl-kind aria-label="' + escD(t('kind', 'Kind')) + '"><option value="artifact"' + (it.kind !== 'check' ? ' selected' : '') + '>' + escD(t('artifact', 'Document')) + '</option><option value="check"' + (it.kind === 'check' ? ' selected' : '') + '>' + escD(t('check', 'Check')) + '</option></select>' +
@@ -146,7 +147,7 @@
     }
     function rolesHtml(sel) {
       var all = ROLES.concat(sel.filter(function (r) { return ROLES.indexOf(r) < 0; }));
-      roles.innerHTML = all.map(function (r) { return '<label class="ppm-inline"><input type="checkbox" value="' + escD(r) + '"' + (sel.indexOf(r) >= 0 ? ' checked' : '') + '> ' + escD(r) + '</label>'; }).join(' ');
+      roles.innerHTML = all.map(function (r) { return '<label class="ppm-inline"><input type="checkbox" value="' + escD(r) + '"' + (sel.indexOf(r) >= 0 ? ' checked' : '') + '> ' + escD(roleLabel(r)) + '</label>'; }).join(' ');
     }
     box.addEventListener('click', function (ev) {
       if (ev.target.closest('[data-cl-add]')) rows.insertAdjacentHTML('beforeend', rowHtml({}));

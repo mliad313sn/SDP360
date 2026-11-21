@@ -330,8 +330,6 @@
     'No project id in the address — open a project from the portfolio.': 'Aucun identifiant de projet dans l’adresse — ouvrez un projet depuis le portefeuille.',
     'Saved.': 'Enregistré.',
     'Delivery status ': 'Statut d’avancement',
-    'pass': 'conforme',
-    'fail': 'non conforme',
     'not measured': 'non mesuré',
     'computed': 'calculée',
     'nobody': 'personne',
@@ -346,6 +344,8 @@
     'scheduled': 'planifiée',
     'baseline': 'référence',
     'milestone': 'jalon',
+    'Pass': 'Conforme',
+    'Fail': 'Non conforme',
   });
   // PMO UX — end generated
   root.I18N_FR_PORTFOLIO = Object.assign({}, STATIC, RUNTIME_KEYS);

@@ -185,8 +185,8 @@
   // ---- DCMA 14 ---------------------------------------------------------------------------------------------------
   function loadDcma() {
     api(base + 'project/' + PID + '/dcma').then(function (d) {
-      $('w3-dcma-body').innerHTML = '<p>' + n(d.summary.passed) + ' passed · ' + n(d.summary.failed) + ' failed · ' + n(d.summary.not_measurable) + ' not measurable · status date ' + n(d.status_date) + '</p><table><tr><th>#</th><th>Check</th><th>Metric</th><th>Threshold</th><th>Value</th><th>Result</th></tr>' +
-        d.points.map(function (p) { return '<tr><td>' + p.id + '</td><td>' + esc(p.name) + '</td><td>' + esc(p.metric) + '</td><td>' + esc(p.threshold) + '</td><td>' + n(p.value) + (p.of != null && p.count != null ? ' <small class="muted">(' + p.count + ' / ' + p.of + ')</small>' : '') + '</td><td>' + (p.pass == null ? '<span class="w3-na">— ' + esc(p.basis || '') + '</span>' : p.pass ? '<span class="w3-ok">pass</span>' : '<span class="w3-ko">fail</span>') + '</td></tr>'; }).join('') + '</table><p class="muted">' + esc(d.method) + '</p>';
+      $('w3-dcma-body').innerHTML = '<p>' + n(d.summary.passed) + ' passed · ' + n(d.summary.failed) + ' failed · ' + n(d.summary.not_measurable) + ' not measurable · status date ' + esc(UX() ? UX().date(d.status_date) : n(d.status_date)) + '</p><table><tr><th>#</th><th>Check</th><th>Metric</th><th>Threshold</th><th>Value</th><th>Result</th></tr>' +
+        d.points.map(function (p) { return '<tr><td>' + p.id + '</td><td>' + esc(p.name) + '</td><td>' + esc(p.metric) + '</td><td>' + esc(p.threshold) + '</td><td>' + n(p.value) + (p.of != null && p.count != null ? ' <small class="muted">(' + p.count + ' / ' + p.of + ')</small>' : '') + '</td><td>' + (p.pass == null ? '<span class="w3-na">— ' + esc(p.basis || '') + '</span>' : p.pass ? '<span class="w3-ok">Pass</span>' : '<span class="w3-ko">Fail</span>') + '</td></tr>'; }).join('') + '</table><p class="muted">' + esc(d.method) + '</p>';
     }).catch(failMsg);
   }
 

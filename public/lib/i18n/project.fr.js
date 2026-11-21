@@ -437,8 +437,6 @@
     'No project id in the address — open a project from the portfolio.': 'Aucun identifiant de projet dans l’adresse — ouvrez un projet depuis le portefeuille.',
     'Saved.': 'Enregistré.',
     'Delivery status ': 'Statut d’avancement',
-    'pass': 'conforme',
-    'fail': 'non conforme',
     'not measured': 'non mesuré',
     'computed': 'calculée',
     'nobody': 'personne',
@@ -464,6 +462,8 @@
     'Evidence': 'Preuve',
     'Slip': 'Glissement',
     'Projects': 'Projets',
+    'Pass': 'Conforme',
+    'Fail': 'Non conforme',
   });
   // PMO UX — end generated
   root.I18N_FR_PROJECT = Object.assign({}, STATIC, RUNTIME_KEYS);
