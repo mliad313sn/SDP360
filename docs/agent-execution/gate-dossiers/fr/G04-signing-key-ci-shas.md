@@ -10,7 +10,7 @@
 | Case de décision dans RELEASE-GATES.md | vide — cette porte est **NO-GO** tant que l'approbateur ne l'a pas remplie. Ce dossier ne remplit rien. |
 | Ce que cette porte bloque | ne bloque que le déploiement général |
 | À décider après | [G03](G03-cab-dependencies-postgres-only.md) CAB : mise à jour des dépendances et passage à PostgreSQL seul |
-| SHA cible | `5f4d0598` |
+| SHA cible | `33d8a0f3` |
 | Généré | 2026-11-21 |
 
 ## 1. La question à trancher
