@@ -128,7 +128,7 @@
     api('/api/dashboards/' + encodeURIComponent(key)).then(function (j) {
       meta = j.dashboard; def = j.published || j.dashboard.definition;
       $('title').textContent = meta.title;
-      $('subtitle').textContent = (meta.audience + ' dashboard' + (meta.version ? ' · version ' + meta.version : ' · draft, not published')) + ' — figures from the KPI dictionary (help §20).';
+      $('subtitle').textContent = (meta.audience + ' dashboard' + (meta.version ? ' · version ' + meta.version : ' · draft, not published')) + ' — figures from the KPI dictionary.';
       $('edit').hidden = !j.publisher;
       $('edit').addEventListener('click', function () { location.href = 'dashboard-composer.html?key=' + encodeURIComponent(key); });
       document.title = meta.title + ' — Endeavour Mining IT';
