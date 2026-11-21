@@ -136,12 +136,14 @@
       for (i = w.start; i < w.end; i++) grid.push(gridRow(i));
       gin.innerHTML = grid.join('');
     }
+    // dates through lib/format.js (SDPFormat) when the page loads it; the edit box still takes YYYY-MM-DD
+    function fmtDate(v) { if (!v) return '—'; var F = root.SDPFormat; return F && F.date ? F.date(v) : v; }
     function cellText(r, t, key) {
       if (key === 'id') return String(r.id);
       if (key === 'name') return r.name || T('(no name)');
       if (key === 'duration') { if (r.milestone) return '◆ 0 d'; if (t.duration_days != null) return t.duration_days + ' d'; var wd = G.workDays(r.start, r.end, cal); return wd == null ? '—' : wd + ' d'; }   // PMO UX: computed from the dates when none was entered
-      if (key === 'start') return r.start || '—';
-      if (key === 'finish') return r.end || '—';
+      if (key === 'start') return fmtDate(r.start);
+      if (key === 'finish') return fmtDate(r.end);
       if (key === 'predecessors') return G.formatPredecessors(t) || '';
       return t.progress_pct == null ? '—' : t.progress_pct + ' %';
     }
@@ -150,7 +152,7 @@
       return '<div class="g2-row' + (r.critical ? ' g2-rcrit' : '') + '" role="row" aria-rowindex="' + (i + 2) + '" style="top:' + (i * ROW_H) + 'px">' + COLS.map(function (c, k) {
         var edit = ctx.canEdit && c[0] !== 'finish' && c[0] !== 'id';
         var pad = c[0] === 'name' ? 'padding-left:' + (4 + 12 * r.depth) + 'px;' : '';
-        return '<div role="gridcell" class="g2-c' + (edit ? ' g2-ed' : '') + '" style="width:' + c[2] + 'px;' + pad + '" data-row="' + i + '" data-col="' + k + '" tabindex="' + (i === focusRow && k === focusCol ? '0' : '-1') + '"' + (edit ? ' aria-readonly="false"' : ' aria-readonly="true"') + '>' + esc(cellText(r, t, c[0])) + (k === 0 ? ' <small class="muted">#' + esc(r.id) + '</small>' : '') + '</div>';
+        return '<div role="gridcell" class="g2-c' + (edit ? ' g2-ed' : '') + '" style="width:' + c[2] + 'px;' + pad + '" data-row="' + i + '" data-col="' + k + '" tabindex="' + (i === focusRow && k === focusCol ? '0' : '-1') + '"' + (edit ? ' aria-readonly="false"' : ' aria-readonly="true"') + '>' + esc(cellText(r, t, c[0])) + '</div>';
       }).join('') + '</div>';
     }
     function schedule() { if (!raf) raf = (root.requestAnimationFrame || function (f) { return setTimeout(f, 16); })(paint); }

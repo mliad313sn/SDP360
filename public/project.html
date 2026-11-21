@@ -15,6 +15,8 @@
 <script nonce="%%CSP_NONCE%%" src="lib/dashboardRender.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/allocationContract.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/ppmVisuals.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/format.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/codeLabels.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/ppmLabels.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/ppmUx.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/ppmExtras.js"></script>
@@ -255,7 +257,7 @@
   <section id="pane-history" role="tabpanel" aria-labelledby="tab-history" hidden>
     <div class="panel"><h2>History (append-only ledger)</h2><div class="scroll" id="history"></div></div>
   </section>
-  <p class="ppm-footnote" id="p-sub">Charter, plan, milestones, risks and gates of one project. “—” means not measured, never 0 (help §25).</p>
+  <p class="ppm-footnote" id="p-sub">Charter, plan, milestones, risks and gates of one project. “—” means not measured, never 0 (<a href="help.html#project">help</a>).</p>
 </main>
 <!-- PMO UX — side drawers (task, RAID entry, template); each opens beside the grid and closes with Escape -->
 <div class="ppm-drawer-back" id="ppm-drawer-back" hidden></div>
@@ -418,9 +420,13 @@
   // PMO UX — a message lands where the user is looking: under the Save button of the open drawer (an error keeps the
   // drawer open), else a toast for a success; errors outside a drawer stay in the page banner too.
   var UX = window.PpmUx || null, LBL = window.PpmLabels || null;
+  // dte(): a date through lib/format.js (SDPFormat), escaped; a missing date reads "—"
+  var dte = function (v) { return v == null || v === "" ? "—" : esc(UX ? UX.date(v) : String(v).slice(0, 10)); };
   var lab = function (g, c) { return LBL ? LBL.label(g, c) : (c == null || c === "" ? "—" : String(c).replace(/_/g, " ")); };
   var pillOf = function (g, c, cls) { return LBL ? LBL.pill(g, c, esc, null, cls) : "<span class=\"pill " + esc(cls || c || "NA") + "\">" + esc(lab(g, c)) + "</span>"; };
+  var NF = false;   // "not found" state: the card is the message — no error banner or toast on top of it
   var msg = function (h, cls) {
+    if (NF && cls === "errors") return;
     var dr = document.querySelector(".ppm-drawer.open"), box = dr && dr.querySelector(".form-msg");
     if (UX && box && h) { if (cls === "errors") { UX.formMsg(box, h, true); return; } UX.closeDrawer(dr.id); UX.toast(h); return; }
     if (UX && h && cls !== "errors") { $("msg").innerHTML = ""; UX.toast(h); return; }
@@ -585,6 +591,7 @@
   // PMO UX — "not found" / no id: the tabs and areas disappear, one card says why and leads back to the portfolio
   function notFound(title, text) {
     $("p-title").textContent = title; $("p-nf-title").textContent = title; $("p-nf-text").textContent = text;
+    NF = true; $("msg").innerHTML = ""; var wm = $("w3-mode"); if (wm) { wm.hidden = true; wm.setAttribute("data-nf", "1"); } var ws = $("w3-simple"); if (ws) ws.hidden = true; var ft = $("p-sub"); if (ft) ft.hidden = true;
     $("p-notfound").hidden = false; $("groups").hidden = true; $("tabs").hidden = true; $("p-pills").innerHTML = "";
     Array.prototype.forEach.call(document.querySelectorAll("main > section[role=tabpanel]"), function (x) { x.hidden = true; });
   }
@@ -620,7 +627,7 @@
     var stepper = UX ? UX.stepperHtml(st, p.stage || "proposal", function (x) { return lab("stage", x); }, esc) : esc(lab("stage", p.stage || "proposal"));
     var tiles = [["Stage", stepper],
       ["Status", pillOf("status", p.status)],
-      ["Finish vs baseline", "<span class=\"pill " + esc(rag.cls) + "\">" + esc(rag.cls === "NA" ? "—" : rag.label) + "</span> <span class=\"muted\">" + esc(rag.text) + "</span>"],
+      ["Finish vs baseline", "<span class=\"pill " + esc(rag.cls) + "\">" + esc(rag.cls === "NA" ? "—" : rag.label) + "</span>" + (rag.cls !== "NA" && rag.text.toLowerCase() === rag.label.toLowerCase() ? "" : " <span class=\"muted\">" + esc(rag.text) + "</span>")],
       ["Progress", UX ? UX.progressHtml(p.progress_pct, esc) : n(p.progress_pct, " %")],
       ["Plan freshness", esc(window.PpmWorkbench ? window.PpmWorkbench.freshnessText(V.plan_freshness) : "—") + (V.plan_freshness && V.plan_freshness.plan_updated_at ? " <span class=\"muted\">(" + esc(String(V.plan_freshness.plan_updated_at).slice(0, 10)) + ")</span>" : "")],   // B4
       ["Open tasks", n(open) + " / " + n(V.tasks.length)],
@@ -632,9 +639,9 @@
       "<div class=\"panel\" style=\"margin-top:14px\"><dl class=\"ppm-dl\">" +
       row("Objective", V.objective ? esc(V.objective.name) + " <span class=\"ppm-key\">" + esc(V.objective.key) + "</span>" : "—") +
       row("Owner", n(p.owner)) + row("Sponsor", n(p.sponsor)) +
-      row("Start → end", "<span class=\"ppm-date\">" + n(p.start_date) + " → " + n(p.end_date) + "</span>") +
-      row("Baseline", "<span class=\"ppm-date\">" + n(p.baseline_start) + " → " + n(p.baseline_end) + "</span> <span class=\"muted\">(frozen at approval)</span>") +
-      row("Forecast / actual end", "<span class=\"ppm-date\">" + n(vr.forecast_end) + " / " + n(vr.actual_end) + "</span>") +
+      row("Start → end", "<span class=\"ppm-date\">" + dte(p.start_date) + " → " + dte(p.end_date) + "</span>") +
+      row("Baseline", "<span class=\"ppm-date\">" + dte(p.baseline_start) + " → " + dte(p.baseline_end) + "</span> <span class=\"muted\">(frozen at approval)</span>") +
+      row("Forecast / actual end", "<span class=\"ppm-date\">" + dte(vr.forecast_end) + " / " + dte(vr.actual_end) + "</span>") +
       row("Spent / budget", money) +
       row("Origin", p.rfi_id != null ? "request " + n(p.rfi_id) + " (<a href=\"rfi.html\">RFI register</a>)" : "—") +
       "</dl></div>";
@@ -681,7 +688,7 @@
     mountGanttV2(rows);   // W2-UI — interactive Gantt v2 only while ppm_gantt_v2_enabled is on
     $("plan-table").innerHTML = rows.length ? "<table><thead><tr><th>WBS</th><th>Task</th><th>Owner</th><th>Start</th><th>End</th><th>Duration</th><th>Total float</th><th>Free float</th><th>Critical</th><th>Progress</th><th>Effort</th><th>Allocation</th><th>Baseline end</th><th>Finish vs baseline</th><th>Status</th><th>Depends on</th></tr></thead><tbody>" + rows.map(function (r) {
       var t = r.t, pl = planOf(t.id) || {}, b = barOf(t), vr = pl.variance || {};
-      return "<tr id=\"task-row-" + n(t.id) + "\" data-task=\"" + n(t.id) + "\" tabindex=\"-1\"" + (V.can_edit_plan ? " title=\"Double-click or Enter to edit\"" : "") + "><td>" + n(t.wbs_code) + "</td><td style=\"padding-left:" + (7 + 14 * r.depth) + "px\">" + esc(t.name) + "</td><td>" + n(t.owner) + "</td><td>" + (b ? n(b.s) + (b.computed ? " <small class=\"muted\">computed</small>" : "") : "—") + "</td><td>" + (b ? n(b.e) : "—") + "</td><td>" + (pl.assumed_duration ? "<i>duration unknown — counted as 1 day</i>" : pl.milestone ? "◆ 0 d" : n(pl.duration_days, " d")) + "</td><td>" + fl(pl.slack) + "</td><td>" + fl(pl.free_float) + "</td><td>" + (pl.critical ? "<b>CP</b> yes" : pl.near_critical ? "near" : "no") + "</td><td>" + (pl.summary && pl.rollup ? n(pl.rollup.progress_pct, " %") + " <small class=\"muted\">rolled up</small>" : n(t.progress_pct, " %")) + "</td><td>" + n(t.effort_hours, " h") + "</td><td>" + n(t.allocation_pct, " %") + "</td><td>" + n(t.baseline_end) + "</td><td>" + n(vr.finish_variance_days, " d") + "</td><td>" + pillOf("status", t.status) + "</td><td>" + (t.depends_on || []).map(function (d) { return esc(nameOf(d)); }).join(", ") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No task.</p>";
+      return "<tr id=\"task-row-" + n(t.id) + "\" data-task=\"" + n(t.id) + "\" tabindex=\"-1\"" + (V.can_edit_plan ? " title=\"Double-click or Enter to edit\"" : "") + "><td>" + n(t.wbs_code) + "</td><td style=\"padding-left:" + (7 + 14 * r.depth) + "px\">" + esc(t.name) + "</td><td>" + n(t.owner) + "</td><td>" + (b ? n(b.s) + (b.computed ? " <small class=\"muted\">computed</small>" : "") : "—") + "</td><td>" + (b ? n(b.e) : "—") + "</td><td>" + (pl.assumed_duration ? "<i>duration unknown — counted as 1 day</i>" : pl.milestone ? "◆ 0 d" : n(pl.duration_days, " d")) + "</td><td>" + fl(pl.slack) + "</td><td>" + fl(pl.free_float) + "</td><td>" + (pl.critical ? "<b>CP</b> yes" : pl.near_critical ? "near" : "no") + "</td><td>" + (pl.summary && pl.rollup ? n(pl.rollup.progress_pct, " %") + " <small class=\"muted\">rolled up</small>" : n(t.progress_pct, " %")) + "</td><td>" + n(t.effort_hours, " h") + "</td><td>" + n(t.allocation_pct, " %") + "</td><td>" + dte(t.baseline_end) + "</td><td>" + n(vr.finish_variance_days, " d") + "</td><td>" + pillOf("status", t.status) + "</td><td>" + (t.depends_on || []).map(function (d) { return esc(nameOf(d)); }).join(", ") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No task.</p>";
     var rc = V.resource_conflicts || [];
     $("plan-conflicts").innerHTML = rc.length ? "<table><thead><tr><th>Person</th><th>From</th><th>To</th><th>Peak load</th><th>Tasks</th></tr></thead><tbody>" + rc.map(function (c) { return "<tr><td>" + esc(c.owner) + "</td><td>" + n(c.from) + "</td><td>" + n(c.to) + "</td><td><b>" + n(c.peak_pct, " %") + "</b></td><td>" + c.task_ids.map(function (i) { return esc(nameOf(i)); }).join(", ") + "</td></tr>"; }).join("") + "</tbody></table>" : (window.PpmVisuals && V.resource_coverage ? "" : "<p class=\"muted\">Nobody is booked above 100 % on overlapping days in this project.</p>");
     if (window.PpmVisuals && V.resource_coverage) $("plan-conflicts").innerHTML += window.PpmVisuals.coverageHtml(V.resource_coverage, rc.length, esc);
@@ -861,9 +868,9 @@
     $("m-add").hidden = !ed;
     $("milestones").innerHTML = ms.length ? "<table><thead><tr><th>Milestone</th><th>Owner</th><th>Due</th><th>Baseline</th><th>Done</th><th>State</th>" + (ed ? "<th data-nosort><span class=\"ppm-sr\">Actions</span></th>" : "") + "</tr></thead><tbody>" + ms.map(function (m) {
       var done = !!m.done_at || m.status === "done", late = !done && m.due_date && m.due_date < td;
-      return "<tr><td>◆ " + esc(m.name) + "</td><td>" + n(m.owner) + "</td><td class=\"ppm-date\">" + n(m.due_date) + "</td><td class=\"ppm-date\">" + n(m.baseline_date) + "</td><td class=\"ppm-date\">" + n(m.done_at && String(m.done_at).slice(0, 10)) + "</td><td>" + (done ? "<span class=\"pill done\">✓ " + esc(lab("status", "done")) + "</span>" : late ? "<span class=\"pill RED\">! " + esc(lab("status", "late")) + "</span>" : pillOf("status", "planned")) + "</td>" + (ed ? "<td><button class=\"btn\" type=\"button\" data-ms-edit=\"" + esc(m.id) + "\">Edit</button></td>" : "") + "</tr>"; }).join("") + "</tbody></table>" : (UX ? UX.emptyHtml("No milestone yet.", ed ? "<button class=\"btn primary\" type=\"button\" data-ms-new>+ Add first milestone</button>" : "", esc) : "<p class=\"muted\">No milestone.</p>");
+      return "<tr><td>◆ " + esc(m.name) + "</td><td>" + n(m.owner) + "</td><td class=\"ppm-date\">" + dte(m.due_date) + "</td><td class=\"ppm-date\">" + dte(m.baseline_date) + "</td><td class=\"ppm-date\">" + n(m.done_at && String(m.done_at).slice(0, 10)) + "</td><td>" + (done ? "<span class=\"pill done\">✓ " + esc(lab("status", "done")) + "</span>" : late ? "<span class=\"pill RED\">! " + esc(lab("status", "late")) + "</span>" : pillOf("status", "planned")) + "</td>" + (ed ? "<td><button class=\"btn\" type=\"button\" data-ms-edit=\"" + esc(m.id) + "\">Edit</button></td>" : "") + "</tr>"; }).join("") + "</tbody></table>" : (UX ? UX.emptyHtml("No milestone yet.", ed ? "<button class=\"btn primary\" type=\"button\" data-ms-new>+ Add first milestone</button>" : "", esc) : "<p class=\"muted\">No milestone.</p>");
     var dl = V.deliverables || [];
-    $("deliverables").innerHTML = dl.length ? "<table><thead><tr><th>Deliverable</th><th>Owner</th><th>Due</th><th>Status</th></tr></thead><tbody>" + dl.map(function (d) { return "<tr><td>" + esc(d.name) + "</td><td>" + n(d.owner) + "</td><td class=\"ppm-date\">" + n(d.due_date) + "</td><td>" + pillOf("status", d.status) + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No deliverable.</p>";
+    $("deliverables").innerHTML = dl.length ? "<table><thead><tr><th>Deliverable</th><th>Owner</th><th>Due</th><th>Status</th></tr></thead><tbody>" + dl.map(function (d) { return "<tr><td>" + esc(d.name) + "</td><td>" + n(d.owner) + "</td><td class=\"ppm-date\">" + dte(d.due_date) + "</td><td>" + pillOf("status", d.status) + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No deliverable.</p>";
   }
   function fillMilestone() { var id = Number($("m-id").value) || null, m = (V.milestones || []).filter(function (x) { return x.id === id; })[0] || {}; $("m-head").textContent = id ? "Edit milestone — " + (m.name || "") : "New milestone"; $("m-name").value = m.name || ""; $("m-owner").value = m.owner || ""; $("m-due").value = m.due_date || ""; $("m-base").value = m.baseline_date || ""; $("m-status").value = m.status === "done" ? "done" : "planned"; if (UX) UX.formMsg($("m-msg"), ""); }
   function editMilestone(id, opener) { $("m-id").value = id ? String(id) : ""; fillMilestone(); if (UX) UX.openDrawer("ms-edit", opener); }
@@ -942,7 +949,7 @@
       // F-PRODUCT-04 — with a verifier role set, a money benefit is verified by a holder of that role (not entrant, not owner)
       var roleRule = !!V.money_verifier_role && b.value_kind === "money";
       var canVerify = b.state === "awaiting_verification" && b.realised_by !== V.me && b.owner_user_id !== V.me && (roleRule ? !!V.holds_money_verifier_role : V.can_edit_plan);
-      return "<tr><td>" + esc(b.description) + "</td><td>" + n(b.measure) + "</td><td>" + n(b.unit) + (b.value_kind === "money" ? " <small class=\"muted\">" + n(b.currency) + "</small>" : "") + "</td><td>" + val(b, "baseline_value") + "</td><td>" + val(b, "target_value") + "</td>" + clsCell(b) + realCols(b) + "<td>" + n(b.owner) + "</td><td class=\"ppm-date\">" + n(b.review_date) + "</td><td><span class=\"pill " + esc(st[0]) + "\">" + esc(st[1]) + "</span></td><td>" + safeLink(b.evidence_link) + "</td><td>" + n(b.realised_by_name) + "</td><td>" + n(b.verified_by_name) + "</td><td>" +
+      return "<tr><td>" + esc(b.description) + "</td><td>" + n(b.measure) + "</td><td>" + n(b.unit) + (b.value_kind === "money" ? " <small class=\"muted\">" + n(b.currency) + "</small>" : "") + "</td><td>" + val(b, "baseline_value") + "</td><td>" + val(b, "target_value") + "</td>" + clsCell(b) + realCols(b) + "<td>" + n(b.owner) + "</td><td class=\"ppm-date\">" + dte(b.review_date) + "</td><td><span class=\"pill " + esc(st[0]) + "\">" + esc(st[1]) + "</span></td><td>" + safeLink(b.evidence_link) + "</td><td>" + n(b.realised_by_name) + "</td><td>" + n(b.verified_by_name) + "</td><td>" +
         (canVerify ? "<button class=\"btn\" type=\"button\" data-verify=\"" + esc(b.id) + "\">Verify</button>" : b.state === "awaiting_verification" && roleRule ? "<small class=\"muted\">verified by a holder of the role “" + esc(V.money_verifier_role) + "” who did not enter the value and is not its owner</small>" : b.state === "awaiting_verification" && V.can_edit_plan ? "<small class=\"muted\">you entered it — someone else verifies</small>" : "") +
         (V.can_edit_plan ? " <button class=\"btn\" type=\"button\" data-ben-edit=\"" + esc(b.id) + "\">Edit</button> <button class=\"btn\" type=\"button\" data-ben-real=\"" + esc(b.id) + "\">Record value</button>" : "") + "</td></tr>"; }).join("") + "</tbody></table>" + benefitTotalsHtml() : (UX ? UX.emptyHtml("No expected benefit recorded for this project.", V.can_edit_plan ? "<button class=\"btn primary\" type=\"button\" data-ben-new>+ Add first benefit</button>" : "", esc) : "<p class=\"muted\">No expected benefit recorded for this project.</p>");
     $("b-add").hidden = !V.can_edit_plan;

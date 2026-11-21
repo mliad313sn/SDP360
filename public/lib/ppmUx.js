@@ -11,6 +11,7 @@
  *                                                           (the select stays the source of truth — save code unchanged)
  *   checklist   checklistBuilder(box, opts) → { read, write }  gate checklist rows ⇄ the same JSON the server reads
  *   sort        sortable(table)                             click a header to sort, aria-sort kept
+ *   format      date(v) / dateTime(v) / number(v)           through lib/format.js (SDPFormat); unknown → "—"
  *   subtabs     segmented(box, onPick)                      role=tablist over [data-sub] buttons
  */
 (function (root) {
@@ -179,6 +180,18 @@
     return { read: read, write: write };
   }
 
+  // ---- dates and numbers (lib/format.js — SDPFormat; unknown stays "—", never 0) ---------------------------------
+  function date(v) {
+    if (v == null || v === '') return '—';
+    var F = root.SDPFormat; if (F && F.date) return F.date(String(v).length > 10 && /^\d{4}-\d\d-\d\d/.test(String(v)) ? String(v).slice(0, 10) : v);
+    return String(v).slice(0, 10);
+  }
+  function dateTime(v) { if (v == null || v === '') return '—'; var F = root.SDPFormat; return F && F.dateTime ? F.dateTime(v) : String(v).slice(0, 16).replace('T', ' '); }
+  function number(v, digits) {
+    if (v == null || v === '' || !isFinite(Number(v))) return '—';
+    var F = root.SDPFormat; return F && F.number ? F.number(Number(v), digits == null ? undefined : { digits: digits }) : String(v);
+  }
+
   // ---- sortable table ---------------------------------------------------------------------------------------------
   function cellKey(td) { var v = td ? (td.getAttribute('data-sort') != null ? td.getAttribute('data-sort') : td.textContent.trim()) : ''; var n = Number(String(v).replace(/[%\s,]/g, '')); return v !== '' && v !== '—' && isFinite(n) && /^[-+\d.,%\s]+$/.test(v) ? n : v; }
   function sortable(table) {
@@ -221,7 +234,7 @@
   }
 
   var api = { openDrawer: openDrawer, closeDrawer: closeDrawer, toast: toast, formMsg: formMsg, invalid: invalid, stepperHtml: stepperHtml, progressHtml: progressHtml,
-    emptyHtml: emptyHtml, chipSelect: chipSelect, checklistBuilder: checklistBuilder, sortable: sortable, segmented: segmented, cellKey: cellKey };
+    emptyHtml: emptyHtml, chipSelect: chipSelect, checklistBuilder: checklistBuilder, sortable: sortable, segmented: segmented, cellKey: cellKey, date: date, dateTime: dateTime, number: number };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.PpmUx = api;
 })(typeof window !== 'undefined' ? window : globalThis);

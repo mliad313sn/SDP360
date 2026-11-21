@@ -35,10 +35,11 @@
     CURRENCY_REQUIRED: 'An amount needs its currency.',
   };
   var failMsg = function (e) { say((e && e.code && PLAIN[e.code]) || (e && e.message) || 'Error', true); };
-  var RAGL = function (r) { return r ? '<span class="w3-rag ' + esc(r) + '">' + esc(r.toUpperCase()) + '</span>' : '<span class="w3-rag">—</span>'; };
+  var RAGL = function (r) { return r ? '<span class="w3-rag ' + esc(r) + '">' + esc(L('status', r.toUpperCase())) + '</span>' : '<span class="w3-rag">—</span>'; };
 
   // ---- Simplified ↔ Expert ------------------------------------------------------------------------------------
   function setMode(mode, save) {
+    if ($('w3-mode').hasAttribute('data-nf')) return;   // "not found": nothing to summarise
     document.body.classList.toggle('w3-simple', mode === 'simplified');
     $('w3-simple').hidden = mode !== 'simplified';
     var bs = $('w3-mode').querySelectorAll('button');
@@ -228,7 +229,7 @@
   $('w3-print').addEventListener('click', printSchedule);
   api(base + 'features').then(function (f) {
     if (f.simplified_view) {
-      $('w3-mode').hidden = false;
+      $('w3-mode').hidden = $('w3-mode').hasAttribute('data-nf');   // PMO UX: no view switch on the "not found" card
       $('w3-mode').addEventListener('click', function (ev) { var b = ev.target.closest && ev.target.closest('button[data-mode]'); if (b) setMode(b.getAttribute('data-mode'), true); });
       api(base + 'view-mode').then(function (m) { setMode(m.mode === 'simplified' ? 'simplified' : 'expert', false); }).catch(function () { /* expert = today */ });
     }

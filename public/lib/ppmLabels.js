@@ -4,8 +4,8 @@
  *                                 first letter upper-case) so a new server code never shows as raw snake_case.
  *   pill(group, code, esc[, lang, cls]) → <span class="pill CODE">Label</span> (the CSS class stays the code)
  *   options(group, codes, sel, esc[, lang]) → <option value="code">Label</option>… (value = code, text = label)
- *   lang()                       → 'fr' only when the page body is translated (data-i18n="on") and the shell says fr;
- *                                 a self-translated page passes its own lang instead.
+ *   lang()                       → 'en' (the page dictionary translates the English label; pass 'fr' to ask for French)
+ * Status / priority codes known to lib/codeLabels.js (SDPLabels) are read from it; this map adds the PPM-only codes.
  * Pure (no network); the DOM is read only by lang(). Unknown stays "—" — never a made-up status.
  */
 (function (root) {
@@ -65,26 +65,44 @@
       GATE_REJECTED: ['A gate approver rejected this move.', 'Un approbateur a refusé ce passage.'],
       GATE_DATA_QUALITY: ['The data-quality check blocks this move.', 'Le contrôle de qualité des données bloque ce passage.'],
     },
+    doctype: {
+      business_case: ['Business case', 'Dossier de justification'], vendor_quotation: ['Vendor quotation', 'Devis fournisseur'], design: ['Design', 'Conception'],
+      architecture: ['Architecture', 'Architecture'], scope_of_work: ['Scope of work', 'Cahier des charges'], budget_approval: ['Budget approval', 'Approbation budgétaire'],
+      purchase_request: ['Purchase request', 'Demande d’achat'], risk_assessment: ['Risk assessment', 'Évaluation des risques'],
+      cybersecurity_assessment: ['Cybersecurity assessment', 'Évaluation cybersécurité'], commissioning: ['Commissioning', 'Mise en service'], handover: ['Handover', 'Transfert'],
+    },
+    depstatus: { met: ['Met', 'Satisfaite'] },
+    role: {
+      'committee-member': ['Committee member', 'Membre du comité'], executive: ['Executive', 'Direction'], admin: ['Administrator', 'Administrateur'],
+      super_admin: ['Super administrator', 'Super administrateur'], editor: ['Editor', 'Éditeur'], viewer: ['Viewer', 'Lecteur'], finance: ['Finance', 'Finance'],
+      'portfolio-manager': ['Portfolio manager', 'Gestionnaire de portefeuille'], 'project-manager': ['Project manager', 'Chef de projet'],
+    },
     rag: { GREEN: ['On baseline', 'Dans la référence'], AMBER: ['Slipping', 'En glissement'], RED: ['Late', 'En retard'], NA: ['Not measured', 'Non mesuré'] },
   };
   function humanise(code) {
     var s = String(code).replace(/_/g, ' ').trim();
-    return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+    return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;   // an unknown code: readable, never invented
   }
-  function lang() {
-    try {
-      var de = root.document && root.document.documentElement;
-      if (!(de && de.dataset && de.dataset.i18n === 'on')) return 'en';
-      var s = root.__shell && root.__shell.shellLang ? root.__shell.shellLang() : 'en';
-      return s === 'fr' ? 'fr' : 'en';
-    } catch (_) { return 'en'; }
+  // The page is authored in English: label() answers English unless a language is asked for. French on screen comes
+  // from the page dictionary (lib/i18nText.js swaps the English label; every label of this map has an entry in
+  // lib/i18n/project.fr.js / portfolio.fr.js — tests/ppm-ux-labels.test.js), so EN ⇄ FR toggles both ways.
+  function lang() { return 'en'; }
+  // Codes the shared table (lib/codeLabels.js, window.SDPLabels) already covers are read from it — one wording for
+  // the whole application; this map only adds the PPM codes it does not know (stage, kind, gate, action, field…).
+  var SHARED = { status: 'project_status', severity: 'priority', priority: 'priority' };
+  function shared() {
+    if (root.SDPLabels) return root.SDPLabels;
+    if (typeof module !== 'undefined' && module.exports && typeof require === 'function') { try { return require('./codeLabels.js'); } catch (_) { return null; } }
+    return null;
   }
   function label(group, code, lg) {
     if (code == null || code === '') return '—';
-    var g = L[group] || {}, hit = g[code] || g[String(code).toLowerCase()];
-    if (!hit) for (var k in L) if (L[k][code]) { hit = L[k][code]; break; }
-    var i = (lg || lang()) === 'fr' ? 1 : 0;
-    return hit ? hit[i] : humanise(code);
+    var l = lg === 'fr' ? 'fr' : 'en', c = String(code), S = SHARED[group] && shared();
+    if (S) { var h = S.label(SHARED[group], c, l); if (h && h !== c) return h; }
+    if (S && group === 'category') { var h2 = S.label('status', c, l); if (h2 && h2 !== c) return h2; }
+    var g = L[group] || {}, hit = g[c] || g[c.toLowerCase()];
+    if (!hit) for (var k in L) if (L[k][c]) { hit = L[k][c]; break; }
+    return hit ? hit[l === 'fr' ? 1 : 0] : humanise(c);
   }
   function pill(group, code, esc, lg, cls) {
     if (code == null || code === '') return '<span class="pill NA">—</span>';

@@ -215,7 +215,7 @@
       m.cells.filter(function (c) { return c.count; }).map(function (c) { return '<tr><td>' + esc(String(c.probability)) + '</td><td>' + esc(String(c.impact)) + '</td><td>' + esc(String(c.exposure)) + '</td><td>' + esc(BAND_TEXT[c.band]) + '</td><td>' + esc(String(c.count)) + '</td></tr>'; }).join('') +
       '</tbody></table></details>';
     var ns = m.not_scored.length ? '<p><b>Not scored</b> (probability or impact missing or outside 1–3, never placed in a cell): ' +
-      m.not_scored.map(function (r) { return esc(String(r.title || '')) + ' <small class="muted">#' + esc(String(r.id)) + '</small>'; }).join(' · ') + '</p>' : '<p class="muted">Every open risk is scored.</p>';
+      m.not_scored.map(function (r) { return '<span title="#' + esc(String(r.id)) + '">' + esc(String(r.title || '')) + '</span>'; }).join(' · ') + '</p>' : '<p class="muted">Every open risk is scored.</p>';
     return grid + '<div class="pim-list" aria-live="polite"></div>' + ns + tbl;
   }
   /** The risks of one cell, as a list (the click target of riskMatrixHtml). */
@@ -224,7 +224,7 @@
     if (!c) return '';
     var byId = {}; (items || []).forEach(function (r) { byId[r.id] = r; });
     return '<p><b>' + esc(['P ', c.probability, ' × I ', c.impact, ' = ', c.exposure].join('')) + '</b> — ' + esc(String(c.count)) + ' risk(s):</p><ul>' +
-      c.ids.map(function (id) { var r = byId[id] || {}; return '<li>' + esc(String(r.title || '')) + ' <small class="muted">#' + esc(String(id)) + (r.owner ? ' · ' + esc(String(r.owner)) : '') + '</small></li>'; }).join('') + '</ul>';
+      c.ids.map(function (id) { var r = byId[id] || {}; return '<li title="#' + esc(String(id)) + '">' + esc(String(r.title || '')) + (r.owner ? ' <small class="muted">' + esc(String(r.owner)) + '</small>' : '') + '</li>'; }).join('') + '</ul>';
   }
 
   /** Person × week table: peak allocation, unknown allocations, effort hours; over 100 % flagged by text and colour. */
