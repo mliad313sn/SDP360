@@ -80,7 +80,8 @@ runJourney('DEMO two-site synthetic journey: Home → portfolio → project → 
   const cProg = col_('Progress'), cEff = col_('Effort'), cDep = col_('Depends on');
   assert.equal(r2[cProg], '0 %', 'measured zero progress shows 0 %'); assert.equal(r2[cEff], '0 h', 'measured zero effort shows 0 h');
   assert.equal(r3[cProg], '—', 'unknown progress shows —, never 0'); assert.equal(r3[cEff], '—', 'unknown effort shows —');
-  assert.match(r2[cDep] || '', new RegExp('#' + ids.t1), 'dependency shown on the plan');
+  // PMO UX (2026-11): a dependency reads as the predecessor's WBS + name; the internal #id is no longer printed
+  assert.match(r2[cDep] || '', /DEMO site survey/, 'dependency shown on the plan');
   await j.measure(pmo, 'project-plan');
 
   // 2. Export: the workbook carries the same figures as the screen's API, zero vs unknown preserved
@@ -119,11 +120,12 @@ runJourney('DEMO two-site synthetic journey: Home → portfolio → project → 
   await j.measure(pmo, 'project-changes');
 
   // 3. Audit trail
-  await pmo.click('#groups [data-group="activity"]');
-  await pmo.click('#tab-history');
+  await pmo.click('#groups [data-group="activity"]');   // one section here (History): opening the area shows it
   await pmo.waitForFunction(() => document.querySelector('#history table tbody tr'), null, { timeout: 20000 });
   const hist = await pmo.textContent('#history');
-  assert.match(hist, /budget_period_edit/, 'the two-currency actuals are in the ledger');
+  // PMO UX (2026-11): a ledger action reads as its label ("Budget period edit"); the code stays in data-code
+  assert.match(hist, /Budget period edit/, 'the two-currency actuals are in the ledger');
+  assert.ok(await pmo.$('#history [data-code="budget_period_edit"]'), 'the action code is kept on the row');
   await j.measure(pmo, 'project-history');
 
   // 4. Site B editor: switch OFF = today (project readable); switch ON = hidden, 404, absent from the portfolio API

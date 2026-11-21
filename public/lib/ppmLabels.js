@@ -43,7 +43,12 @@
       create: ['Created', 'Créé'], created: ['Created', 'Créé'], update: ['Updated', 'Modifié'], updated: ['Updated', 'Modifié'], delete: ['Deleted', 'Supprimé'], deleted: ['Deleted', 'Supprimé'],
       stage: ['Stage changed', 'Phase changée'], stage_move: ['Stage changed', 'Phase changée'], budget: ['Budget entry', 'Saisie budgétaire'], reassign: ['Task reassigned', 'Tâche réaffectée'],
       baseline: ['Baseline captured', 'Référence figée'], rebaseline: ['Re-baselined', 'Référence révisée'], verify: ['Verified', 'Vérifié'], realised: ['Realised value recorded', 'Valeur réalisée saisie'],
-      signoff: ['Sign-off', 'Validation'], approve: ['Approved', 'Approuvé'], reject: ['Rejected', 'Rejeté'],
+      signoff: ['Sign-off', 'Validation'],
+      budget_period_edit: ['Budget period edit', 'Saisie d’une période budgétaire'], finance_edit: ['Finance edit', 'Modification financière'], field_edit: ['Field edit', 'Modification d’un champ'],
+      task_reassigned: ['Task reassigned', 'Tâche réaffectée'], benefit_verified: ['Benefit verified', 'Bénéfice vérifié'], benefit_unverified: ['Benefit verification cleared', 'Vérification du bénéfice retirée'],
+      benefit_realised: ['Benefit realised value', 'Valeur réalisée du bénéfice'], baseline_captured: ['Baseline captured', 'Référence figée'], raci_edit: ['RACI edit', 'Modification du RACI'],
+      intake_edit: ['Intake edit', 'Modification de la demande'], gate_checklist_defined: ['Gate checklist defined', 'Liste de contrôle du jalon définie'], template_saved: ['Template saved', 'Modèle enregistré'],
+      business_case_change: ['Business case change', 'Changement du dossier de justification'], sensitive_edit: ['Sensitivity edit', 'Modification de la sensibilité'], to_project: ['Converted to a project', 'Converti en projet'], approve: ['Approved', 'Approuvé'], reject: ['Rejected', 'Rejeté'],
     },
     field: {
       stage: ['Stage', 'Phase'], status: ['Status', 'Statut'], owner: ['Owner', 'Responsable'], sponsor: ['Sponsor', 'Sponsor'], budget: ['Budget', 'Budget'], spent: ['Spent', 'Dépensé'],

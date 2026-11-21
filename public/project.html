@@ -590,7 +590,7 @@
   // ---- load -----------------------------------------------------------------------------------------------
   // PMO UX — "not found" / no id: the tabs and areas disappear, one card says why and leads back to the portfolio
   function notFound(title, text) {
-    $("p-title").textContent = "Project"; $("p-nf-title").textContent = title; $("p-nf-text").textContent = text;
+    $("p-title").textContent = title; $("p-nf-title").textContent = title; $("p-nf-title").hidden = true;   // the page title says it once $("p-nf-text").textContent = text;
     NF = true; $("msg").innerHTML = ""; var wm = $("w3-mode"); if (wm) { wm.hidden = true; wm.setAttribute("data-nf", "1"); } var ws = $("w3-simple"); if (ws) ws.hidden = true; var ft = $("p-sub"); if (ft) ft.hidden = true;
     $("p-notfound").hidden = false; $("groups").hidden = true; $("tabs").hidden = true; $("p-pills").innerHTML = "";
     Array.prototype.forEach.call(document.querySelectorAll("main > section[role=tabpanel]"), function (x) { x.hidden = true; });
@@ -1040,7 +1040,7 @@
   // PMO UX — a stage or status value reads as a word ("In delivery"), never as its code
   var hv = function (f, v) { return v == null || v === "" ? "—" : f === "stage" ? esc(lab("stage", v)) : f === "status" ? esc(lab("status", v)) : n(v); };
   function renderHistory(ev) {
-    $("history").innerHTML = ev.length ? "<table><thead><tr><th>When</th><th>Who</th><th>Action</th><th>Field</th><th>Before</th><th>After</th><th>Note</th></tr></thead><tbody>" + ev.map(function (e) { return "<tr><td>" + n(String(e.at || "").slice(0, 16).replace("T", " ")) + "</td><td>" + n(e.actor) + "</td><td>" + esc(lab("action", e.action)) + "</td><td>" + (e.field ? esc(lab("field", e.field)) : "—") + "</td><td>" + hv(e.field, e.old_value) + "</td><td>" + hv(e.field, e.new_value) + (e.currency ? " " + esc(e.currency) : "") + "</td><td>" + esc(e.note || "") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No recorded event yet for this project.</p>";
+    $("history").innerHTML = ev.length ? "<table><thead><tr><th>When</th><th>Who</th><th>Action</th><th>Field</th><th>Before</th><th>After</th><th>Note</th></tr></thead><tbody>" + ev.map(function (e) { return "<tr><td>" + "<span class=\"ppm-date\">" + esc(UX ? UX.dateTime(e.at) : String(e.at || "").slice(0, 16).replace("T", " ")) + "</span>" + "</td><td>" + n(e.actor) + "</td><td data-code=\"" + esc(e.action || "") + "\">" + esc(lab("action", e.action)) + "</td><td>" + (e.field ? esc(lab("field", e.field)) : "—") + "</td><td>" + hv(e.field, e.old_value) + "</td><td>" + hv(e.field, e.new_value) + (e.currency ? " " + esc(e.currency) : "") + "</td><td>" + esc(e.note || "") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No recorded event yet for this project.</p>";
   }
 
   load();
