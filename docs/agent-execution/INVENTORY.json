@@ -15,7 +15,7 @@
   "jobs": 33,
   "jobs_without_test_reference": 0,
   "migrations": 119,
-  "test_files": 945
+  "test_files": 947
  },
  "pages": [
   {
@@ -831,7 +831,7 @@
    "parent": "inspections.html",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 225551,
+   "bytes": 228156,
    "tests": [
     "tests/adoption-lota-labels.test.js",
     "tests/csp-journey-report.test.js",
@@ -842,6 +842,7 @@
     "tests/module-tabs.test.js",
     "tests/p11-r7-field-fixes.test.js",
     "tests/p11-r8-field-fixes.test.js",
+    "tests/p11-r9-field-fixes.test.js",
     "tests/rbac-ui-gates.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
@@ -9074,6 +9075,7 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/p11-r7-field-fixes.smoke.test.js",
     "tests/p11-r8-field-fixes.smoke.test.js",
+    "tests/p11-r9-field-fixes.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/read-scope-express5.smoke.test.js",
     "tests/soft-delete-routes.smoke.test.js",
@@ -9107,6 +9109,7 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/p11-r7-field-fixes.smoke.test.js",
     "tests/p11-r8-field-fixes.smoke.test.js",
+    "tests/p11-r9-field-fixes.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/read-scope-express5.smoke.test.js",
     "tests/soft-delete-routes.smoke.test.js",
@@ -9140,6 +9143,7 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/p11-r7-field-fixes.smoke.test.js",
     "tests/p11-r8-field-fixes.smoke.test.js",
+    "tests/p11-r9-field-fixes.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/read-scope-express5.smoke.test.js",
     "tests/soft-delete-routes.smoke.test.js",
@@ -9173,6 +9177,7 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/p11-r7-field-fixes.smoke.test.js",
     "tests/p11-r8-field-fixes.smoke.test.js",
+    "tests/p11-r9-field-fixes.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/read-scope-express5.smoke.test.js",
     "tests/soft-delete-routes.smoke.test.js",
@@ -9197,7 +9202,8 @@
     "tests/inspection-routes.test.js",
     "tests/inspection-verify.smoke.test.js",
     "tests/p11-r7-field-fixes.smoke.test.js",
-    "tests/p11-r8-field-fixes.smoke.test.js"
+    "tests/p11-r8-field-fixes.smoke.test.js",
+    "tests/p11-r9-field-fixes.smoke.test.js"
    ]
   },
   {
@@ -9218,7 +9224,8 @@
     "tests/inspection-routes.test.js",
     "tests/inspection-verify.smoke.test.js",
     "tests/p11-r7-field-fixes.smoke.test.js",
-    "tests/p11-r8-field-fixes.smoke.test.js"
+    "tests/p11-r8-field-fixes.smoke.test.js",
+    "tests/p11-r9-field-fixes.smoke.test.js"
    ]
   },
   {
@@ -9239,7 +9246,8 @@
     "tests/inspection-routes.test.js",
     "tests/inspection-verify.smoke.test.js",
     "tests/p11-r7-field-fixes.smoke.test.js",
-    "tests/p11-r8-field-fixes.smoke.test.js"
+    "tests/p11-r8-field-fixes.smoke.test.js",
+    "tests/p11-r9-field-fixes.smoke.test.js"
    ]
   },
   {
@@ -9353,6 +9361,7 @@
     "tests/inspection-verify.smoke.test.js",
     "tests/p11-r7-field-fixes.smoke.test.js",
     "tests/p11-r8-field-fixes.smoke.test.js",
+    "tests/p11-r9-field-fixes.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/read-scope-express5.smoke.test.js",
     "tests/soft-delete-routes.smoke.test.js",
@@ -15900,6 +15909,7 @@
     "tests/csp-journey-report.test.js",
     "tests/p11-r7-field-fixes.test.js",
     "tests/p11-r8-field-fixes.test.js",
+    "tests/p11-r9-field-fixes.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
   },
