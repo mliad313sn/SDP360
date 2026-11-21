@@ -15,7 +15,7 @@
   "jobs": 33,
   "jobs_without_test_reference": 0,
   "migrations": 119,
-  "test_files": 954
+  "test_files": 955
  },
  "pages": [
   {
@@ -642,7 +642,9 @@
     "shell": true,
     "module_tab": false,
     "linked_from": [
-     "not-available.html"
+     "not-available.html",
+     "portfolio.html",
+     "project.html"
     ],
     "redirect_to": null,
     "deep_link_only": null,
@@ -1638,11 +1640,12 @@
    "parent": "portfolio.html",
    "reachable": true,
    "inline_scripts": 0,
-   "bytes": 3677,
+   "bytes": 4184,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/i18n-coverage.test.js",
-    "tests/portfolio-lot4-page.test.js"
+    "tests/portfolio-lot4-page.test.js",
+    "tests/ppm-ux-kit.test.js"
    ]
   },
   {
@@ -1665,11 +1668,12 @@
    "parent": "portfolio.html",
    "reachable": true,
    "inline_scripts": 0,
-   "bytes": 2596,
+   "bytes": 3119,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/i18n-coverage.test.js",
-    "tests/portfolio-phase2-page.test.js"
+    "tests/portfolio-phase2-page.test.js",
+    "tests/ppm-ux-kit.test.js"
    ]
   },
   {
@@ -1692,11 +1696,12 @@
    "parent": "portfolio.html",
    "reachable": true,
    "inline_scripts": 0,
-   "bytes": 5707,
+   "bytes": 6268,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/i18n-coverage.test.js",
-    "tests/portfolio-register-page.test.js"
+    "tests/portfolio-register-page.test.js",
+    "tests/ppm-ux-kit.test.js"
    ]
   },
   {
@@ -1712,6 +1717,9 @@
     "linked_from": [
      "itsm-roadmap.html",
      "lib/workspaceProfiles.js",
+     "portfolio-decisions.html",
+     "portfolio-phase2.html",
+     "portfolio-register.html",
      "project.html"
     ],
     "redirect_to": null,
@@ -1721,7 +1729,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 47129,
+   "bytes": 73400,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/adoption-lota-nav-authz.test.js",
@@ -1739,6 +1747,7 @@
     "tests/ppm-concurrency.smoke.test.js",
     "tests/ppm-intake-ui.test.js",
     "tests/ppm-raci-templates.test.js",
+    "tests/ppm-ux-kit.test.js",
     "tests/ppm-visuals.test.js",
     "tests/project-page.test.js",
     "tests/roadmap-parity.test.js",
@@ -1773,7 +1782,7 @@
    "parent": "meeting.html",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 97664,
+   "bytes": 123369,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/allocation-contract.test.js",
@@ -1797,6 +1806,7 @@
     "tests/ppm-gantt-v2-page.smoke.test.js",
     "tests/ppm-intake-ui.test.js",
     "tests/ppm-raci-templates.test.js",
+    "tests/ppm-ux-kit.test.js",
     "tests/ppm-visuals.test.js",
     "tests/project-page.test.js",
     "tests/ui-design-ratchet.test.js"

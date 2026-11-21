@@ -20,7 +20,7 @@
 | jobs | 33 |
 | jobs without test reference | 0 |
 | migrations | 119 |
-| test files | 954 |
+| test files | 955 |
 
 ## Pages
 
@@ -75,11 +75,11 @@
 | PG-obligations | public/obligations.html | any | yes | 0 | 5 |
 | PG-policies | public/policies.html | admin / committee-member | yes | 1 | 7 |
 | PG-policy-center | public/policy-center.html | super_admin | yes | 0 | 6 |
-| PG-portfolio-decisions | public/portfolio-decisions.html | any | no | 0 | 3 |
-| PG-portfolio-phase2 | public/portfolio-phase2.html | any | no | 0 | 3 |
-| PG-portfolio-register | public/portfolio-register.html | any | no | 0 | 3 |
-| PG-portfolio | public/portfolio.html | any | yes | 1 | 22 |
-| PG-project | public/project.html | any | no | 1 | 25 |
+| PG-portfolio-decisions | public/portfolio-decisions.html | any | no | 0 | 4 |
+| PG-portfolio-phase2 | public/portfolio-phase2.html | any | no | 0 | 4 |
+| PG-portfolio-register | public/portfolio-register.html | any | no | 0 | 4 |
+| PG-portfolio | public/portfolio.html | any | yes | 1 | 23 |
+| PG-project | public/project.html | any | no | 1 | 26 |
 | PG-report-studio | public/report-studio.html | any | yes | 1 | 4 |
 | PG-reports | public/reports.html | any | yes | 2 | 43 |
 | PG-rfi | public/rfi.html | any | yes | 1 | 5 |
@@ -120,7 +120,7 @@
 | public/executive.html | yes | yes | dashboards.html | — | — | shell |
 | public/finance.html | yes | — | lib/moneyCertBand.js | — | — | shell |
 | public/handoffs.html | yes | — | home.html, site-actions.html | — | — | shell |
-| public/help.html | yes | — | not-available.html | — | — | shell |
+| public/help.html | yes | — | not-available.html, portfolio.html, project.html | — | — | shell |
 | public/home.html | yes | — | index.html, lib/pageStates.js, lib/workspaceProfiles.js, not-available.html (+1) | — | — | shell |
 | public/index.html | yes | — | lib/workspaceProfiles.js, no-access.html | — | — | shell |
 | public/infra-health.html | yes | — | — | — | — | shell |
@@ -153,7 +153,7 @@
 | public/portfolio-decisions.html | — | — | portfolio.html | — | — | portfolio.html |
 | public/portfolio-phase2.html | — | — | portfolio.html | — | — | portfolio.html |
 | public/portfolio-register.html | — | — | portfolio.html | — | — | portfolio.html |
-| public/portfolio.html | yes | — | itsm-roadmap.html, lib/workspaceProfiles.js, project.html | — | — | shell |
+| public/portfolio.html | yes | — | itsm-roadmap.html, lib/workspaceProfiles.js, portfolio-decisions.html, portfolio-phase2.html (+2) | — | — | shell |
 | public/project.html | — | — | lib/home-page.js, lib/portfolioPhase2Page.js, lib/portfolioRegister.js, lib/portfolioViews.js (+3) | — | — | meeting.html |
 | public/report-studio.html | yes | — | lib/workspaceProfiles.js | — | — | shell |
 | public/reports.html | yes | — | access.html, admin-home.html, site-report.html, wan.html | — | — | shell |

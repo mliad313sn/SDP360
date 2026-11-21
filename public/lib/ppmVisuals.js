@@ -154,20 +154,20 @@
   function capacityHtml(v, esc, siteName) {
     var nm = function (k) { return k === 'none' ? 'No site' : (siteName ? siteName(k) : 'Site #' + k); };
     if (!v || !v.sites.length) return '<p class="muted">No open task in the projects you may read.</p>';
-    var head = '<tr><th scope="col">Site</th>' + v.weeks.map(function (w) { return '<th scope="col">' + esc('wk ' + short(w)) + '</th>'; }).join('') + '<th scope="col">Weeks with someone over 100 %</th></tr>';
+    var head = '<tr><th scope="col">Site</th>' + v.weeks.map(function (w) { return '<th scope="col" title="' + esc('week of ' + short(w)) + '">' + esc(wk(w)) + '</th>'; }).join('') + '<th scope="col">Weeks with someone over 100 %</th></tr>';
     var cell = function (c) {
       if (!c.tasks) return '<td class="muted">·</td>';
       var t = [c.total_pct == null ? '—' : c.total_pct + ' %'];
       if (c.unknown) t.push('+' + c.unknown + ' unknown');
       if (c.invalid) t.push('+' + c.invalid + ' invalid');
       if (c.people_over) t.push(c.people_over + ' over');
-      return '<td class="' + (c.people_over ? 'pr-over' : '') + '">' + (c.people_over ? '<b>▲</b> ' : '') + esc(t.join(' · ')) + '</td>';
+      return '<td class="' + (c.people_over ? 'pr-over h3' : heat(c.total_pct)) + '">' + (c.people_over ? '<b>▲</b> ' : '') + esc(t.join(' · ')) + '</td>';
     };
     var body = v.sites.map(function (s) { return '<tr><th scope="row">' + esc(nm(s.site)) + '</th>' + s.weeks.map(cell).join('') + '<td>' + esc(String(s.over_weeks)) + '</td></tr>'; }).join('');
     var conf = v.conflicts.length ? '<table><caption>Conflicts — largest excess first, then the longest</caption><thead><tr><th>Person</th><th>From week</th><th>To week</th><th>Weeks</th><th>Peak</th><th>Excess</th><th>Tasks</th><th>Suggestion (proposal only)</th></tr></thead><tbody>' +
       v.conflicts.map(function (c) { return '<tr><td>' + esc(c.owner) + '</td><td>' + esc(c.from) + '</td><td>' + esc(c.to) + '</td><td>' + esc(String(c.weeks)) + '</td><td>' + esc(c.peak_pct + ' %') + '</td><td><b>+' + esc(String(c.excess_pct)) + ' %</b></td><td>' + esc('#' + c.task_ids.join(', #')) + '</td><td>' + (c.suggestion ? esc(c.suggestion.text) : '<span class="muted">none found</span>') + '</td></tr>'; }).join('') + '</tbody></table>'
       : '<p class="muted">Nobody is above 100 % in a week of this view.</p>';
-    return '<table class="pr"><caption>Team load per site and week = sum of the people’s peak allocation (100 % = one person full time). “+N unknown” = tasks with no allocation, never counted as 0 or 100 %; “+N invalid” = an allocation outside 0–100 %, never summed. No money in this view.</caption><thead>' + head + '</thead><tbody>' + body + '</tbody></table>' + conf;
+    return '<table class="pr ppm-heat"><caption>Team load per site and week = sum of the people’s peak allocation (100 % = one person full time). “+N unknown” = tasks with no allocation, never counted as 0 or 100 %; “+N invalid” = an allocation outside 0–100 %, never summed. No money in this view.</caption><thead>' + head + '</thead><tbody>' + body + '</tbody></table>' + conf;
   }
 
   /** C-07 (F28) — ONE keyboard model for the PPM diagrams (Gantt bars, timeline rows, risk cells).
@@ -190,12 +190,15 @@
 
   // ---- HTML (shared by project.html and portfolio.html). esc = the page's HTML escaper; every value goes through it.
   var MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  // PMO UX — heat level of a load % (blank when unknown — never green): h1 ≤ 80 %, h2 ≤ 100 %, h3 above
+  var heat = function (pct) { return pct == null ? '' : pct > 100 ? 'h3' : pct > 80 ? 'h2' : pct > 0 ? 'h1' : ''; };
+  var wk = function (d) { var s = String(d); return s.slice(8, 10) + '/' + s.slice(5, 7); };
   var short = function (d) { return String(Number(String(d).slice(8, 10))) + ' ' + MON[Number(String(d).slice(5, 7)) - 1]; };
   var BAND_TEXT = { high: 'high', medium: 'medium', low: 'low' };
 
   /** The P × I grid (buttons with a count) + the same data as a table + the "not scored" list. */
   function riskMatrixHtml(m, esc) {
-    if (!m.considered) return '<p class="muted">No open risk.</p>';
+    if (!m.considered) return '<p class="muted">No open risk (assumptions and issues are not plotted).</p>';
     var rows = [];
     for (var i = SCALE; i >= 1; i--) {
       var tds = [];
@@ -212,7 +215,7 @@
       m.cells.filter(function (c) { return c.count; }).map(function (c) { return '<tr><td>' + esc(String(c.probability)) + '</td><td>' + esc(String(c.impact)) + '</td><td>' + esc(String(c.exposure)) + '</td><td>' + esc(BAND_TEXT[c.band]) + '</td><td>' + esc(String(c.count)) + '</td></tr>'; }).join('') +
       '</tbody></table></details>';
     var ns = m.not_scored.length ? '<p><b>Not scored</b> (probability or impact missing or outside 1–3, never placed in a cell): ' +
-      m.not_scored.map(function (r) { return esc(String(r.title || '')) + ' <small class="muted">#' + esc(String(r.id)) + '</small>'; }).join(' · ') + '</p>' : '<p class="muted">Every open risk is scored.</p>';
+      m.not_scored.map(function (r) { return '<span title="#' + esc(String(r.id)) + '">' + esc(String(r.title || '')) + '</span>'; }).join(' · ') + '</p>' : '<p class="muted">Every open risk is scored.</p>';
     return grid + '<div class="pim-list" aria-live="polite"></div>' + ns + tbl;
   }
   /** The risks of one cell, as a list (the click target of riskMatrixHtml). */
@@ -221,7 +224,7 @@
     if (!c) return '';
     var byId = {}; (items || []).forEach(function (r) { byId[r.id] = r; });
     return '<p><b>' + esc(['P ', c.probability, ' × I ', c.impact, ' = ', c.exposure].join('')) + '</b> — ' + esc(String(c.count)) + ' risk(s):</p><ul>' +
-      c.ids.map(function (id) { var r = byId[id] || {}; return '<li>' + esc(String(r.title || '')) + ' <small class="muted">#' + esc(String(id)) + (r.owner ? ' · ' + esc(String(r.owner)) : '') + '</small></li>'; }).join('') + '</ul>';
+      c.ids.map(function (id) { var r = byId[id] || {}; return '<li title="#' + esc(String(id)) + '">' + esc(String(r.title || '')) + (r.owner ? ' <small class="muted">' + esc(String(r.owner)) + '</small>' : '') + '</li>'; }).join('') + '</ul>';
   }
 
   /** Person × week table: peak allocation, unknown allocations, effort hours; over 100 % flagged by text and colour. */
@@ -229,13 +232,14 @@
     if (!r.people.length) return '<p class="muted">No open task with an owner.</p>';
     var cell = function (c) {
       if (!c.tasks) return '<td class="muted" title="no task">·</td>';
+      // PMO UX — the % only in the cell (hours and tasks in the tooltip); unknown / invalid stay visible, never folded
       var t = [c.peak_pct == null ? '—' : c.peak_pct + ' %'];
       if (c.unknown) t.push(['+', c.unknown, ' unknown'].join(''));
       if (c.invalid) t.push(['+', c.invalid, ' invalid'].join(''));
-      if (c.effort_hours != null) t.push(c.effort_hours + ' h');
-      return '<td class="' + (c.over ? 'pr-over' : '') + '" title="' + esc('Tasks #' + c.task_ids.join(', #')) + '">' + (c.over ? '<b>▲ over</b> ' : '') + esc(t.join(' · ')) + '</td>';
+      var tip = (c.effort_hours != null ? c.effort_hours + ' h · ' : '') + c.task_ids.length + ' task(s)';
+      return '<td class="' + (c.over ? 'pr-over h3' : heat(c.peak_pct)) + '" title="' + esc(tip) + '">' + (c.over ? '<b>▲ over</b> ' : '') + esc(t.join(' · ')) + '</td>';
     };
-    var head = '<tr><th scope="col">Person</th>' + r.weeks.map(function (w) { return '<th scope="col">' + esc('wk ' + short(w)) + '</th>'; }).join('') + '<th scope="col">Weeks over 100 %</th><th scope="col">Tasks without allocation</th></tr>';
+    var head = '<tr><th scope="col">Person</th>' + r.weeks.map(function (w) { return '<th scope="col" title="' + esc('week of ' + short(w)) + '">' + esc(wk(w)) + '</th>'; }).join('') + '<th scope="col">Weeks over 100 %</th><th scope="col">Tasks without allocation</th></tr>';
     var body = r.people.map(function (p) { return '<tr><th scope="row">' + esc(p.owner) + '</th>' + p.cells.map(cell).join('') + '<td>' + esc(String(p.over_weeks)) + '</td><td>' + esc(String(p.unknown_tasks)) + '</td></tr>'; }).join('');
     var list = [];
     r.people.forEach(function (p) { p.cells.forEach(function (c) { if (c.tasks) list.push('<tr><td>' + esc(p.owner) + '</td><td>' + esc(c.week) + '</td><td>' + esc(c.peak_pct == null ? '—' : c.peak_pct + ' %') + '</td><td>' + (c.over ? 'yes' : 'no') + '</td><td>' + esc(String(c.unknown)) + '</td><td>' + esc(c.effort_hours == null ? '—' : c.effort_hours + ' h') + '</td></tr>'); }); });
@@ -246,7 +250,7 @@
     if (cv && cv.invalid) notes.push(cv.invalid + ' open task(s) carry an allocation outside 0–100 % (#' + cv.invalid_task_ids.join(', #') + '): not summed');
     if (cv && cv.possible_conflicts.length) notes.push(cv.possible_conflicts.length + ' possible conflict(s): a person has overlapping tasks and at least one allocation is not known');
     if (r.truncated) notes.push(['showing ', r.weeks.length, ' weeks only'].join(''));
-    return '<table class="pr"><caption>Peak daily allocation per person and week (Monday start). “+N unknown” = tasks with no allocation, never counted as 0 or 100 %; “+N invalid” = an allocation outside 0–100 %, never summed.</caption><thead>' + head + '</thead><tbody>' + body + '</tbody></table>' +
+    return '<table class="pr ppm-heat"><caption>Peak daily allocation per person and week (Monday start). “+N unknown” = tasks with no allocation, never counted as 0 or 100 %; “+N invalid” = an allocation outside 0–100 %, never summed.</caption><thead>' + head + '</thead><tbody>' + body + '</tbody></table>' +
       (notes.length ? '<p class="muted">' + esc(notes.join(' · ')) + '.</p>' : '') +
       '<details><summary class="muted">List view (the same data)</summary><table><thead><tr><th>Person</th><th>Week of</th><th>Peak</th><th>Over 100 %</th><th>Unknown allocations</th><th>Effort</th></tr></thead><tbody>' + list.join('') + '</tbody></table></details>';
   }

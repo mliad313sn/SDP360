@@ -25,6 +25,11 @@
       kinds: { critical_risk: 'Risque critique', high_risk: 'Risque élevé', unfunded: 'Non financé', decision_bottleneck: 'Décision en attente', missing_delivery_lead: 'Responsable de livraison manquant', schedule_error: 'Erreur de planning' } },
   };
   const T = TT[lang === 'fr' ? 'fr' : 'en'];
+  // PMO UX — codes read as labels, dates through lib/format.js; the back link follows the page language
+  const FL = lang === 'fr' ? 'fr' : 'en';
+  const lab = (g, c) => (c == null || c === '' ? '—' : window.PpmLabels ? window.PpmLabels.label(g, c, FL) : String(c));
+  const fdate = (v) => (v == null || v === '' ? '—' : window.SDPFormat ? window.SDPFormat.date(String(v).slice(0, 10), { lang: FL }) : String(v).slice(0, 10));
+  const back = $('pdBack'); if (back) back.textContent = FL === 'fr' ? '← Portefeuille' : '← Portfolio';
   const d = (v) => (v == null || v === '' ? '—' : esc(v));
   $('pdTitle').textContent = T.title; $('pdIntro').textContent = T.intro; $('pdAgendaH').textContent = T.agenda; $('pdAlertsH').textContent = T.alerts;
   const say = (m) => { $('pdMeta').textContent = m; };
@@ -43,7 +48,7 @@
     $('pdAgendaSum').textContent = T.summary(j.summary);
     const outcomes = j.outcomes || [];
     const rows = j.rows.map((r) => {
-      const decs = r.decisions.length ? r.decisions.map((x) => `<div><strong>${d(x.ref)}</strong> ${d(x.title)} · ${esc(T.authority)}: ${d(x.authority)} · ${esc(T.due)}: ${d(x.due_date)}${x.overdue ? ` <span class="pd-tag pd-crit">${esc(T.overdue)}</span>` : ''} · ${d(x.status)} · ${esc(T.outcome)}: ${d(x.outcome)} ${x.decided_at ? '(' + esc(x.decided_at) + ')' : ''}${
+      const decs = r.decisions.length ? r.decisions.map((x) => `<div><strong>${d(x.ref)}</strong> ${d(x.title)} · ${esc(T.authority)}: ${d(x.authority)} · ${esc(T.due)}: ${esc(fdate(x.due_date))}${x.overdue ? ` <span class="pd-tag pd-crit">${esc(T.overdue)}</span>` : ''} · ${esc(lab('status', x.status))} · ${esc(T.outcome)}: ${d(x.outcome)} ${x.decided_at ? '(' + esc(fdate(x.decided_at)) + ')' : ''}${
         j.can_record ? `<form class="pd-form" data-rec="${esc(x.id)}"><label class="pd-sr" for="oc${esc(x.id)}">${esc(T.outcome)}</label><select id="oc${esc(x.id)}" name="outcome"><option value="">—</option>${outcomes.map((o) => `<option value="${esc(o)}"${o === x.outcome ? ' selected' : ''}>${esc(o)}</option>`).join('')}</select>${field('da' + x.id, T.decidedAt, 'date', 'data-k="decided_at"')}<button class="pd-btn" type="submit">${esc(T.save)}</button></form>` : ''}</div>`).join('')
         : `<em>${esc(T.none)}</em>`;
       const add = j.can_record ? `<form class="pd-form" data-add="${esc(r.project_id)}">${field('dt' + r.project_id, T.title_, 'text', 'required data-k="title"')}${field('au' + r.project_id, T.authority, 'text', 'data-k="authority"')}${field('du' + r.project_id, T.due, 'date', 'data-k="due_date"')}<button class="pd-btn" type="submit">${esc(T.addDecision)}</button></form>` : '';
@@ -58,9 +63,9 @@
     $('pdAlertsNote').textContent = (unk.length ? T.unknownKinds + unk.join(', ') + '. ' : '') + (j.money_hidden ? T.moneyHidden : '');
     const rows = j.items.map((a) => {
       const sev = a.severity === 'critical' ? 'pd-crit' : a.severity === 'high' ? 'pd-high' : '';
-      const act = a.commitment ? `<a href="commitments.html?id=${esc(a.commitment.id)}">${esc(T.promoted)} #${esc(a.commitment.id)}</a> · ${d(a.commitment.status)}`
+      const act = a.commitment ? `<a href="commitments.html?id=${esc(a.commitment.id)}">${esc(T.promoted)} </a> · ${esc(lab('status', a.commitment.status))}`
         : j.can_promote ? `<form class="pd-form" data-promote="${esc(a.key)}">${field('ow' + a.key.replace(/[^a-z0-9]/gi, '_'), T.owner, 'text', 'required data-k="owner"')}${field('dd' + a.key.replace(/[^a-z0-9]/gi, '_'), T.due, 'date', 'data-k="due_date"')}<button class="pd-btn" type="submit">${esc(T.promote)}</button></form>` : esc(T.open);
-      return `<tr><td>${esc(T.kinds[a.kind] || a.kind)}</td><td><span class="pd-tag ${sev}">${d(a.severity)}</span></td><th scope="row">${d(a.project_key)}</th><td>${d(a.message)}</td><td>${d(a.recommended_action && a.recommended_action[lang === 'fr' ? 'fr' : 'en'])}</td><td>${act}</td></tr>`;
+      return `<tr><td>${esc(T.kinds[a.kind] || a.kind)}</td><td><span class="pd-tag ${sev}">${esc(lab('severity', a.severity))}</span></td><th scope="row">${d(a.project_key)}</th><td>${d(a.message)}</td><td>${d(a.recommended_action && a.recommended_action[lang === 'fr' ? 'fr' : 'en'])}</td><td>${act}</td></tr>`;
     }).join('');
     $('pdAlerts').innerHTML = `<table class="pd-table"><thead><tr><th scope="col">${esc(T.kind)}</th><th scope="col">${esc(T.severity)}</th><th scope="col">${esc(T.project)}</th><th scope="col">${esc(T.trigger)}</th><th scope="col">${esc(T.action)}</th><th scope="col">${esc(T.status)}</th></tr></thead><tbody>${rows}</tbody></table>`;
   }

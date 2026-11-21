@@ -26,5 +26,7 @@ window.I18N_FR_GANTT = {
   'A task cannot depend on itself.': 'Une tâche ne peut pas dépendre d’elle-même.', 'A dependency points to a task that does not exist in this project.': 'Une dépendance pointe vers une tâche qui n’existe pas dans ce projet.',
   'The same dependency is listed twice.': 'La même dépendance figure deux fois.', 'These dependencies would make a loop (a task would wait for itself).': 'Ces dépendances formeraient une boucle (une tâche s’attendrait elle-même).',
   'A task cannot depend on its own parent or on one of its sub-tasks.': 'Une tâche ne peut pas dépendre de son parent ni de l’une de ses sous-tâches.', 'This column is read-only here.': 'Cette colonne est en lecture seule ici.',
-  'Only finish-to-start links can be drawn while link types are switched off.': 'Seuls les liens fin-début peuvent être tracés tant que les types de lien sont désactivés.'
+  'Only finish-to-start links can be drawn while link types are switched off.': 'Seuls les liens fin-début peuvent être tracés tant que les types de lien sont désactivés.',
+  // PMO UX (2026-11)
+  'Whole plan': 'Plan entier', 'Show the whole plan': 'Afficher le plan entier', 'Fit': 'Ajuster', 'How to edit the chart': 'Comment modifier le diagramme', '(no name)': '(sans nom)', 'ID': 'N°', '% done': '% réalisé'
 };

@@ -16,6 +16,12 @@
   else root.PpmWorkbench = factory();
 }(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
+  var root = typeof window !== 'undefined' ? window : {};
+  // PMO UX — status words, never raw codes (lib/ppmLabels.js when the page loads it; else the code humanised)
+  var statusPill = function (code, esc) {
+    if (root.PpmLabels) return root.PpmLabels.pill('status', code, esc);
+    return '<span class="pill">' + esc(code == null ? '—' : String(code).replace(/_/g, ' ')) + '</span>';
+  };
   var n = function (v, esc, unit) { return v == null || v === '' || (typeof v === 'number' && !isFinite(v)) ? '—' : esc(String(v) + (unit || '')); };
 
   function teamHtml(members, esc, canEdit) {
@@ -133,34 +139,75 @@
     return '<table><thead><tr><th>#</th><th>Change</th><th>Status</th><th>Dates impact</th><th>Money impact</th>' + (w.simulation ? '<th>Simulated impact</th>' : '') + '<th>Author</th><th>Decided by</th><th>Baseline</th><th>Next step</th></tr></thead><tbody>' + list.map(function (c) {
       var money = w.moneyHidden ? '<span class="muted">restricted</span>' : (c.impact_budget == null ? '—' : esc(String(c.impact_budget)) + ' ' + n(c.currency, esc));
       var steps = crSteps(c, w).map(function (k) { return '<button class="btn' + (k === 'reject' || k === 'withdraw' ? ' danger' : '') + '" type="button" data-cr="' + esc(String(c.id)) + '" data-cr-action="' + esc(k) + '">' + esc(CR_STEPS[k].label) + '</button>'; }).join(' ');
-      return '<tr><td>' + esc(String(c.id)) + '</td><td><b>' + esc(c.title) + '</b><br><span class="muted">' + n(c.reason, esc) + '</span>' + (c.scope_fields && c.scope_fields.length ? '<br><span class="muted"><span>May rewrite:</span> ' + esc(c.scope_fields.join(', ')) + '</span>' : '') + '</td><td><span class="pill">' + esc(c.status) + '</span></td><td>' + (c.impact_dates_days == null ? '—' : esc((c.impact_dates_days > 0 ? '+' : '') + c.impact_dates_days + ' d')) + '</td><td>' + money + '</td>' + (w.simulation ? '<td>' + impactHtml(c.simulation, esc, w.moneyHidden) + (w.canEdit && c.task_changes && c.task_changes.length && ['proposed', 'assessed', 'approved'].indexOf(c.status) >= 0 ? '<br><button class="btn" type="button" data-cr-sim="' + esc(String(c.id)) + '">Re-simulate</button>' : '') + '</td>' : '') + '<td>' + n(c.author_name, esc) + '</td><td>' + n(c.decided_by_name, esc) + '</td><td>' + (c.applied_baseline_version == null ? '—' : 'v' + esc(String(c.applied_baseline_version))) + '</td><td>' + (steps || '<span class="muted">—</span>') + '</td></tr>';
+      return '<tr><td>' + esc(String(c.id)) + '</td><td><b>' + esc(c.title) + '</b><br><span class="muted">' + n(c.reason, esc) + '</span>' + (c.scope_fields && c.scope_fields.length ? '<br><span class="muted"><span>May rewrite:</span> ' + esc(c.scope_fields.map(function (f) { return SCOPE_LABELS[f] || f; }).join(', ')) + '</span>' : '') + '</td><td>' + statusPill(c.status, esc) + '</td><td>' + (c.impact_dates_days == null ? '—' : esc((c.impact_dates_days > 0 ? '+' : '') + c.impact_dates_days + ' d')) + '</td><td>' + money + '</td>' + (w.simulation ? '<td>' + impactHtml(c.simulation, esc, w.moneyHidden) + (w.canEdit && c.task_changes && c.task_changes.length && ['proposed', 'assessed', 'approved'].indexOf(c.status) >= 0 ? '<br><button class="btn" type="button" data-cr-sim="' + esc(String(c.id)) + '">Re-simulate</button>' : '') + '</td>' : '') + '<td>' + n(c.author_name, esc) + '</td><td>' + n(c.decided_by_name, esc) + '</td><td>' + (c.applied_baseline_version == null ? '—' : 'v' + esc(String(c.applied_baseline_version))) + '</td><td>' + (steps || '<span class="muted">—</span>') + '</td></tr>';
     }).join('') + '</tbody></table><p class="muted">The author never approves or rejects their own change. Applying a change with a dates impact writes a new baseline version (committee re-baseline).</p>';
   }
   var CHG = { ctx: null, who: {} };
+  // PMO UX (2026-11) — the proposal form opens in a drawer from "Propose a change"; task changes are a small grid
+  // (task · duration · start · end) instead of typed lines; the rewritable business-case fields are checkboxes; the
+  // note for a step is asked in a dialog when the step is clicked (required for reject / withdraw).
+  var SCOPE_LABELS = { charter: 'Charter', business_need: 'Business need', expected_value: 'Expected value', budget_reference: 'Budget reference', budget_approval_date: 'Budget approval date' };
+  function simRowHtml(tasks, esc) {
+    return '<div class="ppm-gr"><select data-sim-task aria-label="Task"><option value="">— task —</option>' + (tasks || []).map(function (t) { return '<option value="' + esc(String(t.id)) + '">' + esc([t.wbs_code, t.name].filter(function (x) { return x != null && x !== ''; }).join(' ')) + '</option>'; }).join('') + '</select>' +
+      '<input type="number" min="0" data-sim-dur aria-label="New duration (working days)" placeholder="days"><input type="date" data-sim-start aria-label="New start"><input type="date" data-sim-end aria-label="New end">' +
+      '<button type="button" class="btn" data-sim-del aria-label="Remove row">×</button></div>';
+  }
+  /** rows of the simulation grid → the same task_changes array the server reads (parseChangeLines' output shape) */
+  function simRows(box) {
+    var out = [], err = null;
+    Array.prototype.forEach.call(box.querySelectorAll('.ppm-gr'), function (r, i) {
+      var id = Number(r.querySelector('[data-sim-task]').value), d = r.querySelector('[data-sim-dur]').value, s = r.querySelector('[data-sim-start]').value, e = r.querySelector('[data-sim-end]').value;
+      if (!id && d === '' && !s && !e) return;
+      if (!id) { err = 'Row ' + (i + 1) + ': choose the task.'; return; }
+      var c = { task_id: id }; if (d !== '') c.duration_days = Number(d); if (s) c.start_date = s; if (e) c.end_date = e;
+      if (Object.keys(c).length === 1) { err = 'Row ' + (i + 1) + ': nothing to change.'; return; }
+      out.push(c);
+    });
+    return err ? { error: err } : out;
+  }
   function mountChanges(ctx) {
     var $ = ctx.$, esc = ctx.esc, url = '/api/governance/ppm/project/' + encodeURIComponent(ctx.pid) + '/changes'; CHG.ctx = ctx;
-    $('cr-new').hidden = !ctx.canEdit;
+    $('cr-open').hidden = !ctx.canEdit;
+    var ux = function () { return root.PpmUx || null; };
+    var formMsg = function (t, bad) { if (ux()) ux().formMsg($('cr-msg'), t, bad); else CHG.ctx.msg(t, bad ? 'errors' : 'ok'); };
     var draw = function () { ctx.api(url).then(function (j) { CHG.who = { me: j.me, committee: j.committee, moneyHidden: j.money_hidden, simulation: !!j.simulation, canEdit: !!CHG.ctx.canEdit }; $('cr-money-box').hidden = !!j.money_hidden; if ($('cr-sim-box')) $('cr-sim-box').hidden = !j.simulation; $('changes').innerHTML = changesHtml(j.changes, esc, CHG.who); }).catch(ctx.fail); };
     CHG.draw = draw; draw();
     if ($('cr-save').getAttribute('data-wired')) return;
     $('cr-save').setAttribute('data-wired', '1');
+    $('cr-open').addEventListener('click', function () {
+      formMsg('');
+      if ($('cr-sim-rows') && !$('cr-sim-rows').children.length) $('cr-sim-rows').innerHTML = simRowHtml(CHG.ctx.tasks, esc);
+      if (ux()) ux().openDrawer('cr-new', this);
+    });
+    if ($('cr-sim-add')) $('cr-sim-add').addEventListener('click', function () { $('cr-sim-rows').insertAdjacentHTML('beforeend', simRowHtml(CHG.ctx.tasks, esc)); });
+    if ($('cr-sim-rows')) $('cr-sim-rows').addEventListener('click', function (ev) { var d = ev.target.closest && ev.target.closest('[data-sim-del]'); if (d) d.closest('.ppm-gr').remove(); });
     $('cr-save').addEventListener('click', function () {
       var c = CHG.ctx, v = function (id) { var x = $(id).value.trim(); return x === '' ? null : x; };
-      var b = { title: v('cr-title'), reason: v('cr-reason'), impact_dates_days: v('cr-days') == null ? null : Number(v('cr-days')), impact_budget: v('cr-amount') == null ? null : Number(v('cr-amount')), currency: v('cr-cur'), scope_fields: v('cr-scope') };
-      if (CHG.who.simulation && $('cr-tasks') && v('cr-tasks') != null) {   // B5 — task changes, simulated by the server
-        var tc = parseChangeLines($('cr-tasks').value); if (tc.error) { c.msg(tc.error, 'errors'); return; }
-        b.task_changes = tc;
+      var scope = Array.prototype.filter.call($('cr-scope').querySelectorAll('input:checked'), function () { return true; }).map(function (x) { return x.value; });
+      var b = { title: v('cr-title'), reason: v('cr-reason'), impact_dates_days: v('cr-days') == null ? null : Number(v('cr-days')), impact_budget: v('cr-amount') == null ? null : Number(v('cr-amount')), currency: v('cr-cur'), scope_fields: scope.length ? scope.join(',') : null };
+      if (CHG.who.simulation && $('cr-sim-rows')) {   // B5 — task changes, simulated by the server
+        var tc = simRows($('cr-sim-rows')); if (tc.error) { formMsg(tc.error, true); return; }
+        if (tc.length) b.task_changes = tc;
       }
-      c.api(url, { method: 'POST', body: JSON.stringify(b) }).then(function () { c.msg('Change request proposed.'); ['cr-title', 'cr-reason', 'cr-days', 'cr-amount', 'cr-cur', 'cr-scope', 'cr-tasks'].forEach(function (k) { if ($(k)) $(k).value = ''; }); CHG.draw(); }).catch(c.fail);
+      c.api(url, { method: 'POST', body: JSON.stringify(b) }).then(function () {
+        ['cr-title', 'cr-reason', 'cr-days', 'cr-amount', 'cr-cur'].forEach(function (k) { if ($(k)) $(k).value = ''; });
+        Array.prototype.forEach.call($('cr-scope').querySelectorAll('input'), function (x) { x.checked = false; }); if ($('cr-sim-rows')) $('cr-sim-rows').innerHTML = '';
+        if (ux()) { ux().closeDrawer('cr-new'); ux().toast('Change request proposed.'); } else c.msg('Change request proposed.');
+        CHG.draw();
+      }).catch(function (e) { formMsg((e && e.message) || 'Error', true); });
     });
     $('changes').addEventListener('click', function (ev) {
       var sb = ev.target.closest && ev.target.closest('[data-cr-sim]');
       if (sb) { var cc = CHG.ctx; cc.api(url + '/' + encodeURIComponent(sb.getAttribute('data-cr-sim')) + '/simulate', { method: 'POST', body: '{}' }).then(function () { cc.msg('Impact simulated on the current plan.'); CHG.draw(); }).catch(cc.fail); return; }
       var b = ev.target.closest && ev.target.closest('[data-cr-action]'); if (!b) return;
-      var c = CHG.ctx, note = $('cr-note').value.trim() || null;
-      c.api(url + '/' + encodeURIComponent(b.getAttribute('data-cr')) + '/' + encodeURIComponent(b.getAttribute('data-cr-action')), { method: 'POST', body: JSON.stringify({ note: note }) })
-        .then(function (j) { c.msg('Change request #' + j.change.id + ' is now ' + j.change.status + '.'); $('cr-note').value = ''; CHG.draw(); })
-        .catch(function (e) { if (e && e.code === 'SELF_REVIEW') c.msg('The author of a change request cannot approve or reject it — another committee member decides.', 'errors'); else c.fail(e); });
+      var c = CHG.ctx, act = b.getAttribute('data-cr-action'), needs = act === 'reject' || act === 'withdraw';
+      var ask = root.ReasonDialog ? root.ReasonDialog.ask({ title: (CR_STEPS[act] ? CR_STEPS[act].label : act) + ' — change request #' + b.getAttribute('data-cr'), label: needs ? 'Note for this step (required, 10 characters or more)' : 'Note for this step (optional)', min: needs ? 10 : 0, multiline: true })
+        : Promise.resolve(needs ? root.prompt('Note for this step (10 characters or more)') : '');
+      ask.then(function (note) {
+        if (note == null) return;
+        return c.api(url + '/' + encodeURIComponent(b.getAttribute('data-cr')) + '/' + encodeURIComponent(act), { method: 'POST', body: JSON.stringify({ note: String(note).trim() || null }) })
+          .then(function (j) { c.msg('Change request #' + j.change.id + ' is now ' + j.change.status + '.'); CHG.draw(); });
+      }).catch(function (e) { if (e && e.code === 'SELF_REVIEW') c.msg('The author of a change request cannot approve or reject it — another committee member decides.', 'errors'); else c.fail(e); });
     });
   }
 
@@ -189,7 +236,7 @@
     if (!list.length) return '<p class="muted">No hours recorded yet: there is no week to submit.</p>';
     return '<table><thead><tr><th>Week</th><th>Person</th><th>Hours</th><th>Entries</th><th>State</th><th>Decided by</th><th>Note</th><th>Next step</th></tr></thead><tbody>' + list.map(function (w) {
       var steps = tsSteps(w, who).map(function (k) { return '<button class="btn' + (k === 'reject' ? ' danger' : '') + '" type="button" data-ts-action="' + esc(k) + '" data-ts-week="' + esc(w.week_start) + '" data-ts-person="' + esc(w.person_key) + '">' + esc(TS_STEPS[k].label) + '</button>'; }).join(' ');
-      return '<tr><td>' + esc(w.week_start) + ' → ' + esc(w.week_end) + '</td><td>' + n(w.person_label, esc) + '</td><td>' + n(w.hours, esc, ' h') + '</td><td>' + esc(String(w.entries || 0)) + '</td><td><span class="pill">' + esc(w.status) + '</span></td><td>' + n(w.decided_by_name, esc) + '</td><td>' + n(w.decision_note, esc) + '</td><td>' + (steps || '<span class="muted">—</span>') + '</td></tr>';
+      return '<tr><td>' + esc(w.week_start) + ' → ' + esc(w.week_end) + '</td><td>' + n(w.person_label, esc) + '</td><td>' + n(w.hours, esc, ' h') + '</td><td>' + esc(String(w.entries || 0)) + '</td><td>' + statusPill(w.status, esc) + '</td><td>' + n(w.decided_by_name, esc) + '</td><td>' + n(w.decision_note, esc) + '</td><td>' + (steps || '<span class="muted">—</span>') + '</td></tr>';
     }).join('') + '</tbody></table><p class="muted">A week is approved or rejected by someone who did not enter or submit those hours. A submitted or approved week is frozen; a rejected week can be corrected and submitted again.</p>';
   }
   var TSH = { ctx: null };
@@ -249,5 +296,5 @@
     return parts.join('<br>');
   }
 
-  return { freshnessText: freshnessText, tsSteps: tsSteps, timesheetsHtml: timesheetsHtml, mountTimesheets: mountTimesheets, parseChangeLines: parseChangeLines, impactHtml: impactHtml, crSteps: crSteps, changesHtml: changesHtml, mountChanges: mountChanges, teamHtml: teamHtml, mountTeam: mountTeam, pickerOptions: pickerOptions, hoursHtml: hoursHtml, entriesHtml: entriesHtml, mountTime: mountTime };
+  return { simRows: simRows, simRowHtml: simRowHtml, freshnessText: freshnessText, tsSteps: tsSteps, timesheetsHtml: timesheetsHtml, mountTimesheets: mountTimesheets, parseChangeLines: parseChangeLines, impactHtml: impactHtml, crSteps: crSteps, changesHtml: changesHtml, mountChanges: mountChanges, teamHtml: teamHtml, mountTeam: mountTeam, pickerOptions: pickerOptions, hoursHtml: hoursHtml, entriesHtml: entriesHtml, mountTime: mountTime };
 }));

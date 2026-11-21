@@ -19,11 +19,11 @@
   'use strict';
   var G = root.GanttCore;
   var HIST = {};   // undo / redo survive the page reload that follows every write (one stack per project)
-  var PREFS = { view: null, zoom: 'week' };
+  var PREFS = { view: null, zoom: 'fit' };   // PMO UX — the whole plan is visible on open (Fit), zoom stays per page
   function T(s) { var p = root.__uiPolicy, d = root.I18N_FR_GANTT; return (p && p.i18n_pages === '1' && d && d[s]) || s; }
   function escFallback(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   var VIEWS = [['gantt', 'Gantt'], ['task_usage', 'Task usage'], ['resource_usage', 'Resource usage'], ['resource_graph', 'Resource graph'], ['network', 'Network diagram'], ['list', 'List']];
-  var COLS = [['name', 'Task', 190], ['duration', 'Duration', 64], ['start', 'Start', 92], ['finish', 'Finish', 92], ['predecessors', 'Predecessors', 96], ['progress', '% complete', 70]];
+  var COLS = [['id', 'ID', 40], ['name', 'Task', 190], ['duration', 'Duration', 64], ['start', 'Start', 92], ['finish', 'Finish', 92], ['predecessors', 'Predecessors', 96], ['progress', '% done', 70]];   // PMO UX: the ID column the predecessors refer to; the name carries no #id
   var ROW_H = 26, HEAD_H = 40, NARROW = 560;
   var PLAIN = {
     NAME_REQUIRED: 'A task needs a name.', DURATION_INVALID: 'Duration: a whole number of working days (0 = milestone).',
@@ -43,24 +43,34 @@
     var rows = G.rowsFrom(ctx.tasks || [], ctx.plan, { order: ctx.order, ghost: ctx.ghost });
     var narrow = root.matchMedia ? root.matchMedia('(max-width: ' + NARROW + 'px)').matches : false;
     var view = PREFS.view || (narrow ? 'list' : 'gantt');
-    var zoomKey = PREFS.zoom, L = null, focusRow = 0, focusCol = 0, busy = false, raf = 0, drag = null;
+    var zoomKey = PREFS.zoom, FIT = null, L = null, focusRow = 0, focusCol = 0, busy = false, raf = 0, drag = null;
     var n = function (v) { return v == null || v === '' ? '—' : esc(String(v)); };
     var say = function (s) { var r = el.querySelector('.g2-live'); if (r) r.textContent = s; };
+    var gridW = function () { return COLS.reduce(function (a, c) { return a + c[2]; }, 0); };
+    // the scale actually drawn: a key, or the computed "fit to project" scale for the width available now
+    function scale() {
+      if (zoomKey !== 'fit') return zoomKey;
+      var w = (el.clientWidth || (el.parentNode && el.parentNode.clientWidth) || 1100) - gridW() - 20;
+      FIT = G.fitScale(rows, w, ctx.today); return FIT;
+    }
 
     function toolbar() {
       return '<div class="g2-tools" role="toolbar" aria-label="' + esc(T('Schedule tools')) + '">' +
         '<label class="g2-lbl">' + esc(T('View')) + ' <select class="g2-view">' + VIEWS.map(function (v) { return '<option value="' + esc(v[0]) + '"' + (v[0] === view ? ' selected' : '') + '>' + esc(T(v[1])) + '</option>'; }).join('') + '</select></label>' +
         '<span class="g2-grp" role="group" aria-label="' + esc(T('Zoom')) + '"><button type="button" class="btn g2-zin" aria-label="' + esc(T('Zoom in')) + '">+</button>' +
-        '<select class="g2-zoom" aria-label="' + esc(T('Timescale')) + '">' + G.ZOOMS.map(function (z) { return '<option value="' + esc(z) + '"' + (z === zoomKey ? ' selected' : '') + '>' + esc(T(z === 'day' ? 'Days' : z === 'week' ? 'Weeks' : z === 'month' ? 'Months' : 'Quarters')) + '</option>'; }).join('') + '</select>' +
+        '<select class="g2-zoom" aria-label="' + esc(T('Timescale')) + '"><option value="fit"' + (zoomKey === 'fit' ? ' selected' : '') + '>' + esc(T('Whole plan')) + '</option>' + G.ZOOMS.map(function (z) { return '<option value="' + esc(z) + '"' + (z === zoomKey ? ' selected' : '') + '>' + esc(T(z === 'day' ? 'Days' : z === 'week' ? 'Weeks' : z === 'month' ? 'Months' : 'Quarters')) + '</option>'; }).join('') + '</select>' +
         '<button type="button" class="btn g2-zout" aria-label="' + esc(T('Zoom out')) + '">−</button></span>' +
-        '<button type="button" class="btn g2-today">' + esc(T('Today')) + '</button>' +
+        '<button type="button" class="btn g2-fit" title="' + esc(T('Show the whole plan')) + '">' + esc(T('Fit')) + '</button><button type="button" class="btn g2-today">' + esc(T('Today')) + '</button>' +
         (ctx.canEdit ? '<button type="button" class="btn g2-undo"' + (hist.canUndo() ? '' : ' disabled') + ' title="' + esc(T('Undo')) + ' (Ctrl+Z)">' + esc(T('Undo')) + '</button>' +
           '<button type="button" class="btn g2-redo"' + (hist.canRedo() ? '' : ' disabled') + ' title="' + esc(T('Redo')) + ' (Ctrl+Y)">' + esc(T('Redo')) + '</button>' : '') +
         '<span class="g2-live muted" role="status" aria-live="polite"></span></div>';
     }
+    // PMO UX — ONE legend (swatches); how to edit the chart sits behind the (i)
     function legend() {
-      return '<p class="muted g2-help">' + esc(T('Bar = scheduled dates · red = critical path · dashed = baseline · ◆ = milestone · orange line = today.')) + ' ' +
-        (ctx.canEdit ? esc(T('Drag a bar to move it, its right edge to change the duration, its round handle onto another bar to link them (finish-to-start). Keyboard: Alt + arrows move, Alt + Shift + arrows resize, Ctrl+Z undo.')) : esc(T('Read-only: you may not edit this plan.'))) + '</p>';
+      var chip = function (cls, txt) { return '<span class="g2-chip"><span class="g2-sw ' + cls + '"></span>' + esc(T(txt)) + '</span>'; };
+      return '<div class="g2-help g2-legend">' + chip('g2-sw-plan', 'scheduled') + chip('g2-sw-comp', 'moved by the scheduler') + chip('g2-sw-crit', 'critical path (red outline)') + chip('g2-sw-base', 'baseline') + chip('g2-sw-ms', 'milestone') + chip('g2-sw-today', 'today') +
+        ' <details class="ppm-legend-pop"><summary><span class="ppm-info" aria-hidden="true">i</span><span class="g2-sr">' + esc(T('How to edit the chart')) + '</span></summary><div>' +
+        (ctx.canEdit ? esc(T('Drag a bar to move it, its right edge to change the duration, its round handle onto another bar to link them (finish-to-start). Keyboard: Alt + arrows move, Alt + Shift + arrows resize, Ctrl+Z undo.')) : esc(T('Read-only: you may not edit this plan.'))) + '</div></details></div>';
     }
 
     function render() {
@@ -76,7 +86,7 @@
 
     // ---- Gantt: grid + timeline, one vertical scroll, rows windowed --------------------------------------------
     function ganttShell(body) {
-      L = G.layout(rows, { scale: zoomKey, rowH: ROW_H, today: ctx.today });
+      L = G.layout(rows, { scale: scale(), rowH: ROW_H, today: ctx.today });
       var gw = COLS.reduce(function (a, c) { return a + c[2]; }, 0);
       body.innerHTML = '<div class="g2-split" style="height:' + Math.min(560, HEAD_H + rows.length * ROW_H + 18) + 'px">' +
         '<div class="g2-grid" role="grid" aria-label="' + esc(T('Task grid')) + '" aria-rowcount="' + (rows.length + 1) + '" aria-colcount="' + COLS.length + '">' +
@@ -87,7 +97,7 @@
       paint();
     }
     function headerHtml() {
-      var tk = G.ticks(zoomKey, L.origin, L.endDay, { months: T('MONTHS') === 'MONTHS' ? null : T('MONTHS').split(',') });
+      var tk = G.ticks(zoomKey === 'fit' && FIT ? FIT : zoomKey, L.origin, L.endDay, { months: T('MONTHS') === 'MONTHS' ? null : T('MONTHS').split(',') });
       var cell = function (t, next, cls) { var x = L.dayToX(t.day), w = L.dayToX(next) - x; return '<div class="' + cls + '" style="left:' + x + 'px;width:' + w + 'px">' + esc(t.label) + '</div>'; };
       var major = tk.major.map(function (t, i) { return cell(t, i + 1 < tk.major.length ? tk.major[i + 1].day : L.endDay, 'g2-tmaj'); }).join('');
       var minor = tk.minor.map(function (t, i) { return cell(t, i + 1 < tk.minor.length ? tk.minor[i + 1].day : L.endDay, 'g2-tmin'); }).join('');
@@ -126,20 +136,23 @@
       for (i = w.start; i < w.end; i++) grid.push(gridRow(i));
       gin.innerHTML = grid.join('');
     }
+    // dates through lib/format.js (SDPFormat) when the page loads it; the edit box still takes YYYY-MM-DD
+    function fmtDate(v) { if (!v) return '—'; var F = root.SDPFormat; return F && F.date ? F.date(v) : v; }
     function cellText(r, t, key) {
-      if (key === 'name') return r.name || ('#' + String(r.id));
-      if (key === 'duration') return r.milestone ? '◆ 0 d' : t.duration_days == null ? '—' : t.duration_days + ' d';
-      if (key === 'start') return r.start || '—';
-      if (key === 'finish') return r.end || '—';
+      if (key === 'id') return String(r.id);
+      if (key === 'name') return r.name || T('(no name)');
+      if (key === 'duration') { if (r.milestone) return '◆ 0 d'; if (t.duration_days != null) return t.duration_days + ' d'; var wd = G.workDays(r.start, r.end, cal); return wd == null ? '—' : wd + ' d'; }   // PMO UX: computed from the dates when none was entered
+      if (key === 'start') return fmtDate(r.start);
+      if (key === 'finish') return fmtDate(r.end);
       if (key === 'predecessors') return G.formatPredecessors(t) || '';
       return t.progress_pct == null ? '—' : t.progress_pct + ' %';
     }
     function gridRow(i) {
       var r = rows[i], t = byId[r.id] || {};
       return '<div class="g2-row' + (r.critical ? ' g2-rcrit' : '') + '" role="row" aria-rowindex="' + (i + 2) + '" style="top:' + (i * ROW_H) + 'px">' + COLS.map(function (c, k) {
-        var edit = ctx.canEdit && c[0] !== 'finish';
+        var edit = ctx.canEdit && c[0] !== 'finish' && c[0] !== 'id';
         var pad = c[0] === 'name' ? 'padding-left:' + (4 + 12 * r.depth) + 'px;' : '';
-        return '<div role="gridcell" class="g2-c' + (edit ? ' g2-ed' : '') + '" style="width:' + c[2] + 'px;' + pad + '" data-row="' + i + '" data-col="' + k + '" tabindex="' + (i === focusRow && k === focusCol ? '0' : '-1') + '"' + (edit ? ' aria-readonly="false"' : ' aria-readonly="true"') + '>' + esc(cellText(r, t, c[0])) + (k === 0 ? ' <small class="muted">#' + esc(r.id) + '</small>' : '') + '</div>';
+        return '<div role="gridcell" class="g2-c' + (edit ? ' g2-ed' : '') + '" style="width:' + c[2] + 'px;' + pad + '" data-row="' + i + '" data-col="' + k + '" tabindex="' + (i === focusRow && k === focusCol ? '0' : '-1') + '"' + (edit ? ' aria-readonly="false"' : ' aria-readonly="true"') + '>' + esc(cellText(r, t, c[0])) + '</div>';
       }).join('') + '</div>';
     }
     function schedule() { if (!raf) raf = (root.requestAnimationFrame || function (f) { return setTimeout(f, 16); })(paint); }
@@ -152,7 +165,7 @@
     }
     function usageHtml(kind) {
       var sp = span(); if (!sp) return '<p class="muted">' + esc(T('No dated task: nothing to spread over time.')) + '</p>';
-      var unit = zoomKey === 'day' ? 'day' : zoomKey === 'week' ? 'week' : 'month';
+      var zk = zoomKey === 'fit' ? (FIT || scale()).minor : zoomKey, unit = zk === 'day' ? 'day' : zk === 'week' ? 'week' : 'month';
       var ps = G.periods(unit, sp.from, sp.to).slice(0, 120);
       var head = '<tr><th>' + esc(T(kind === 'task_usage' ? 'Task' : 'Resource')) + '</th>' + (kind === 'resource_graph' ? '' : '<th>' + esc(T('Total (h)')) + '</th>') + ps.map(function (p) { return '<th>' + esc(p.label) + '</th>'; }).join('') + '</tr>';
       var body;
@@ -177,7 +190,7 @@
     function listHtml() {
       return '<ul class="g2-list">' + rows.map(function (r) {
         var t = byId[r.id] || {};
-        return '<li class="g2-li' + (r.critical ? ' g2-rcrit' : '') + '"><button type="button" class="g2-open" data-task="' + esc(r.id) + '">' + esc(r.name || '#' + r.id) + ' <small class="muted">#' + esc(r.id) + '</small></button>' +
+        return '<li class="g2-li' + (r.critical ? ' g2-rcrit' : '') + '"><button type="button" class="g2-open" data-task="' + esc(r.id) + '">' + esc(r.name || T('(no name)')) + '</button>' +
           '<div class="muted">' + esc((r.start || '—') + ' → ' + (r.end || '—')) + ' · ' + esc(cellText(r, t, 'duration')) + ' · ' + esc(cellText(r, t, 'progress')) + (r.critical ? ' · ' + T('critical') : '') + (G.formatPredecessors(t) ? ' · ' + T('after') + ' ' + G.formatPredecessors(t) : '') + '</div></li>';
       }).join('') + '</ul>';
     }
@@ -214,7 +227,7 @@
     function moveTask(id, dxPx, mode) {
       var i = L ? L.index[Number(id)] : null, r = i == null ? null : rows[i], t = byId[Number(id)];
       if (!r || !t || !ctx.canEdit || r.summary) return Promise.resolve(null);
-      var p = G.dragDates({ start: r.start, end: r.end, milestone: r.milestone }, dxPx, zoomKey, mode, cal);
+      var p = G.dragDates({ start: r.start, end: r.end, milestone: r.milestone }, dxPx, zoomKey === 'fit' ? FIT : zoomKey, mode, cal);
       return p ? write(mode === 'resize' ? 'Resize' : 'Move', t, p).then(function () { return p; }) : Promise.resolve(null);
     }
     function linkTasks(fromId, toId) {
@@ -265,10 +278,10 @@
     }
     function nudge(i, mode, dir) {
       var r = rows[i], t = byId[r.id]; if (!t || !ctx.canEdit || r.summary) return;
-      var px = dir * G.scaleOf(zoomKey).pxPerDay;
+      var px = dir * G.scaleOf(zoomKey === 'fit' ? FIT : zoomKey).pxPerDay;
       var bar = { start: r.start, end: r.end, milestone: r.milestone };
       // one WORKING day per key press: step calendar days until the date actually changes
-      for (var step = 1; step <= 4; step++) { var p = G.dragDates(bar, px * step, zoomKey, mode, cal); if (p) return write(mode === 'resize' ? 'Resize' : 'Move', t, p); }
+      for (var step = 1; step <= 4; step++) { var p = G.dragDates(bar, px * step, zoomKey === 'fit' ? FIT : zoomKey, mode, cal); if (p) return write(mode === 'resize' ? 'Resize' : 'Move', t, p); }
     }
 
     // ---- events ---------------------------------------------------------------------------------------------
@@ -276,8 +289,9 @@
       var q = function (s) { return el.querySelector(s); };
       q('.g2-view').addEventListener('change', function (ev) { view = PREFS.view = ev.target.value; render(); });
       q('.g2-zoom').addEventListener('change', function (ev) { zoomKey = PREFS.zoom = ev.target.value; render(); });
-      q('.g2-zin').addEventListener('click', function () { zoomKey = PREFS.zoom = G.zoom(zoomKey, -1); render(); });
-      q('.g2-zout').addEventListener('click', function () { zoomKey = PREFS.zoom = G.zoom(zoomKey, 1); render(); });
+      q('.g2-zin').addEventListener('click', function () { zoomKey = PREFS.zoom = G.zoom(zoomKey === 'fit' ? FIT : zoomKey, -1); render(); });
+      q('.g2-zout').addEventListener('click', function () { zoomKey = PREFS.zoom = G.zoom(zoomKey === 'fit' ? FIT : zoomKey, 1); render(); });
+      if (q('.g2-fit')) q('.g2-fit').addEventListener('click', function () { zoomKey = PREFS.zoom = 'fit'; render(); });
       q('.g2-today').addEventListener('click', function () { var tl = q('.g2-tl'); if (tl && L && L.todayX != null) tl.scrollLeft = Math.max(0, L.todayX - tl.clientWidth / 3); });
       if (q('.g2-undo')) { q('.g2-undo').addEventListener('click', undo); q('.g2-redo').addEventListener('click', redo); }
       el.querySelector('.g2').addEventListener('keydown', function (ev) {
@@ -290,7 +304,7 @@
       var gb = q('.g2-gbody');
       tl.addEventListener('scroll', function () { gb.scrollTop = tl.scrollTop; schedule(); });
       gb.addEventListener('wheel', function (ev) { if (ev.ctrlKey) return; tl.scrollTop += ev.deltaY; ev.preventDefault(); }, { passive: false });
-      tl.addEventListener('wheel', function (ev) { if (!ev.ctrlKey) return; ev.preventDefault(); zoomKey = PREFS.zoom = G.zoom(zoomKey, ev.deltaY > 0 ? 1 : -1); render(); }, { passive: false });
+      tl.addEventListener('wheel', function (ev) { if (!ev.ctrlKey) return; ev.preventDefault(); zoomKey = PREFS.zoom = G.zoom(zoomKey === 'fit' ? FIT : zoomKey, ev.deltaY > 0 ? 1 : -1); render(); }, { passive: false });
       // grid keyboard
       gb.addEventListener('keydown', function (ev) {
         var c = ev.target.closest && ev.target.closest('.g2-c[data-row]'); if (!c || ev.target.tagName === 'INPUT') return;
@@ -299,9 +313,9 @@
         if (mv) { ev.preventDefault(); return focusCell(i + mv[0], k + mv[1]); }
         if (ev.key === 'Home') { ev.preventDefault(); return focusCell(ev.ctrlKey ? 0 : i, 0); }
         if (ev.key === 'End') { ev.preventDefault(); return focusCell(ev.ctrlKey ? rows.length - 1 : i, COLS.length - 1); }
-        if (ev.key === 'Enter' || ev.key === 'F2') { ev.preventDefault(); if (ctx.canEdit && COLS[k][0] !== 'finish') editCellAt(c); else if (ctx.openTask) ctx.openTask(rows[i].id); }
+        if (ev.key === 'Enter' || ev.key === 'F2') { ev.preventDefault(); if (ctx.canEdit && COLS[k][0] !== 'finish' && COLS[k][0] !== 'id') editCellAt(c); else if (ctx.openTask) ctx.openTask(rows[i].id); }
       });
-      gb.addEventListener('dblclick', function (ev) { var c = ev.target.closest && ev.target.closest('.g2-c.g2-ed'); if (c) editCellAt(c); });
+      gb.addEventListener('dblclick', function (ev) { var c = ev.target.closest && ev.target.closest('.g2-c.g2-ed'); if (c) { editCellAt(c); return; } var o = ev.target.closest && ev.target.closest('.g2-c[data-row]'); if (o && ctx.openTask) ctx.openTask(rows[Number(o.getAttribute('data-row'))].id); });   // PMO UX: the ID cell opens the full task editor
       gb.addEventListener('click', function (ev) { var c = ev.target.closest && ev.target.closest('.g2-c[data-row]'); if (c && ev.target.tagName !== 'INPUT') { focusRow = Number(c.getAttribute('data-row')); focusCol = Number(c.getAttribute('data-col')); c.focus(); } });
       // timeline keyboard
       var svg = q('.g2-svg');
@@ -334,7 +348,7 @@
           var rect = drag.g.querySelector('.g2-fill') || drag.g.querySelector('path');
           if (drag.act === 'resize' && rect && rect.tagName === 'rect') { var bb = L.bars[drag.i]; rect.setAttribute('width', Math.max(3, bb.x1 - bb.x0 + dx)); }
           else drag.g.setAttribute('transform', 'translate(' + dx + ',0)');
-          var p = G.dragDates({ start: rows[drag.i].start, end: rows[drag.i].end, milestone: rows[drag.i].milestone }, dx, zoomKey, drag.act, cal);
+          var p = G.dragDates({ start: rows[drag.i].start, end: rows[drag.i].end, milestone: rows[drag.i].milestone }, dx, zoomKey === 'fit' ? FIT : zoomKey, drag.act, cal);
           say(p ? p.start_date + ' → ' + p.end_date + ' (' + p.duration_days + ' ' + T('working days') + ')' : '');
         }
       });

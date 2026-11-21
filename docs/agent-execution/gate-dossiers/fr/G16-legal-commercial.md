@@ -10,7 +10,7 @@
 | Case de décision dans RELEASE-GATES.md | vide — cette porte est **NO-GO** tant que l'approbateur ne l'a pas remplie. Ce dossier ne remplit rien. |
 | Ce que cette porte bloque | ne bloque que la diffusion hors d'Endeavour |
 | À décider après | aucune |
-| SHA cible | `474d3901` |
+| SHA cible | `26a73149` |
 | Généré | 2026-11-21 |
 
 ## 1. La question à trancher

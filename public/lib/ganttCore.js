@@ -85,9 +85,20 @@
     quarter: { key: 'quarter', pxPerDay: 1.1, minor: 'quarter', major: 'year' }
   };
   var ZOOMS = ['day', 'week', 'month', 'quarter'];
-  function scaleOf(key) { return SCALES[key] || SCALES.week; }
+  // a scale is a key ('week'…) or a computed object { key:'fit', pxPerDay, minor, major } (PMO UX: fit to project)
+  function scaleOf(key) { if (key && typeof key === 'object' && key.pxPerDay > 0) return key; return SCALES[key] || SCALES.week; }
+  // PMO UX — fit the whole plan (min start → max finish, the layout's padding included) into `widthPx`
+  function fitScale(rows, widthPx, today) {
+    var L0 = layout(rows || [], { scale: 'week', today: today }), days = Math.max(1, L0.endDay - L0.origin);
+    var ppd = Math.max(0.5, Math.min(30, (Math.max(200, widthPx || 900) - 8) / (days * 1.05)));
+    var minor = ppd >= 20 ? 'day' : ppd >= 5 ? 'week' : ppd >= 1.6 ? 'month' : 'quarter';
+    var major = { day: 'week', week: 'month', month: 'quarter', quarter: 'year' }[minor];
+    return { key: 'fit', pxPerDay: Math.round(ppd * 100) / 100, minor: minor, major: major };
+  }
+  // working days between two dates (inclusive) — the duration shown when none was entered
+  function workDays(start, end, cal) { var s = toDay(start), e = toDay(end); if (s == null || e == null || e < s) return null; return (cal || makeCal()).count(s, e); }
   // dir +1 = zoom OUT (wider span per pixel), -1 = zoom IN; stays at the ends
-  function zoom(key, dir) { var i = ZOOMS.indexOf(key); if (i < 0) i = 1; return ZOOMS[Math.max(0, Math.min(ZOOMS.length - 1, i + (dir > 0 ? 1 : -1)))]; }
+  function zoom(key, dir) { if (key && typeof key === 'object') { var p = key.pxPerDay, near = ZOOMS.filter(function (z) { return dir > 0 ? SCALES[z].pxPerDay < p : SCALES[z].pxPerDay > p; }); return near.length ? (dir > 0 ? near[0] : near[near.length - 1]) : (dir > 0 ? 'quarter' : 'day'); } var i = ZOOMS.indexOf(key); if (i < 0) i = 1; return ZOOMS[Math.max(0, Math.min(ZOOMS.length - 1, i + (dir > 0 ? 1 : -1)))]; }
 
   function unitStart(unit, d) {
     var dt = new Date(d * DAY_MS), y = dt.getUTCFullYear(), m = dt.getUTCMonth();
@@ -471,7 +482,7 @@
   }
 
   return {
-    DAY_MS: DAY_MS, MONTHS: MONTHS, LINK_TYPES: LINK_TYPES, SCALES: SCALES, ZOOMS: ZOOMS, EDITABLE: EDITABLE,
+    DAY_MS: DAY_MS, MONTHS: MONTHS, fitScale: fitScale, workDays: workDays, LINK_TYPES: LINK_TYPES, SCALES: SCALES, ZOOMS: ZOOMS, EDITABLE: EDITABLE,
     toDay: toDay, fromDay: fromDay, isoWeekday: isoWeekday, makeCal: makeCal, zoom: zoom, scaleOf: scaleOf, ticks: ticks,
     predecessorsOf: predecessorsOf, rowsFrom: rowsFrom, layout: layout, visibleWindow: visibleWindow, linkPath: linkPath, links: links,
     dragDates: dragDates, canLink: canLink, linkPatch: linkPatch, parsePredecessors: parsePredecessors, formatPredecessors: formatPredecessors,

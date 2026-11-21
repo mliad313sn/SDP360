@@ -15,6 +15,10 @@
 <script nonce="%%CSP_NONCE%%" src="lib/dashboardRender.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/allocationContract.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/ppmVisuals.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/format.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/codeLabels.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/ppmLabels.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/ppmUx.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/ppmExtras.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/ppmWorkbench.js"></script>
 <!-- W4 (PPM parity, enterprise): board, comments, project roles, offline editing — each inert unless its switch is on -->
@@ -64,19 +68,33 @@
   .pb-list, .cm-list { list-style:none; margin:0; padding:0; } .pb-card { background:var(--color-card); border:1px solid var(--color-border); border-radius:8px; padding:6px 8px; margin-bottom:6px; } .pb-card[draggable=true] { cursor:grab; } .pb-name { font-weight:600; font-size:12.5px; } .pb-lane, .pb-meta { font-size:11.5px; color:var(--color-text-muted); } .pb-move { font-size:11px; }
   .cm-list li { border-bottom:1px solid var(--color-border); padding:6px 0; } .cm-body { white-space:pre-wrap; } #offline-banner { background:var(--color-primary-bg); border:1px solid var(--edv-orange-50); border-radius:10px; padding:8px 12px; margin-bottom:10px; } .merge { border-top:1px solid var(--edv-orange-50); padding-top:6px; margin-top:6px; }
 </style>
+<!-- PMO UX (2026-11) — one page frame + components, tokens only, loaded last so it wins on shared selectors --><link rel="stylesheet" href="lib/ppmUx.css">
 </head>
 <body>
 <a class="edv-skip" href="#main">Skip to content</a>
 <div id="__shell" data-section="operations" data-current="portfolio"></div>
-<main id="main" class="wrap">
-  <div class="muted"><a href="portfolio.html">Portfolio</a> ▸ project</div>
-  <h1 id="p-title">Project</h1>
-  <!-- W3-GOVERNANCE begin (view switch, ppm_simplified_view_enabled) --><div class="w3-mode" id="w3-mode" role="group" aria-label="View" hidden><button type="button" data-mode="simplified" aria-pressed="false">Simplified</button><button type="button" data-mode="expert" aria-pressed="true">Expert</button></div><!-- W3-GOVERNANCE end -->
-  <div class="sub" id="p-sub">Charter, plan, milestones, risks and gates of one project. “—” means not measured, never 0 (help §25).</div>
+<main id="main" class="wrap ppm-page">
+  <header class="ppm-page-header" id="p-head">
+    <div class="ppm-title"><h1 id="p-title">Project</h1><span id="p-pills"></span></div>
+    <div class="ppm-actions">
+      <!-- W3-GOVERNANCE begin (view switch, ppm_simplified_view_enabled) --><div class="w3-mode" id="w3-mode" role="group" aria-label="View" hidden><button type="button" data-mode="simplified" aria-pressed="false">Simplified</button><button type="button" data-mode="expert" aria-pressed="true">Expert</button></div><!-- W3-GOVERNANCE end -->
+    </div>
+  </header>
   <div id="msg" role="status" aria-live="polite"></div>
   <div id="offline-banner" role="status" aria-live="polite" hidden></div>
+  <!-- PMO UX — "not found": no tabs, one card with the way back -->
+  <section id="p-notfound" class="panel" hidden><div class="edv-empty-state ppm-empty"><h2 id="p-nf-title">Project not found or not visible to you</h2><p id="p-nf-text">This project does not exist, or it is outside the sites you may read.</p><a class="btn primary" href="portfolio.html">Back to portfolio</a></div></section>
   <!-- W3-GOVERNANCE begin (simplified view) --><section id="w3-simple" aria-label="Simplified project view" hidden></section><!-- W3-GOVERNANCE end -->
-  <div class="tabs" role="tablist" aria-label="Project sections" id="tabs">
+  <!-- PMO UX — six areas; the sections of the chosen area are the tabs below (hidden when the area has one) -->
+  <nav class="ppm-groups" id="groups" aria-label="Project areas">
+    <button type="button" data-group="overview" aria-current="true">Overview</button>
+    <button type="button" data-group="plan">Plan</button>
+    <button type="button" data-group="raid">RAID</button>
+    <button type="button" data-group="finance">Finance</button>
+    <button type="button" data-group="governance">Governance</button>
+    <button type="button" data-group="activity">Activity</button>
+  </nav>
+  <div class="tabs ppm-subtabs" role="tablist" aria-label="Project sections" id="tabs">
     <button type="button" role="tab" id="tab-overview" aria-controls="pane-overview" aria-selected="true">Overview</button>
     <button type="button" role="tab" id="tab-charter" aria-controls="pane-charter" aria-selected="false" tabindex="-1">Charter</button>
     <button type="button" role="tab" id="tab-intake" aria-controls="pane-intake" aria-selected="false" tabindex="-1" hidden>Intake</button>
@@ -88,7 +106,7 @@
     <button type="button" role="tab" id="tab-raci" aria-controls="pane-raci" aria-selected="false" tabindex="-1" hidden>RACI</button>
     <button type="button" role="tab" id="tab-changes" aria-controls="pane-changes" aria-selected="false" tabindex="-1" hidden>Changes</button>
     <button type="button" role="tab" id="tab-board" aria-controls="pane-board" aria-selected="false" tabindex="-1" hidden>Board</button>
-    <!-- PORTFOLIO LOT 6 — Phase 2 tabs (each hidden unless its switch is on) --><button type="button" role="tab" id="tab-p2deps" aria-controls="pane-p2deps" aria-selected="false" tabindex="-1" hidden>Dependencies</button><button type="button" role="tab" id="tab-p2demand" aria-controls="pane-p2demand" aria-selected="false" tabindex="-1" hidden>Resources</button><button type="button" role="tab" id="tab-p2docs" aria-controls="pane-p2docs" aria-selected="false" tabindex="-1" hidden>Documents</button>
+    <!-- PORTFOLIO LOT 6 — Phase 2 tabs (each hidden unless its switch is on) --><button type="button" role="tab" id="tab-p2deps" aria-controls="pane-p2deps" aria-selected="false" tabindex="-1" hidden>Dependencies</button><button type="button" role="tab" id="tab-p2demand" aria-controls="pane-p2demand" aria-selected="false" tabindex="-1" hidden>Resource demand</button><button type="button" role="tab" id="tab-p2docs" aria-controls="pane-p2docs" aria-selected="false" tabindex="-1" hidden>Documents</button>
     <button type="button" role="tab" id="tab-gates" aria-controls="pane-gates" aria-selected="false" tabindex="-1">Gates</button>
     <button type="button" role="tab" id="tab-comments" aria-controls="pane-comments" aria-selected="false" tabindex="-1" hidden>Comments</button>
     <button type="button" role="tab" id="tab-history" aria-controls="pane-history" aria-selected="false" tabindex="-1">History</button>
@@ -127,47 +145,30 @@
 
   <!-- PORTFOLIO LOT 1 — Intake tab (ppm_intake_register_enabled; lib/ppmIntake.js renders it) --><section id="pane-intake" role="tabpanel" aria-labelledby="tab-intake" hidden><div id="intake"></div></section>
   <section id="pane-plan" role="tabpanel" aria-labelledby="tab-plan" hidden>
-    <div class="panel"><h2>Schedule</h2><div id="plan-note" class="muted"></div><div id="gantt-legend" class="gantt-legend" aria-label="Legend of the schedule"></div><div class="gantt scroll" id="gantt"></div><div id="gantt-v2" hidden></div><p class="muted">Keyboard: Tab to the chart, then the arrow keys move from task to task (Home / End: first / last) and Enter opens the task in the table below (and in the editor when you may edit). The table view holds the same data.</p>
-      <details><summary class="muted">Table view (the same data)</summary><div class="scroll" id="plan-table"></div></details></div>
-    <!-- W3-GOVERNANCE begin (plan: print, DCMA, report) -->
-    <div class="bar" id="w3-print-bar"><button class="btn" id="w3-print" type="button">Print schedule</button><span class="muted">Page by page with the legend (landscape).</span></div>
-    <div id="w3-print-pages"></div>
-    <div class="panel" id="w3-dcma" hidden><h2>Schedule quality — DCMA 14-point check</h2><div class="scroll" id="w3-dcma-body"></div></div>
-    <div class="panel" id="w3-report" hidden><h2>Status report</h2><div class="bar"><a class="btn" id="w3-rep-html" target="_blank" rel="noopener">Printable report</a><a class="btn" id="w3-rep-xlsx">Excel</a><span class="muted">Amounts only for the admin tier and the finance role.</span></div></div>
-    <!-- W3-GOVERNANCE end -->
-    <div class="panel"><h2>Baseline versions</h2><div class="row"><label>Show as the dashed baseline <select id="bl-version" aria-label="Baseline version"><option value="">Current task baselines</option></select></label></div><div id="bl-note" class="muted"></div><div class="scroll" id="bl-diff"></div></div>
-    <div class="panel" id="tpl-save-box" hidden><h2>Save this structure as a template</h2><p class="muted">Task names, WBS, durations and milestone names only — no people, dates or money. The template stays a draft until another committee member approves it (portfolio page).</p>
-      <div class="row"><label>Template name <input id="tpl-name"></label></div><div class="bar"><button class="btn" id="tpl-save" type="button">Save as template</button></div></div>
-    <div class="panel"><h2>Resource conflicts on this project</h2><div class="scroll" id="plan-conflicts"></div></div>
-    <div class="panel"><h2>Resource pressure per person and week</h2><div class="scroll" id="plan-pressure"></div></div>
-    <div class="panel" id="task-edit" hidden><h2>Add / edit a task</h2>
-      <div class="row">
-        <label>Task <select id="t-id"></select></label>
-        <label>Name <input id="t-name"></label>
-        <label>WBS code <input id="t-wbs" placeholder="1.2"></label>
-        <label>Parent task <select id="t-parent"></select></label>
-        <label>Owner <input id="t-owner" list="t-owner-list"><datalist id="t-owner-list"></datalist></label>
-        <label>Start <input id="t-start" type="date"></label>
-        <label>End <input id="t-end" type="date"></label>
-        <label>Duration (working days; 0 = milestone) <input id="t-dur" type="number" min="0"></label>
-        <label>Allocation % <input id="t-alloc" type="number" min="0" max="100"></label>
-        <label>Effort (hours) <input id="t-effort" type="number" min="0" step="0.5"></label>
-        <label>Status <select id="t-status"><option>todo</option><option>in_progress</option><option>blocked</option><option>done</option><option>cancelled</option></select></label>
-        <label>Progress % <input id="t-prog" type="number" min="0" max="100"></label>
-        <label style="grid-column:1/-1">Depends on (finish-to-start unless a link type is set below; Ctrl/⌘-click for several) <select id="t-deps" multiple size="4"></select></label>
-      </div>
-      <div class="row" id="t-sched-box" hidden>
-        <label>Scheduling <select id="t-mode"><option value="">auto (moved by its links)</option><option value="manual">manual (keeps its dates)</option></select></label>
-        <label>Constraint <select id="t-ctype"><option value="">none (entered start = start no earlier than)</option><option>ASAP</option><option>ALAP</option><option>SNET</option><option>SNLT</option><option>FNET</option><option>FNLT</option><option>MSO</option><option>MFO</option></select></label>
-        <label>Constraint date <input id="t-cdate" type="date"></label>
-        <label>Deadline <input id="t-deadline" type="date"></label>
-        <label>Task type <select id="t-ttype"><option value="">none</option><option value="fixed_units">fixed units</option><option value="fixed_duration">fixed duration</option><option value="fixed_work">fixed work</option></select></label>
-        <label>Effort-driven <select id="t-ed"><option value="">default (on)</option><option value="1">on</option><option value="0">off</option></select></label>
-        <label>Link types (e.g. 12:SS+2, 13:FF-1) <input id="t-links" placeholder="id:FS|SS|FF|SF±lag"></label>
-      </div>
-      <div class="bar"><button class="btn primary" id="t-save" type="button">Save task</button><button class="btn danger" id="t-del" type="button">Delete task</button></div>
+    <!-- PMO UX — the Plan tab in five views instead of one long scroll; the task editor opens beside the grid -->
+    <div class="ppm-seg" role="tablist" aria-label="Plan views" id="plan-seg">
+      <button type="button" role="tab" data-sub="schedule" aria-selected="true">Schedule</button>
+      <button type="button" role="tab" data-sub="quality" aria-selected="false" tabindex="-1" hidden>Quality</button>
+      <button type="button" role="tab" data-sub="baselines" aria-selected="false" tabindex="-1">Baselines</button>
+      <button type="button" role="tab" data-sub="resources" aria-selected="false" tabindex="-1">Resources</button>
+      <button type="button" role="tab" data-sub="time" aria-selected="false" tabindex="-1" hidden>Time</button>
     </div>
-    <div class="panel" id="time-panel" hidden><h2>Hours — planned, actual, variance</h2><div class="scroll" id="time-hours"></div>
+    <div class="panel" data-plan-sub="schedule"><div class="ppm-page-header"><h2 class="ppm-title">Schedule</h2>
+      <div class="ppm-actions"><button class="btn primary" id="t-add" type="button" hidden>+ Add task</button>
+        <details class="ppm-more" id="plan-more"><summary class="btn" aria-label="More schedule actions">⋯ More</summary><div class="ppm-more-menu">
+          <!-- W3-GOVERNANCE begin (plan: print, report) --><button type="button" id="w3-print">Print schedule</button><span id="w3-report" hidden><a id="w3-rep-html" target="_blank" rel="noopener">Printable status report</a><a id="w3-rep-xlsx">Status report (Excel)</a></span><!-- W3-GOVERNANCE end -->
+          <button type="button" id="tpl-save-box" hidden>Save as template…</button>
+        </div></details></div></div>
+      <div id="plan-note" class="muted"></div><div id="gantt-legend" class="gantt-legend" aria-label="Legend of the schedule"></div><div class="gantt scroll" id="gantt"></div><div id="gantt-v2" hidden></div><p class="muted">Keyboard: Tab to the chart, then the arrow keys move from task to task (Home / End: first / last); Enter, or a double-click on a row of the table, opens the task beside the grid when you may edit. The table view holds the same data.</p>
+      <details><summary class="muted">Table view (the same data)</summary><div class="scroll" id="plan-table"></div></details></div>
+    <div id="w3-print-pages"></div>
+    <!-- W3-GOVERNANCE begin (plan: DCMA) -->
+    <div class="panel" id="w3-dcma" data-plan-sub="quality" hidden><h2>Schedule quality — DCMA 14-point check</h2><div class="scroll" id="w3-dcma-body"></div></div>
+    <!-- W3-GOVERNANCE end -->
+    <div class="panel" data-plan-sub="baselines"><h2>Baseline versions</h2><div class="row"><label>Show as the dashed baseline <select id="bl-version" aria-label="Baseline version"><option value="">Current task baselines</option></select></label></div><div id="bl-note" class="muted"></div><div class="scroll" id="bl-diff"></div></div>
+    <div class="panel" data-plan-sub="resources"><h2>Resource conflicts on this project</h2><div class="scroll" id="plan-conflicts"></div></div>
+    <div class="panel" data-plan-sub="resources"><h2>Resource pressure per person and week</h2><div class="scroll" id="plan-pressure"></div></div>
+    <div class="panel" id="time-panel" data-plan-sub="time" hidden><h2>Hours — planned, actual, variance</h2><div class="scroll" id="time-hours"></div>
       <h2>Time entries</h2>
       <div class="row"><label>Task <select id="te-task"></select></label></div>
       <div id="time-edit" hidden><div class="row">
@@ -177,105 +178,32 @@
         <label>Note <input id="te-note"></label>
       </div><div class="bar"><button class="btn primary" id="te-save" type="button">Record hours</button></div></div>
       <div class="scroll" id="time-entries"></div></div>
-    <div class="panel" id="ts-panel" hidden><h2>Timesheet weeks — submit, approve, reject</h2><div class="scroll" id="ts-weeks"></div>
+    <div class="panel" id="ts-panel" data-plan-sub="time" hidden><h2>Timesheet weeks — submit, approve, reject</h2><div class="scroll" id="ts-weeks"></div>
       <label>Note for the next step (required to reject, 10 characters or more) <textarea id="ts-note" rows="2"></textarea></label></div>
   </section>
 
   <section id="pane-milestones" role="tabpanel" aria-labelledby="tab-milestones" hidden>
-    <div class="panel"><h2>Milestones</h2><div class="scroll" id="milestones"></div></div>
+    <div class="panel"><div class="ppm-page-header"><h2 class="ppm-title">Milestones</h2><div class="ppm-actions"><button class="btn primary" id="m-add" type="button" hidden>+ Add milestone</button></div></div><div class="scroll" id="milestones"></div></div>
     <div class="panel"><h2>Deliverables</h2><div class="scroll" id="deliverables"></div></div>
-    <div class="panel" id="ms-edit" hidden><h2>Add / edit a milestone</h2>
-      <div class="row">
-        <label>Milestone <select id="m-id"></select></label>
-        <label>Name <input id="m-name"></label>
-        <label>Owner <input id="m-owner"></label>
-        <label>Due <input id="m-due" type="date"></label>
-        <label>Baseline <input id="m-base" type="date"></label>
-        <label>Status <select id="m-status"><option>planned</option><option>done</option></select></label>
-      </div>
-      <div class="bar"><button class="btn primary" id="m-save" type="button">Save milestone</button></div>
-    </div>
   </section>
 
   <section id="pane-raid" role="tabpanel" aria-labelledby="tab-raid" hidden>
-    <div class="panel"><h2>Risks, assumptions, issues</h2>
-      <div class="bar"><label>Show <select id="r-filter"><option value="">all kinds</option><option value="risk">risks</option><option value="issue">issues</option><option value="assumption">assumptions</option></select></label>
-        <span class="muted">Dependencies are the task links of the Plan tab; decisions live in the decision register (DEC-…). Only an open <b>risk</b> with P × I ≥ 6 blocks the closed gate.</span></div>
+    <!-- PMO UX — ONE RAID table and ONE entry form (opened from a row's Edit button, pre-filled). With the RAID log switch
+         (ppm_raid_enabled) the log replaces the basic register; without it the basic register is the only one. -->
+    <div class="panel" id="raid-legacy"><div class="ppm-page-header"><h2 class="ppm-title">Risks, assumptions, issues</h2>
+      <div class="ppm-actions"><label class="ppm-inline">Show <select id="r-filter"><option value="">all kinds</option><option value="risk">risks</option><option value="issue">issues</option><option value="assumption">assumptions</option></select></label><button class="btn primary" id="r-add" type="button" hidden>+ Add entry</button></div></div>
+      <p class="muted">Dependencies are the task links of the Plan tab; decisions live in the decision register (DEC-…). Only an open <b>risk</b> with P × I ≥ 6 blocks the closed gate.</p>
       <div class="scroll" id="raid"></div></div>
     <!-- W3-GOVERNANCE begin (RAID log, ppm_raid_enabled) -->
-    <div class="panel" id="w3-raid" hidden><h2>RAID log — response, review, exposure</h2><div class="scroll" id="w3-raid-body"></div>
-      <div class="row">
-        <label>Entry id (empty = new) <input id="w3-r-id" type="number" min="1"></label>
-        <label>Kind <select id="w3-r-kind"><option>risk</option><option>issue</option><option>assumption</option><option>dependency</option></select></label>
-        <label>Title <input id="w3-r-title"></label>
-        <label>Probability (1-3) <input id="w3-r-p" type="number" min="1" max="3"></label>
-        <label>Impact (1-3) <input id="w3-r-i" type="number" min="1" max="3"></label>
-        <label>Owner <input id="w3-r-owner"></label>
-        <label>Status <select id="w3-r-status"><option>open</option><option>closed</option></select></label>
-        <label>Response <select id="w3-r-resp"><option value="">—</option><option>avoid</option><option>mitigate</option><option>transfer</option><option>accept</option><option>exploit</option><option>escalate</option></select></label>
-        <label>Review date <input id="w3-r-review" type="date"></label>
-        <label>Probability % (empty = unknown) <input id="w3-r-pct" type="number" min="0" max="100"></label>
-        <label>Depends on (dependency) <input id="w3-r-dep"></label>
-        <span id="w3-raid-money" class="row" style="grid-column:1/-1" hidden><label>Impact amount (empty = unknown) <input id="w3-r-amt" type="number" min="0" step="any"></label><label>Currency <input id="w3-r-cur" maxlength="3" placeholder="USD"></label></span>
-        <label style="grid-column:1/-1">Mitigation <textarea id="w3-r-mit" rows="2"></textarea></label>
-      </div><div class="bar"><button class="btn primary" id="w3-raid-save" type="button">Save RAID entry</button></div></div>
+    <div class="panel" id="w3-raid" hidden><div class="ppm-page-header"><h2 class="ppm-title">RAID log — response, review, exposure</h2><div class="ppm-actions"><button class="btn primary" id="w3-r-add" type="button">+ Add entry</button></div></div><div class="scroll" id="w3-raid-body"></div></div>
     <!-- W3-GOVERNANCE end -->
     <div class="panel"><h2>Risk matrix (probability × impact)</h2><div class="scroll" id="risk-matrix"></div></div>
-    <div class="panel" id="raid-edit" hidden><h2>Add / edit an entry</h2>
-      <div class="row">
-        <label>Entry <select id="r-id"></select></label>
-        <label>Kind <select id="r-kind"><option>risk</option><option>issue</option><option>assumption</option></select></label>
-        <label>Title <input id="r-title"></label>
-        <label>Probability (1-3) <input id="r-prob" type="number" min="1" max="3"></label>
-        <label>Impact (1-3) <input id="r-imp" type="number" min="1" max="3"></label>
-        <label>Owner <input id="r-owner"></label>
-        <label>Status <select id="r-status"><option>open</option><option>closed</option></select></label>
-        <label style="grid-column:1/-1">Mitigation / response <textarea id="r-mit" rows="2"></textarea></label>
-      </div>
-      <div class="bar"><button class="btn primary" id="r-save" type="button">Save entry</button></div>
-    </div>
   </section>
 
   <section id="pane-benefits" role="tabpanel" aria-labelledby="tab-benefits" hidden>
-    <div class="panel"><h2>Expected and realised benefits</h2>
+    <div class="panel"><div class="ppm-page-header"><h2 class="ppm-title">Expected and realised benefits</h2><div class="ppm-actions"><button class="btn primary" id="b-add" type="button" hidden>+ Add benefit</button></div></div>
       <p class="muted">From its review date a benefit appears on the Site obligations view and on “My work” until a realised value with evidence is entered and verified by someone other than the person who entered it. Nothing is e-mailed.</p>
       <div class="scroll" id="benefits"></div></div>
-    <div class="panel" id="ben-edit" hidden><h2>Add / edit an expected benefit</h2>
-      <div class="row">
-        <label>Benefit <select id="b-id"></select></label>
-        <label style="grid-column:1/-1">Description <textarea id="b-desc" rows="2"></textarea></label>
-        <label>Measure <input id="b-measure" placeholder="e.g. unplanned downtime"></label>
-        <label>Unit <input id="b-unit" placeholder="e.g. hours / month"></label>
-        <label>Kind of value <select id="b-kind"><option value="quantity">quantity</option><option value="money">money (amounts)</option></select></label>
-        <label>Currency (money only) <input id="b-cur" placeholder="USD"></label>
-        <label>Baseline value <input id="b-base" type="number" step="any"></label>
-        <label>Target value <input id="b-target" type="number" step="any"></label>
-        <label>Benefit owner <input id="b-owner"></label>
-        <label id="b-owner-user-box" hidden>Owner as a user (reminder on “My work”) <select id="b-owner-user"><option value="">— not linked —</option></select></label>
-        <label>Benefit review date <input id="b-review" type="date"></label>
-      </div>
-      <div class="row" id="b-class-box" hidden>
-        <label>Value class <select id="b-vclass"><option value="">— unclassified —</option><option value="realised_cash">realised cash</option><option value="cost_avoidance_estimate">cost avoidance (estimate)</option><option value="productivity_time">productivity time</option><option value="risk_reduction">risk reduction</option><option value="other">other</option></select></label>
-        <label>Basis of the realised value <select id="b-basis"><option value="">— not stated —</option><option value="observed">observed (measured)</option><option value="estimated_avoidance">estimated avoidance</option></select></label>
-        <label>Baseline period from <input id="b-bfrom" type="date"></label>
-        <label>Baseline period to <input id="b-bto" type="date"></label>
-        <label>Measured from <input id="b-mfrom" type="date"></label>
-        <label>Measured to <input id="b-mto" type="date"></label>
-        <label>Source <select id="b-source"><option value="">— not stated —</option><option value="manual">manual</option><option value="metric">metric</option></select></label>
-        <label>Metric key (metric source only) <input id="b-metric"></label>
-        <label style="grid-column:1/-1">Method note (how it was measured or estimated) <textarea id="b-method" rows="2"></textarea></label>
-      </div>
-      <div class="bar"><button class="btn primary" id="b-save" type="button">Save benefit</button><button class="btn danger" id="b-del" type="button">Delete benefit</button><span class="muted">Changing the measure, unit, kind, baseline or target clears a verification.</span></div>
-    </div>
-    <div class="panel" id="ben-real" hidden><h2>Record a realised value</h2>
-      <div class="row">
-        <label>Benefit <select id="br-id"></select></label>
-        <label>Realised value <input id="br-value" type="number" step="any"></label>
-        <label style="grid-column:1/-1">Evidence link (http or https) <input id="br-link" type="url" placeholder="https://…"></label>
-        <label style="grid-column:1/-1">Note <textarea id="br-note" rows="2"></textarea></label>
-      </div>
-      <div class="bar"><button class="btn primary" id="br-save" type="button">Record realised value</button><span class="muted">A new value clears an earlier verification; someone else then verifies it.</span></div>
-    </div>
   </section>
 
   <section id="pane-budget" role="tabpanel" aria-labelledby="tab-budget" hidden>
@@ -301,18 +229,7 @@
   </section>
 
   <section id="pane-changes" role="tabpanel" aria-labelledby="tab-changes" hidden>
-    <div class="panel"><h2>Change requests</h2><div class="scroll" id="changes"></div>
-      <label>Note for the next step (required to reject or withdraw, 10 characters or more) <textarea id="cr-note" rows="2"></textarea></label></div>
-    <div class="panel" id="cr-new" hidden><h2>Propose a change</h2>
-      <div class="row">
-        <label>Title <input id="cr-title"></label>
-        <label style="grid-column:1/-1">Reason (10 characters or more) <textarea id="cr-reason" rows="2"></textarea></label>
-        <label>Dates impact (days, + later / − earlier; empty = not known) <input id="cr-days" type="number" step="1"></label>
-        <label id="cr-sim-box" style="grid-column:1/-1" hidden>Task changes to simulate (optional, one task per line: task id duration=5 effort=40 start=YYYY-MM-DD end=YYYY-MM-DD depends=3,4) <textarea id="cr-tasks" rows="3"></textarea></label>
-        <span id="cr-money-box" class="row" style="grid-column:1/-1"><label>Money impact (empty = not known) <input id="cr-amount" type="number" step="any"></label><label>Currency (with an amount) <input id="cr-cur" placeholder="USD" maxlength="3"></label></span>
-        <label style="grid-column:1/-1">Business-case fields this change may rewrite (comma-separated; the budget follows the money impact) <input id="cr-scope" placeholder="charter, business_need, expected_value, budget_reference, budget_approval_date"></label>
-      </div>
-      <div class="bar"><button class="btn primary" id="cr-save" type="button">Propose the change</button></div></div>
+    <div class="panel"><div class="ppm-page-header"><h2 class="ppm-title">Change requests</h2><div class="ppm-actions"><button class="btn primary" id="cr-open" type="button" hidden>Propose a change</button></div></div><div class="scroll" id="changes"></div></div>
   </section>
 
   <section id="pane-board" role="tabpanel" aria-labelledby="tab-board" hidden>
@@ -325,13 +242,13 @@
 
   <!-- PORTFOLIO LOT 6 — Phase 2 panes (lib/ppmPhase2.js renders them) --><section id="pane-p2deps" role="tabpanel" aria-labelledby="tab-p2deps" hidden><div id="p2-deps"></div></section><section id="pane-p2demand" role="tabpanel" aria-labelledby="tab-p2demand" hidden><div id="p2-demand"></div></section><section id="pane-p2docs" role="tabpanel" aria-labelledby="tab-p2docs" hidden><div id="p2-docs"></div></section>
   <section id="pane-gates" role="tabpanel" aria-labelledby="tab-gates" hidden>
-    <div class="panel"><h2>Stage gates</h2><div id="gates"></div>
-      <div id="gate-reason-box" hidden><label>Reason (10 characters or more) <textarea id="gate-reason" rows="2"></textarea></label></div></div>
+    <div class="panel"><h2>Stage gates</h2><div id="gates"></div></div>
     <!-- W3-GOVERNANCE begin (gate checklists, ppm_gate_checklist_enabled) -->
     <div class="panel" id="w3-gates" hidden><h2>Gate checklists and sign-off</h2><div id="w3-gates-body"></div>
       <div id="w3-gate-def" hidden><h2>Define a checklist (committee)</h2>
-        <div class="row"><label>Entering stage <select id="w3-gd-gate"><option>approval</option><option>in_progress</option><option>on_hold</option><option>closure</option><option>closed</option><option>proposal</option></select></label></div>
-        <label>Definition (JSON: items [{key, label, kind: artifact | check}], approvers [{user_id} | {role}], rule all | quorum, quorum) <textarea id="w3-gd-json" rows="5" placeholder='{"items":[{"key":"charter","label":"Signed charter","kind":"artifact"}],"approvers":[{"role":"committee-member"}],"rule":"all"}'></textarea></label>
+        <div class="row"><label>Entering stage <select id="w3-gd-gate"><option value="approval">Approval</option><option value="in_progress">In delivery</option><option value="on_hold">On hold</option><option value="closure">Closure</option><option value="closed">Closed</option><option value="proposal">Proposal</option></select></label></div>
+        <div id="w3-gd-builder"></div>
+        <details id="w3-gd-adv" hidden><summary class="muted">Advanced — the definition as JSON (super administrator)</summary><textarea id="w3-gd-json" rows="5" aria-label="Checklist definition (JSON)"></textarea></details>
         <div class="bar"><button class="btn primary" id="w3-gd-save" type="button">Save checklist</button><span class="muted">Redefining a checklist asks for fresh sign-offs.</span></div></div></div>
     <!-- W3-GOVERNANCE end -->
     <!-- PORTFOLIO LOT 5 — review workflow (ppm_review_workflow_enabled; lib/ppmReview.js renders it) --><div class="panel" id="review-panel" hidden></div>
@@ -340,7 +257,147 @@
   <section id="pane-history" role="tabpanel" aria-labelledby="tab-history" hidden>
     <div class="panel"><h2>History (append-only ledger)</h2><div class="scroll" id="history"></div></div>
   </section>
+  <p class="ppm-footnote" id="p-sub">Charter, plan, milestones, risks and gates of one project. “—” means not measured, never 0. <a href="help.html#project">Help: projects</a></p>
 </main>
+<!-- PMO UX — side drawers (task, RAID entry, template); each opens beside the grid and closes with Escape -->
+<div class="ppm-drawer-back" id="ppm-drawer-back" hidden></div>
+<aside class="ppm-drawer" id="task-edit" role="dialog" aria-labelledby="t-head" hidden>
+  <div class="ppm-drawer-head"><h2 id="t-head">Task</h2><button type="button" class="ppm-drawer-x" data-drawer-close="task-edit" aria-label="Close">×</button></div>
+  <div class="ppm-drawer-body">
+    <input type="hidden" id="t-id" value="" aria-label="Record id">
+    <div class="row">
+      <label style="grid-column:1/-1">Name <input id="t-name" required aria-required="true"></label>
+      <label>WBS code <input id="t-wbs" placeholder="1.2"></label>
+      <label>Parent task <select id="t-parent"></select></label>
+      <label>Owner <input id="t-owner" list="t-owner-list"><datalist id="t-owner-list"></datalist></label>
+      <label>Status <select id="t-status"><option value="todo">To do</option><option value="in_progress">In progress</option><option value="blocked">Blocked</option><option value="done">Done</option><option value="cancelled">Cancelled</option></select></label>
+      <label>Start <input id="t-start" type="date"></label>
+      <label>End <input id="t-end" type="date"></label>
+      <label>Duration (working days; 0 = milestone) <input id="t-dur" type="number" min="0"></label>
+      <label>Progress % <input id="t-prog" type="number" min="0" max="100"></label>
+      <label>Allocation % <input id="t-alloc" type="number" min="0" max="100"></label>
+      <label>Effort (hours) <input id="t-effort" type="number" min="0" step="0.5"></label>
+      <label style="grid-column:1/-1">Depends on (finish-to-start unless a link type is set below) <select id="t-deps" multiple size="4" aria-label="Depends on"></select></label>
+    </div>
+    <div class="row" id="t-sched-box" hidden>
+      <label>Scheduling <select id="t-mode"><option value="">auto (moved by its links)</option><option value="manual">manual (keeps its dates)</option></select></label>
+      <label>Constraint <select id="t-ctype"><option value="">none (entered start = start no earlier than)</option><option value="ASAP">As soon as possible</option><option value="ALAP">As late as possible</option><option value="SNET">Start no earlier than</option><option value="SNLT">Start no later than</option><option value="FNET">Finish no earlier than</option><option value="FNLT">Finish no later than</option><option value="MSO">Must start on</option><option value="MFO">Must finish on</option></select></label>
+      <label>Constraint date <input id="t-cdate" type="date"></label>
+      <label>Deadline <input id="t-deadline" type="date"></label>
+      <label>Task type <select id="t-ttype"><option value="">none</option><option value="fixed_units">fixed units</option><option value="fixed_duration">fixed duration</option><option value="fixed_work">fixed work</option></select></label>
+      <label>Effort-driven <select id="t-ed"><option value="">default (on)</option><option value="1">on</option><option value="0">off</option></select></label>
+      <fieldset style="grid-column:1/-1"><legend>Link types (one row per predecessor; finish-to-start with no lag needs no row)</legend><div class="ppm-grid-rows" id="t-links-rows"></div>
+        <button type="button" class="btn" id="t-link-add">+ Link type</button><input type="hidden" id="t-links" aria-label="Record id"></fieldset>
+    </div>
+  </div>
+  <div class="ppm-drawer-foot"><button class="btn primary" id="t-save" type="button">Save task</button><button class="btn danger" id="t-del" type="button">Delete task</button><button class="btn" type="button" data-drawer-close="task-edit">Cancel</button><div class="form-msg" id="t-msg" role="status" aria-live="polite"></div></div>
+</aside>
+<aside class="ppm-drawer" id="drawer-tpl" role="dialog" aria-labelledby="tpl-head" hidden>
+  <div class="ppm-drawer-head"><h2 id="tpl-head">Save this structure as a template</h2><button type="button" class="ppm-drawer-x" data-drawer-close="drawer-tpl" aria-label="Close">×</button></div>
+  <div class="ppm-drawer-body"><p class="muted">Task names, WBS, durations and milestone names only — no people, dates or money. The template stays a draft until another committee member approves it (portfolio page).</p>
+    <div class="row"><label>Template name <input id="tpl-name"></label></div></div>
+  <div class="ppm-drawer-foot"><button class="btn primary" id="tpl-save" type="button">Save as template</button><button class="btn" type="button" data-drawer-close="drawer-tpl">Cancel</button><div class="form-msg" id="tpl-msg" role="status" aria-live="polite"></div></div>
+</aside>
+<aside class="ppm-drawer" id="raid-edit" role="dialog" aria-labelledby="r-head" hidden>
+  <div class="ppm-drawer-head"><h2 id="r-head">RAID entry</h2><button type="button" class="ppm-drawer-x" data-drawer-close="raid-edit" aria-label="Close">×</button></div>
+  <div class="ppm-drawer-body"><input type="hidden" id="r-id" value="" aria-label="Record id">
+    <div class="row">
+      <label>Kind <select id="r-kind"><option value="risk">Risk</option><option value="issue">Issue</option><option value="assumption">Assumption</option></select></label>
+      <label>Status <select id="r-status"><option value="open">Open</option><option value="closed">Closed</option></select></label>
+      <label style="grid-column:1/-1">Title <input id="r-title"></label>
+      <label>Probability <select id="r-prob"><option value="">— not scored —</option><option value="1">1 – low</option><option value="2">2 – medium</option><option value="3">3 – high</option></select></label>
+      <label>Impact <select id="r-imp"><option value="">— not scored —</option><option value="1">1 – low</option><option value="2">2 – medium</option><option value="3">3 – high</option></select></label>
+      <label style="grid-column:1/-1">Owner <input id="r-owner"></label>
+      <label style="grid-column:1/-1">Mitigation / response <textarea id="r-mit" rows="3"></textarea></label>
+    </div></div>
+  <div class="ppm-drawer-foot"><button class="btn primary" id="r-save" type="button">Save entry</button><button class="btn" type="button" data-drawer-close="raid-edit">Cancel</button><div class="form-msg" id="r-msg" role="status" aria-live="polite"></div></div>
+</aside>
+<!-- W3-GOVERNANCE begin (RAID log form, ppm_raid_enabled) -->
+<aside class="ppm-drawer" id="w3-raid-drawer" role="dialog" aria-labelledby="w3-r-head" hidden>
+  <div class="ppm-drawer-head"><h2 id="w3-r-head">RAID log entry</h2><button type="button" class="ppm-drawer-x" data-drawer-close="w3-raid-drawer" aria-label="Close">×</button></div>
+  <div class="ppm-drawer-body"><input type="hidden" id="w3-r-id" value="" aria-label="Record id">
+    <div class="row">
+      <label>Kind <select id="w3-r-kind"><option value="risk">Risk</option><option value="issue">Issue</option><option value="assumption">Assumption</option><option value="dependency">Dependency</option></select></label>
+      <label>Status <select id="w3-r-status"><option value="open">Open</option><option value="closed">Closed</option></select></label>
+      <label style="grid-column:1/-1">Title <input id="w3-r-title"></label>
+      <label>Probability <select id="w3-r-p"><option value="">— not scored —</option><option value="1">1 – low</option><option value="2">2 – medium</option><option value="3">3 – high</option></select></label>
+      <label>Impact <select id="w3-r-i"><option value="">— not scored —</option><option value="1">1 – low</option><option value="2">2 – medium</option><option value="3">3 – high</option></select></label>
+      <label>Owner <input id="w3-r-owner"></label>
+      <label>Response <select id="w3-r-resp"><option value="">—</option><option value="avoid">Avoid</option><option value="mitigate">Mitigate</option><option value="transfer">Transfer</option><option value="accept">Accept</option><option value="exploit">Exploit</option><option value="escalate">Escalate</option></select></label>
+      <label>Review date <input id="w3-r-review" type="date"></label>
+      <label>Probability % (empty = unknown) <input id="w3-r-pct" type="number" min="0" max="100"></label>
+      <label style="grid-column:1/-1">Depends on (dependency) <input id="w3-r-dep"></label>
+      <span id="w3-raid-money" class="row" style="grid-column:1/-1" hidden><label>Impact amount (empty = unknown) <input id="w3-r-amt" type="number" min="0" step="any"></label><label>Currency <input id="w3-r-cur" maxlength="3" placeholder="USD"></label></span>
+      <label style="grid-column:1/-1">Mitigation <textarea id="w3-r-mit" rows="3"></textarea></label>
+    </div></div>
+  <div class="ppm-drawer-foot"><button class="btn primary" id="w3-raid-save" type="button">Save RAID entry</button><button class="btn" type="button" data-drawer-close="w3-raid-drawer">Cancel</button><div class="form-msg" id="w3-r-msg" role="status" aria-live="polite"></div></div>
+</aside>
+<!-- W3-GOVERNANCE end -->
+<aside class="ppm-drawer" id="ms-edit" role="dialog" aria-labelledby="m-head" hidden>
+  <div class="ppm-drawer-head"><h2 id="m-head">Milestone</h2><button type="button" class="ppm-drawer-x" data-drawer-close="ms-edit" aria-label="Close">×</button></div>
+  <div class="ppm-drawer-body"><input type="hidden" id="m-id" value="" aria-label="Record id">
+    <div class="row">
+      <label style="grid-column:1/-1">Name <input id="m-name"></label>
+      <label>Owner <input id="m-owner"></label>
+      <label>Status <select id="m-status"><option value="planned">Planned</option><option value="done">Done</option></select></label>
+      <label>Due <input id="m-due" type="date"></label>
+      <label>Baseline <input id="m-base" type="date"></label>
+    </div></div>
+  <div class="ppm-drawer-foot"><button class="btn primary" id="m-save" type="button">Save milestone</button><button class="btn" type="button" data-drawer-close="ms-edit">Cancel</button><div class="form-msg" id="m-msg" role="status" aria-live="polite"></div></div>
+</aside>
+<aside class="ppm-drawer" id="ben-edit" role="dialog" aria-labelledby="b-head" hidden><div class="ppm-drawer-head"><h2 id="b-head">Expected benefit</h2><button type="button" class="ppm-drawer-x" data-drawer-close="ben-edit" aria-label="Close">×</button></div><div class="ppm-drawer-body">
+      <div class="row">
+        <input type="hidden" id="b-id" value="" aria-label="Record id">
+        <label style="grid-column:1/-1">Description <textarea id="b-desc" rows="2"></textarea></label>
+        <label>Measure <input id="b-measure" placeholder="e.g. unplanned downtime"></label>
+        <label>Unit <input id="b-unit" placeholder="e.g. hours / month"></label>
+        <label>Kind of value <select id="b-kind"><option value="quantity">quantity</option><option value="money">money (amounts)</option></select></label>
+        <label>Currency (money only) <input id="b-cur" placeholder="USD"></label>
+        <label>Baseline value <input id="b-base" type="number" step="any"></label>
+        <label>Target value <input id="b-target" type="number" step="any"></label>
+        <label>Benefit owner <input id="b-owner"></label>
+        <label id="b-owner-user-box" hidden>Owner as a user (reminder on “My work”) <select id="b-owner-user"><option value="">— not linked —</option></select></label>
+        <label>Benefit review date <input id="b-review" type="date"></label>
+      </div>
+      <div class="row" id="b-class-box" hidden>
+        <label>Value class <select id="b-vclass"><option value="">— unclassified —</option><option value="realised_cash">realised cash</option><option value="cost_avoidance_estimate">cost avoidance (estimate)</option><option value="productivity_time">productivity time</option><option value="risk_reduction">risk reduction</option><option value="other">other</option></select></label>
+        <label>Basis of the realised value <select id="b-basis"><option value="">— not stated —</option><option value="observed">observed (measured)</option><option value="estimated_avoidance">estimated avoidance</option></select></label>
+        <label>Baseline period from <input id="b-bfrom" type="date"></label>
+        <label>Baseline period to <input id="b-bto" type="date"></label>
+        <label>Measured from <input id="b-mfrom" type="date"></label>
+        <label>Measured to <input id="b-mto" type="date"></label>
+        <label>Source <select id="b-source"><option value="">— not stated —</option><option value="manual">manual</option><option value="metric">metric</option></select></label>
+        <label>Metric key (metric source only) <input id="b-metric"></label>
+        <label style="grid-column:1/-1">Method note (how it was measured or estimated) <textarea id="b-method" rows="2"></textarea></label>
+      </div>
+      <p class="muted">Changing the measure, unit, kind, baseline or target clears a verification.</p></div>
+    <div class="ppm-drawer-foot"><button class="btn primary" id="b-save" type="button">Save benefit</button><button class="btn danger" id="b-del" type="button">Delete benefit</button><button class="btn" type="button" data-drawer-close="ben-edit">Cancel</button><div class="form-msg" id="b-msg" role="status" aria-live="polite"></div></div></aside>
+    <aside class="ppm-drawer" id="ben-real" role="dialog" aria-labelledby="br-head" hidden><div class="ppm-drawer-head"><h2 id="br-head">Record a realised value</h2><button type="button" class="ppm-drawer-x" data-drawer-close="ben-real" aria-label="Close">×</button></div><div class="ppm-drawer-body">
+      <div class="row">
+        <input type="hidden" id="br-id" value="" aria-label="Record id"><p id="br-name" class="muted"></p>
+        <label>Realised value <input id="br-value" type="number" step="any"></label>
+        <label style="grid-column:1/-1">Evidence link (http or https) <input id="br-link" type="url" placeholder="https://…"></label>
+        <label style="grid-column:1/-1">Note <textarea id="br-note" rows="2"></textarea></label>
+      </div>
+      <p class="muted">A new value clears an earlier verification; someone else then verifies it.</p></div>
+    <div class="ppm-drawer-foot"><button class="btn primary" id="br-save" type="button">Record realised value</button><button class="btn" type="button" data-drawer-close="ben-real">Cancel</button><div class="form-msg" id="br-msg" role="status" aria-live="polite"></div></div></aside>
+<aside class="ppm-drawer" id="cr-new" role="dialog" aria-labelledby="cr-head" hidden>
+  <div class="ppm-drawer-head"><h2 id="cr-head">Propose a change</h2><button type="button" class="ppm-drawer-x" data-drawer-close="cr-new" aria-label="Close">×</button></div>
+  <div class="ppm-drawer-body">
+    <div class="row">
+      <label style="grid-column:1/-1">Title <input id="cr-title"></label>
+      <label style="grid-column:1/-1">Reason (10 characters or more) <textarea id="cr-reason" rows="3"></textarea></label>
+      <label style="grid-column:1/-1">Dates impact (days, + later / − earlier; empty = not known) <input id="cr-days" type="number" step="1"></label>
+      <span id="cr-money-box" class="row" style="grid-column:1/-1"><label>Money impact (empty = not known) <input id="cr-amount" type="number" step="any"></label><label>Currency (with an amount) <input id="cr-cur" placeholder="USD" maxlength="3"></label></span>
+    </div>
+    <fieldset id="cr-sim-box" hidden><legend>Task changes to simulate (optional — one row per task; empty cells keep the task as it is)</legend><div class="ppm-grid-rows ppm-sim" id="cr-sim-rows"></div><button type="button" class="btn" id="cr-sim-add">+ Task</button></fieldset>
+    <fieldset><legend>Business-case fields this change may rewrite (the budget follows the money impact)</legend><div id="cr-scope">
+      <label class="ppm-inline"><input type="checkbox" id="cr-sc-charter" value="charter"> Charter</label><label class="ppm-inline"><input type="checkbox" id="cr-sc-business_need" value="business_need"> Business need</label><label class="ppm-inline"><input type="checkbox" id="cr-sc-expected_value" value="expected_value"> Expected value</label><label class="ppm-inline"><input type="checkbox" id="cr-sc-budget_reference" value="budget_reference"> Budget reference</label><label class="ppm-inline"><input type="checkbox" id="cr-sc-budget_approval_date" value="budget_approval_date"> Budget approval date</label>
+    </div></fieldset>
+  </div>
+  <div class="ppm-drawer-foot"><button class="btn primary" id="cr-save" type="button">Propose the change</button><button class="btn" type="button" data-drawer-close="cr-new">Cancel</button><div class="form-msg" id="cr-msg" role="status" aria-live="polite"></div></div>
+</aside>
+<script nonce="%%CSP_NONCE%%" src="lib/reasonDialog.js"></script>
 <!-- W3-GOVERNANCE begin (script) --><script nonce="%%CSP_NONCE%%" src="lib/ppmRaidForm.js"></script><script nonce="%%CSP_NONCE%%" src="lib/ppmGovernanceW3.js"></script><!-- W3-GOVERNANCE end -->
 <!-- PORTFOLIO LOT 1 (script) --><script nonce="%%CSP_NONCE%%" src="lib/ppmIntake.js"></script>
 <!-- PORTFOLIO LOT 2 (script) --><script nonce="%%CSP_NONCE%%" src="lib/ppmFieldHelp.js"></script>
@@ -360,7 +417,23 @@
       return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) { var e = new Error(j.error || ("HTTP " + r.status)); e.status = r.status; e.code = j.code; e.body = j; throw e; } return j; });
     });
   }
-  var msg = function (h, cls) { $("msg").innerHTML = h ? "<div class=\"" + (cls || "ok") + "\">" + esc(h) + "</div>" : ""; };
+  // PMO UX — a message lands where the user is looking: under the Save button of the open drawer (an error keeps the
+  // drawer open), else a toast for a success; errors outside a drawer stay in the page banner too.
+  var UX = window.PpmUx || null, LBL = window.PpmLabels || null;
+  // dte(): a date through lib/format.js (SDPFormat), escaped; a missing date reads "—"
+  var dte = function (v) { return v == null || v === "" ? "—" : esc(UX ? UX.date(v) : String(v).slice(0, 10)); };
+  var lab = function (g, c) { return LBL ? LBL.label(g, c) : (c == null || c === "" ? "—" : String(c).replace(/_/g, " ")); };
+  var pillOf = function (g, c, cls) { return LBL ? LBL.pill(g, c, esc, null, cls) : "<span class=\"pill " + esc(cls || c || "NA") + "\">" + esc(lab(g, c)) + "</span>"; };
+  var NF = false;   // "not found" state: the card is the message — no error banner or toast on top of it
+  var msg = function (h, cls) {
+    if (NF && cls === "errors") return;
+    var dr = document.querySelector(".ppm-drawer.open"), box = dr && dr.querySelector(".form-msg");
+    if (UX && box && h) { if (cls === "errors") { UX.formMsg(box, h, true); return; } UX.closeDrawer(dr.id); UX.toast(h); return; }
+    if (UX && h && cls !== "errors") { $("msg").innerHTML = ""; UX.toast(h); return; }
+    $("msg").innerHTML = h ? "<div class=\"" + (cls || "ok") + "\">" + esc(h) + "</div>" : "";
+    if (UX && h && cls === "errors") UX.toast(h, true);
+  };
+  window.__ppmMsg = msg;
   // the server's refusal codes in plain words
   var PLAIN = {
     SELF_REVIEW: "You entered this realised value: another person verifies it (four-eyes rule).",
@@ -397,7 +470,7 @@
   var V = null;
   // W2-PPM — which PROPOSED switches are on (each new tab / prompt exists only then); an error = all off (today)
   var FEAT = {};
-  api("/api/governance/ppm/features").then(function (f) { FEAT = f || {}; if (FEAT.budget_periods) addTab("budget", "gates"); if (FEAT.benefit_owner_link) linkOwners(); if (FEAT.benefit_value_class) { $("b-class-box").hidden = false; if (V) renderBenefits(); } if (FEAT.raci) addTab("raci", "gates"); if (FEAT.intake_register) { addTab("intake", "plan"); if (V && (window.location.hash || "") === "#intake") showTab("intake"); } if (FEAT.change_requests) addTab("changes", "gates"); if (V && ["budget", "raci", "changes"].indexOf((window.location.hash || "").slice(1)) >= 0 && TABS.indexOf(window.location.hash.slice(1)) >= 0) showTab(window.location.hash.slice(1)); if (FEAT.team && V) mountTeam(); if (FEAT.time_entries && V && $("tab-plan").getAttribute("aria-selected") === "true") { mountTime(); if (FEAT.timesheets) mountTimesheets(); } if (FEAT.templates && V && V.committee) $("tpl-save-box").hidden = false; if (FEAT.schedule_v2 && V && V.can_edit_plan) fillTask(); if (FEAT.gantt_v2 && V && $("tab-plan").getAttribute("aria-selected") === "true") renderPlan(); mountW4(); mountP2(); }).catch(function () { FEAT = {}; });
+  api("/api/governance/ppm/features").then(function (f) { FEAT = f || {}; if (FEAT.budget_periods) addTab("budget", "gates"); if (FEAT.benefit_owner_link) linkOwners(); if (FEAT.benefit_value_class) { $("b-class-box").hidden = false; if (V) renderBenefits(); } if (FEAT.raci) addTab("raci", "gates"); if (FEAT.intake_register) { addTab("intake", "plan"); if (V && (window.location.hash || "") === "#intake") showTab("intake"); } if (FEAT.change_requests) addTab("changes", "gates"); if (V && ["budget", "raci", "changes"].indexOf((window.location.hash || "").slice(1)) >= 0 && TABS.indexOf(window.location.hash.slice(1)) >= 0) showTab(window.location.hash.slice(1)); if (FEAT.team && V) mountTeam(); if (FEAT.time_entries && V && $("tab-plan").getAttribute("aria-selected") === "true") { mountTime(); if (FEAT.timesheets) mountTimesheets(); } if (FEAT.templates && V && V.committee) $("tpl-save-box").hidden = false; if (FEAT.schedule_v2 && V && V.can_edit_plan) fillTask(); if (FEAT.gantt_v2 && V && $("tab-plan").getAttribute("aria-selected") === "true") renderPlan(); planSubs(); mountW4(); mountP2(); applyGroups(); }).catch(function () { FEAT = {}; });
 
   // ---- tabs (role=tablist, arrows / Home / End, deep link #tab) ---------------------------------------------
   // Extension point: later goals (baselines, benefits) add a tab button + a pane + an entry in RENDER.
@@ -406,9 +479,9 @@
   // W2-PPM — the add-on tabs exist only while their switch is on (they join TABS, so the arrow keys skip them otherwise)
   var X = function () { return { $: $, esc: esc, api: api, msg: msg, fail: fail, pid: PID }; };
   RENDER.budget = function () { if (window.PpmExtras) window.PpmExtras.mountBudget(X()); };
-  RENDER.changes = function () { if (window.PpmWorkbench) window.PpmWorkbench.mountChanges(Object.assign(X(), { canEdit: !!(V && V.can_edit_plan) })); };   // R2-WB-01
+  RENDER.changes = function () { if (window.PpmWorkbench) window.PpmWorkbench.mountChanges(Object.assign(X(), { canEdit: !!(V && V.can_edit_plan), tasks: (V && V.tasks) || [] })); };   // R2-WB-01
   // W4 (PPM parity, enterprise) — Board / Comments tabs, Project roles panel, offline editing; each only while its switch is on
-  var W4 = function () { return Object.assign(X(), { V: function () { return V; }, reload: load }); };
+  var W4 = function () { return Object.assign(X(), { V: function () { return V; }, reload: load, openTask: openTask }); };
   RENDER.board = function () { if (window.PpmCollabUi && V) window.PpmCollabUi.mountBoard(W4()); };
   RENDER.comments = function () { if (window.PpmCollabUi && V) window.PpmCollabUi.mountComments(W4()); };
   function mountW4() {
@@ -433,22 +506,40 @@
   // B5 — timesheet weeks (Plan tab) only while ppm_timesheet_approval_enabled is on
   function mountTimesheets() { if (window.PpmWorkbench) window.PpmWorkbench.mountTimesheets(Object.assign(X(), { canEdit: !!(V && V.can_edit_plan) })); }
   function mountTeam() { if (window.PpmWorkbench) window.PpmWorkbench.mountTeam(Object.assign(X(), { canEdit: !!(V && V.can_edit_plan) })); }
-  $("tpl-save").addEventListener("click", function () { api("/api/governance/ppm/templates", { method: "POST", body: JSON.stringify({ project_id: Number(PID), name: $("tpl-name").value.trim() }) }).then(function (j) { msg("Template #" + j.template.id + " saved as a draft."); }).catch(fail); });
+  $("tpl-save").addEventListener("click", function () { api("/api/governance/ppm/templates", { method: "POST", body: JSON.stringify({ project_id: Number(PID), name: $("tpl-name").value.trim() }) }).then(function (j) { msg("Template “" + $("tpl-name").value.trim() + "” saved as a draft."); }).catch(fail); });
   // E-P05 — the user picker for a benefit owner (committee: /api/governance/people answers 403 to others → stays hidden)
   function linkOwners() { api("/api/governance/people").then(function (j) { $("b-owner-user").innerHTML = opt((j.people || []).map(function (p) { return [p.id, p.name]; }), "", "— not linked —"); $("b-owner-user-box").hidden = false; }).catch(function () { $("b-owner-user-box").hidden = true; }); }
-  function addTab(name, before) { if (TABS.indexOf(name) >= 0) return; TABS.splice(TABS.indexOf(before), 0, name); $("tab-" + name).hidden = false; }
+  function addTab(name, before) { if (TABS.indexOf(name) >= 0) return; TABS.splice(TABS.indexOf(before), 0, name); $("tab-" + name).hidden = false; applyGroups(); }
+  // PMO UX — six areas instead of 17 tabs on two lines: the area shows only its own sections (and hides the row when
+  // it has one). Every section keeps its tab, its pane and its #deep-link, so links and bookmarks still land.
+  var GROUPS = { overview: ["overview"], plan: ["plan", "milestones", "board", "p2deps", "p2demand"], raid: ["raid"], finance: ["benefits", "budget", "changes"], governance: ["charter", "intake", "gates", "raci"], activity: ["history", "comments", "p2docs"] };
+  var groupOf = function (t) { for (var g in GROUPS) if (GROUPS[g].indexOf(t) >= 0) return g; return "overview"; };
+  var LASTIN = {};
+  function applyGroups() {
+    var cur = TABS.filter(function (x) { return $("tab-" + x).getAttribute("aria-selected") === "true"; })[0] || "overview", g = groupOf(cur), members = TABS.filter(function (t) { return groupOf(t) === g; });
+    Array.prototype.forEach.call($("groups").querySelectorAll("[data-group]"), function (b) { var k = b.getAttribute("data-group"); b.setAttribute("aria-current", k === g ? "true" : "false"); b.hidden = !TABS.some(function (t) { return groupOf(t) === k; }); });
+    TABS.concat(["budget", "raci", "changes", "board", "comments", "intake", "p2deps", "p2demand", "p2docs"]).forEach(function (t) { var b = $("tab-" + t); if (b) b.classList.toggle("ppm-out", groupOf(t) !== g); });
+    $("tabs").classList.toggle("ppm-single", members.length < 2);
+  }
+  $("groups").addEventListener("click", function (ev) {
+    var b = ev.target.closest && ev.target.closest("[data-group]"); if (!b) return;
+    var g = b.getAttribute("data-group"), members = TABS.filter(function (t) { return groupOf(t) === g; });
+    showTab(LASTIN[g] && members.indexOf(LASTIN[g]) >= 0 ? LASTIN[g] : members[0]);
+  });
   function showTab(name, focus) {
     if (TABS.indexOf(name) < 0) name = "overview";
     TABS.forEach(function (t) { var b = $("tab-" + t), on = t === name; b.setAttribute("aria-selected", on ? "true" : "false"); b.tabIndex = on ? 0 : -1; $("pane-" + t).hidden = !on; });
     if (focus) $("tab-" + name).focus();
     if (window.history && window.history.replaceState) window.history.replaceState(null, "", "#" + name);
+    LASTIN[groupOf(name)] = name; applyGroups();
     if (V || name === "history") RENDER[name]();
   }
   $("tabs").addEventListener("click", function (ev) { var b = ev.target.closest && ev.target.closest("[role=tab]"); if (b) showTab(b.id.slice(4)); });
   $("tabs").addEventListener("keydown", function (ev) {
-    var cur = TABS.indexOf((document.activeElement && document.activeElement.id || "").slice(4)); if (cur < 0) return;
-    var to = ev.key === "ArrowRight" ? (cur + 1) % TABS.length : ev.key === "ArrowLeft" ? (cur + TABS.length - 1) % TABS.length : ev.key === "Home" ? 0 : ev.key === "End" ? TABS.length - 1 : -1;
-    if (to >= 0) { ev.preventDefault(); showTab(TABS[to], true); }
+    var id = (document.activeElement && document.activeElement.id || "").slice(4), list = TABS.filter(function (t) { return groupOf(t) === groupOf(id); });   // arrows stay inside the area
+    var cur = list.indexOf(id); if (cur < 0) return;
+    var to = ev.key === "ArrowRight" ? (cur + 1) % list.length : ev.key === "ArrowLeft" ? (cur + list.length - 1) % list.length : ev.key === "Home" ? 0 : ev.key === "End" ? list.length - 1 : -1;
+    if (to >= 0) { ev.preventDefault(); showTab(list[to], true); }
   });
 
   // ---- helpers --------------------------------------------------------------------------------------------
@@ -462,9 +553,9 @@
     return o && typeof o === "object" && !Array.isArray(o) ? { fields: o, legacy: null } : { fields: {}, legacy: s };
   }
   function slipRag(days) {
-    if (days == null) return { cls: "NA", text: "not measured (no baseline or no forecast)" };
-    if (days <= 0) return { cls: "GREEN", text: days === 0 ? "on baseline" : (-days) + " d ahead of baseline" };
-    return days <= 14 ? { cls: "AMBER", text: days + " d late vs baseline" } : { cls: "RED", text: days + " d late vs baseline" };
+    if (days == null) return { cls: "NA", label: "—", text: "not measured (no baseline or no forecast)" };
+    if (days <= 0) return { cls: "GREEN", label: days === 0 ? "On baseline" : (-days) + " d ahead", text: days === 0 ? "on baseline" : (-days) + " d ahead of baseline" };
+    return { cls: days <= 14 ? "AMBER" : "RED", label: "+" + days + " d late", text: days + " d late vs baseline" };
   }
   function taskOrder(tasks) {
     var byParent = {}, ids = {};
@@ -497,44 +588,63 @@
   function opt(list, sel, blank) { return (blank ? "<option value=\"\">" + esc(blank) + "</option>" : "") + list.map(function (o) { return "<option value=\"" + esc(o[0]) + "\"" + (String(o[0]) === String(sel) ? " selected" : "") + ">" + esc(o[1]) + "</option>"; }).join(""); }
 
   // ---- load -----------------------------------------------------------------------------------------------
+  // PMO UX — "not found" / no id: the tabs and areas disappear, one card says why and leads back to the portfolio
+  function notFound(title, text) {
+    $("p-title").textContent = title; $("p-nf-title").textContent = title; $("p-nf-title").hidden = true;   // the page title says it once $("p-nf-text").textContent = text;
+    NF = true; $("msg").innerHTML = ""; var wm = $("w3-mode"); if (wm) { wm.hidden = true; wm.setAttribute("data-nf", "1"); } var ws = $("w3-simple"); if (ws) ws.hidden = true; var ft = $("p-sub"); if (ft) ft.hidden = true;
+    $("p-notfound").hidden = false; $("groups").hidden = true; $("tabs").hidden = true; $("p-pills").innerHTML = "";
+    Array.prototype.forEach.call(document.querySelectorAll("main > section[role=tabpanel]"), function (x) { x.hidden = true; });
+  }
+  // PMO UX — the shell breadcrumb ends with the project key (the in-page crumb is gone; the shell file is not ours)
+  function crumb(key) {
+    var ol = document.querySelector("#__shell .shell-breadcrumb ol"); if (!ol || !key) return;
+    var old = ol.querySelector("li[data-ppm-key]"); if (old) old.remove();
+    var last = ol.querySelector("li:last-child span[aria-current]");
+    if (last) { var a = document.createElement("a"); a.href = "portfolio.html"; a.textContent = last.textContent; last.replaceWith(a); }
+    var li = document.createElement("li"); li.setAttribute("data-ppm-key", "1"); var sp = document.createElement("span"); sp.setAttribute("aria-current", "page"); sp.textContent = key; li.appendChild(sp); ol.appendChild(li);
+  }
   function load() {
-    if (!PID || !/^\d+$/.test(PID)) { $("p-title").textContent = "Project"; msg("No project id in the address — open a project from the portfolio.", "errors"); return Promise.resolve(); }
+    if (!PID || !/^\d+$/.test(PID)) { notFound("No project chosen", "No project id in the address — open a project from the portfolio."); return Promise.resolve(); }
     return api("/api/governance/portfolio/project/" + encodeURIComponent(PID)).then(function (v) {
       V = v; BLV = null; renderHeader(); if (FEAT.project_roles && window.PpmCollabUi) window.PpmCollabUi.mountRoles(W4()); $("tpl-save-box").hidden = !(FEAT.templates && V.committee);
       var t = (window.location.hash || "").slice(1);
       showTab(TABS.indexOf(t) >= 0 ? t : (TABS.filter(function (x) { return $("tab-" + x).getAttribute("aria-selected") === "true"; })[0] || "overview"));
-    }).catch(function (e) { if (e.status === 404) { $("p-title").textContent = "Project not found"; msg("This project does not exist, or it is outside the sites you may read.", "errors"); } else fail(e); });
+    }).catch(function (e) { if (e.status === 404) notFound("Project not found or not visible to you", "This project does not exist, or it is outside the sites you may read."); else fail(e); });
   }
   function renderHeader() {
     var p = V.project;
-    $("p-title").textContent = (p.project_ref ? p.project_ref + " · " : "") + (p.key || "") + " — " + (p.name || "");   // PORTFOLIO LOT 1: the id exists only while the intake switch is on
+    $("p-title").innerHTML = esc(p.name || p.key || "Project") + " <span class=\"ppm-key\">" + esc((p.project_ref ? p.project_ref + " · " : "") + (p.key || "")) + "</span>";   // PORTFOLIO LOT 1: the id exists only while the intake switch is on
+    $("p-pills").innerHTML = pillOf("stage", p.stage || "proposal", "NA") + " " + pillOf("status", p.status);
     document.title = (p.key || "Project") + " — Endeavour Mining IT";
+    crumb(p.key);
+    var sh = $("__shell"); if (sh && window.MutationObserver && !sh.__ppmObs) { sh.__ppmObs = new MutationObserver(function () { if (V && !document.querySelector("#__shell li[data-ppm-key]")) crumb(V.project.key); }); sh.__ppmObs.observe(sh, { childList: true }); }
   }
 
   function renderOverview() {
-    var p = V.project, st = V.stages || [], i = st.indexOf(p.stage || "proposal");
-    var dots = st.map(function (s, k) { return k === i ? "●" : "○"; }).join("");
+    var p = V.project, st = V.stages || [];
     var vr = V.variance || {}, rag = slipRag(vr.finish_variance_days);
     var open = V.tasks.filter(function (t) { return ["done", "cancelled"].indexOf(t.status) < 0; }).length;
-    var tiles = [["Stage", "<span class=\"stage\">" + esc(dots) + "</span> " + esc(String(p.stage || "proposal").replace(/_/g, " "))],
-      ["Status", "<span class=\"pill " + esc(p.status || "NA") + "\">" + esc(p.status || "—") + "</span>"],
-      ["Finish vs baseline", "<span class=\"pill " + esc(rag.cls) + "\">" + esc(rag.cls === "NA" ? "—" : rag.cls) + "</span> " + esc(rag.text)],
-      ["Progress", n(p.progress_pct, " %")],
+    var stepper = UX ? UX.stepperHtml(st, p.stage || "proposal", function (x) { return lab("stage", x); }, esc) : esc(lab("stage", p.stage || "proposal"));
+    var tiles = [["Stage", stepper],
+      ["Status", pillOf("status", p.status)],
+      ["Finish vs baseline", "<span class=\"pill " + esc(rag.cls) + "\">" + esc(rag.cls === "NA" ? "—" : rag.label) + "</span>" + (rag.cls !== "NA" && rag.text.toLowerCase() === rag.label.toLowerCase() ? "" : " <span class=\"muted\">" + esc(rag.text) + "</span>")],
+      ["Progress", UX ? UX.progressHtml(p.progress_pct, esc) : n(p.progress_pct, " %")],
       ["Plan freshness", esc(window.PpmWorkbench ? window.PpmWorkbench.freshnessText(V.plan_freshness) : "—") + (V.plan_freshness && V.plan_freshness.plan_updated_at ? " <span class=\"muted\">(" + esc(String(V.plan_freshness.plan_updated_at).slice(0, 10)) + ")</span>" : "")],   // B4
       ["Open tasks", n(open) + " / " + n(V.tasks.length)],
-      ["Critical path", V.plan ? n(V.plan.length_days, " working d") : V.plan_error ? "— (plan cannot be computed)" : "— (dependency loop)"],
+      ["Critical path", V.plan ? n(V.plan.length_days, " working days") : V.plan_error ? "— (plan cannot be computed)" : "— (dependency loop)"],
       ["Open high risks", n(V.gate_counts && V.gate_counts.openRisksHigh)]];
     var money = V.money_hidden ? "<span class=\"muted\">restricted to the committee, the admin tier and the finance role</span>" : (p.budget != null ? n(p.spent) + " / " + n(p.budget) + " " + esc(p.currency || "USD") + (p.currency_defaulted === 1 || !p.currency ? " <small class=\"muted\">(default, not confirmed)</small>" : "") : "—");   // F-DATA-10
-    $("overview").innerHTML = "<div class=\"tiles\">" + tiles.map(function (t) { return "<div class=\"tile\"><div class=\"tl\">" + esc(t[0]) + "</div><div class=\"tn\" style=\"font-size:15px\">" + t[1] + "</div></div>"; }).join("") + "</div>" +
-      "<div class=\"panel\" style=\"margin-top:14px\"><table><tbody>" +
-      "<tr><th>Objective</th><td>" + (V.objective ? esc(V.objective.key) + " — " + esc(V.objective.name) : "—") + "</td></tr>" +
-      "<tr><th>Owner</th><td>" + n(p.owner) + "</td></tr><tr><th>Sponsor</th><td>" + n(p.sponsor) + "</td></tr>" +
-      "<tr><th>Start → end</th><td>" + n(p.start_date) + " → " + n(p.end_date) + "</td></tr>" +
-      "<tr><th>Baseline</th><td>" + n(p.baseline_start) + " → " + n(p.baseline_end) + " <span class=\"muted\">(frozen at approval)</span></td></tr>" +
-      "<tr><th>Forecast / actual end</th><td>" + n(vr.forecast_end) + " / " + n(vr.actual_end) + "</td></tr>" +
-      "<tr><th>Spent / budget</th><td>" + money + "</td></tr>" +
-      "<tr><th>Origin</th><td>" + (p.rfi_id != null ? "request #" + n(p.rfi_id) + " (<a href=\"rfi.html\">RFI register</a>)" : "—") + "</td></tr>" +
-      "</tbody></table></div>";
+    var row = function (k, v) { return "<div><dt>" + esc(k) + "</dt><dd>" + v + "</dd></div>"; };
+    $("overview").innerHTML = "<div class=\"tiles\">" + tiles.map(function (t) { return "<div class=\"tile\"><div class=\"tl\">" + esc(t[0]) + "</div><div class=\"tn\">" + t[1] + "</div></div>"; }).join("") + "</div>" +
+      "<div class=\"panel\" style=\"margin-top:14px\"><dl class=\"ppm-dl\">" +
+      row("Objective", V.objective ? esc(V.objective.name) + " <span class=\"ppm-key\">" + esc(V.objective.key) + "</span>" : "—") +
+      row("Owner", n(p.owner)) + row("Sponsor", n(p.sponsor)) +
+      row("Start → end", "<span class=\"ppm-date\">" + dte(p.start_date) + " → " + dte(p.end_date) + "</span>") +
+      row("Baseline", "<span class=\"ppm-date\">" + dte(p.baseline_start) + " → " + dte(p.baseline_end) + "</span> <span class=\"muted\">(frozen at approval)</span>") +
+      row("Forecast / actual end", "<span class=\"ppm-date\">" + dte(vr.forecast_end) + " / " + dte(vr.actual_end) + "</span>") +
+      row("Spent / budget", money) +
+      row("Origin", p.rfi_id != null ? "request " + n(p.rfi_id) + " (<a href=\"rfi.html\">RFI register</a>)" : "—") +
+      "</dl></div>";
     if (FEAT.team) mountTeam();
   }
 
@@ -564,6 +674,7 @@
   }
   var fl = function (v) { return v == null ? "—" : v < 0 ? "<b>" + n(v, " d") + " (late)</b>" : n(v, " d"); };
   function renderPlan() {
+    planSubs();   // the sub-views follow the switches and the plan (Quality needs at least one task)
     var rows = taskOrder(V.tasks), anchor = V.plan && V.plan.anchor;
     renderBaselines();
     var assumed = rows.filter(function (r) { var pl = planOf(r.t.id); return pl && pl.assumed_duration; }).length;
@@ -571,15 +682,16 @@
       (anchor ? "Scheduled in working days (Mon–Fri) from " + esc(anchor) + " (project start, else the earliest task start); an entered start on an automatic task is a start-no-earlier-than, a manual task keeps its dates. " : "No project start and no dated task: the plan is shown in relative working days only, not as dates. ") +
       (V.plan && V.plan.warnings && V.plan.warnings.length ? "<b>" + n(V.plan.warnings.length) + " scheduling warning(s):</b> " + V.plan.warnings.slice(0, 5).map(function (w) { return (w.task_id != null ? "#" + n(w.task_id) + " " : "") + esc(w.message); }).join(" · ") + ". " : "") +
       (assumed ? "<b>" + n(assumed) + " task(s) have no duration</b> — counted as 1 day by the critical path (“duration unknown”). " : "") +
-      "Legend: bar = scheduled dates · hatched = moved by the scheduler (no dates entered, or a link / constraint moved them) · dashed outline = baseline · <b>CP</b> + red = critical path (total float ≤ 0) · arrows = dependencies · ◆ milestone (✓ done, ! late) · orange line = today.";
-    $("gantt").innerHTML = rows.length ? ganttSvg(rows, anchor) : "<p class=\"muted\">No task yet.</p>";
+      "<details class=\"ppm-legend-pop\"><summary><span class=\"ppm-info\" aria-hidden=\"true\">i</span> <span class=\"muted\">How to read the chart</span></summary><div>Bar = scheduled dates · hatched = moved by the scheduler (no dates entered, or a link / constraint moved them) · dashed outline = baseline · <b>CP</b> + red outline = critical path (total float ≤ 0) · arrows = dependencies · ◆ milestone (✓ done, ! late) · orange line = today.</div></details>";
+    $("gantt").innerHTML = rows.length ? ganttSvg(rows, anchor) : (UX ? UX.emptyHtml("No task yet. Start the plan with its first task.", V.can_edit_plan ? "<button class=\"btn primary\" type=\"button\" data-add-task>+ Add first task</button>" : "", esc) : "<p class=\"muted\">No task yet.</p>");
+    $("t-add").hidden = !V.can_edit_plan;
     $("gantt-legend").innerHTML = rows.length ? ganttLegend() : "";
     mountGanttV2(rows);   // W2-UI — interactive Gantt v2 only while ppm_gantt_v2_enabled is on
     $("plan-table").innerHTML = rows.length ? "<table><thead><tr><th>WBS</th><th>Task</th><th>Owner</th><th>Start</th><th>End</th><th>Duration</th><th>Total float</th><th>Free float</th><th>Critical</th><th>Progress</th><th>Effort</th><th>Allocation</th><th>Baseline end</th><th>Finish vs baseline</th><th>Status</th><th>Depends on</th></tr></thead><tbody>" + rows.map(function (r) {
       var t = r.t, pl = planOf(t.id) || {}, b = barOf(t), vr = pl.variance || {};
-      return "<tr id=\"task-row-" + n(t.id) + "\" tabindex=\"-1\"><td>" + n(t.wbs_code) + "</td><td style=\"padding-left:" + (7 + 14 * r.depth) + "px\">" + esc(t.name) + " <small class=\"muted\">#" + n(t.id) + "</small></td><td>" + n(t.owner) + "</td><td>" + (b ? n(b.s) + (b.computed ? " <small class=\"muted\">computed</small>" : "") : "—") + "</td><td>" + (b ? n(b.e) : "—") + "</td><td>" + (pl.assumed_duration ? "<i>duration unknown — counted as 1 day</i>" : pl.milestone ? "◆ 0 d" : n(pl.duration_days, " d")) + "</td><td>" + fl(pl.slack) + "</td><td>" + fl(pl.free_float) + "</td><td>" + (pl.critical ? "<b>CP</b> yes" : pl.near_critical ? "near" : "no") + "</td><td>" + (pl.summary && pl.rollup ? n(pl.rollup.progress_pct, " %") + " <small class=\"muted\">rolled up</small>" : n(t.progress_pct, " %")) + "</td><td>" + n(t.effort_hours, " h") + "</td><td>" + n(t.allocation_pct, " %") + "</td><td>" + n(t.baseline_end) + "</td><td>" + n(vr.finish_variance_days, " d") + "</td><td><span class=\"pill " + esc(t.status) + "\">" + esc(t.status) + "</span></td><td>" + (t.depends_on || []).map(function (d) { return "#" + n(d); }).join(", ") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No task.</p>";
+      return "<tr id=\"task-row-" + n(t.id) + "\" data-task=\"" + n(t.id) + "\" tabindex=\"-1\"" + (V.can_edit_plan ? " title=\"Double-click or Enter to edit\"" : "") + "><td>" + n(t.wbs_code) + "</td><td style=\"padding-left:" + (7 + 14 * r.depth) + "px\">" + esc(t.name) + "</td><td>" + n(t.owner) + "</td><td>" + (b ? n(b.s) + (b.computed ? " <small class=\"muted\">computed</small>" : "") : "—") + "</td><td>" + (b ? n(b.e) : "—") + "</td><td>" + (pl.assumed_duration ? "<i>duration unknown — counted as 1 day</i>" : pl.milestone ? "◆ 0 d" : n(pl.duration_days, " d")) + "</td><td>" + fl(pl.slack) + "</td><td>" + fl(pl.free_float) + "</td><td>" + (pl.critical ? "<b>CP</b> yes" : pl.near_critical ? "near" : "no") + "</td><td>" + (pl.summary && pl.rollup ? n(pl.rollup.progress_pct, " %") + " <small class=\"muted\">rolled up</small>" : n(t.progress_pct, " %")) + "</td><td>" + n(t.effort_hours, " h") + "</td><td>" + n(t.allocation_pct, " %") + "</td><td>" + dte(t.baseline_end) + "</td><td>" + n(vr.finish_variance_days, " d") + "</td><td>" + pillOf("status", t.status) + "</td><td>" + (t.depends_on || []).map(function (d) { return esc(nameOf(d)); }).join(", ") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No task.</p>";
     var rc = V.resource_conflicts || [];
-    $("plan-conflicts").innerHTML = rc.length ? "<table><thead><tr><th>Person</th><th>From</th><th>To</th><th>Peak load</th><th>Tasks</th></tr></thead><tbody>" + rc.map(function (c) { return "<tr><td>" + esc(c.owner) + "</td><td>" + n(c.from) + "</td><td>" + n(c.to) + "</td><td><b>" + n(c.peak_pct, " %") + "</b></td><td>" + c.task_ids.map(function (i) { return "#" + n(i); }).join(", ") + "</td></tr>"; }).join("") + "</tbody></table>" : (window.PpmVisuals && V.resource_coverage ? "" : "<p class=\"muted\">Nobody is booked above 100 % on overlapping days in this project.</p>");
+    $("plan-conflicts").innerHTML = rc.length ? "<table><thead><tr><th>Person</th><th>From</th><th>To</th><th>Peak load</th><th>Tasks</th></tr></thead><tbody>" + rc.map(function (c) { return "<tr><td>" + esc(c.owner) + "</td><td>" + n(c.from) + "</td><td>" + n(c.to) + "</td><td><b>" + n(c.peak_pct, " %") + "</b></td><td>" + c.task_ids.map(function (i) { return esc(nameOf(i)); }).join(", ") + "</td></tr>"; }).join("") + "</tbody></table>" : (window.PpmVisuals && V.resource_coverage ? "" : "<p class=\"muted\">Nobody is booked above 100 % on overlapping days in this project.</p>");
     if (window.PpmVisuals && V.resource_coverage) $("plan-conflicts").innerHTML += window.PpmVisuals.coverageHtml(V.resource_coverage, rc.length, esc);
     // C-14 — resource pressure per person and week (tasks without an allocation are counted "unknown", never guessed)
     $("plan-pressure").innerHTML = window.PpmVisuals ? window.PpmVisuals.pressureHtml(window.PpmVisuals.resourcePressure(V.tasks || [], { today: today() }), esc) : "";
@@ -593,7 +705,7 @@
     return [
       [sw("<rect x=\"1\" y=\"3\" width=\"24\" height=\"8\" rx=\"4\" fill=\"#3A4A60\"/>"), "plan"],
       [sw("<rect x=\"1\" y=\"3\" width=\"24\" height=\"8\" rx=\"4\" fill=\"#cfd6e0\" stroke=\"#3A4A60\"/>"), "moved by the scheduler (hatched)"],
-      [sw("<rect x=\"1\" y=\"3\" width=\"24\" height=\"8\" rx=\"4\" fill=\"#B91C1C\"/>"), "critical path (CP)"],
+      [sw("<rect x=\"1\" y=\"3\" width=\"24\" height=\"8\" rx=\"4\" class=\"gb-crit\"/>"), "critical path (CP, red outline)"],
       [sw("<rect x=\"1\" y=\"1\" width=\"24\" height=\"12\" rx=\"4\" fill=\"none\" stroke=\"#9AA4B2\" stroke-dasharray=\"4 3\"/>"), "baseline (dashed): " + base],
       [sw("<line x1=\"13\" x2=\"13\" y1=\"0\" y2=\"14\" stroke=\"#B45309\" stroke-width=\"2\"/>"), "today"],
       ["◆", "milestone (✓ done, ! late)"]
@@ -611,8 +723,9 @@
     var d = $("plan-table") && $("plan-table").closest("details"); if (d) d.open = true;
     Array.prototype.forEach.call(document.querySelectorAll("tr.task-focus"), function (r) { r.classList.remove("task-focus"); });
     var row = document.getElementById("task-row-" + id);
-    if (V.can_edit_plan && $("t-id")) { $("t-id").value = String(id); fillTask(); }
-    if (row) { row.classList.add("task-focus"); row.scrollIntoView({ block: "center" }); row.focus(); }
+    if (row) row.classList.add("task-focus");
+    if (editTask(id)) return;   // PMO UX — the editor opens beside the grid; the reader is taken to the row
+    if (row) { row.scrollIntoView({ block: "center" }); row.focus(); }
   }
   $("gantt").addEventListener("keydown", ganttKey);
   $("gantt").addEventListener("click", function (ev) { var g = ev.target.closest && ev.target.closest("g.gbar"); if (g) openTask(Number(g.getAttribute("data-task"))); });
@@ -648,10 +761,10 @@
       pos[t.id] = { s: x0, e: x1, y: y + 12 };
       var when = b ? [b.s, " to ", b.e].join("") : ["day ", rr.s, " to day ", rr.e].join("");  // plain text, escaped once in esc(label)
       var label = taskLabel(t) + ": " + when + (comp ? " (computed)" : "") + ", " + (crit ? "critical" : "slack " + (pl.slack == null ? "unknown" : pl.slack) + " days") + ", progress " + (t.progress_pct == null ? "not reported" : [t.progress_pct, " %"].join("")) + (pl.assumed_duration ? ", duration unknown — counted as 1 day" : "");
-      var fill = comp ? "url(#hatch)" : crit ? "#B91C1C" : "#3A4A60";
-      out.push("<g role=\"img\" aria-label=\"" + esc(label) + "\" class=\"gbar\" data-task=\"" + n(t.id) + "\" tabindex=\"" + (focusable++ ? "-1" : "0") + "\" style=\"cursor:pointer\"><title>" + esc(label) + "</title><rect x=\"" + n(x0) + "\" y=\"" + n(y + 6) + "\" width=\"" + n(Math.max(3, x1 - x0)) + "\" height=\"12\" rx=\"5\" fill=\"" + fill + "\"" + (crit && comp ? " stroke=\"#B91C1C\" stroke-width=\"2\"" : "") + "/>" +
+      var cls = comp ? "" : crit ? "gb-crit" : "gb-plan";   // PMO UX — critical = red OUTLINE (MS Project convention); solid red stays for "late"
+      out.push("<g role=\"img\" aria-label=\"" + esc(label) + "\" class=\"gbar\" data-task=\"" + n(t.id) + "\" tabindex=\"" + (focusable++ ? "-1" : "0") + "\" style=\"cursor:pointer\"><title>" + esc(label) + "</title><rect x=\"" + n(x0) + "\" y=\"" + n(y + 6) + "\" width=\"" + n(Math.max(3, x1 - x0)) + "\" height=\"12\" rx=\"5\"" + (comp ? " fill=\"url(#hatch)\"" : " class=\"" + cls + "\"") + (crit && comp ? " class=\"gb-crit\" style=\"fill:url(#hatch)\"" : "") + "/>" +
         (t.progress_pct != null ? "<rect x=\"" + n(x0) + "\" y=\"" + n(y + 16) + "\" width=\"" + n(Math.max(0, (x1 - x0) * Math.min(100, t.progress_pct) / 100)) + "\" height=\"2\" fill=\"#1E7B45\"/>" : "") +
-        (crit ? "<text x=\"" + n(Math.min(W - 26, x1 + 3)) + "\" y=\"" + n(y + 16) + "\" font-size=\"10\" font-weight=\"700\" fill=\"#B91C1C\">CP</text>" : "") + "</g>");
+        (crit ? "<text x=\"" + n(Math.min(W - 26, x1 + 3)) + "\" y=\"" + n(y + 16) + "\" font-size=\"10\" font-weight=\"700\" class=\"gb-cptext\">CP</text>" : "") + "</g>");
     });
     rows.forEach(function (r) { (r.t.depends_on || []).forEach(function (d) { var a = pos[d], z = pos[r.t.id]; if (!a || !z) return; out.push("<path d=\"M" + n(a.e) + "," + n(a.y) + " H" + n(Math.max(a.e + 4, z.s - 6)) + " V" + n(z.y) + " H" + n(z.s) + "\" fill=\"none\" stroke=\"#6b7785\" stroke-width=\"1\" marker-end=\"url(#arr)\"/>"); }); });
     ms.forEach(function (m, k) {
@@ -663,73 +776,128 @@
     out.push("</svg>");
     return out.join("");
   }
+  // PMO UX — the task editor is a drawer opened from the grid: a bar (Enter / click), a table row (double-click /
+  // Enter), "+ Add task". Same fields, same save route and version check as before.
+  var nameOf = function (id) { var t = (V.tasks || []).filter(function (x) { return x.id === Number(id); })[0]; return t ? taskLabel(t) : "—"; };
   function taskEditor() {
-    $("task-edit").hidden = !V.can_edit_plan; if (!V.can_edit_plan) return;
-    var ts = V.tasks, cur = $("t-id").value;
-    $("t-id").innerHTML = opt(ts.map(function (t) { return [t.id, taskLabel(t)]; }), cur, "— new task —");
-    fillTask();
+    $("t-add").hidden = !V.can_edit_plan; if (!V.can_edit_plan) return;
+    if (UX && !$("t-deps").__chips) UX.chipSelect($("t-deps"), { label: "Add a predecessor", placeholder: "Type a task name…" });
+    if ($("task-edit").classList.contains("open")) fillTask();
   }
+  var LINK_TYPES = [["FS", "Finish → start"], ["SS", "Start → start"], ["FF", "Finish → finish"], ["SF", "Start → finish"]];
+  function linkRowHtml(others, l) {
+    l = l || {};
+    return "<div class=\"ppm-gr\"><select data-l-task aria-label=\"Predecessor\">" + opt(others, l.id, "— task —") + "</select><select data-l-type aria-label=\"Link type\">" + opt(LINK_TYPES, l.type || "FS") + "</select>" +
+      "<input type=\"number\" step=\"1\" data-l-lag aria-label=\"Lag (working days, + or −)\" placeholder=\"lag ±d\" value=\"" + esc(l.lag ? String(l.lag) : "") + "\"><button type=\"button\" class=\"btn\" data-l-del aria-label=\"Remove link type\">×</button></div>";
+  }
+  // rows → the same "id:TYPE±lag, …" text the save code has always parsed
+  function linksText() { return Array.prototype.map.call($("t-links-rows").querySelectorAll(".ppm-gr"), function (r) { var id = r.querySelector("[data-l-task]").value, ty = r.querySelector("[data-l-type]").value, lag = Number(r.querySelector("[data-l-lag]").value || 0); return id ? id + ":" + ty + (lag ? (lag > 0 ? "+" : "") + lag : "") : ""; }).filter(Boolean).join(", "); }
   function fillTask() {
     var id = Number($("t-id").value) || null, t = V.tasks.filter(function (x) { return x.id === id; })[0] || {};
     var others = V.tasks.filter(function (x) { return x.id !== id; }).map(function (x) { return [x.id, taskLabel(x)]; });
+    $("t-head").textContent = id ? "Edit task — " + taskLabel(t) : "New task";
+    if (UX) { UX.formMsg($("t-msg"), ""); UX.invalid($("t-name"), ""); }
     $("t-parent").innerHTML = opt(others, t.parent_id, "— top level —");
     $("t-deps").innerHTML = others.map(function (o) { return "<option value=\"" + esc(o[0]) + "\"" + ((t.depends_on || []).indexOf(Number(o[0])) >= 0 ? " selected" : "") + ">" + esc(o[1]) + "</option>"; }).join("");
+    if ($("t-deps").__chips) $("t-deps").__chips.render();
     $("t-name").value = t.name || ""; $("t-wbs").value = t.wbs_code || ""; $("t-owner").value = t.owner || ""; $("t-start").value = t.start_date || ""; $("t-end").value = t.end_date || "";
     $("t-dur").value = t.duration_days == null ? "" : t.duration_days; $("t-alloc").value = t.allocation_pct == null ? "" : t.allocation_pct; $("t-effort").value = t.effort_hours == null ? "" : t.effort_hours;
     $("t-status").value = t.status || "todo"; $("t-prog").value = t.progress_pct == null ? "" : t.progress_pct; $("t-del").hidden = !id;
+    $("t-owner-list").innerHTML = Object.keys((V.tasks || []).reduce(function (a, x) { if (x.owner) a[x.owner] = 1; return a; }, {})).map(function (o) { return "<option value=\"" + esc(o) + "\"></option>"; }).join("");
     $("t-sched-box").hidden = !FEAT.schedule_v2;
-    if (FEAT.schedule_v2) { $("t-mode").value = t.schedule_mode === "manual" ? "manual" : ""; $("t-ctype").value = t.constraint_type || ""; $("t-cdate").value = t.constraint_date || ""; $("t-deadline").value = t.deadline || ""; $("t-ttype").value = t.task_type || ""; $("t-ed").value = t.effort_driven == null ? "" : String(t.effort_driven); $("t-links").value = (t.dependency_links || []).filter(function (l) { return l.type !== "FS" || l.lag; }).map(function (l) { return l.id + ":" + l.type + (l.lag ? (l.lag > 0 ? "+" : "") + l.lag : ""); }).join(", "); }
+    if (FEAT.schedule_v2) {
+      $("t-mode").value = t.schedule_mode === "manual" ? "manual" : ""; $("t-ctype").value = t.constraint_type || ""; $("t-cdate").value = t.constraint_date || ""; $("t-deadline").value = t.deadline || ""; $("t-ttype").value = t.task_type || ""; $("t-ed").value = t.effort_driven == null ? "" : String(t.effort_driven);
+      $("t-links-rows").innerHTML = (t.dependency_links || []).filter(function (l) { return l.type !== "FS" || l.lag; }).map(function (l) { return linkRowHtml(others, l); }).join("");
+    }
   }
-  $("t-id").addEventListener("change", fillTask);
+  function editTask(id, opener) {
+    if (!V || !V.can_edit_plan) return false;
+    $("t-id").value = id ? String(id) : ""; fillTask();
+    if (UX) UX.openDrawer("task-edit", opener); else $("task-edit").hidden = false;
+    return true;
+  }
+  $("t-link-add").addEventListener("click", function () { var id = Number($("t-id").value) || null; $("t-links-rows").insertAdjacentHTML("beforeend", linkRowHtml(V.tasks.filter(function (x) { return x.id !== id; }).map(function (x) { return [x.id, taskLabel(x)]; }))); });
+  $("t-links-rows").addEventListener("click", function (ev) { var d = ev.target.closest && ev.target.closest("[data-l-del]"); if (d) d.closest(".ppm-gr").remove(); });
+  $("t-add").addEventListener("click", function () { editTask(null, this); });
+  document.addEventListener("click", function (ev) { var b = ev.target.closest && ev.target.closest("[data-add-task]"); if (b) editTask(null, b); });
+  $("plan-table").addEventListener("dblclick", function (ev) { var tr = ev.target.closest && ev.target.closest("tr[data-task]"); if (tr) editTask(Number(tr.getAttribute("data-task")), tr); });
+  $("plan-table").addEventListener("keydown", function (ev) { if (ev.key !== "Enter") return; var tr = ev.target.closest && ev.target.closest("tr[data-task]"); if (tr) { ev.preventDefault(); editTask(Number(tr.getAttribute("data-task")), tr); } });
   var numOrNull = function (id) { var v = $(id).value; return v === "" ? null : Number(v); };
+  function askReason(title, label, min) { return window.ReasonDialog ? window.ReasonDialog.ask({ title: title, label: label, min: min || 0, multiline: true }) : Promise.resolve(window.prompt(label, "")); }
   $("t-save").addEventListener("click", function () {
     var id = Number($("t-id").value) || null;
+    if (!$("t-name").value.trim()) { if (UX) { UX.invalid($("t-name"), "A task needs a name."); UX.formMsg($("t-msg"), "A task needs a name.", true); } $("t-name").focus(); return; }
+    if (UX) UX.invalid($("t-name"), "");
     var b = { project_id: V.project.id, name: $("t-name").value.trim(), wbs_code: $("t-wbs").value.trim() || null, parent_id: $("t-parent").value ? Number($("t-parent").value) : null, owner: $("t-owner").value.trim() || null,
       start_date: $("t-start").value || null, end_date: $("t-end").value || null, duration_days: numOrNull("t-dur"), allocation_pct: numOrNull("t-alloc"), effort_hours: numOrNull("t-effort"), status: $("t-status").value, progress_pct: numOrNull("t-prog"),
       depends_on: Array.prototype.filter.call($("t-deps").options, function (o) { return o.selected; }).map(function (o) { return Number(o.value); }) };
     if (FEAT.schedule_v2) {   // W1-ENGINE fields (switch ppm_schedule_engine_v2_ui)
+      $("t-links").value = linksText();
       b.schedule_mode = $("t-mode").value || null; b.constraint_type = $("t-ctype").value || null; b.constraint_date = $("t-cdate").value || null; b.deadline = $("t-deadline").value || null;
       b.task_type = $("t-ttype").value || null; b.effort_driven = $("t-ed").value === "" ? null : Number($("t-ed").value);
       var bad = []; b.dependency_links = $("t-links").value.split(",").map(function (x) { return x.trim(); }).filter(Boolean).map(function (x) { var m = /^#?(\d+)\s*:\s*(FS|SS|FF|SF)\s*([+-]\s*\d+)?$/i.exec(x); if (!m) { bad.push(x); return null; } return { id: Number(m[1]), type: m[2].toUpperCase(), lag: m[3] ? Number(m[3].replace(/\s/g, "")) : 0 }; }).filter(Boolean);
-      if (bad.length) { msg("Link type not understood: " + bad.join(", ") + " — write id:TYPE±lag, e.g. 12:SS+2.", "errors"); return; }
+      if (bad.length) { msg("Link type not understood: " + bad.join(", ") + " — choose the task, the type and a whole number of days.", "errors"); return; }
     }
     if (id) { b.id = id; delete b.project_id; var t = V.tasks.filter(function (x) { return x.id === id; })[0]; if (t && t.version != null) b.version = t.version; }   // I-CONC-1
+    var send = function () { return api("/api/governance/portfolio/task", { method: "PUT", body: JSON.stringify(b) }).then(function (j) { msg("Task “" + b.name + "” saved."); $("t-id").value = String(j.id); return load(); }).catch(fail); };
     // E-P03 — with ppm_capacity_view on, a reassignment (owner change) carries a reason; it is traced in the ledger either way
     var was = id ? (V.tasks.filter(function (x) { return x.id === id; })[0] || {}).owner : null;
-    if (id && FEAT.capacity && String(was || "").trim() !== String(b.owner || "").trim()) { var why = window.prompt("Reason for reassigning this task (kept in the project history):", ""); if (!why || !why.trim()) { msg("Reassignment not saved: a reason is required.", "errors"); return; } b.reason = why.trim(); }
-    api("/api/governance/portfolio/task", { method: "PUT", body: JSON.stringify(b) }).then(function (j) { msg("Task #" + j.id + " saved."); $("t-id").value = String(j.id); return load(); }).catch(fail);
+    if (id && FEAT.capacity && String(was || "").trim() !== String(b.owner || "").trim()) {
+      askReason("Reassign the task", "Reason for reassigning this task (kept in the project history)", 1).then(function (why) { if (!why || !String(why).trim()) { msg("Reassignment not saved: a reason is required.", "errors"); return; } b.reason = String(why).trim(); send(); });
+      return;
+    }
+    send();
   });
-  $("t-del").addEventListener("click", function () { var id = Number($("t-id").value); if (!id || !window.confirm("Delete task #" + id + "?")) return; api("/api/governance/portfolio/task/" + id, { method: "DELETE" }).then(function () { msg("Task deleted."); $("t-id").value = ""; return load(); }).catch(fail); });
+  $("t-del").addEventListener("click", function () { var id = Number($("t-id").value); if (!id || !window.confirm("Delete the task “" + nameOf(id) + "”?")) return; api("/api/governance/portfolio/task/" + id, { method: "DELETE" }).then(function () { msg("Task deleted."); $("t-id").value = ""; return load(); }).catch(fail); });
+  // PMO UX — Plan views (Schedule · Quality · Baselines · Resources · Time); "Quality" and "Time" exist only while
+  // their switch is on (DCMA, time entries). The last view chosen stays while the page is open.
+  var PLANSUB = "schedule", SEG = null;
+  function planSubs() {
+    var seg = $("plan-seg");
+    seg.querySelector("[data-sub=quality]").hidden = !FEAT.dcma || !(V && V.tasks && V.tasks.length);   // no task = nothing to check: no 14-row "not measurable" table
+    seg.querySelector("[data-sub=time]").hidden = !FEAT.time_entries;
+    if (!SEG && UX) SEG = UX.segmented(seg, function (name) { PLANSUB = name; Array.prototype.forEach.call(document.querySelectorAll("#pane-plan [data-plan-sub]"), function (x) { x.classList.toggle("ppm-sub-off", x.getAttribute("data-plan-sub") !== name); }); });
+    if (SEG) SEG.pick(seg.querySelector("[data-sub=" + PLANSUB + "]:not([hidden])") ? PLANSUB : "schedule");
+  }
+  planSubs();
+  $("tpl-save-box").addEventListener("click", function () { $("plan-more").open = false; if (UX) UX.openDrawer("drawer-tpl", this); });
+  $("w3-print").addEventListener("click", function () { $("plan-more").open = false; });
 
   // ---- milestones -----------------------------------------------------------------------------------------
   function renderMilestones() {
-    var ms = V.milestones || [], td = today();
-    $("milestones").innerHTML = ms.length ? "<table><thead><tr><th>Milestone</th><th>Owner</th><th>Due</th><th>Baseline</th><th>Done</th><th>State</th></tr></thead><tbody>" + ms.map(function (m) {
+    var ms = V.milestones || [], td = today(), ed = !!V.can_edit_plan;
+    $("m-add").hidden = !ed;
+    $("milestones").innerHTML = ms.length ? "<table><thead><tr><th>Milestone</th><th>Owner</th><th>Due</th><th>Baseline</th><th>Done</th><th>State</th>" + (ed ? "<th data-nosort><span class=\"ppm-sr\">Actions</span></th>" : "") + "</tr></thead><tbody>" + ms.map(function (m) {
       var done = !!m.done_at || m.status === "done", late = !done && m.due_date && m.due_date < td;
-      return "<tr><td>◆ " + esc(m.name) + " <small class=\"muted\">#" + n(m.id) + "</small></td><td>" + n(m.owner) + "</td><td>" + n(m.due_date) + "</td><td>" + n(m.baseline_date) + "</td><td>" + n(m.done_at && String(m.done_at).slice(0, 10)) + "</td><td>" + (done ? "<span class=\"pill done\">✓ done</span>" : late ? "<span class=\"pill RED\">! late</span>" : "<span class=\"pill planned\">planned</span>") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No milestone.</p>";
+      return "<tr><td>◆ " + esc(m.name) + "</td><td>" + n(m.owner) + "</td><td class=\"ppm-date\">" + dte(m.due_date) + "</td><td class=\"ppm-date\">" + dte(m.baseline_date) + "</td><td class=\"ppm-date\">" + n(m.done_at && String(m.done_at).slice(0, 10)) + "</td><td>" + (done ? "<span class=\"pill done\">✓ " + esc(lab("status", "done")) + "</span>" : late ? "<span class=\"pill RED\">! " + esc(lab("status", "late")) + "</span>" : pillOf("status", "planned")) + "</td>" + (ed ? "<td><button class=\"btn\" type=\"button\" data-ms-edit=\"" + esc(m.id) + "\">Edit</button></td>" : "") + "</tr>"; }).join("") + "</tbody></table>" : (UX ? UX.emptyHtml("No milestone yet.", ed ? "<button class=\"btn primary\" type=\"button\" data-ms-new>+ Add first milestone</button>" : "", esc) : "<p class=\"muted\">No milestone.</p>");
     var dl = V.deliverables || [];
-    $("deliverables").innerHTML = dl.length ? "<table><thead><tr><th>Deliverable</th><th>Owner</th><th>Due</th><th>Status</th></tr></thead><tbody>" + dl.map(function (d) { return "<tr><td>" + esc(d.name) + "</td><td>" + n(d.owner) + "</td><td>" + n(d.due_date) + "</td><td><span class=\"pill " + esc(d.status) + "\">" + esc(d.status) + "</span></td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No deliverable.</p>";
-    $("ms-edit").hidden = !V.can_edit_plan;
-    if (V.can_edit_plan) { var cur = $("m-id").value; $("m-id").innerHTML = opt(ms.map(function (m) { return [m.id, m.name]; }), cur, "— new milestone —"); fillMilestone(); }
+    $("deliverables").innerHTML = dl.length ? "<table><thead><tr><th>Deliverable</th><th>Owner</th><th>Due</th><th>Status</th></tr></thead><tbody>" + dl.map(function (d) { return "<tr><td>" + esc(d.name) + "</td><td>" + n(d.owner) + "</td><td class=\"ppm-date\">" + dte(d.due_date) + "</td><td>" + pillOf("status", d.status) + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No deliverable.</p>";
   }
-  function fillMilestone() { var id = Number($("m-id").value) || null, m = (V.milestones || []).filter(function (x) { return x.id === id; })[0] || {}; $("m-name").value = m.name || ""; $("m-owner").value = m.owner || ""; $("m-due").value = m.due_date || ""; $("m-base").value = m.baseline_date || ""; $("m-status").value = m.status === "done" ? "done" : "planned"; }
-  $("m-id").addEventListener("change", fillMilestone);
+  function fillMilestone() { var id = Number($("m-id").value) || null, m = (V.milestones || []).filter(function (x) { return x.id === id; })[0] || {}; $("m-head").textContent = id ? "Edit milestone — " + (m.name || "") : "New milestone"; $("m-name").value = m.name || ""; $("m-owner").value = m.owner || ""; $("m-due").value = m.due_date || ""; $("m-base").value = m.baseline_date || ""; $("m-status").value = m.status === "done" ? "done" : "planned"; if (UX) UX.formMsg($("m-msg"), ""); }
+  function editMilestone(id, opener) { $("m-id").value = id ? String(id) : ""; fillMilestone(); if (UX) UX.openDrawer("ms-edit", opener); }
+  $("m-add").addEventListener("click", function () { editMilestone(null, this); });
+  $("milestones").addEventListener("click", function (ev) { var b = ev.target.closest && ev.target.closest("[data-ms-edit],[data-ms-new]"); if (b) editMilestone(Number(b.getAttribute("data-ms-edit")) || null, b); });
   $("m-save").addEventListener("click", function () {
     var id = Number($("m-id").value) || null, done = $("m-status").value === "done";
+    if (!$("m-name").value.trim()) { if (UX) { UX.invalid($("m-name"), "A milestone needs a name."); UX.formMsg($("m-msg"), "A milestone needs a name.", true); } return; }
+    if (UX) UX.invalid($("m-name"), "");
     var b = { project_id: V.project.id, name: $("m-name").value.trim(), owner: $("m-owner").value.trim() || null, due_date: $("m-due").value || null, baseline_date: $("m-base").value || null, status: $("m-status").value, done_at: done ? today() : null };
     if (id) { b.id = id; delete b.project_id; var m = (V.milestones || []).filter(function (x) { return x.id === id; })[0]; if (m && m.version != null) b.version = m.version; }   // I-CONC-1
     api("/api/governance/portfolio/milestone", { method: "PUT", body: JSON.stringify(b) }).then(function () { msg("Milestone saved."); return load(); }).catch(fail);
   });
 
   // ---- RAID -----------------------------------------------------------------------------------------------
+  // PMO UX — ONE table + ONE drawer form. With the RAID log switch on, the log (lib/ppmGovernanceW3.js) is the only
+  // RAID table; the basic register below is shown only while that switch is off.
+  var ensureOpt = function (sel, v) { if (v !== "" && v != null && !Array.prototype.some.call(sel.options, function (o) { return o.value === String(v); })) { var o = document.createElement("option"); o.value = String(v); o.textContent = String(v); sel.appendChild(o); } sel.value = v == null ? "" : String(v); };
   function renderRaid() {
-    var f = $("r-filter").value, rs = (V.risks || []).filter(function (r) { return !f || r.kind === f; });
-    $("raid").innerHTML = rs.length ? "<table><thead><tr><th>Kind</th><th>Title</th><th>P × I</th><th>Severity</th><th>Owner</th><th>Mitigation / response</th><th>Status</th></tr></thead><tbody>" + rs.map(function (r) {
+    var w3 = !!FEAT.raid; $("raid-legacy").hidden = w3;
+    var f = $("r-filter").value, rs = (V.risks || []).filter(function (r) { return !f || r.kind === f; }), ed = !!V.can_edit_plan;
+    $("r-add").hidden = !ed || w3;
+    $("raid").innerHTML = rs.length ? "<table><thead><tr><th>Kind</th><th>Title</th><th>P × I</th><th>Severity</th><th>Owner</th><th>Mitigation / response</th><th>Status</th>" + (ed ? "<th data-nosort><span class=\"ppm-sr\">Actions</span></th>" : "") + "</tr></thead><tbody>" + rs.map(function (r) {
       var sev = r.severity === "high" ? "RED" : r.severity === "medium" ? "AMBER" : "GREEN";
-      return "<tr><td>" + esc(r.kind) + "</td><td>" + esc(r.title) + " <small class=\"muted\">#" + n(r.id) + "</small></td><td>" + n(r.probability) + " × " + n(r.impact) + " = <b>" + n(r.exposure) + "</b></td><td><span class=\"pill " + sev + "\">" + esc(r.severity) + "</span>" + (r.kind === "risk" && r.status === "open" && r.exposure >= 6 ? " <small>blocks closed</small>" : "") + "</td><td>" + n(r.owner) + "</td><td>" + esc(r.mitigation || "") + (r.incident_ref ? " · incident " + esc(r.incident_ref) : "") + "</td><td>" + esc(r.status) + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">Nothing recorded" + (f ? " of this kind" : "") + ".</p>";
+      return "<tr><td>" + esc(lab("kind", r.kind)) + "</td><td>" + esc(r.title) + "</td><td class=\"ppm-num\">" + n(r.probability) + " × " + n(r.impact) + " = <b>" + n(r.exposure) + "</b></td><td>" + (r.severity ? "<span class=\"pill " + sev + "\">" + esc(lab("severity", r.severity)) + "</span>" : "—") + (r.kind === "risk" && r.status === "open" && r.exposure >= 6 ? " <small>blocks closed</small>" : "") + "</td><td>" + n(r.owner) + "</td><td>" + esc(r.mitigation || "") + (r.incident_ref ? " · incident " + esc(r.incident_ref) : "") + "</td><td>" + pillOf("status", r.status) + "</td>" + (ed ? "<td><button class=\"btn\" type=\"button\" data-r-edit=\"" + esc(r.id) + "\">Edit</button></td>" : "") + "</tr>"; }).join("") + "</tbody></table>" : (UX ? UX.emptyHtml("Nothing recorded" + (f ? " of this kind" : "") + ".", ed && !w3 ? "<button class=\"btn primary\" type=\"button\" data-r-new>+ Add first entry</button>" : "", esc) : "<p class=\"muted\">Nothing recorded.</p>");
     renderRiskMatrix();
-    $("raid-edit").hidden = !V.can_edit_plan;
-    if (V.can_edit_plan) { var cur = $("r-id").value; $("r-id").innerHTML = opt((V.risks || []).map(function (r) { return [r.id, [r.kind, ": ", r.title].join("")]; }), cur, "— new entry —"); fillRisk(); }
   }
   // C-14 (G22) — open risks on the 3 × 3 probability × impact grid; unscored risks listed apart, never in a cell.
   var RM = null;
@@ -749,11 +917,15 @@
     var to = window.PpmVisuals.navIndex(ev.key, cur, cells.length); if (to < 0) return;
     ev.preventDefault(); cells[to].focus();
   });
-  function fillRisk() { var id = Number($("r-id").value) || null, r = (V.risks || []).filter(function (x) { return x.id === id; })[0] || {}; $("r-kind").value = r.kind || "risk"; $("r-title").value = r.title || ""; $("r-prob").value = r.probability || ""; $("r-imp").value = r.impact || ""; $("r-owner").value = r.owner || ""; $("r-status").value = r.status === "closed" ? "closed" : "open"; $("r-mit").value = r.mitigation || ""; }
+  function fillRisk() { var id = Number($("r-id").value) || null, r = (V.risks || []).filter(function (x) { return x.id === id; })[0] || {}; $("r-head").textContent = id ? "Edit entry — " + (r.title || "") : "New RAID entry"; $("r-kind").value = r.kind || "risk"; $("r-title").value = r.title || ""; ensureOpt($("r-prob"), r.probability == null ? "" : r.probability); ensureOpt($("r-imp"), r.impact == null ? "" : r.impact); $("r-owner").value = r.owner || ""; $("r-status").value = r.status === "closed" ? "closed" : "open"; $("r-mit").value = r.mitigation || ""; if (UX) UX.formMsg($("r-msg"), ""); }
+  function editRisk(id, opener) { $("r-id").value = id ? String(id) : ""; fillRisk(); if (UX) UX.openDrawer("raid-edit", opener); }
   $("r-filter").addEventListener("change", function () { if (V) renderRaid(); });
-  $("r-id").addEventListener("change", fillRisk);
+  $("r-add").addEventListener("click", function () { editRisk(null, this); });
+  $("raid").addEventListener("click", function (ev) { var b = ev.target.closest && ev.target.closest("[data-r-edit],[data-r-new]"); if (b) editRisk(Number(b.getAttribute("data-r-edit")) || null, b); });
   $("r-save").addEventListener("click", function () {
     var id = Number($("r-id").value) || null;
+    if (!$("r-title").value.trim()) { if (UX) { UX.invalid($("r-title"), "An entry needs a title."); UX.formMsg($("r-msg"), "An entry needs a title.", true); } return; }
+    if (UX) UX.invalid($("r-title"), "");
     var b = { project_id: V.project.id, kind: $("r-kind").value, title: $("r-title").value.trim(), probability: numOrNull("r-prob"), impact: numOrNull("r-imp"), owner: $("r-owner").value.trim() || null, status: $("r-status").value, mitigation: $("r-mit").value.trim() || null };
     if (id) { b.id = id; delete b.project_id; }
     api("/api/governance/portfolio/risk", { method: "PUT", body: JSON.stringify(b) }).then(function () { msg("Entry saved."); return load(); }).catch(fail);
@@ -778,13 +950,10 @@
       // F-PRODUCT-04 — with a verifier role set, a money benefit is verified by a holder of that role (not entrant, not owner)
       var roleRule = !!V.money_verifier_role && b.value_kind === "money";
       var canVerify = b.state === "awaiting_verification" && b.realised_by !== V.me && b.owner_user_id !== V.me && (roleRule ? !!V.holds_money_verifier_role : V.can_edit_plan);
-      return "<tr><td>" + esc(b.description) + " <small class=\"muted\">#" + n(b.id) + "</small></td><td>" + n(b.measure) + "</td><td>" + n(b.unit) + (b.value_kind === "money" ? " <small class=\"muted\">" + n(b.currency) + "</small>" : "") + "</td><td>" + val(b, "baseline_value") + "</td><td>" + val(b, "target_value") + "</td>" + clsCell(b) + realCols(b) + "<td>" + n(b.owner) + "</td><td>" + n(b.review_date) + "</td><td><span class=\"pill " + esc(st[0]) + "\">" + esc(st[1]) + "</span></td><td>" + safeLink(b.evidence_link) + "</td><td>" + n(b.realised_by_name) + "</td><td>" + n(b.verified_by_name) + "</td><td>" +
-        (canVerify ? "<button class=\"btn\" type=\"button\" data-verify=\"" + esc(b.id) + "\">Verify</button>" : b.state === "awaiting_verification" && roleRule ? "<small class=\"muted\">verified by a holder of the role “" + esc(V.money_verifier_role) + "” who did not enter the value and is not its owner</small>" : b.state === "awaiting_verification" && V.can_edit_plan ? "<small class=\"muted\">you entered it — someone else verifies</small>" : "") + "</td></tr>"; }).join("") + "</tbody></table>" + benefitTotalsHtml() : "<p class=\"muted\">No expected benefit recorded for this project.</p>";
-    $("ben-edit").hidden = !V.can_edit_plan; $("ben-real").hidden = !V.can_edit_plan || !bs.length;
-    if (V.can_edit_plan) {
-      var cur = $("b-id").value; $("b-id").innerHTML = opt(bs.map(function (b) { return [b.id, b.description]; }), cur, "— new benefit —"); fillBenefit();
-      var cr = $("br-id").value; $("br-id").innerHTML = opt(bs.map(function (b) { return [b.id, b.description]; }), cr, "");
-    }
+      return "<tr><td>" + esc(b.description) + "</td><td>" + n(b.measure) + "</td><td>" + n(b.unit) + (b.value_kind === "money" ? " <small class=\"muted\">" + n(b.currency) + "</small>" : "") + "</td><td>" + val(b, "baseline_value") + "</td><td>" + val(b, "target_value") + "</td>" + clsCell(b) + realCols(b) + "<td>" + n(b.owner) + "</td><td class=\"ppm-date\">" + dte(b.review_date) + "</td><td><span class=\"pill " + esc(st[0]) + "\">" + esc(st[1]) + "</span></td><td>" + safeLink(b.evidence_link) + "</td><td>" + n(b.realised_by_name) + "</td><td>" + n(b.verified_by_name) + "</td><td>" +
+        (canVerify ? "<button class=\"btn\" type=\"button\" data-verify=\"" + esc(b.id) + "\">Verify</button>" : b.state === "awaiting_verification" && roleRule ? "<small class=\"muted\">verified by a holder of the role “" + esc(V.money_verifier_role) + "” who did not enter the value and is not its owner</small>" : b.state === "awaiting_verification" && V.can_edit_plan ? "<small class=\"muted\">you entered it — someone else verifies</small>" : "") +
+        (V.can_edit_plan ? " <button class=\"btn\" type=\"button\" data-ben-edit=\"" + esc(b.id) + "\">Edit</button> <button class=\"btn\" type=\"button\" data-ben-real=\"" + esc(b.id) + "\">Record value</button>" : "") + "</td></tr>"; }).join("") + "</tbody></table>" + benefitTotalsHtml() : (UX ? UX.emptyHtml("No expected benefit recorded for this project.", V.can_edit_plan ? "<button class=\"btn primary\" type=\"button\" data-ben-new>+ Add first benefit</button>" : "", esc) : "<p class=\"muted\">No expected benefit recorded for this project.</p>");
+    $("b-add").hidden = !V.can_edit_plan;
   }
   function benefitTotalsHtml() {
     var ts = V.benefit_totals || [];
@@ -798,7 +967,10 @@
     $("b-base").value = b.baseline_value == null ? "" : b.baseline_value; $("b-target").value = b.target_value == null ? "" : b.target_value; $("b-owner").value = b.owner || ""; $("b-owner-user").value = b.owner_user_id == null ? "" : String(b.owner_user_id); $("b-review").value = b.review_date || ""; $("b-del").hidden = !id;
     $("b-vclass").value = b.value_class || ""; $("b-basis").value = b.basis || ""; $("b-bfrom").value = b.baseline_period_from || ""; $("b-bto").value = b.baseline_period_to || ""; $("b-mfrom").value = b.measured_from || ""; $("b-mto").value = b.measured_to || ""; $("b-source").value = b.source_kind || ""; $("b-metric").value = b.metric_key || ""; $("b-method").value = b.method_note || "";
   }
-  $("b-id").addEventListener("change", fillBenefit);
+  // PMO UX — the benefit forms open in drawers from the row (Edit · Record value) or "+ Add benefit"
+  function editBenefit(id, opener) { $("b-id").value = id ? String(id) : ""; fillBenefit(); var b = (V.benefits || []).filter(function (x) { return x.id === Number(id); })[0]; $("b-head").textContent = b ? "Edit benefit — " + b.description : "New expected benefit"; if (UX) { UX.formMsg($("b-msg"), ""); UX.openDrawer("ben-edit", opener); } }
+  function realBenefit(id, opener) { var b = (V.benefits || []).filter(function (x) { return x.id === Number(id); })[0]; if (!b) return; $("br-id").value = String(id); $("br-name").textContent = b.description; if (UX) { UX.formMsg($("br-msg"), ""); UX.openDrawer("ben-real", opener); } }
+  $("b-add").addEventListener("click", function () { editBenefit(null, this); });
   $("b-save").addEventListener("click", function () {
     var id = Number($("b-id").value) || null, kind = $("b-kind").value;
     var b = { project_id: V.project.id, description: $("b-desc").value.trim(), measure: $("b-measure").value.trim() || null, unit: $("b-unit").value.trim() || null, value_kind: kind, currency: kind === "money" ? ($("b-cur").value.trim().toUpperCase() || null) : null,
@@ -806,9 +978,9 @@
     if (!$("b-owner-user-box").hidden) b.owner_user_id = $("b-owner-user").value ? Number($("b-owner-user").value) : null;   // E-P05
     if (!$("b-class-box").hidden) { b.value_class = $("b-vclass").value || null; b.basis = $("b-basis").value || null; b.baseline_period_from = $("b-bfrom").value || null; b.baseline_period_to = $("b-bto").value || null; b.measured_from = $("b-mfrom").value || null; b.measured_to = $("b-mto").value || null; b.source_kind = $("b-source").value || null; b.metric_key = $("b-metric").value.trim() || null; b.method_note = $("b-method").value.trim() || null; }   // F-PRODUCT-03
     if (id) { b.id = id; delete b.project_id; }
-    api("/api/governance/portfolio/benefit", { method: "PUT", body: JSON.stringify(b) }).then(function (j) { msg("Benefit #" + j.id + " saved."); $("b-id").value = String(j.id); return load(); }).catch(fail);
+    api("/api/governance/portfolio/benefit", { method: "PUT", body: JSON.stringify(b) }).then(function (j) { msg("Benefit saved."); $("b-id").value = String(j.id); return load(); }).catch(fail);
   });
-  $("b-del").addEventListener("click", function () { var id = Number($("b-id").value); if (!id || !window.confirm("Delete benefit #" + id + "?")) return; api("/api/governance/portfolio/benefit/" + id, { method: "DELETE" }).then(function () { msg("Benefit deleted."); $("b-id").value = ""; return load(); }).catch(fail); });
+  $("b-del").addEventListener("click", function () { var id = Number($("b-id").value); if (!id || !window.confirm("Delete this benefit?")) return; api("/api/governance/portfolio/benefit/" + id, { method: "DELETE" }).then(function () { msg("Benefit deleted."); $("b-id").value = ""; return load(); }).catch(fail); });
   $("br-save").addEventListener("click", function () {
     var id = Number($("br-id").value); if (!id) { msg("Choose a benefit first.", "errors"); return; }
     var body = { realised_value: numOrNull("br-value"), evidence_link: $("br-link").value.trim(), note: $("br-note").value.trim() || null };
@@ -817,30 +989,43 @@
     api("/api/governance/portfolio/benefit/" + id + "/realised", { method: "POST", body: JSON.stringify(body) }).then(function () { msg("Realised value recorded — someone else now verifies it."); $("br-value").value = ""; $("br-link").value = ""; $("br-note").value = ""; return load(); }).catch(fail);
   });
   $("benefits").addEventListener("click", function (ev) {
+    var e = ev.target.closest && ev.target.closest("[data-ben-edit],[data-ben-new]"); if (e) { editBenefit(Number(e.getAttribute("data-ben-edit")) || null, e); return; }
+    var r = ev.target.closest && ev.target.closest("[data-ben-real]"); if (r) { realBenefit(r.getAttribute("data-ben-real"), r); return; }
     var b = ev.target.closest && ev.target.closest("button[data-verify]"); if (!b) return;
-    var id = b.getAttribute("data-verify"); if (!window.confirm("Verify the realised value of benefit #" + id + "?")) return;
+    var id = b.getAttribute("data-verify"); if (!window.confirm("Verify this realised value? (you did not enter it)")) return;
     api("/api/governance/portfolio/benefit/" + encodeURIComponent(id) + "/verify", { method: "POST", body: "{}" }).then(function () { msg("Benefit verified."); return load(); }).catch(fail);
   });
 
   // ---- gates ----------------------------------------------------------------------------------------------
   function renderGates() {
     if (FEAT.review_workflow && window.PpmReview && V) window.PpmReview.mount(Object.assign(X(), { V: function () { return V; }, reload: load }));   // PORTFOLIO LOT 5
-    var gs = V.allowed_stages || [], label = function (s) { return String(s).replace(/_/g, " "); };
-    var needReason = gs.some(function (g) { return g.needs_reason && !g.refusal && V.can_gate; });
-    $("gate-reason-box").hidden = !needReason;
+    // PMO UX — the next forward stage is the primary button; "on hold" is secondary; cancelling is red and asks for its
+    // reason in a dialog; a refusal is written in words (its code is not shown).
+    var gs = V.allowed_stages || [], st = V.stages || [], cur = st.indexOf(V.project.stage || "proposal");
+    var SIDE = ["on_hold", "cancelled", "rejected", "deferred"], DANGER = ["cancelled", "rejected"];
+    var fwd = gs.filter(function (g) { return SIDE.indexOf(g.to) < 0 && st.indexOf(g.to) > cur; })[0];
+    var order = gs.slice().sort(function (x, y) { var r = function (g) { return g === fwd ? 0 : SIDE.indexOf(g.to) < 0 ? 1 : DANGER.indexOf(g.to) < 0 ? 2 : 3; }; return r(x) - r(y); });
     $("gates").innerHTML = (V.can_gate ? "" : "<p class=\"muted\">Only the committee moves a project between stages; the checks below show what each move still needs.</p>") +
-      (gs.length ? gs.map(function (g) {
-        var blocked = !!g.refusal || !V.can_gate;
-        return "<div class=\"gate\"><button class=\"btn" + (blocked ? "" : " primary") + "\" type=\"button\" data-stage=\"" + esc(g.to) + "\"" + (blocked ? " disabled" : "") + ">Move to " + esc(label(g.to)) + "</button><div>" +
-          (g.refusal ? "<div class=\"refusal\">" + esc((PLAIN[g.refusal.code] || g.refusal.error)) + " <small class=\"muted\">(" + esc(g.refusal.code) + ")</small></div>" : "<div class=\"muted\">All checks pass.</div>") +
+      (order.length ? order.map(function (g) {
+        var blocked = !!g.refusal || !V.can_gate, cls = g === fwd ? " primary" : DANGER.indexOf(g.to) >= 0 ? " danger" : " secondary";
+        var why = g.refusal ? (PLAIN[g.refusal.code] || (LBL && LBL.MAP.gate[g.refusal.code] ? lab("gate", g.refusal.code) : null) || g.refusal.error) : null;
+        if (g.refusal && g.refusal.code === "GATE_OPEN_TASKS" && g.refusal.error) why = g.refusal.error.charAt(0).toUpperCase() + g.refusal.error.slice(1) + ".";
+        if (g.refusal && g.refusal.code === "GATE_OPEN_RISKS" && g.refusal.error) why = g.refusal.error.charAt(0).toUpperCase() + g.refusal.error.slice(1) + ".";
+        return "<div class=\"gate\"><button class=\"btn" + cls + "\" type=\"button\" data-stage=\"" + esc(g.to) + "\"" + (blocked ? " disabled" : "") + ">" + esc("Move to " + lab("stage", g.to)) + "</button><div>" +
+          (why ? "<div class=\"refusal\">" + esc(why) + "</div>" : "<div class=\"muted\">All checks pass.</div>") +
           (g.needs_reason ? "<div class=\"muted\">Needs a written reason (10 characters or more).</div>" : "") + "</div></div>"; }).join("") : "<p class=\"muted\">The project is closed: no further stage.</p>");
   }
   $("gates").addEventListener("click", function (ev) {
     var b = ev.target.closest && ev.target.closest("button[data-stage]"); if (!b || b.disabled) return;
-    var to = b.getAttribute("data-stage"), g = (V.allowed_stages || []).filter(function (x) { return x.to === to; })[0] || {}, note = $("gate-reason").value.trim();
-    if (g.needs_reason && note.length < 10) { msg("Write a reason of 10 characters or more first.", "errors"); $("gate-reason").focus(); return; }
-    if (!window.confirm("Move " + V.project.key + " to " + to.replace(/_/g, " ") + "?")) return;
-    api("/api/governance/portfolio/project/" + V.project.id + "/stage", { method: "POST", body: JSON.stringify({ to: to, note: note || undefined }) }).then(function () { msg("Stage moved to " + to.replace(/_/g, " ") + "."); $("gate-reason").value = ""; return load(); }).catch(fail);
+    var to = b.getAttribute("data-stage"), g = (V.allowed_stages || []).filter(function (x) { return x.to === to; })[0] || {};
+    var go = function (note) { return api("/api/governance/portfolio/project/" + V.project.id + "/stage", { method: "POST", body: JSON.stringify({ to: to, note: note || undefined }) }).then(function () { msg("Stage moved to " + lab("stage", to) + "."); return load(); }).catch(fail); };
+    var title = "Move " + V.project.key + " to " + lab("stage", to);
+    if (g.needs_reason || to === "cancelled" || to === "rejected") {
+      askReason(title, (to === "cancelled" ? "Why is the project cancelled? " : "Reason ") + "(10 characters or more, kept in the history)", 10).then(function (note) { if (note == null) return; if (String(note).trim().length < 10) { msg("Write a reason of 10 characters or more first.", "errors"); return; } go(String(note).trim()); });
+      return;
+    }
+    if (window.ReasonDialog && window.ReasonDialog.form) window.ReasonDialog.form({ title: title, fields: [{ name: "note", label: "Note (optional)", type: "text" }] }).then(function (r) { if (r) go(r.note && String(r.note).trim()); });
+    else if (window.confirm(title + "?")) go();
   });
 
   // ---- history (403 = restricted, not "no history") -------------------------------------------------------
@@ -853,8 +1038,10 @@
       else $("history").innerHTML = "<p class=\"refusal\">" + esc(e.message) + "</p>";
     });
   }
+  // PMO UX — a stage or status value reads as a word ("In delivery"), never as its code
+  var hv = function (f, v) { return v == null || v === "" ? "—" : f === "stage" ? esc(lab("stage", v)) : f === "status" ? esc(lab("status", v)) : n(v); };
   function renderHistory(ev) {
-    $("history").innerHTML = ev.length ? "<table><thead><tr><th>When</th><th>Who</th><th>Action</th><th>Field</th><th>Before</th><th>After</th><th>Note</th></tr></thead><tbody>" + ev.map(function (e) { return "<tr><td>" + n(String(e.at || "").slice(0, 16).replace("T", " ")) + "</td><td>" + n(e.actor) + "</td><td>" + esc(e.action) + "</td><td>" + n(e.field) + "</td><td>" + n(e.old_value) + "</td><td>" + n(e.new_value) + (e.currency ? " " + esc(e.currency) : "") + "</td><td>" + esc(e.note || "") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No recorded event yet for this project.</p>";
+    $("history").innerHTML = ev.length ? "<table><thead><tr><th>When</th><th>Who</th><th>Action</th><th>Field</th><th>Before</th><th>After</th><th>Note</th></tr></thead><tbody>" + ev.map(function (e) { return "<tr><td>" + "<span class=\"ppm-date\">" + esc(UX ? UX.dateTime(e.at) : String(e.at || "").slice(0, 16).replace("T", " ")) + "</span>" + "</td><td>" + n(e.actor) + "</td><td data-code=\"" + esc(e.action || "") + "\">" + esc(lab("action", e.action)) + "</td><td>" + (e.field ? esc(lab("field", e.field)) : "—") + "</td><td>" + hv(e.field, e.old_value) + "</td><td>" + hv(e.field, e.new_value) + (e.currency ? " " + esc(e.currency) : "") + "</td><td>" + esc(e.note || "") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No recorded event yet for this project.</p>";
   }
 
   load();

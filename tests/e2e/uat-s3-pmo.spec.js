@@ -39,9 +39,10 @@ runJourney('UAT S3 Group IT manager / PMO (simulation, not acceptance)', async (
       } finally { await p.__close(); }
     });
     await c.flow('S3-02', 'Ouvrir un projet, onglet Plan', async () => {
-      const p = await c.page(me, '/project.html?id=' + world.projA, { wait: '#tab-plan' });
+      const p = await c.page(me, '/project.html?id=' + world.projA, { wait: '#groups [data-group="plan"]' });
       try {
-        await p.click('#tab-plan'); await p.waitForTimeout(800);
+        // PMO UX (2026-11): the tabs are grouped in six areas — open the Plan area, then its Plan section
+        await p.click('#groups [data-group="plan"]'); await p.click('#tab-plan'); await p.waitForTimeout(800);
         assert.match(await p.evaluate(() => document.body.innerText), /UAT cabling/);
         assert.deepStrictEqual(p.__errs, []);
         const changes = await p.evaluate(() => !document.getElementById('tab-changes').hidden);

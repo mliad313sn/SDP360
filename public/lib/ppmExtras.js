@@ -82,7 +82,7 @@
       var st = t.structure || {}, act = '';
       if (r.committee && t.status === 'draft' && t.created_by !== r.me) act = '<button class="btn" type="button" data-tpl-approve="' + esc(String(t.id)) + '">Approve</button>';
       if (r.committee && t.status === 'approved') act = '<button class="btn" type="button" data-tpl-use="' + esc(String(t.id)) + '">Create a project</button>';
-      return '<tr><td>' + esc(t.name) + ' <small class="muted">#' + esc(String(t.id)) + '</small></td><td>' + esc(String((st.tasks || []).length)) + '</td><td>' + esc(String((st.milestones || []).length)) + '</td><td>' + (t.status === 'approved' ? '✓ approved' : '<i>draft — not approved</i>') + '</td><td>' + esc(t.created_by_name || '—') + '</td><td>' + esc(t.approved_by_name || '—') + '</td><td>' + act + '</td></tr>';
+      return '<tr><td>' + '<span title="#' + esc(String(t.id)) + '">' + esc(t.name) + '</span></td><td>' + esc(String((st.tasks || []).length)) + '</td><td>' + esc(String((st.milestones || []).length)) + '</td><td>' + (t.status === 'approved' ? '✓ approved' : '<i>draft — not approved</i>') + '</td><td>' + esc(t.created_by_name || '—') + '</td><td>' + esc(t.approved_by_name || '—') + '</td><td>' + act + '</td></tr>';
     }).join('') + '</tbody></table><p class="muted">A template carries the structure only (task names, WBS, durations, milestone names) — never people, dates or money. Its author cannot approve it.</p>';
   }
 

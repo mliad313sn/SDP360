@@ -35,7 +35,7 @@
     leafTasks(tasks).sort(cmp).forEach(function (t) {
       var lane = topAncestor(t, byId);
       var card = { id: t.id, name: t.name, wbs_code: t.wbs_code || null, owner: t.owner || null, status: t.status || null,
-        progress_pct: t.progress_pct == null || t.progress_pct === '' ? null : Number(t.progress_pct), version: t.version == null ? null : Number(t.version),
+        progress_pct: t.progress_pct == null || t.progress_pct === '' ? null : Number(t.progress_pct), version: t.version == null ? null : Number(t.version), end_date: t.end_date || null,
         lane: lane ? [lane.wbs_code, lane.name].filter(Boolean).join(' ') : null };
       if (cols[t.status]) cols[t.status].push(card); else other.push(card);
     });
@@ -64,22 +64,30 @@
     if (card.version != null) b.version = card.version;
     return b;
   }
-  function cardHtml(c, esc, movable) {
-    var opts = COLUMNS.map(function (k) { return '<option value="' + k + '"' + (k === c.status ? ' selected' : '') + '>' + esc(LABELS[k]) + '</option>'; }).join('');
+  // PMO UX (2026-11) — a card carries the owner's initials, the due date (red when past) and a small "⋯" menu
+  // (Move to… · Open) instead of a full-width select; drag stays.
+  function initials(name) { var p = String(name || '').trim().split(/[\s.@_-]+/).filter(Boolean); return p.length ? (p[0][0] + (p.length > 1 ? p[p.length - 1][0] : '')).toUpperCase() : ''; }
+  function cardHtml(c, esc, movable, today) {
+    var late = c.end_date && today && c.status !== 'done' && c.status !== 'cancelled' && String(c.end_date).slice(0, 10) < today;
+    var menu = '<details class="ppm-more pb-menu"><summary class="btn" aria-label="Actions for ' + esc(c.name || '') + '">⋯</summary><div class="ppm-more-menu">' +
+      (movable ? COLUMNS.filter(function (k) { return k !== c.status; }).map(function (k) { return '<button type="button" data-move-to="' + k + '" data-move="' + esc(String(c.id)) + '">' + esc('Move to ' + LABELS[k]) + '</button>'; }).join('') : '') +
+      '<button type="button" data-open-task="' + esc(String(c.id)) + '">Open</button></div></details>';
     return '<li class="pb-card" data-task="' + esc(String(c.id)) + '"' + (movable ? ' draggable="true"' : '') + '>' +
       '<div class="pb-name">' + esc([c.wbs_code, c.name].filter(Boolean).join(' ')) + '</div>' +
       (c.lane ? '<div class="pb-lane">' + esc(c.lane) + '</div>' : '') +
-      '<div class="pb-meta">' + esc(c.owner || '—') + ' · ' + esc(c.progress_pct == null ? '—' : c.progress_pct + ' %') + '</div>' +
-      (movable ? '<label class="pb-move">Move to <select data-move="' + esc(String(c.id)) + '" aria-label="Move this task to another column">' + opts + '</select></label>' : '') + '</li>';
+      '<div class="ppm-card-foot">' + (c.owner ? '<span class="ppm-avatar" title="' + esc(c.owner) + '" aria-label="' + esc('Owner: ' + c.owner) + '">' + esc(initials(c.owner)) + '</span>' : '<span class="muted">—</span>') +
+      '<span class="' + (late ? 'ppm-due-late' : 'muted') + '">' + (c.end_date ? esc((late ? 'late · ' : 'due ') + ((typeof window !== 'undefined' && window.PpmUx && window.PpmUx.date) ? window.PpmUx.date(c.end_date) : String(c.end_date).slice(0, 10))) : '') + '</span>' +
+      '<span class="ppm-num">' + esc(c.progress_pct == null ? '—' : c.progress_pct + ' %') + '</span>' + menu + '</div></li>';
   }
   function html(b, esc, ctx) {
+    var today = ctx && ctx.today;
     var col = function (key, label, cards) {
-      return '<section class="pb-col" data-col="' + key + '" aria-label="' + esc(label) + '"><h3>' + esc(label) + ' <span class="muted">' + cards.length + '</span></h3><ul class="pb-list">' +
-        cards.map(function (c) { return cardHtml(c, esc, canMove(c, ctx)); }).join('') + '</ul></section>';
+      return '<section class="pb-col" data-col="' + key + '" aria-label="' + esc(label) + '"><h3>' + esc(label) + ' <span class="ppm-badge">' + cards.length + '</span></h3><ul class="pb-list">' +
+        cards.map(function (c) { return cardHtml(c, esc, canMove(c, ctx), today); }).join('') + '</ul></section>';
     };
     var out = b.columns.map(function (c) { return col(c.key, c.label, c.cards); }).join('');
     if (b.other.length) out += col('other', LABELS.other, b.other);
     return '<div class="pb-board">' + out + '</div>';
   }
-  return { COLUMNS: COLUMNS, LABELS: LABELS, leafTasks: leafTasks, board: board, owns: owns, canMove: canMove, movePayload: movePayload, html: html };
+  return { COLUMNS: COLUMNS, LABELS: LABELS, leafTasks: leafTasks, board: board, owns: owns, canMove: canMove, movePayload: movePayload, html: html, initials: initials };
 });
