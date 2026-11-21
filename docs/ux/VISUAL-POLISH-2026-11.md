@@ -12,8 +12,8 @@ E2E_ARTIFACT_DIR=/tmp/claude-0/polish2-e2e node --test --test-force-exit --test-
 | Journey | Cause | Fix | State |
 |---|---|---|---|
 | T7 French help | the shell help entry is now the contextual "?" (`help.html#chapter`), no bare `a[href="help.html"]` | spec follows the new entry (`a.shell-help`, anchor asserted) | green |
-| V1 viewport | legacy bodies wrapped in `<main class="edv-main">` (display:contents, no box) — the helper skipped it and found nothing | `tests/e2e/fixtures/layout.js` steps INTO a display:contents element; the 6 known 320 px overflows fixed, allow-list emptied (ceiling 0) | see below |
-| UAT S1, S2, S7, S8 | to diagnose | | pending |
+| V1 viewport | legacy bodies wrapped in `<main class="edv-main">` (display:contents, no box) — the helper skipped it and found nothing | `tests/e2e/fixtures/layout.js` steps INTO a display:contents element; the 6 known 320 px overflows fixed, allow-list emptied (ceiling 0) | green |
+| UAT S1, S2, S7, S8 | same layout helper (the UAT fixture measures each visited page with it) | none beyond the helper | green (run one by one, 2026-11-21) |
 
 ## Priority 2 — committee findings
 
