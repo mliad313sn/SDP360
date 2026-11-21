@@ -296,15 +296,15 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 
 | Switch | Who decides (register) | Human prerequisite (register text) | Depends on | Roles named | Tables touched | Job | Consumer files | Tests naming it |
 |---|---|---|---|---|---|---|---|---|
-| `auth_account_throttle_enabled` | Security owner | — | — | — | — | — | 3 | 3 |
+| `auth_account_throttle_enabled` | Security owner | — | — | — | — | — | 3 | 4 |
 | `login_limit_failures_only` | Security owner | once the Security owner accepts it  | — | — | — | — | 2 | 1 |
 | `access_grant_expiry_job` | Security owner | — | — | — | — | yes | 3 | 1 |
 | `access_require_approval` | Security owner + Owner (approver matrix) | once the approver rule and the requires_request list are decided  | — | — | access_grants, access_recert_campaigns, access_recert_lines, access_request_events, access_requests, access_template_versions +5 | — | 4 | 7 |
 | `emergency_access_enabled` | Security owner + Owner | once the super_admins who may grant and review are named  | — | super_admin, admin | access_emergencies, access_request_events, access_requests, deputies | yes | 6 | 3 |
-| `breakglass_timebox_enabled` | Security owner | once the security owner names the break-glass holder and SSO is `available` / `only` — a break-glass password sign-in then needs a reason  | — | admin | sessions | — | 3 | 4 |
+| `breakglass_timebox_enabled` | Security owner | once the security owner names the break-glass holder and SSO is `available` / `only` — a break-glass password sign-in then needs a reason  | — | admin | sessions | — | 3 | 5 |
 | `access_recert_enabled` | Security owner + site managers | once the Security owner schedules the first campaign  | — | — | — | — | 4 | 2 |
 | `portfolio_executive_readonly` | Owner + IAM | only after the PO / IAM decide that the direction reads the portfolio without changing it  | — | super_admin, executive, admin, committee-member | — | — | 4 | 1 |
-| `export_policy_strict` | Data owner + Security | once the data owner + security adopt the strict sensitivity matrix of `services/exportPolicy | — | admin, viewer, finance-viewer, committee-member | — | — | 4 | 6 |
+| `export_policy_strict` | Data owner + Security | once the data owner + security adopt the strict sensitivity matrix of `services/exportPolicy | — | admin, viewer, finance-viewer, committee-member | — | — | 4 | 7 |
 | `export_watermark_enabled` | Security | — | `export_policy_strict` | — | — | — | 4 | 2 |
 
 ## Dossier L13 — Operations resilience — sync drift, delivery failures, restore, identity
@@ -324,7 +324,7 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 | `restore_drill_full` | Operations owner | once a backup copy of `data/blobs` exists  | — | — | report_config, system_log | — | 1 | 1 |
 | `entra_deprovision_enabled` | Information Security + tenant administrator | only after the tenant administrator decides on the Graph `User | — | — | users | yes | 3 | 2 |
 | `site_code_shared_block` | Data owner + Owner | Decide who owns each shared site code (e.g. TND) and correct the data first; then test the controlled 409 and the editors' rights. | — | editor | — | — | 5 | 4 |
-| `policy_center_enabled` | to be named | — | — | — | — | — | 9 | 7 |
+| `policy_center_enabled` | to be named | — | — | — | — | — | 9 | 8 |
 
 ## Dossier L14 — PMO journey — portfolio intake register, data quality, register and executive dashboard, decision agenda and management alerts, lifecycle / review / audit (portfolio spec Lots 1–5)
 
