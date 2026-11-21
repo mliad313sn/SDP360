@@ -57,8 +57,8 @@ Figures below are generated from the code by `node tools/agent/inventory.js` (`-
 | — of which still declared in `server.js` | 160 |
 | Scheduled jobs | 33 |
 | PostgreSQL migration files (`db/postgres/**/*.sql`) | 118 |
-| Test files (`tests/*.test.js`) | 939 |
-| Tests expected by `tests/.suite-manifest.json` | 6040 |
+| Test files (`tests/*.test.js`) | 941 |
+| Tests expected by `tests/.suite-manifest.json` | 6050 |
 <!-- inventory:end -->
 
 ## Repository layout
