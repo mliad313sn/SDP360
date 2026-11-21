@@ -1,0 +1,240 @@
+{
+ "note": "PROPOSITIONS IA — non approuvées. Profil de configuration pour le test final du propriétaire, sur une base de TEST seulement. Généré par node tools/release/final-test-profile.js --write ; ne pas éditer à la main.",
+ "source": "tools/release/ai-proposals.source.js",
+ "values": {
+  "agenda_cron_enabled": "1",
+  "alert_group_by_rule": "1",
+  "asset_group_send_enabled": "0",
+  "authz_capability_mode": "shadow",
+  "commitments_enabled": "1",
+  "controls_register_enabled": "1",
+  "dashkey_scope_mode": "shadow",
+  "decision_lifecycle_enforced": "1",
+  "decision_motive_required": "1",
+  "export_policy_strict": "1",
+  "export_watermark_enabled": "1",
+  "handoffs_enabled": "1",
+  "hygiene_send_enabled": "0",
+  "insp_action_verify_enabled": "1",
+  "insp_repeat_findings": "1",
+  "insp_repeat_window": "3",
+  "login_limit_failures_only": "1",
+  "meridian_enabled": "0",
+  "obligations_include_decisions": "1",
+  "policy_center_enabled": "1",
+  "portfolio_executive_readonly": "1",
+  "portfolio_site_scope_reads": "1",
+  "ppm_data_quality_enabled": "1",
+  "ppm_intake_register_enabled": "1",
+  "ppm_portfolio_dashboard_v2_enabled": "1",
+  "ppm_templates_enabled": "1",
+  "problem_candidate_min": "3",
+  "report_reassign_submitted": "0",
+  "report_revert_policy": "second_person",
+  "schedule_inspection_interval_days": "90",
+  "schedule_reminder_lead_days": "2",
+  "scoreboard_send_enabled": "0",
+  "shift_handover_enabled": "1",
+  "site_codes_from_registry": "shadow",
+  "soft_delete_enabled": "1",
+  "soft_delete_purge_enabled": "0",
+  "soft_delete_retention_days": "30",
+  "ui_data_quality_page": "1",
+  "ui_deck_builder_roles": "super_admin,report-author",
+  "ui_exec_nav": "consolidated",
+  "ui_feedback_enabled": "1",
+  "ui_helpdesk_site_default": "1",
+  "ui_home_freshness_strip": "1",
+  "ui_home_group_variant": "1",
+  "ui_i18n_pages": "1",
+  "ui_inject_dash_key": "0",
+  "ui_kpi_base_line": "1",
+  "ui_kpi_sample_size": "1",
+  "ui_lang_default": "fr",
+  "ui_nav_profile": "lean",
+  "ui_role_landing_profiles": "1",
+  "wan_stale_close_at": "last_seen",
+  "wan_timeup_loss_pct": "5",
+  "weekly_report_send_enabled": "0"
+ },
+ "sources": {
+  "agenda_cron_enabled": [
+   "HD-C02"
+  ],
+  "alert_group_by_rule": [
+   "HD-U16"
+  ],
+  "asset_group_send_enabled": [
+   "HD-O09"
+  ],
+  "authz_capability_mode": [
+   "HD-S06"
+  ],
+  "commitments_enabled": [
+   "HD-G07"
+  ],
+  "controls_register_enabled": [
+   "HD-U18"
+  ],
+  "dashkey_scope_mode": [
+   "HD-S05"
+  ],
+  "decision_lifecycle_enforced": [
+   "HD-C01"
+  ],
+  "decision_motive_required": [
+   "HD-C01"
+  ],
+  "export_policy_strict": [
+   "HD-S11"
+  ],
+  "export_watermark_enabled": [
+   "HD-S11"
+  ],
+  "handoffs_enabled": [
+   "HD-G08"
+  ],
+  "hygiene_send_enabled": [
+   "HD-O09"
+  ],
+  "insp_action_verify_enabled": [
+   "HD-U17"
+  ],
+  "insp_repeat_findings": [
+   "HD-U17"
+  ],
+  "insp_repeat_window": [
+   "HD-U17"
+  ],
+  "login_limit_failures_only": [
+   "HD-S08"
+  ],
+  "meridian_enabled": [
+   "HD-O10"
+  ],
+  "obligations_include_decisions": [
+   "HD-C01"
+  ],
+  "policy_center_enabled": [
+   "HD-S04"
+  ],
+  "portfolio_executive_readonly": [
+   "HD-S12"
+  ],
+  "portfolio_site_scope_reads": [
+   "HD-G01"
+  ],
+  "ppm_data_quality_enabled": [
+   "HD-P02"
+  ],
+  "ppm_intake_register_enabled": [
+   "HD-K12"
+  ],
+  "ppm_portfolio_dashboard_v2_enabled": [
+   "HD-P03"
+  ],
+  "ppm_templates_enabled": [
+   "HD-P04"
+  ],
+  "problem_candidate_min": [
+   "HD-K11"
+  ],
+  "report_reassign_submitted": [
+   "HD-C04"
+  ],
+  "report_revert_policy": [
+   "HD-C04"
+  ],
+  "schedule_inspection_interval_days": [
+   "HD-U15"
+  ],
+  "schedule_reminder_lead_days": [
+   "HD-U15"
+  ],
+  "scoreboard_send_enabled": [
+   "HD-O09"
+  ],
+  "shift_handover_enabled": [
+   "HD-U20"
+  ],
+  "site_codes_from_registry": [
+   "HD-K13"
+  ],
+  "soft_delete_enabled": [
+   "HD-C05"
+  ],
+  "soft_delete_purge_enabled": [
+   "HD-C05"
+  ],
+  "soft_delete_retention_days": [
+   "HD-C05"
+  ],
+  "ui_data_quality_page": [
+   "HD-O07"
+  ],
+  "ui_deck_builder_roles": [
+   "HD-U10"
+  ],
+  "ui_exec_nav": [
+   "HD-U10"
+  ],
+  "ui_feedback_enabled": [
+   "HD-O08"
+  ],
+  "ui_helpdesk_site_default": [
+   "HD-U11"
+  ],
+  "ui_home_freshness_strip": [
+   "HD-U11"
+  ],
+  "ui_home_group_variant": [
+   "HD-U11"
+  ],
+  "ui_i18n_pages": [
+   "HD-U01"
+  ],
+  "ui_inject_dash_key": [
+   "HD-S05"
+  ],
+  "ui_kpi_base_line": [
+   "HD-K06"
+  ],
+  "ui_kpi_sample_size": [
+   "HD-K06"
+  ],
+  "ui_lang_default": [
+   "HD-U01"
+  ],
+  "ui_nav_profile": [
+   "HD-U10"
+  ],
+  "ui_role_landing_profiles": [
+   "HD-U11"
+  ],
+  "wan_stale_close_at": [
+   "HD-O14"
+  ],
+  "wan_timeup_loss_pct": [
+   "HD-O14"
+  ],
+  "weekly_report_send_enabled": [
+   "HD-O09"
+  ]
+ },
+ "four_eyes_from_defaults": [
+  "agenda_cron_enabled",
+  "authz_capability_mode",
+  "dashkey_scope_mode",
+  "login_limit_failures_only",
+  "ui_deck_builder_roles"
+ ],
+ "unchanged_from_defaults": [
+  "asset_group_send_enabled",
+  "hygiene_send_enabled",
+  "scoreboard_send_enabled",
+  "soft_delete_purge_enabled",
+  "soft_delete_retention_days",
+  "weekly_report_send_enabled"
+ ],
+ "warnings": []
+}

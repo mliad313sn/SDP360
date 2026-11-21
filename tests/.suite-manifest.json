@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 6081,
+ "total": 6092,
  "files": {
   "a11y-legacy-ratchet.test.js": 3,
   "a11y-static.test.js": 21,
@@ -27,6 +27,7 @@
   "ageing-excludes-closed.test.js": 2,
   "agent-inventory.test.js": 4,
   "ai-analyze-guard.test.js": 3,
+  "ai-proposals.test.js": 11,
   "ai-commentary-stale.test.js": 4,
   "ai-commentary.test.js": 7,
   "ai-proxy-sanitize.smoke.test.js": 1,
