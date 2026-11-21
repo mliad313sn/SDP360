@@ -152,29 +152,6 @@ figcaption {
 }
 
 /* — buttons — */
-.btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  cursor: pointer; text-decoration: none;
-  font-family: var(--ir-font-heading); font-weight: var(--ir-font-heading-weight);
-  font-size: 14px; line-height: 1.2; color: var(--ir-color-text); /* matches the .input's 14px —
-     the pair sits side by side in sign-up rows */
-  background: transparent; border: 1px solid transparent;
-  padding: var(--ir-space-2) calc(var(--ir-space-3) * 1.2);
-  border-radius: var(--ir-radius-md);
-}
-.btn svg { display: block; }
-.btn:disabled { opacity: 0.45; cursor: not-allowed; }
-.btn-primary { background: var(--ir-color-accent); color: var(--ir-color-bg); }
-.btn-primary:hover { background: var(--ir-color-accent-600); }
-.btn-primary:active { background: var(--ir-color-accent-700); }
-.btn-secondary { border-color: var(--ir-color-divider); }
-.btn-secondary:hover { background: color-mix(in srgb, var(--ir-color-text) 7%, transparent); }
-.btn-secondary:active { background: color-mix(in srgb, var(--ir-color-text) 14%, transparent); }
-.btn-ghost { color: var(--ir-color-accent); padding-inline: var(--ir-space-1); }
-.btn-ghost:hover { background: color-mix(in srgb, var(--ir-color-accent) 10%, transparent); }
-.btn-ghost:active { background: color-mix(in srgb, var(--ir-color-accent) 18%, transparent); }
-.btn-icon { width: 36px; height: 36px; padding: 0; }
-.btn-block { width: 100%; margin-top: var(--ir-space-2); justify-content: flex-start; text-align: left; }
 
 /* — forms — */
 .field > label {

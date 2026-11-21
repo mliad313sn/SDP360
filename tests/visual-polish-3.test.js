@@ -213,7 +213,7 @@ test('executive pages share ONE KPI tile (brand/components.css .exec-kpi under b
   assert.match(css, /body\.exec-house \.kpi-tile::before \{ display: none; \}/, 'no coloured stripe: the status is the dot / pill');
   for (const f of ['executive.html', 'exec-view.html', 'site-awareness.html']) {
     const src = read(f);
-    assert.match(src, /<body class="exec-house" data-print-title="SDP360 — [^"]+">/, f);
+    assert.match(src, /<body class="exec-house[^"]*" data-print-title="SDP360 — [^"]+">/, f);
     assert.ok(src.includes('href="brand/components.css"'), f + ' loads the shared components');
   }
   assert.match(read('dashboards.html'), /if \(\/\^exec-\/\.test\(String\(key \|\| ''\)\)\) \{ document\.body\.classList\.add\('exec-house'\)/);
@@ -260,4 +260,21 @@ test('IT Review (F11, F22): site names in the filter from the model rows; the KP
   assert.deepStrictEqual(links.map((a) => a.textContent), ['All sites', 'Houndé', 'ZZZ']);
   assert.strictEqual(links[1].title, 'HGO');
   assert.match(read('it-review.html'), /@media \(max-width: 600px\) \{ \.ir-kpi-band \{ grid-template-columns: repeat\(2, 1fr\) !important; \} \}/);
+});
+
+// ── Item 1 — one button / table / badge layer ───────────────────────────────────────────────────────────────────
+test('no page-local .btn definition is left on the converted pages; they opt into the shared layer', () => {
+  const css = read('brand/components.css');
+  assert.match(css, /:where\(\.edv-ui\) \.btn \{/); assert.match(css, /:where\(\.edv-ui-dark\) \.btn,/);
+  assert.match(css, /:where\(\.edv-ui\) table\.list, :where\(\.edv-ui\) table\.user-table/);
+  const light = ['assets.html', 'inspection.html', 'inspections.html', 'login.html', 'reports.html', 'trackers.html', 'dashboards.html', 'dashboard-composer.html'];
+  for (const f of light.concat(['executive.html', 'executive-report.html', 'it-review.html'])) {
+    const src = read(f) + (f === 'executive-report.html' ? read('executive-report.css') : '');
+    const styles = (src.match(/<style[^>]*>[\s\S]*?<\/style>/g) || []).join('\n') + (f === 'executive-report.html' ? read('executive-report.css') : '');
+    // a bare ".btn {" / ".btn{" / ".btn:hover" rule (a rule about a PLACE, e.g. ".submit-bar .btn", is fine)
+    const local = styles.split('\n').filter((l) => /^\s*\.btn(?:-primary|-secondary|-ghost|-danger|-sm|-light|-orange|-gold|-green|\.primary|\.danger)?(?::hover|:disabled|:active)?\s*\{/.test(l));
+    assert.deepStrictEqual(local, [], f + ' still defines its own .btn');
+    if (f !== 'it-review.html') assert.match(src, /<body class="[^"]*\bedv-ui(?:-dark)?\b/, f + ' opts into the shared layer');
+    if (f !== 'it-review.html') assert.ok(src.includes('href="brand/components.css"'), f);
+  }
 });

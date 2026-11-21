@@ -28,8 +28,11 @@ test('brand/components.css and login.html filled buttons use --color-primary-fil
   assert.match(comp, /\.edv-empty-state__action\s*\{[^}]*background:\s*var\(--color-primary-fill/);
   assert.match(comp, /\.edv-empty-state__action:hover\s*\{[^}]*background:\s*var\(--color-primary-fill-hover/);
   const login = read('login.html');
-  assert.match(login, /\.btn\{[^}]*background:var\(--color-primary-fill/);
-  assert.match(login, /\.btn:hover\{background:var\(--color-primary-fill-hover/);
+  // VISUAL POLISH 3: login.html no longer defines its own .btn — its Sign-in button is the shared primary
+  // (body.edv-ui → brand/components.css), which uses the same AA fill.
+  assert.match(login, /class="btn btn-primary btn-block" id="btnLogin"/);
+  assert.match(comp, /:where\(\.edv-ui\) \.btn-primary[^{]*\{\s*background:var\(--color-primary-fill\)/);
+  assert.match(comp, /:where\(\.edv-ui\) \.btn-primary:hover[^{]*\{\s*background:var\(--color-primary-fill-hover\)/);
   assert.match(read('_shell.css'), /\.shell-user-role \{\s*background: var\(--color-primary-fill/);
 });
 

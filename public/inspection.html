@@ -123,21 +123,6 @@ body{
 .hdr-more__menu button{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 12px;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--color-text-strong);font:inherit;font-weight:600;text-align:left;cursor:pointer}
 .hdr-more__menu button:hover,.hdr-more__menu button:focus-visible{background:var(--gray-50)}
 .hdr-more__menu button.is-danger{color:var(--rag-red)}
-.btn{
-  border:1px solid transparent;background:transparent;
-  padding:8px 14px;border-radius:6px;cursor:pointer;
-  font-family:inherit;font-size:13px;font-weight:600;
-  display:inline-flex;align-items:center;gap:6px;
-  transition:all .15s ease;
-}
-.btn-primary{background:var(--color-primary-fill, #C2410C);color:#fff}
-.btn-primary:hover{background:var(--accent-2)}
-.btn-ghost{color:#fff;border-color:#384450}
-.btn-ghost:hover{background:#1a2129}
-.btn-light{background:#fff;color:var(--ink);border-color:var(--line)}
-.btn-light:hover{background:var(--panel-2)}
-.btn-danger{background:transparent;color:#fca5a5;border-color:#5b1d1d}
-.btn-danger:hover{background:#2a1010}
 
 /* ---------- Layout ---------- */
 .container{max-width:1180px;margin:0 auto;padding:24px}
@@ -782,7 +767,7 @@ body.submission-locked .submit-row::before{
      The 36 px height in the source HTML was rejected by accessibility review. */
   .status-btn{padding:11px 14px;font-size:13px;min-height:44px;min-width:44px}
   .chip{min-height:44px;padding:10px 14px}
-  .btn{min-height:44px;padding:11px 14px}
+  body .btn{min-height:44px;padding:11px 14px}   /* phone touch target */
   .cat-tab{padding:14px 16px;min-height:48px}
   .photo-btn{padding:16px 6px;min-height:64px}
   .mic-btn{width:44px;height:44px;font-size:18px;right:4px;bottom:4px}
@@ -1046,7 +1031,7 @@ body.submission-locked .submit-row::before{
 <script nonce="%%CSP_NONCE%%" src="lib/format.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/codeLabels.js"></script>
 </head>
-<body>
+<body class="edv-ui">
 
 <!-- Unified Endeavour navigation shell -->
 <div id="__shell" data-section="operations" data-current="inspections"></div>

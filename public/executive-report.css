@@ -36,15 +36,6 @@
     .live-dot  { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
 
-    .btn { display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--text); font-size: 12px; font-weight: 600; cursor: pointer; text-decoration: none; transition: all 0.15s; white-space: nowrap; }
-    .btn:hover   { background: var(--navy-3); }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn-primary { background: #1a5ea8; color: white; border-color: #1a5ea8; }
-    .btn-primary:hover { background: #1652a0; }
-    .btn-gold    { background: var(--color-primary-fill, #C2410C); color: white; border-color: var(--edv-orange); font-weight: 700; }
-    .btn-gold:hover { background: #d4551a; }
-    .btn-green   { background: var(--green); color: white; border-color: var(--green); }
-    .btn-green:hover { background: #0ea472; }
 
     /* ── Config bar ── */
     .config-bar { background: #FFFFFF; border-bottom: 1px solid var(--border); padding: 8px 18px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
@@ -365,22 +356,7 @@
      Match the Executive Scorecard treatment so the entire family looks
      coherent. Buttons inside .shell-page-bar already inherit white-on-navy
      from _shell.css; this overlay only touches buttons OUTSIDE that bar. */
-  button.btn-gold,
-  .btn-gold {
-    background: var(--color-primary-fill, #C2410C) !important;
-    color: #fff !important;
-    border-color: var(--edv-orange, #EF631A) !important;
-    border-radius: var(--radius-md, 6px) !important;
-    font: 700 12.5px var(--font-sans, 'Segoe UI', Calibri, sans-serif);
-    padding: 7px 14px !important;
-    box-shadow: 0 1px 2px rgba(239,99,26,.20);
-    transition: background .15s, transform .05s;
-  }
-  button.btn-gold:hover:not(:disabled),
-  .btn-gold:hover:not(:disabled) {
-    background: #D9560F !important;
-    transform: translateY(-1px);
-  }
+  /* .btn-gold: the shared primary (brand/components.css, body.edv-ui-dark) */
 
   /* Ghost buttons in the action bar — white-on-navy via _shell.css */
   .shell-page-bar button.btn-ghost,
