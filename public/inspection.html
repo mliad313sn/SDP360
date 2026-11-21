@@ -3977,13 +3977,24 @@ document.addEventListener('DOMContentLoaded', init);
   // on this device STAYS queued — dequeuing it silently also threw away the server retry.
   // The open inspection is sent from its live in-memory state (the freshest copy, and
   // the only one when its local write failed).
-  async function flushQueue() {
+  // P11 r9 F-32 — drains run one after another (boot, Save now and the pill can start one at the same time): two
+  // drains sending the same draft with the same version would make the second a false conflict. A drain sees the
+  // version the previous one stored.
+  let _flushChain = Promise.resolve();
+  function flushQueue() {
+    const run = _flushChain.then(flushQueueOnce, flushQueueOnce);
+    _flushChain = run.catch(() => {});
+    return run;
+  }
+  async function flushQueueOnce() {
+    const saved = new Set();
     const q = readQueue().slice();
-    if (q.length === 0) return;
+    if (q.length === 0) return { saved };
     let ok = 0, fail = 0, missing = 0, conflicts = 0;
     for (const id of q) {
       let draft = null;
-      if (id === currentId && state) draft = state;
+      const isOpen = id === currentId && !!state;
+      if (isOpen) draft = state;
       else {
         try { draft = DRAFTS ? await DRAFTS.get(id) : null; } catch(e) { draft = null; }
       }
@@ -3991,8 +4002,23 @@ document.addEventListener('DOMContentLoaded', init);
       _missingIds.delete(id);
       try {
         if (draft && !Array.isArray(draft.known_action_ids) && typeof inspKnownIds === 'function') draft.known_action_ids = inspKnownIds(draft);
-        await postSave(draft);
+        const sentActions = Array.isArray(draft.actions) ? draft.actions.slice() : [];
+        const sentRemoved = Array.isArray(draft.removed_action_ids) ? draft.removed_action_ids.slice() : [];
+        const out = await postSave(draft);
+        // P11 r9 F-32 — the version / known ids / base this save returned go back into the copy that was sent, exactly
+        // as Save now does: the open form (and its local copy) or the stored draft
+        const res = applySaveOutcome(draft, out, sentActions, sentRemoved);
+        if (isOpen && draft === state) {
+          announceSaveOutcome(res);
+          if (typeof _rawSave === 'function') { try { _rawSave(); } catch (_) { /* local copy best-effort */ } }
+          _promotedIds.add(id);
+          _localDirty = false;
+          _lastServerError = null;
+        } else if (DRAFTS) {
+          try { await DRAFTS.put(id, draft); } catch (_) { /* the server has it; the next open reloads the latest version */ }
+        }
         dequeue(id);
+        saved.add(id);
         ok++;
       } catch(e) {
         // P11 r8 F-29 — changed by someone else: never retried blindly (the draft stays on this device)
@@ -4009,6 +4035,7 @@ document.addEventListener('DOMContentLoaded', init);
       if (missing) msg += ` · ${missing} unsent: draft missing on this device`;
       showToast(msg, (fail === 0 && missing === 0) ? 'info' : 'warn', missing ? 6000 : 3000);
     }
+    return { saved };
   }
 
   // ── Lookup hydration (replaces hard-coded options) ───────────────
@@ -4586,6 +4613,56 @@ document.addEventListener('DOMContentLoaded', init);
     if (typeof showToast === 'function') showToast(uiT('Latest version loaded and your changes reapplied. Check them, then click Save now.'), 'info', 9000);
     return true;
   }
+  // P11 r9 F-32 — write what a successful save returned back into the copy that was sent (the open form or a queued
+  // draft): stored action ids, the values the server kept, its kept rows, the removals it applied, and the version /
+  // known ids / loaded fingerprint the NEXT save is based on. Used by Save now AND by the offline queue drain, so a
+  // save stored from the queue never leaves the form on the old version (a false "changed by someone else").
+  function applySaveOutcome(st, out, sentActions, sentRemoved) {
+    const res = { mergedN: 0, keptN: 0, ambN: 0 };
+    if (!st || !out) return res;
+    // P11 r5 F-15 — stamp the stored action ids back onto the form rows that were sent, so the next save
+    // updates the same actions (their history and any queued phone close stay attached to them)
+    if (Array.isArray(out.action_ids)) {
+      sentActions.forEach((a, i) => { if (a && typeof a === 'object' && out.action_ids[i] != null) a.id = out.action_ids[i]; });
+    }
+    // P11 r6 F-22 — refresh each action's loaded base (and the value the server kept) so the next save compares
+    // the editor's change to what is really stored
+    if (Array.isArray(out.action_states)) {
+      const byId = new Map(out.action_states.map((x) => [Number(x.id), x]));
+      sentActions.forEach((a) => {
+        const x = a && typeof a === 'object' ? byId.get(Number(a.id)) : null;
+        if (!x) return;
+        a.status = x.status; a.owner = x.owner; a.base_status = x.status; a.base_owner = x.owner;
+      });
+    }
+    // P11 r7 F-25 — rows the server kept because they could not be matched safely are ADDED to the form (with
+    // their ids), so the next save names them instead of deleting them by omission; the removals it applied are done
+    res.mergedN = mergeKeptRows(st, out.kept_rows);
+    if (Array.isArray(st.removed_action_ids)) {
+      st.removed_action_ids = st.removed_action_ids.filter((x) => (sentRemoved || []).indexOf(x) < 0);
+      if (!st.removed_action_ids.length) delete st.removed_action_ids;
+    }
+    res.keptN = Array.isArray(out.kept_server_value) ? out.kept_server_value.length : 0;
+    res.ambN  = Array.isArray(out.kept_ambiguous) ? out.kept_ambiguous.length : 0;
+    // P11 r8 F-29 — the next save is based on what this save stored
+    if (out.version) st.server_version = out.version;
+    const kids = new Set([...(out.action_ids || []), ...((out.kept_rows || []).map((k) => k && k.id))].map(Number).filter((x) => Number.isInteger(x) && x > 0));
+    st.known_action_ids = [...kids];
+    st.base_fp = inspFingerprint(st);
+    return res;
+  }
+  // what the open form shows after its save was stored (Save now, or the queue drain of the open inspection)
+  function announceSaveOutcome(res) {
+    const keptN = res.keptN, ambN = res.ambN, mergedN = res.mergedN;
+    if ((keptN || ambN || mergedN) && typeof renderActions === 'function') renderActions();
+    if (mergedN && typeof autosave === 'function') autosave();
+    if (keptN && typeof showToast === 'function') {
+      showToast(uiF('{n} action(s) were changed meanwhile (actions register or phone): the server kept that status / owner. The form now shows it — change it again and save if you still want your value.', { n: keptN }), 'warn', 9000);
+    }
+    if (ambN && typeof showToast === 'function') {
+      showToast(uiF('{n} stored action(s) could not be matched safely (same text) and were kept. They are now listed in the form — delete the ones you do not want and save.', { n: ambN }), 'warn', 9000);
+    }
+  }
   async function forceSyncNow() {
     // Same scoping note as installSavePatch above — these are bare
     // references into the body script's `let` bindings, not window.*
@@ -4598,51 +4675,16 @@ document.addEventListener('DOMContentLoaded', init);
     let ok = true;
     if (id && state) {
       try {
-        // P11 r5 F-15 — stamp the stored action ids back onto the form rows that were sent, so the next save
-        // updates the same actions (their history and any queued phone close stay attached to them)
+        // P11 r5 F-15 — the stored action ids, values and version this save returned are written back by
+        // applySaveOutcome (shared with the offline queue drain, P11 r9 F-32)
         const sentActions = Array.isArray(state.actions) ? state.actions.slice() : [];
         const sentRemoved = Array.isArray(state.removed_action_ids) ? state.removed_action_ids.slice() : [];
         // P11 r8 F-29 — the server never deletes a stored action this form never loaded
         state.known_action_ids = inspKnownIds(state);
         const out = await postSave(state);
-        if (out && Array.isArray(out.action_ids)) {
-          sentActions.forEach((a, i) => { if (a && typeof a === 'object' && out.action_ids[i] != null) a.id = out.action_ids[i]; });
-        }
-        // P11 r6 F-22 — refresh each action's loaded base (and the value the server kept) so the next save compares
-        // the editor's change to what is really stored; say so when a value set meanwhile was kept
-        if (out && Array.isArray(out.action_states)) {
-          const byId = new Map(out.action_states.map((x) => [Number(x.id), x]));
-          sentActions.forEach((a) => {
-            const x = a && typeof a === 'object' ? byId.get(Number(a.id)) : null;
-            if (!x) return;
-            a.status = x.status; a.owner = x.owner; a.base_status = x.status; a.base_owner = x.owner;
-          });
-        }
-        // P11 r7 F-25 — rows the server kept because they could not be matched safely are ADDED to the form (with
-        // their ids), so the next save names them instead of deleting them by omission; the removals it applied are done
-        const mergedN = mergeKeptRows(state, out && out.kept_rows);
-        if (out && Array.isArray(state.removed_action_ids)) {
-          state.removed_action_ids = state.removed_action_ids.filter((x) => sentRemoved.indexOf(x) < 0);
-          if (!state.removed_action_ids.length) delete state.removed_action_ids;
-        }
-        const keptN = out && Array.isArray(out.kept_server_value) ? out.kept_server_value.length : 0;
-        const ambN  = out && Array.isArray(out.kept_ambiguous) ? out.kept_ambiguous.length : 0;
-        if ((keptN || ambN || mergedN) && typeof renderActions === 'function') renderActions();
-        if (mergedN && typeof autosave === 'function') autosave();
-        if (keptN && typeof showToast === 'function') {
-          showToast(uiF('{n} action(s) were changed meanwhile (actions register or phone): the server kept that status / owner. The form now shows it — change it again and save if you still want your value.', { n: keptN }), 'warn', 9000);
-        }
-        if (ambN && typeof showToast === 'function') {
-          showToast(uiF('{n} stored action(s) could not be matched safely (same text) and were kept. They are now listed in the form — delete the ones you do not want and save.', { n: ambN }), 'warn', 9000);
-        }
-        // P11 r8 F-29 — the next save is based on what this save stored
-        if (out) {
-          if (out.version) state.server_version = out.version;
-          const kids = new Set([...(out.action_ids || []), ...((out.kept_rows || []).map((k) => k && k.id))].map(Number).filter((x) => Number.isInteger(x) && x > 0));
-          state.known_action_ids = [...kids];
-          state.base_fp = inspFingerprint(state);
-          if (typeof _rawSave === 'function') { try { _rawSave(); } catch (_) { /* local copy best-effort */ } }
-        }
+        const res = applySaveOutcome(state, out, sentActions, sentRemoved);
+        announceSaveOutcome(res);
+        if (out && typeof _rawSave === 'function') { try { _rawSave(); } catch (_) { /* local copy best-effort */ } }
         dequeue(id);
         _promotedIds.add(id);
         _localDirty       = false;
@@ -4671,7 +4713,9 @@ document.addEventListener('DOMContentLoaded', init);
         }
       }
     }
-    await flushQueue();
+    const drained = await flushQueue();
+    // P11 r9 F-32 — the immediate queue drain stored this inspection: the server has it, say so
+    if (!ok && id && drained && drained.saved && drained.saved.has(id)) { ok = true; _lastServerError = null; }
 
     if (link) {
       link.disabled    = false;

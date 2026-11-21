@@ -63,10 +63,11 @@ test('F-29: the form sends server_version + known_action_ids, refreshes them aft
   assert.deepStrictEqual(plain(inspKnownIds({ known_action_ids: [1, 2], actions: [{ id: 1 }] })), [1, 2]);
   const fsn = grab(page, 'forceSyncNow');
   assert.match(fsn, /state\.known_action_ids = inspKnownIds\(state\)/);
-  assert.match(fsn, /state\.server_version = out\.version/);
+  assert.match(fsn, /applySaveOutcome\(state, out/);   // P11 r9 F-32 — shared with the queue drain
+  assert.match(grab(page, 'applySaveOutcome'), /st\.server_version = out\.version/);
   assert.match(fsn, /e\.status === 409 && e\.reason === 'inspection_changed'[\s\S]{0,240}dequeue\(id\)/);
   assert.match(fsn, /handleInspectionConflict\(id\)/);
-  assert.match(grab(page, 'flushQueue'), /inspection_changed/, 'the offline queue does not retry a refused save forever');
+  assert.match(grab(page, 'flushQueueOnce'), /inspection_changed/, 'the offline queue does not retry a refused save forever');
   assert.match(grab(page, 'fetchInspectionFromServer'), /base_fp = inspFingerprint/);
   const hic = grab(page, 'handleInspectionConflict');
   assert.match(hic, /__conflict_backup/, 'the local copy is kept before anything is replaced');
