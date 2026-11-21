@@ -8,6 +8,10 @@
 (function (root) {
   'use strict';
   const STATIC = {
+    // I18N-QUALITY — severity options (md_severities name_fr)
+    'High@status': 'Haute',
+    'Medium@status': 'Moyenne',
+    'Low@status': 'Basse',
     'Request for improvement': 'Demande d\'amélioration', '· Demande d\'amélioration': '',
     'One RFI per incubation session — session → RFI → project': 'Une RFI par session d\'incubation — session → RFI → projet',
     '‹ All meetings': '‹ Toutes les réunions',
@@ -45,7 +49,7 @@
     '+ Add project · Ajouter un projet': '+ Ajouter un projet',
     '4 · Issues raised': '4 · Problèmes soulevés', '· Problèmes soulevés': '',
     '5 · Challenges & obstacles': '5 · Défis & obstacles', '· Défis & obstacles': '',
-    '9 canonical categories · severity HIGH/MEDIUM/LOW · escalate triggers Council theme': '9 catégories · gravité HIGH/MEDIUM/LOW · l’escalade exige un thème Council',
+    '9 canonical categories · severity HIGH/MEDIUM/LOW · escalate triggers Council theme': '9 catégories · gravité haute / moyenne / basse · l’escalade exige un thème du Council',
     '+ Add issue · Ajouter un problème': '+ Ajouter un problème', '+ Add a challenge · Ajouter un défi': '+ Ajouter un défi',
     '· Actions': '', '· Engagements IT': '',
     'Every action needs a named Champion (Engagement #3)': 'Chaque action doit avoir un Champion nommé (Engagement n° 3)',
@@ -78,14 +82,14 @@
   const RUNTIME_KEYS = {
     'Remove ✕': 'Retirer ✕', 'Project name': 'Nom du projet', '· Nom du projet': '', 'Phase': 'Phase', 'IT involvement': 'Implication IT',
     'Project status': 'Statut du projet', '· Statut projet': '',
-    'On track · Sur la trajectoire': 'Sur la trajectoire', 'At risk · À risque': 'À risque', 'Blocked · Bloqué': 'Bloqué', 'Done · Terminé': 'Terminé',
+    'On track · Sur la trajectoire': 'Dans les temps', 'At risk · À risque': 'À risque', 'Blocked · Bloqué': 'Bloqué', 'Done · Terminé': 'Terminé',
     'IT lead': 'Pilote IT', 'Business sponsor': 'Sponsor métier', 'Target end': 'Date de fin cible', '· Date cible fin': '',
     'No projects recorded yet. Click below to add one.': 'Aucun projet enregistré. Cliquez ci-dessous pour en ajouter un.',
     'Title': 'Intitulé', '· Intitulé': '', 'Category': 'Catégorie', '· Catégorie': '', 'Severity': 'Gravité', '· Gravité': '',
     'Target date': 'Date cible', '· Date cible': '', 'Champion': 'Champion', '· Responsable IT': '', '· Responsable': '',
     'Champion email': 'E-mail du champion', 'Affects': 'Impact', '· Personnes / process touchés': '',
     'Escalate to Mine IT Council': 'Escalader au Mine IT Council', '· Escalader au Mine IT Council': '',
-    'Escalation reason': "Motif d'escalade", "· Motif d'escalade": '', 'Council theme': 'Thème Council', '· Thème Council': '',
+    'Escalation reason': "Motif d'escalade", "· Motif d'escalade": '', 'Council theme': 'Thème du Council', '· Thème Council': '',
     '— pick —': '— choisir —', '— no theme picked —': '— aucun thème —',
     'Update comment for audit trail': 'Commentaire pour l’historique',
     '· optional, posted only when status / escalate changes': '· facultatif, publié seulement si le statut ou l’escalade change',

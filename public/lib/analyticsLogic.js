@@ -33,13 +33,16 @@
   }
 
   // G03 — display formatters: null / '' / non-finite → '—' (never "NaN", "Infinity", or "NaN%").
+  // I18N-QUALITY — a French page body formats through lib/format.js (« 1 629 », « 73,5 % »); English unchanged.
+  function _fr() { const g = typeof window !== 'undefined' ? window : null; const f = g && g.SDPFormat; return f && f.lang && f.lang() === 'fr' ? f : null; }
   function fmtNum(n, decimals) {
     const x = _num(n);
     if (x === null) return '—';
     const d = decimals || 0;
+    const f = _fr(); if (f) return f.number(x, { decimals: d, lang: 'fr' });
     return x.toLocaleString('en', { maximumFractionDigits: d, minimumFractionDigits: d });
   }
-  function fmtPct(n) { return _num(n) === null ? '—' : fmtNum(n, 1) + '%'; }
+  function fmtPct(n) { if (_num(n) === null) return '—'; const f = _fr(); return f ? f.percent(_num(n), { decimals: 1, lang: 'fr' }) : fmtNum(n, 1) + '%'; }
 
   // F04 — RAG class for a "higher is better" KPI. `null` / non-finite → 'na' (neutral), never red.
   // `amber == null` means the KPI has no red tier (below green is amber), as the page always had

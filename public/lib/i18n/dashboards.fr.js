@@ -1,6 +1,6 @@
 /* C-26 (G27) — French for public/dashboards.html (published group dashboards). Widget titles, KPI names and figures
  * come from the KPI dictionary / the API and are data: never keys here. Inert unless ui_i18n_pages='1'.
- * Glossary: docs/ux/GLOSSARY-FR.md. */
+ * Glossary: docs/i18n/GLOSSAIRE-FR.md. */
 (function (root) {
   'use strict';
   root.I18N_FR_DASHBOARDS = {

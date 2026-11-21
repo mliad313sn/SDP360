@@ -1,5 +1,5 @@
 /* Adoption Lot B (item 7) — French for public/integrations.html (admin; static markup, JS-built rows later).
- * Inert unless report_config ui_i18n_pages = '1'. Terms follow docs/ux/GLOSSARY-FR.md (PROPOSED). NOT translated:
+ * Inert unless report_config ui_i18n_pages = '1'. Terms follow docs/i18n/GLOSSAIRE-FR.md (PROPOSED). NOT translated:
  * endpoint paths, header names, configuration key prefixes and option texts that are the values sent to the API. */
 (function (root) {
   'use strict';

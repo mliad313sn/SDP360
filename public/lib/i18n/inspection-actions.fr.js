@@ -1,22 +1,18 @@
 /* Adoption Lot A (item 11) — French for public/inspection-actions.html (static markup). JS-built rows: next pass.
  * NOT translated on purpose: site names, owners, descriptions (data). Inert unless ui_i18n_pages='1'.
- * Terms follow docs/ux/GLOSSARY-FR.md (PROPOSED — to be validated by a French-speaking coordinator). */
+ * Terms follow docs/i18n/GLOSSAIRE-FR.md (PROPOSED — to be validated by a French-speaking coordinator). */
 (function (root) {
   'use strict';
   const STATIC = {
+    // I18N-QUALITY — whole sentence (lib/i18nText.js matches the block first; inline tags kept in the value)
+    'Every corrective action raised in any site inspection, in one place — so a critical finding\'s fix isn\'t forgotten between visits. Filter by site, status, priority or owner, and close an action right here without re-opening its inspection. Overdue rows are red. The charts and the PPTX export reflect whatever filter you have applied.': 'Toutes les actions correctives issues des inspections de site, au même endroit — pour qu’aucune correction d’un constat critique ne soit oubliée entre deux visites. <strong>Filtrez</strong> par site, statut, priorité ou responsable, et <strong>clôturez une action ici même</strong> sans rouvrir son inspection. Les lignes en retard sont en rouge. Les graphiques et l’<strong>export PPTX</strong> suivent le filtre appliqué.',
     '‹ Inspections dashboard': '‹ Tableau des inspections', 'Excel (full data)': 'Excel (toutes les données)', 'Export PPTX': 'Exporter en PPTX',
     'Inspections · Corrective Actions Register': 'Inspections · Registre des actions correctives',
     'Corrective actions across all inspections': 'Actions correctives de toutes les inspections',
-    "Every corrective action raised in any site inspection, in one place — so a critical finding's fix isn't forgotten between visits.":
-      'Toutes les actions correctives ouvertes lors des inspections de site, au même endroit — pour qu’aucune correction d’un constat critique ne soit oubliée entre deux visites.',
-    'by site, status, priority or owner, and': 'par site, statut, priorité ou responsable, et',
-    'close an action right here': 'clôturez une action ici même',
-    'without re-opening its inspection. Overdue rows are red. The charts and the': 'sans rouvrir son inspection. Les lignes en retard sont en rouge. Les graphiques et l’',
-    'PPTX export': 'export PPTX', 'reflect whatever filter you have applied.': 'suivent le filtre appliqué.',
-    'Status breakdown': 'Répartition par statut', 'All actions in scope': 'Toutes les actions du périmètre',
+    'PPTX export': 'export PPTX',    'Status breakdown': 'Répartition par statut', 'All actions in scope': 'Toutes les actions du périmètre',
     'Open actions by priority': 'Actions ouvertes par priorité', 'Not-yet-closed only': 'Non clôturées uniquement',
     'Open-action ageing': 'Ancienneté des actions ouvertes', 'By due date': 'Par échéance', 'Open actions by site': 'Actions ouvertes par site',
-    'Where the backlog sits — overdue highlighted': 'Où se trouve le stock — retards en évidence', 'Raised vs closed': 'Ouvertes ou clôturées',
+    'Where the backlog sits — overdue highlighted': 'Où se trouve le backlog — retards en évidence', 'Raised vs closed': 'Ouvertes ou clôturées',
     'Last 6 months': '6 derniers mois', 'All sites': 'Tous les sites', 'All statuses': 'Tous les statuts', 'All priorities': 'Toutes les priorités',
     'Critical': 'Critique', 'High': 'Élevée', 'Medium': 'Moyenne', 'Low': 'Faible', 'Overdue only': 'En retard uniquement',
     'Corrective actions': 'Actions correctives',
@@ -29,7 +25,7 @@
   const RUNTIME = {
     // P11 r4 F-12 — texts built in script (toasts, empty states, row buttons, table heads)
     'Total actions': 'Actions au total',
-    'Open': 'Ouvertes',
+    'Open': 'Ouvertes', 'Open@status': 'Ouverte',
     'in scope': 'dans le périmètre',
     'not yet closed': 'pas encore clôturées',
     'open & unassigned': 'ouvertes et non attribuées',

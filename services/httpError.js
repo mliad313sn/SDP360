@@ -124,6 +124,7 @@ function fail(res, e, status, extra) {
     body = { error: e && e.message != null ? String(e.message) : String(e) };
     if (e && typeof e.code === 'string' && _TYPED.has(e.code)) body.code = e.code;
     if (e && Array.isArray(e.errors)) body.errors = e.errors;
+    body = require('./userErrors').decorate(body);   // I18N-QUALITY — plain EN/FR sentence, raw message kept as error_code
   } else {
     body = { error: 'internal_error', correlation_id: id };
   }

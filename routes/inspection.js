@@ -1,6 +1,7 @@
 'use strict';
 const xpGate = require('../services/exportPolicy').gate;   // P9 / B7 — one export policy (allow / mask / deny + export log + watermark)
-const { fail } = require('../services/httpError');
+const { fail, typed } = require('../services/httpError');
+// I18N-QUALITY — validation answers go through fail(): services/userErrors.js turns them into a plain EN + FR sentence
 const userSites = require('../services/userSites');   // multi-site editors (2026-10-05)
 
 const tableExcel = require('../services/tableExcel');
@@ -63,11 +64,11 @@ module.exports = function inspectionRoutes(deps) {
   // returns null (no editor role / no resolvable site).
   // `wanted` (multi-site editors): the site asked for — kept when the user holds it.
   async function _scopeOr403(req, res, wanted) {
-    if (!rdb.userHasRole(req.reportUser, 'editor')) { res.status(403).json({ error: 'editor role or higher required' }); return null; }
+    if (!rdb.userHasRole(req.reportUser, 'editor')) { fail(res, typed('FORBIDDEN', 'editor role or higher required'), 403); return null; }
     if (rdb.userHasRole(req.reportUser, 'admin')) return { site: null, sites: null };
     const sites = (await _userInspectionSites(req.reportUser)) || [];
     const site = userSites.pickCode(sites, wanted);
-    if (!site) { res.status(403).json({ error: 'Your account has no site assigned for this module. Contact your administrator.' }); return null; }
+    if (!site) { fail(res, typed('FORBIDDEN', 'Your account has no site assigned for this module. Contact your administrator.'), 403); return null; }
     return { site, sites };
   }
   // Same, plus "the stored inspection belongs to one of those sites". Sends 404/403 itself.
@@ -243,14 +244,14 @@ module.exports = function inspectionRoutes(deps) {
     try {
       if (!inspectionDb) return res.status(503).json({ error: 'Inspection module not available' });
       if (!rdb.userHasRole(req.reportUser, 'editor')) {
-        return res.status(403).json({ error: 'editor role or higher required' });
+        return fail(res, typed('FORBIDDEN', 'editor role or higher required'), 403);
       }
       const actionId = parseInt(req.params.id, 10);
       if (!Number.isFinite(actionId)) return res.status(400).json({ error: 'Invalid action id' });
       const parent = await inspectionDb.getActionParent(actionId);
       if (!parent) return res.status(404).json({ error: 'Action not found' });
       const userSite = await _userInspectionSite(req.reportUser, parent.site_code);
-      if (!userSite && !rdb.userHasRole(req.reportUser, 'admin')) return res.status(403).json({ error: 'Your account has no site assigned for this module. Contact your administrator.' });
+      if (!userSite && !rdb.userHasRole(req.reportUser, 'admin')) return fail(res, typed('FORBIDDEN', 'Your account has no site assigned for this module. Contact your administrator.'), 403);
       if (userSite && parent.site_code !== userSite) {
         return res.status(403).json({ error: `Action belongs to ${parent.site_code}; you are scoped to ${userSite}` });
       }
@@ -363,10 +364,10 @@ module.exports = function inspectionRoutes(deps) {
     try {
       if (!inspectionDb) return res.status(503).json({ error: 'Inspection module not available' });
       if (!rdb.userHasRole(req.reportUser, 'editor')) {
-        return res.status(403).json({ error: 'editor role or higher required' });
+        return fail(res, typed('FORBIDDEN', 'editor role or higher required'), 403);
       }
       const state = req.body && req.body.state;
-      if (!state || !state.meta) return res.status(400).json({ error: 'Missing state.meta in body' });
+      if (!state || !state.meta) return fail(res, typed('VALIDATION', 'Missing state.meta in body'), 400);
 
       // Lot 4b: a submitted / closed inspection may be modified or re-opened by an
       // editor of ITS site (was admin-only). The site of both the incoming form and the
@@ -374,7 +375,7 @@ module.exports = function inspectionRoutes(deps) {
 
       const userCodes = await _userInspectionSites(req.reportUser);   // null = admin tier
       const userSite = userCodes === null ? null : (userCodes[0] || null);
-      if (!userSite && !rdb.userHasRole(req.reportUser, 'admin')) return res.status(403).json({ error: 'Your account has no site assigned for this module. Contact your administrator.' });
+      if (!userSite && !rdb.userHasRole(req.reportUser, 'admin')) return fail(res, typed('FORBIDDEN', 'Your account has no site assigned for this module. Contact your administrator.'), 403);
       // D-01 (AM-01, switch site_code_shared_block, off): a scoped editor holding a code two active sites share is refused
       if (userCodes && await require('../services/siteCodeShared').refuseIfShared(rdb, res, 'inspection', userCodes, (s) => inspectionDb.siteNameToCode(s && s.name))) return;
       const out      = await inspectionDb.saveInspection(state, userCodes, req.reportUser.id || null);

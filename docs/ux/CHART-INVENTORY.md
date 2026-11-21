@@ -7,7 +7,7 @@ records a per-page budget for hex literals, dual axes and doughnuts: those can o
 The "substitution to consider" column is a **proposal** worded from the audit's measure → chart matrix (§5.2).
 Choosing and approving a substitution is a person's decision after a browser review; nothing here is decided.
 
-Files scanned: **151** · inline <style> blocks: **60** · hex literals: **5491** · `new Chart(` call sites: **44** · dual axes (`yAxisID`): **27** · doughnut/pie: **29**
+Files scanned: **152** · inline <style> blocks: **61** · hex literals: **5576** · `new Chart(` call sites: **44** · dual axes (`yAxisID`): **27** · doughnut/pie: **29**
 
 | File | Bytes | <style> | Hex | new Chart( | Chart types | Dual axis | Doughnut/pie | chartTheme.js | ChartTable | pageStates.js | Substitution to consider |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -29,7 +29,7 @@ Files scanned: **151** · inline <style> blocks: **60** · hex literals: **5491*
 | `public/executive.html` | 601032 | 1 | 1080 | 14 | bar×5 doughnut×3 line×10 | 11 | 3 | yes | — | yes | dual axis → small multiples, one unit per panel (§5.2 "comparaison à plusieurs séries"); doughnut/pie → ordered horizontal bars with values and population % (§5.2 "répartition de catégories"); chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
 | `public/finance.html` | 8812 | 1 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/handoffs.html` | 19556 | 1 | 21 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/help.html` | 164461 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/help.html` | 334985 | 1 | 85 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/home.html` | 7352 | 1 | 12 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/index.html` | 130879 | 1 | 114 | 2 | bar×2 | 0 | 0 | yes | — | yes | chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
 | `public/infra-health.html` | 33759 | 1 | 88 | 1 | line×1 | 0 | 2 | yes | — | — | doughnut/pie → ordered horizontal bars with values and population % (§5.2 "répartition de catégories"); chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
@@ -80,32 +80,33 @@ Files scanned: **151** · inline <style> blocks: **60** · hex literals: **5491*
 | `public/lib/actionGroups.js` | 4944 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/actionSimilarity.js` | 2883 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/allocationContract.js` | 8932 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/lib/analyticsLogic.js` | 13104 | 0 | 0 | 0 | — | 0 | 0 | yes | — | — | — |
+| `public/lib/analyticsLogic.js` | 13538 | 0 | 0 | 0 | — | 0 | 0 | yes | — | — | — |
 | `public/lib/assetHygieneVisuals.js` | 6958 | 0 | 0 | 0 | — | 0 | 0 | — | yes | — | — |
 | `public/lib/businessRoles.js` | 933 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/chartContract.js` | 3054 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/lib/chartTheme.js` | 17573 | 0 | 14 | 0 | — | 0 | 0 | — | yes | — | hex literals → _tokens.css variables |
+| `public/lib/chartTheme.js` | 18037 | 0 | 14 | 0 | — | 0 | 0 | — | yes | — | hex literals → _tokens.css variables |
 | `public/lib/charts.js` | 9723 | 0 | 7 | 2 | bar×2 line×4 | 0 | 0 | yes | yes | — | hex literals → _tokens.css variables |
 | `public/lib/cockpit-fr.js` | 7981 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/codeLabels.js` | 10339 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/composerGuide.js` | 18228 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/connector-health-page.js` | 6133 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/csvSafe.js` | 824 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/lib/dashboard-shared.js` | 34077 | 0 | 1 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/lib/dashboardRender.js` | 35925 | 0 | 0 | 0 | — | 0 | 0 | — | yes | — | — |
+| `public/lib/dashboard-shared.js` | 34337 | 0 | 1 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/lib/dashboardRender.js` | 37010 | 0 | 0 | 0 | — | 0 | 0 | — | yes | — | — |
 | `public/lib/data-quality-page.js` | 2371 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/draftStore.js` | 11259 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/errorText.js` | 8520 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/execChartsV2.js` | 6879 | 0 | 0 | 0 | bar×1 | 0 | 0 | — | — | — | — |
 | `public/lib/execDeckPayload.js` | 5238 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/feedback.js` | 4691 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/format.js` | 6924 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/ganttCore.js` | 30824 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/ganttV2.js` | 33609 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/lib/help-page.js` | 7207 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/helpdeskSiteDefault.js` | 8995 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/lib/home-page.js` | 22012 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/home-page.js` | 22352 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/homeGroup.js` | 12087 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/homeQueue.js` | 37015 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/lib/i18nText.js` | 5067 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/i18nText.js` | 9568 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/incubationEditor.js` | 5909 | 0 | 1 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/lib/infraPrefill.js` | 6926 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/kpiCard.js` | 6072 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
@@ -141,7 +142,7 @@ Files scanned: **151** · inline <style> blocks: **60** · hex literals: **5491*
 | `public/lib/ppmVisuals.js` | 23603 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/ppmWorkbench.js` | 24986 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/reasonDialog.js` | 6938 | 0 | 10 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/lib/reportingWeek.js` | 3959 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/reportingWeek.js` | 4038 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/reports-backups.js` | 7874 | 0 | 15 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/lib/roadmapPublish.js` | 8455 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/siteAliases.js` | 3000 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |

@@ -8,6 +8,8 @@
 (function (root) {
   'use strict';
   const STATIC = {
+    // I18N-QUALITY — whole sentence (lib/i18nText.js matches the block first; inline tags kept in the value)
+    'Dependencies are the task links of the Plan tab; decisions live in the decision register (DEC-…). Only an open risk with P × I ≥ 6 blocks the closed gate.': 'Les dépendances sont les liens entre tâches de l’onglet Plan ; les décisions sont tenues dans le registre des décisions (DEC-…). Seul un <b>risque</b> ouvert avec P × I ≥ 6 bloque le jalon de clôture.',
     'Portfolio': 'Portefeuille', 'Intake': 'Fiche projet', 'Dependencies': 'Dépendances', 'Resources': 'Ressources', 'Documents': 'Documents', '▸ project': '▸ projet', 'Project': 'Projet',
     'Charter, plan, milestones, risks and gates of one project. “—” means not measured, never 0 (help §25).': 'Charte, plan, jalons, risques et jalons de décision d’un projet. « — » signifie non mesuré, jamais 0 (aide §25).',
     'Overview': 'Vue d’ensemble', 'Charter': 'Charte', 'Plan': 'Plan', 'Milestones': 'Jalons', 'RAID': 'RAID', 'Benefits': 'Bénéfices', 'Budget': 'Budget',
@@ -40,8 +42,7 @@
     'Note for the next step (required to reject, 10 characters or more)': 'Note pour l’étape suivante (obligatoire pour rejeter, 10 caractères ou plus)',
     'Deliverables': 'Livrables', 'Add / edit a milestone': 'Ajouter / modifier un jalon', 'Milestone': 'Jalon', 'Baseline': 'Référence', 'Save milestone': 'Enregistrer le jalon',
     'Risks, assumptions, issues': 'Risques, hypothèses, problèmes', 'Show': 'Afficher', 'all kinds': 'tous les types', 'risks': 'risques', 'issues': 'problèmes', 'assumptions': 'hypothèses',
-    'Dependencies are the task links of the Plan tab; decisions live in the decision register (DEC-…). Only an open': 'Les dépendances sont les liens de tâches de l’onglet Plan ; les décisions vivent dans le registre des décisions (DEC-…). Seul un',
-    'with P × I ≥ 6 blocks the closed gate.': 'ouvert avec P × I ≥ 6 bloque le jalon de clôture.', 'Risk matrix (probability × impact)': 'Matrice des risques (probabilité × impact)',
+'Risk matrix (probability × impact)': 'Matrice des risques (probabilité × impact)',
     'Add / edit an entry': 'Ajouter / modifier une entrée', 'Entry': 'Entrée', 'Kind': 'Type', 'Probability (1-3)': 'Probabilité (1-3)', 'Impact (1-3)': 'Impact (1-3)',
     'Mitigation / response': 'Atténuation / réponse', 'Save entry': 'Enregistrer l’entrée', 'Expected and realised benefits': 'Bénéfices attendus et réalisés',
     'From its review date a benefit appears on the Site obligations view and on “My work” until a realised value with evidence is entered and verified by someone other than the person who entered it. Nothing is e-mailed.':

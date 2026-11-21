@@ -1,9 +1,16 @@
 /* Adoption Lot A (item 11) — French for public/inspections.html (static markup + the scope / not-measured wording).
  * NOT translated on purpose: site names, inspection ids (data). Inert unless ui_i18n_pages='1'.
- * Terms follow docs/ux/GLOSSARY-FR.md (PROPOSED — to be validated by a French-speaking coordinator). */
+ * Terms follow docs/i18n/GLOSSAIRE-FR.md (PROPOSED — to be validated by a French-speaking coordinator). */
 (function (root) {
   'use strict';
   const STATIC = {
+    // I18N-QUALITY — status filter (plural, feminine: inspections) and the row status pill (raw code, singular)
+    'Draft@status': 'Brouillons',
+    'Submitted@status': 'Soumises',
+    'Closed@status': 'Clôturées',
+    'draft@status': 'Brouillon',
+    'submitted@status': 'Soumise',
+    'closed@status': 'Clôturée',
     'Delete this inspection?': 'Supprimer cette inspection ?', 'Cancel · Annuler': 'Annuler', 'Delete · Supprimer': 'Supprimer',
     'IT Inspections': 'Inspections IT', 'Site inspections, findings, and corrective actions': 'Inspections de site, constats et actions correctives',
     'Actions register': 'Registre des actions', 'New inspection': 'Nouvelle inspection', 'Excel (full data)': 'Excel (toutes les données)',

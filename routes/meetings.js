@@ -1,6 +1,7 @@
 'use strict';
 const xpGate = require('../services/exportPolicy').gate;   // P9 / B7 — one export policy (allow / mask / deny + export log + watermark)
-const { fail } = require('../services/httpError');
+const { fail, typed } = require('../services/httpError');
+// I18N-QUALITY — validation answers go through fail(): services/userErrors.js turns them into a plain EN + FR sentence
 // Step 5 — meetings routes extracted from server.js (modularisation, inspection.js pattern).
 // Handlers are byte-identical to the former inline ones; `app.` became `router.` and the
 // relative requires gained one `../`. server.js mounts it with its own middleware + readers.
@@ -78,9 +79,9 @@ function _sitelessWriteDenied(user, userSite) {
 // RBAC lot 4c — scope of a meetings IMPORT: { site: null } for the admin tier, { site: CODE }
 // for an editor (every row must be that site), or sends 403 and returns null.
 async function _meetingsImportScope(req, res) {
-  if (!rdb.userHasRole(req.reportUser, 'editor')) { res.status(403).json({ error: 'editor role or higher required' }); return null; }
+  if (!rdb.userHasRole(req.reportUser, 'editor')) { fail(res, typed('FORBIDDEN', 'editor role or higher required'), 403); return null; }
   const site = await _userMeetingsSite(req.reportUser);
-  if (_sitelessWriteDenied(req.reportUser, site)) { res.status(403).json({ error: 'Your account has no site assigned for this module. Contact your administrator.' }); return null; }
+  if (_sitelessWriteDenied(req.reportUser, site)) { fail(res, typed('FORBIDDEN', 'Your account has no site assigned for this module. Contact your administrator.'), 403); return null; }
   // multi-site editors: every row must be one of their sites (saveMeeting takes a list)
   return { site: await _userMeetingsSites(req.reportUser) };
 }
@@ -347,7 +348,7 @@ router.post('/api/meetings/actions/:id/update', requireReportSession, meetingsJs
   try {
     if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
     if (!rdb.userHasRole(req.reportUser, 'editor')) {
-      return res.status(403).json({ error: 'editor role or higher required' });
+      return fail(res, typed('FORBIDDEN', 'editor role or higher required'), 403);
     }
     const actionId = parseInt(req.params.id, 10);
     if (!Number.isFinite(actionId)) return res.status(400).json({ error: 'Invalid action id' });
@@ -356,7 +357,7 @@ router.post('/api/meetings/actions/:id/update', requireReportSession, meetingsJs
     const parent = await meetingsDb.getActionParent(actionId);
     if (!parent) return res.status(404).json({ error: 'Action not found' });
     const userSite = await _userMeetingsSite(req.reportUser, parent.site_code);
-    if (_sitelessWriteDenied(req.reportUser, userSite)) return res.status(403).json({ error: 'Your account has no site assigned for this module. Contact your administrator.' });
+    if (_sitelessWriteDenied(req.reportUser, userSite)) return fail(res, typed('FORBIDDEN', 'Your account has no site assigned for this module. Contact your administrator.'), 403);
     if (userSite && parent.site_code !== userSite) {
       return res.status(403).json({ error: `Action belongs to ${parent.site_code}; you are scoped to ${userSite}` });
     }
@@ -428,7 +429,7 @@ router.post('/api/meetings/:id/sign', requireReportSession, meetingsJsonBody, as
       return res.status(400).json({ code: 'ON_BEHALF_REASON', error: `you are signing for ${status.department_head || 'the department head'} — give the reason (5+ characters), it is kept with the signature` });
     }
     const userSite = await _userMeetingsSite(req.reportUser, status.site_code);
-    if (_sitelessWriteDenied(req.reportUser, userSite)) return res.status(403).json({ error: 'Your account has no site assigned for this module. Contact your administrator.' });
+    if (_sitelessWriteDenied(req.reportUser, userSite)) return fail(res, typed('FORBIDDEN', 'Your account has no site assigned for this module. Contact your administrator.'), 403);
     if (userSite && status.site_code !== userSite) {
       return res.status(403).json({ error: `Meeting belongs to ${status.site_code}; you are scoped to ${userSite}` });
     }
@@ -469,15 +470,19 @@ router.post('/api/meetings/save', requireReportSession, meetingsJsonBody, async 
   try {
     if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
     if (!rdb.userHasRole(req.reportUser, 'editor')) {
-      return res.status(403).json({ error: 'editor role or higher required' });
+      return fail(res, typed('FORBIDDEN', 'editor role or higher required'), 403);
     }
     const state = req.body && req.body.state;
     if (!state || !state.header || !state.header.title && !state.header.department) {
-      return res.status(400).json({ error: 'Missing state.header.department' });
+      return fail(res, typed('VALIDATION', 'Missing state.header.department'), 400);
     }
+    // I18N-QUALITY — the other required header fields answer a sentence (400), not an untyped 500 from saveMeeting
+    if (!state.header.site_code) return fail(res, typed('VALIDATION', 'Missing site_code'), 400);
+    if (!state.header.department) return fail(res, typed('VALIDATION', 'Missing department'), 400);
+    if (!state.header.meeting_date) return fail(res, typed('VALIDATION', 'Missing meeting_date'), 400);
     state.author_name = state.author_name || req.reportUser.full_name || req.reportUser.username;
     const userSite = await _userMeetingsSite(req.reportUser, state.header && state.header.site_code);
-    if (_sitelessWriteDenied(req.reportUser, userSite)) return res.status(403).json({ error: 'Your account has no site assigned for this module. Contact your administrator.' });
+    if (_sitelessWriteDenied(req.reportUser, userSite)) return fail(res, typed('FORBIDDEN', 'Your account has no site assigned for this module. Contact your administrator.'), 403);
     // D-01 (AM-01, switch site_code_shared_block, off): a code two active sites share is refused for a scoped editor
     if (userSite && await require('../services/siteCodeShared').refuseIfShared(rdb, res, 'meetings', [userSite], (s) => inspectionDb.siteNameToCode(s && s.name))) return;
     // Transfer statuses (2026-10-16): an issue / action ENTERING demand, helpdesk_ticket or
@@ -534,7 +539,7 @@ router.post('/api/meetings/issues/:id/update', requireReportSession, meetingsJso
   try {
     if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
     if (!rdb.userHasRole(req.reportUser, 'editor')) {
-      return res.status(403).json({ error: 'editor role or higher required' });
+      return fail(res, typed('FORBIDDEN', 'editor role or higher required'), 403);
     }
     const issueId = parseInt(req.params.id, 10);
     // Look up the parent meeting to enforce site scoping. Uses the module's
@@ -545,7 +550,7 @@ router.post('/api/meetings/issues/:id/update', requireReportSession, meetingsJso
     if (!parent) return res.status(404).json({ error: 'Issue not found' });
 
     const userSite = await _userMeetingsSite(req.reportUser, parent.site_code);
-    if (_sitelessWriteDenied(req.reportUser, userSite)) return res.status(403).json({ error: 'Your account has no site assigned for this module. Contact your administrator.' });
+    if (_sitelessWriteDenied(req.reportUser, userSite)) return fail(res, typed('FORBIDDEN', 'Your account has no site assigned for this module. Contact your administrator.'), 403);
     if (userSite && parent.site_code !== userSite) {
       return res.status(403).json({ error: `Issue belongs to ${parent.site_code}; you are scoped to ${userSite}` });
     }
@@ -576,13 +581,13 @@ router.post('/api/meetings/issues/:id/actions', requireReportSession, meetingsJs
   try {
     if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
     if (!rdb.userHasRole(req.reportUser, 'editor')) {
-      return res.status(403).json({ error: 'editor role or higher required' });
+      return fail(res, typed('FORBIDDEN', 'editor role or higher required'), 403);
     }
     const issueId = parseInt(req.params.id, 10);
     const parent = await meetingsDb.getIssueParent(issueId);
     if (!parent) return res.status(404).json({ error: 'Issue not found' });
     const userSite = await _userMeetingsSite(req.reportUser, parent.site_code);
-    if (_sitelessWriteDenied(req.reportUser, userSite)) return res.status(403).json({ error: 'Your account has no site assigned for this module. Contact your administrator.' });
+    if (_sitelessWriteDenied(req.reportUser, userSite)) return fail(res, typed('FORBIDDEN', 'Your account has no site assigned for this module. Contact your administrator.'), 403);
     if (userSite && parent.site_code !== userSite) {
       return res.status(403).json({ error: `Issue belongs to ${parent.site_code}; you are scoped to ${userSite}` });
     }
@@ -609,11 +614,11 @@ router.post('/api/meetings/issues/:id/actions', requireReportSession, meetingsJs
 router.delete('/api/meetings/:id', requireReportSession, async (req, res) => {
   try {
     if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
-    if (!rdb.userHasRole(req.reportUser, 'editor')) return res.status(403).json({ error: 'editor role or higher required' });
+    if (!rdb.userHasRole(req.reportUser, 'editor')) return fail(res, typed('FORBIDDEN', 'editor role or higher required'), 403);
     const head = await meetingsDb.getMeetingStatus(parseInt(req.params.id, 10));
     if (!head) return res.status(404).json({ error: 'Not found' });
     const userSite = await _userMeetingsSite(req.reportUser, head.site_code);
-    if (_sitelessWriteDenied(req.reportUser, userSite)) return res.status(403).json({ error: 'Your account has no site assigned for this module. Contact your administrator.' });
+    if (_sitelessWriteDenied(req.reportUser, userSite)) return fail(res, typed('FORBIDDEN', 'Your account has no site assigned for this module. Contact your administrator.'), 403);
     if (userSite && head.site_code !== userSite) return res.status(403).json({ error: `Meeting belongs to ${head.site_code}; you are scoped to ${userSite}` });
     // A-19b — soft delete when report_config soft_delete_enabled = '1' (default '0' = today's hard delete).
     const soft = softDelete.isEnabled(await softDelete.readConfig(rdb));

@@ -196,6 +196,7 @@ not the browser-checked level.
 | `docs/agent-execution/G24-DOSSIER-GO-NOGO-FR.md` | G24 | code+test | pending | pending | `0130ead17d7d988951b2adfb2777ec34fd98c24e587b96fbe6fee9e569474cbc` |
 | `docs/agent-execution/G24.md` | G24 | code+test | pending | pending | `2349897316ae9dd2908e50fa872042b53a905f48a9b8854085ff07b8cc2c4ac2` |
 | `docs/agent-execution/HANDOFF-2026-11-13-orchestrator.md` | — (reference) | — | — | — | `57a464e026ff789fac72df5a39bc62d9e944f549ac3d9c80bab6e5515cefec2c` |
+| `docs/agent-execution/I18N-QUALITY.md` | — (reference) | — | — | — | `41db0b336c3e5e4f27ded59fe32d8f8d4664f35f84ee1c9ad83c90f3f676fbea` |
 | `docs/agent-execution/INVENTORY-STRICT.md` | — (reference) | — | — | — | `60258be7ff68204d6de4b78b5bd89dfb54e83aafbb7ed112397fc3f34cf4a6ed` |
 | `docs/agent-execution/P02-authz-outcomes.md` | P02 | code+test | pending | pending | `1b3c7c2278a4e5d1a5aa0ca98da31cd64a54cf2d18ee5287ec685243e58ffc81` |
 | `docs/agent-execution/P03-switch-lots.md` | P03 | code+test | pending | pending | `99419412678af916494549fa3c6ef56f7c4f4d94aab09482c800dcccf93caa39` |
@@ -239,8 +240,8 @@ not the browser-checked level.
 
 | File | SHA-256 |
 |---|---|
-| `docs/agent-execution/INVENTORY.json` | `0240b55a49dc0d40a1b2543db1784458d707db82c38cfa853529f59fde85fa34` |
-| `docs/agent-execution/INVENTORY.md` | `b864bb53ef281bcb7b0924cdd7fb07ace1a2ae185eabae2ec3988b7ad0339c81` |
+| `docs/agent-execution/INVENTORY.json` | `ae8a9602bd3199f9fde55b0364953447f8a9c3b1889fb4221985f94d7f7987a7` |
+| `docs/agent-execution/INVENTORY.md` | `b602d001d3ecf679047c314ca57ede81a45d78be0f0ed3f0be36b9962fb99293` |
 | `docs/agent-execution/TRACEABILITY.md` | `bab98d60573cc653947f1acead471e8655cbc78134969e91ee7f281ff9876c0a` |
 | `docs/ops/AUTHZ-MATRIX.md` | `b718b64fff1f6f6f4fc6ea729f66ad9565c988f5dc601b9073dfc20b4ab4e93e` |
 | `docs/ops/FLAG-REGISTER.md` | `f0c695c7960cac781d281c1bb4f929890911542445c0bc2338df5a5e40019cb4` |
