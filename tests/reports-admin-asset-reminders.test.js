@@ -12,7 +12,7 @@ test('card exists with both arm toggles, schedule host and result box', () => {
 test('the five admin surfaces all name the panel', () => {
   assert.match(src, /'asset-reminders':'ap-asset-reminders'/, '_ADMIN_PANEL_IDS');
   assert.match(src, /members: \[[^\]]*'asset-reminders'[^\]]*\]/, 'PANEL_GROUPS.sends.members');
-  assert.match(src, /'asset-reminders': 'Rappels parc'/, 'group tab label');
+  assert.match(src, /'asset-reminders': 'Asset reminders'/, 'group tab label');   // English label since visual polish 2 (French in lib/i18n/reports.fr.js)
   assert.match(src, /name === 'asset-reminders'\) && currentUser\?\.role !== 'super_admin'|name === 'asset-reminders' \|\|/, 'super-gate');
   assert.match(src, /'asset-group','asset-reminders'[^\]]*\]\.includes\(sub\)/, 'hash allowlist');
   assert.match(src, /name === 'asset-reminders' && typeof loadAssetRemindersCard === 'function'/, 'loader hook');
