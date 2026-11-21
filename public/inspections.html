@@ -13,6 +13,7 @@
 <script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
 <script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/pageStates.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/reasonDialog.js"></script>
 <link rel="stylesheet" href="module-tabs.css">
 <script nonce="%%CSP_NONCE%%" src="module-tabs.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/pageHead.js"></script>
@@ -640,8 +641,8 @@
     if (!modal || !title || !body || !ok) {
       // Defensive fallback — keep the action available even if the
       // markup somehow got lost.
-      const m = uiT('Delete this inspection? This cannot be undone.') + '\n' + btn.dataset.id;
-      if (window.confirm(m)) performDelete(btn);
+      // (kept available through the shared dialog, never the browser's; no dialog library → nothing is deleted)
+      if (window.ReasonDialog) window.ReasonDialog.confirm({ title: uiT('Delete this inspection? This cannot be undone.'), target: btn.dataset.id, danger: true, okLabel: uiT('Delete') }).then((yes) => { if (yes) performDelete(btn); });
       return;
     }
     const id     = btn.dataset.id;

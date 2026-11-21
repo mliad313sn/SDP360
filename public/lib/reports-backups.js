@@ -47,7 +47,10 @@ async function loadTrash() {
   } catch (e) { if (st) st.textContent = 'Error: ' + e.message; }
 }
 async function restoreTrashRow(btn) {
-  if (!confirm('Restore this record?')) return;
+  // the shared dialog names the record (kind + label of its row)
+  var tr = btn.closest ? btn.closest('tr') : null, cells = tr ? tr.querySelectorAll('td') : [];
+  var named = [cells[0], cells[1]].map(function (c) { return c ? c.textContent.trim() : ''; }).filter(Boolean).join(' — ');
+  if (!(await ReasonDialog.confirm({ title: 'Restore this record?', target: named, message: 'It comes back where it was deleted from.', okLabel: 'Restore' }))) return;
   try { await api('POST', btn.dataset.url, {}); toast('Restored', 'success'); loadTrash(); }
   catch (e) { toast('Restore failed: ' + e.message, 'error'); }
 }

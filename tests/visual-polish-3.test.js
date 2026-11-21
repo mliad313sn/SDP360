@@ -40,3 +40,29 @@ test('inspection (field F13): rename and delete sit behind one "more" menu in th
   assert.match(menu, /deleteInspection\(\)/);
   assert.ok(read('brand/icons.js').includes("'more-horizontal':"));
 });
+
+// Item 2 — the pages below no longer call the browser's confirm() / prompt(): they ask through the shared dialog
+// (lib/reasonDialog.js), which names its target and is not suppressed by embedded browsers.
+for (const f of ['executive-report.html', 'inspection.html', 'inspections.html', 'meeting.html', 'meetings-import.html', 'meetings-setup.html', 'reports.html', 'lib/reports-backups.js']) {
+  test(`${f}: no native confirm()/prompt(); the shared dialog is used`, () => {
+    const src = read(f);
+    // comment lines are dropped line by line (a block-comment regex would swallow code after a '/*' inside a string)
+    const code = src.split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*|<!--|Branded replacement)/.test(l)).map((l) => l.replace(/\s\/\/ [^\n]*$/, '')).join('\n');
+    assert.ok(!/(^|[^.\w])(window\.)?(prompt|confirm)\s*\(/.test(code), 'calls window.prompt / confirm');
+    if (f.endsWith('.html')) assert.ok(src.includes('src="lib/reasonDialog.js"'), 'loads lib/reasonDialog.js');
+    assert.match(src, /ReasonDialog\.(confirm|ask|form)\(|askConfirm\(|_askConfirm\(/);
+  });
+}
+
+test('shared confirmation dialog: follows the page language when none is given; Enter on Cancel does not confirm', () => {
+  const src = read('lib/reasonDialog.js');
+  assert.match(fnSource(src, 'pageLang'), /document\.documentElement\.lang/);
+  assert.match(src, /e\.key === 'Enter' && e\.target !== cancel/);
+  assert.match(src, /\(first \|\| \(opts\.danger \? cancel : ok\)\)\.focus\(\)/);
+});
+
+test('deck builder: page styles live in executive-report.css, loaded where the <style> block was', () => {
+  const html = read('executive-report.html');
+  assert.ok(html.indexOf('href="executive-report.css"') > 0 && html.indexOf('href="executive-report.css"') < html.indexOf('href="_tokens.css"'));
+  assert.ok(fs.existsSync(path.join(ROOT, 'public', 'executive-report.css')));
+});

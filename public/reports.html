@@ -3369,8 +3369,13 @@ function defaultInfraRows() {
   ];
 }
 
-function resetInfraDefaults() {
-  if (!confirm('Replace all Infrastructure KPI rows with the standard defaults?\n\nWAN1 98% / WAN2 98% / LAN 99% / WLAN 99% / Servers 99% / Backup 100% / Radio 98%')) return;
+// Shared confirmation dialog (lib/reasonDialog.js): it names what the action applies to and follows the page
+// language. If the library did not load the answer is "no" — nothing is sent, replaced or deleted unconfirmed.
+function askConfirm(o) { return (window.ReasonDialog && ReasonDialog.confirm) ? ReasonDialog.confirm(o) : Promise.resolve(false); }
+function _reportName() { return currentReport ? `${currentReport.site_name} — ${currentReport.week_label}` : ''; }
+function _rowName(call) { const b = document.querySelector('[onclick="' + call + '"]'); const tr = b && b.closest('tr'); const c = tr && tr.querySelector('td strong'); return c ? c.textContent.trim() : ''; }
+async function resetInfraDefaults() {
+  if (!(await askConfirm({ title: 'Replace the KPI rows with the standard defaults?', target: _reportName(), message: 'All Infrastructure KPI rows are replaced:\nWAN1 98% / WAN2 98% / LAN 99% / WLAN 99% / Servers 99% / Backup 100% / Radio 98%', okLabel: 'Replace' }))) return;
   const tbody = document.getElementById('infra-body');
   tbody.innerHTML = '';
   defaultInfraRows().forEach(k => addInfraRow(k));
@@ -3585,7 +3590,7 @@ async function copyInfraFromPrevWeek() {
   if (!currentReport) return;
   const existingRows = document.getElementById('infra-body').querySelectorAll('tr');
   if (existingRows.length > 0) {
-    if (!confirm('This will replace the current KPI rows with those from the previous week.\n\nCurrent values will be cleared so you can enter this week\'s data.\n\nContinue?')) return;
+    if (!(await askConfirm({ title: 'Copy the KPI rows from the previous week?', target: _reportName(), message: 'The current KPI rows are replaced with those from the previous week.\nCurrent values will be cleared so you can enter this week\'s data.', okLabel: 'Copy' }))) return;
   }
   const btn = document.getElementById('btn-copy-infra-prev');
   btn.disabled = true;
@@ -5393,7 +5398,7 @@ async function submitReport() {
     finally { _autoSaveBusy = false; }
   }
   if (_assetFollowups && _assetFollowups.applicable && !_assetNotesFilled()) {
-    if (!confirm("La section Parc informatique n'est pas renseignée — elle apparaîtra comme « non renseigné » dans le rapport.\n\nSoumettre quand même ?")) return;
+    if (!(await askConfirm({ title: 'Submit with the IT assets section empty?', target: _reportName(), message: 'The IT assets section is not filled in — it will read "not provided" in the report.', okLabel: 'Submit anyway' }))) return;
   }
   try {
     await api('PUT', `/api/reports/${currentReport.id}/status`, { status: 'submitted' });
@@ -5415,10 +5420,11 @@ async function revertReport() {
   // A-24 — report_revert_policy = second_person (PROPOSED D-3, OFF by default): explain the rule, ask a reason.
   let reason = null;
   if (_reportIntegrity && _reportIntegrity.revert_policy === 'second_person') {
-    reason = prompt(`Revert "${currentReport.site_name} — ${currentReport.week_label}" to Draft?\n\nSecond-person rule: the person who submitted this report cannot revert it; an admin, executive or super_admin must, with a reason (max 500 characters).\n\nReason:`);
+    reason = (window.ReasonDialog && ReasonDialog.ask) ? await ReasonDialog.ask({ title: 'Revert "' + _reportName() + '" to Draft?', multiline: true, min: 1,
+      label: 'Second-person rule: the person who submitted this report cannot revert it; an admin, executive or super_admin must, with a reason (max 500 characters). Reason:' }) : null;
     if (reason == null) return;
     if (!reason.trim()) { toast('A reason is required to revert a submitted report', 'error'); return; }
-  } else if (!confirm(`Revert "${currentReport.site_name} — ${currentReport.week_label}" to Draft?\n\nThis will allow editors to make changes again.`)) return;
+  } else if (!(await askConfirm({ title: 'Revert this report to Draft?', target: _reportName(), message: 'Editors will be able to make changes again.', okLabel: 'Revert to Draft' }))) return;
   try {
     const res = await fetch(`/api/reports/${currentReport.id}/status`, {
       method: 'PUT',
@@ -5486,7 +5492,7 @@ async function loadAuditLog() {
 async function deleteCurrentReport() {
   if (!currentReport) return;
   const label = `${currentReport.site_name} — ${currentReport.week_label}`;
-  if (!confirm(`Delete this report (${label})?\n\nThis cannot be undone.`)) return;
+  if (!(await askConfirm({ title: 'Delete this report?', target: label, message: 'This cannot be undone.', okLabel: 'Delete', danger: true }))) return;
   try {
     await api('DELETE', `/api/reports/${currentReport.id}`);
     toast('Report deleted', 'info');
@@ -6667,7 +6673,7 @@ async function saveSite() {
 }
 
 async function disableSite(id) {
-  if (!confirm('Disable this site? It will be hidden from new dropdowns. Existing reports for this site stay accessible.')) return;
+  if (!(await askConfirm({ title: 'Disable this site?', target: _rowName('disableSite(' + id + ')') || ('#' + id), message: 'It will be hidden from new dropdowns. Existing reports for this site stay accessible.', okLabel: 'Disable', danger: true }))) return;
   try {
     await api('DELETE', `/api/reports/sites/${id}`);
     toast('Site disabled', 'success');
@@ -6772,7 +6778,7 @@ function _startActiveSessionsPolling() {
 }
 
 async function forceLogoutSession(token, username) {
-  if (!confirm(`Force logout ${username}?\n\nTheir current session token will be invalidated. They'll see "Not authenticated" on their next click and have to log in again.`)) return;
+  if (!(await askConfirm({ title: 'Force this user to sign out?', target: username, message: 'Their current session is invalidated. They will see "Not authenticated" on their next click and have to sign in again.', okLabel: 'Force sign-out', danger: true }))) return;
   try {
     await api('DELETE', '/api/reports/sessions/' + encodeURIComponent(token));
     toast(`${username} signed out ✓`, 'success');
@@ -6890,7 +6896,7 @@ async function submitRrAlias() {
 }
 
 async function deleteRrAlias(label) {
-  if (!confirm(`Remove the mapping for "${label}"?\n\nThe next export will count incidents with this label as "unmapped" instead.`)) return;
+  if (!(await askConfirm({ title: 'Remove this mapping?', target: label, message: 'The next export will count incidents with this label as "unmapped" instead.', okLabel: 'Remove', danger: true }))) return;
   try {
     await api('DELETE', '/api/risk-register-config/aliases/' + encodeURIComponent(label));
     toast(`Deleted: ${label}`, 'success');
@@ -7018,7 +7024,7 @@ async function saveDept() {
 }
 
 async function disableDept(id) {
-  if (!confirm('Disable this department? It will be hidden from new dropdowns. Existing action items keep the name.')) return;
+  if (!(await askConfirm({ title: 'Disable this department?', target: _rowName('disableDept(' + id + ')') || ('#' + id), message: 'It will be hidden from new dropdowns. Existing action items keep the name.', okLabel: 'Disable', danger: true }))) return;
   try {
     await api('DELETE', `/api/reports/departments/${id}`);
     toast('Department disabled', 'success');
@@ -7203,7 +7209,7 @@ async function deleteUser(id) {
   const ok = window.ReasonDialog
     ? await window.ReasonDialog.confirm({ title: 'Delete user', target: uname, message: 'This permanently removes the account. It cannot be undone.',
         hint: 'To keep the history, prefer Edit → Status: inactive (deactivate).', typeToConfirm: uname, okLabel: 'Delete user', danger: true })
-    : confirm('Delete user "' + uname + '"? This cannot be undone.');
+    : false;   // no dialog library → nothing is deleted
   if (!ok) return;
   try {
     await api('DELETE', `/api/reports/users/${id}`);
@@ -8213,7 +8219,7 @@ async function saveSlaContract(key) {
   } catch (e) { if (msg) msg.textContent = 'Save failed: ' + (e.message || e); toast('Save failed: ' + (e.message || e), 'error'); }
 }
 async function reviewSlaContract(key) {
-  if (!confirm('Confirm you have read the contract evidence and the terms match it. Your name is recorded as reviewer.')) return;
+  if (!(await askConfirm({ title: 'Record your review of this contract?', target: key, message: 'Confirm you have read the contract evidence and the terms match it. Your name is recorded as reviewer.', okLabel: 'I have reviewed it' }))) return;
   try { await api('POST', '/api/analytics/wan/sla/contracts/' + encodeURIComponent(key) + '/review', {}); toast('Contract reviewed ✓', 'success'); loadSlaContracts(); }
   catch (e) { toast('Review refused: ' + (e.message || e), 'error'); }
 }
@@ -8467,8 +8473,8 @@ function previewHygiene(btn) {
     .catch(e => toast('Preview failed: ' + (e.message || e), 'error'))
     .finally(() => { if (btn) btn.disabled = false; });
 }
-function sendHygieneNow(btn) {
-  if (!confirm('Send the Assets Hygiene digest now to the configured recipients?')) return;
+async function sendHygieneNow(btn) {
+  if (!(await askConfirm({ title: 'Send this digest now?', target: 'Assets Hygiene digest', message: 'It goes to the configured recipients.', okLabel: 'Send now' }))) return;
   if (btn) btn.disabled = true;
   api('POST', '/api/assets/hygiene/send?preview=0')
     .then(r => {
@@ -8530,8 +8536,8 @@ function previewAssetGroup(btn) {
     .catch(e => toast('Preview failed: ' + (e.message || e), 'error'))
     .finally(() => { if (btn) btn.disabled = false; });
 }
-function sendAssetGroupNow(btn) {
-  if (!confirm('Send the Assets — Group digest now to the configured recipients?')) return;
+async function sendAssetGroupNow(btn) {
+  if (!(await askConfirm({ title: 'Send this digest now?', target: 'Assets — Group digest', message: 'It goes to the configured recipients.', okLabel: 'Send now' }))) return;
   if (btn) btn.disabled = true;
   api('POST', '/api/reports/asset-group/send?preview=0')
     .then(r => {
@@ -8736,8 +8742,8 @@ function previewScoreboard(btn) {
     .catch(e => toast('Preview failed: ' + (e.message || e), 'error'))
     .finally(() => { if (btn) btn.disabled = false; });
 }
-function sendScoreboardNow(btn) {
-  if (!confirm('Send the operational scoreboard now to every site\'s confirmed coordinator?')) return;
+async function sendScoreboardNow(btn) {
+  if (!(await askConfirm({ title: 'Send the scoreboard now?', target: 'Operational scoreboard', message: 'It goes to every site\'s confirmed coordinator.', okLabel: 'Send now' }))) return;
   if (btn) btn.disabled = true;
   api('POST', '/api/reports/scoreboard/send?preview=0')
     .then(r => {
@@ -8821,8 +8827,8 @@ function previewWeekly(btn) {
     .finally(() => { if (btn) btn.disabled = false; });
 }
 
-function sendWeeklyNow(btn) {
-  if (!confirm('Send the authored weekly report now to every site\'s confirmed coordinator?')) return;
+async function sendWeeklyNow(btn) {
+  if (!(await askConfirm({ title: 'Send the weekly report now?', target: 'Authored weekly report', message: 'It goes to every site\'s confirmed coordinator.', okLabel: 'Send now' }))) return;
   if (btn) btn.disabled = true;
   api('POST', '/api/reports/weekly/send?preview=0')
     .then(r => { _wkRender(r, false); toast('Sent ' + ((r && r.sent) || 0) + ' email' + ((r && r.sent === 1) ? '' : 's'), (r && r.sent) ? 'success' : 'info'); })
@@ -8881,8 +8887,8 @@ function previewAssetReminders(btn) {
   api('POST', _armQuery(true)).then(r => { _armRender(r, true); toast('Preview complete — nothing was sent', 'info'); })
     .catch(e => toast('Preview failed: ' + (e.message || e), 'error')).finally(() => { if (btn) btn.disabled = false; });
 }
-function sendAssetRemindersNow(btn) {
-  if (!confirm('Envoyer maintenant les rappels parc aux contacts confirmés ?')) return;
+async function sendAssetRemindersNow(btn) {
+  if (!(await askConfirm({ title: 'Send the asset reminders now?', target: 'Asset reminders', message: 'They go to the confirmed contacts.', okLabel: 'Send now' }))) return;
   if (btn) btn.disabled = true;
   api('POST', _armQuery(false)).then(r => { _armRender(r, false); toast('Sent ' + ((r && r.sent) || 0), (r && r.sent) ? 'success' : 'info'); })
     .catch(e => toast('Send failed: ' + (e.message || e), 'error')).finally(() => { if (btn) btn.disabled = false; });

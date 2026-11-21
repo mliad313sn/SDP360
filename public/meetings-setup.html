@@ -14,6 +14,7 @@
 <script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
 <link rel="stylesheet" href="module-tabs.css">
 <script nonce="%%CSP_NONCE%%" src="module-tabs.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/reasonDialog.js"></script>
 
 <style nonce="%%CSP_NONCE%%">
   body {
@@ -498,9 +499,9 @@
   async function toggleActive(table, code, next) {
     const verb = next ? 'réactiver' : 'désactiver';
     const warn = next
-      ? `Réactiver le code « ${code} » ? Il réapparaîtra dans les listes déroulantes et sera accepté à l'import.`
-      : `Désactiver le code « ${code} » ?\n\nIl disparaîtra des listes déroulantes du formulaire et sera REJETÉ aux futurs imports.\nLes PV qui l'utilisent déjà gardent leur code intact (soft delete).`;
-    if (!confirm(warn)) return;
+      ? `Il réapparaîtra dans les listes déroulantes et sera accepté à l'import.`
+      : `Il disparaîtra des listes déroulantes du formulaire et sera REJETÉ aux futurs imports.\nLes PV qui l'utilisent déjà gardent leur code intact (soft delete).`;
+    if (!(await ReasonDialog.confirm({ lang: 'fr', title: next ? 'Réactiver ce code ?' : 'Désactiver ce code ?', target: code + ' (' + table + ')', message: warn, okLabel: next ? 'Réactiver' : 'Désactiver', danger: !next }))) return;
     try {
       await call('PATCH', `${API}/${encodeURIComponent(table)}/${encodeURIComponent(code)}/active`, { active: next });
       toast(`Code « ${code} » ${next ? 'réactivé' : 'désactivé'}`, 'success');

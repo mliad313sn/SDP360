@@ -22,7 +22,7 @@
       + '.rd-meta{display:flex;justify-content:space-between;font-size:12px;color:#5B6573;margin-top:4px}.rd-bad{color:#A0002C}'
       + '.rd-act{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}.rd-act button{font:inherit;padding:8px 14px;border-radius:6px;border:1px solid #9AA4B2;background:#fff;cursor:pointer;min-height:40px}'
       + '.rd-act button.rd-ok{background:#1F2A33;color:#fff;border-color:#1F2A33}.rd-act button.rd-danger{background:var(--rag-red,firebrick);border-color:var(--rag-red,firebrick)}.rd-act button[disabled]{opacity:.5;cursor:not-allowed}'
-      + '.rd-target{font-weight:700}.rd-hint{font-size:12px;color:var(--gray-500,dimgray);margin:6px 0 0}';
+      + '.rd-target{font-weight:700;overflow-wrap:anywhere}.rd-msg{white-space:pre-line;margin:0 0 6px}.rd-hint{font-size:12px;color:var(--gray-500,dimgray);margin:6px 0 0}';
     const s = document.createElement('style');
     const n = document.querySelector('script[nonce]'); if (n && n.nonce) s.nonce = n.nonce;
     s.textContent = css; document.head.appendChild(s);
@@ -41,14 +41,15 @@
       const back = el('div', { className: 'rd-back' }, [box]);
       const done = (v) => { back.remove(); document.removeEventListener('keydown', onKey, true); try { prev && prev.focus && prev.focus(); } catch (_) {} resolve(v); };
       const refresh = () => { ok.disabled = !valid(); };
-      const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); done(null); } else if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA' && !ok.disabled) { e.preventDefault(); done(collect()); } };
+      const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); done(null); } else if (e.key === 'Enter' && e.target !== cancel && e.target.tagName !== 'TEXTAREA' && !ok.disabled) { e.preventDefault(); done(collect()); } };
       ok.addEventListener('click', () => { if (!ok.disabled) done(collect()); });
       cancel.addEventListener('click', () => done(null));
       back.addEventListener('click', (e) => { if (e.target === back) done(null); });
       body.addEventListener('input', refresh); body.addEventListener('change', refresh);
       document.addEventListener('keydown', onKey, true);
       document.body.appendChild(back); refresh();
-      const first = box.querySelector('textarea,input,select'); if (first) first.focus();
+      // nothing to type (a plain confirmation): the keyboard starts on Cancel when the action destroys something
+      const first = box.querySelector('textarea,input,select'); (first || (opts.danger ? cancel : ok)).focus();
     });
   }
   function ask(o) {
@@ -80,9 +81,14 @@
   /** Yes / no confirmation (window.confirm is suppressed in some embedded browsers). → Promise<boolean> */
   // UX committee admin P1-2: a destructive confirmation NAMES its object (o.target) and, for a delete, can require
   // the user to type it (o.typeToConfirm). o.okLabel names the action ("Delete user"), o.danger paints it red.
+  function pageLang(l) {
+    if (l == null || l === '') { try { l = document.documentElement.lang || ''; } catch (_) { l = ''; } }
+    return String(l).slice(0, 2).toLowerCase() === 'fr' ? 'fr' : 'en';
+  }
   function confirm(o) {
-    o = o || {}; const lang = o.lang === 'fr' ? 'fr' : 'en';
-    const kids = [el('p', { textContent: o.message || '' })];
+    // lang not given → the page language (<html lang>, set by the shell); a page that passes lang keeps its choice
+    o = o || {}; const lang = pageLang(o.lang);
+    const kids = [el('p', { className: 'rd-msg', textContent: o.message || '' })];
     if (o.target) kids.unshift(el('p', { className: 'rd-target', textContent: o.target }));
     let typed = null;
     if (o.typeToConfirm) {

@@ -1,0 +1,455 @@
+/* Deck builder (executive-report.html) — page styles, moved out of the page (VISUAL POLISH 3) so the page keeps
+   its size budget. Loaded at the place the <style> block was: before _tokens.css / _shell.css, same cascade. */
+    :root {
+      /* Light theme — moved from dark navy/slate to clean white-on-light-grey
+         per user request. Brand orange (EF631A) and the new template blue
+         (2F5597 — matches the PPTX exec header) carry the Endeavour identity;
+         everything else is neutral so charts and KPIs read clearly on screen. */
+      --navy:   #1E293B;          /* dark text accent (NOT background) */
+      --navy-2: #334155;
+      --navy-3: #475569;
+      --gold:   #EF631A;
+      --teal:   #0D9488;
+      --green:  #16A34A;
+      --red:    #DC2626;
+      --orange: #EF631A;
+      --bg:     #F1F5F9;          /* light slate-grey body — was #131E2A */
+      --card:   #FFFFFF;          /* white cards — was #1E2E42 */
+      --border: #E2E8F0;          /* light grey rules — was #2F4260 */
+      --text:   #0F172A;          /* dark text — was #E8EFF6 */
+      --muted:  #64748B;          /* medium grey — was #8FA3BF */
+      --edv-orange: #EF631A;
+      --edv-steel:  #2F5597;      /* template blue for header — was dark grey */
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Libre Franklin', 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* ── Header ── */
+    .header { background: var(--edv-steel); border-bottom: 1px solid rgba(0,0,0,0.2); }
+    .header-top { display: flex; align-items: center; justify-content: space-between; padding: 10px 18px; gap: 12px; flex-wrap: wrap; }
+    .header-brand { display: flex; align-items: center; gap: 10px; }
+    .header-logo  { width: 36px; height: 36px; background: var(--color-primary-fill, #C2410C); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 18px; color: white; flex-shrink: 0; }
+    .header-name  { font-size: 15px; font-weight: 700; color: white; }
+    .header-name span { font-weight: 400; color: var(--muted); font-size: 13px; margin-left: 6px; }
+    .header-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .live-chip { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--green); font-weight: 600; }
+    .live-dot  { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    .btn { display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--text); font-size: 12px; font-weight: 600; cursor: pointer; text-decoration: none; transition: all 0.15s; white-space: nowrap; }
+    .btn:hover   { background: var(--navy-3); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { background: #1a5ea8; color: white; border-color: #1a5ea8; }
+    .btn-primary:hover { background: #1652a0; }
+    .btn-gold    { background: var(--color-primary-fill, #C2410C); color: white; border-color: var(--edv-orange); font-weight: 700; }
+    .btn-gold:hover { background: #d4551a; }
+    .btn-green   { background: var(--green); color: white; border-color: var(--green); }
+    .btn-green:hover { background: #0ea472; }
+
+    /* ── Config bar ── */
+    .config-bar { background: #FFFFFF; border-bottom: 1px solid var(--border); padding: 8px 18px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    .config-label  { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .config-select { background: #FFFFFF; border: 1px solid var(--border); color: var(--text); padding: 5px 10px; border-radius: 5px; font-size: 12px; cursor: pointer; }
+    .config-select:hover { border-color: var(--edv-orange); }
+    .config-divider { width: 1px; height: 22px; background: var(--border); }
+    .config-month-badge { background: rgba(239,99,26,0.10); color: var(--edv-orange); border: 1px solid rgba(239,99,26,0.35); border-radius: 5px; padding: 4px 10px; font-size: 12px; font-weight: 700; }
+
+    /* ── Main ── */
+    .main { padding: 20px; max-width: 1380px; margin: 0 auto; }
+
+    /* ── Status ── */
+    .status-row { display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+    .status-item { display: flex; align-items: center; gap: 5px; }
+    .sdot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+    .sdot.loading { background: var(--gold); animation: pulse 1s infinite; }
+    .sdot.ok      { background: var(--green); }
+    .sdot.err     { background: var(--red); }
+    .sdot.warn    { background: var(--gold); }
+
+    /* ── Data freshness bar ─────────────────────────────────────── */
+    .freshness-bar { display: none; align-items: center; gap: 8px; padding: 5px 18px; font-size: 11px; border-bottom: 1px solid var(--border); }
+    .freshness-ok    { background: #DCFCE7; color: #166534; }
+    .freshness-warn  { background: #FEF3C7; color: #92400E; }
+    .freshness-stale { background: #FEE2E2; color: #991B1B; }
+    .fb-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); flex-shrink: 0; display: inline-block; }
+    .fb-sync-btn { margin-left: auto; background: transparent; border: 1px solid currentColor; border-radius: 4px; padding: 2px 9px; font-size: 11px; cursor: pointer; font-weight: 600; color: inherit; white-space: nowrap; }
+    .fb-sync-btn:hover { background: rgba(0,0,0,.05); }
+
+    /* ── Section headers ── */
+    .section-hdr { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; margin-top: 28px; }
+    .section-num   { width: 28px; height: 28px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 900; color: white; flex-shrink: 0; }
+    .section-num.blue   { background: var(--edv-steel); }
+    .section-num.gold   { background: var(--color-primary-fill, #C2410C); color: white; }
+    .section-num.purple { background: #7C3AED; }
+    .section-num.red    { background: var(--red); }
+    .section-title  { font-size: 15px; font-weight: 700; color: var(--text); }
+    .section-sub    { font-size: 11px; color: var(--muted); }
+
+    /* ── KPI grid ── */
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); gap: 10px; }
+    .kpi-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+    .kpi-label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .kpi-value { font-size: 30px; font-weight: 900; color: var(--text); line-height: 1.1; margin: 5px 0 3px; }
+    .kpi-value.good { color: var(--green); }
+    .kpi-value.warn { color: var(--gold); }
+    .kpi-value.bad  { color: var(--red); }
+    .kpi-sub   { font-size: 11px; color: var(--muted); }
+    .kpi-badge { display: inline-flex; align-items: center; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 700; margin-top: 5px; }
+    .kpi-badge.up   { background: rgba(16,185,129,0.15); color: var(--green); }
+    .kpi-badge.dn   { background: rgba(239,68,68,0.15);  color: var(--red);   }
+    .kpi-badge.flat { background: rgba(148,163,184,0.12); color: var(--muted); }
+
+    /* ── Chart grid ── */
+    .chart-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .chart-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+    .chart-card   { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+    .chart-card.wide { grid-column: span 2; }
+    .chart-card-title { font-size: 11px; font-weight: 700; color: var(--navy); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+    .chart-wrap   { position: relative; }
+
+    /* ── Commentary ── */
+    .commentary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .commentary-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+    .commentary-hdr  { background: #F8FAFC; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); }
+    .commentary-name { font-size: 12px; font-weight: 700; color: var(--navy); }
+    .commentary-body { padding: 12px 14px; }
+    .commentary-field {
+      font-size: 13px; color: var(--text); line-height: 1.6;
+      min-height: 70px; white-space: pre-wrap; width: 100%;
+      background: transparent; border: none; resize: vertical;
+    }
+    .commentary-field[contenteditable="true"]:focus { outline: 1px solid rgba(14,165,233,0.4); border-radius: 4px; padding: 4px; }
+    .commentary-field.empty { color: var(--muted); font-style: italic; }
+    /* ── Analysis progress ── */
+    .ai-progress { background: #DBEAFE; border: 1px solid #93C5FD; border-radius: 8px; padding: 12px 16px; display: none; margin-top: 12px; }
+    .ai-steps { list-style: none; display: flex; flex-direction: column; gap: 5px; margin-top: 8px; }
+    .ai-step  { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 7px; }
+    .ai-step.done { color: var(--green); }
+    .ai-step.active { color: var(--edv-steel); font-weight:600; }
+
+    /* ── Change table ── */
+    .data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .data-table th { background: #F1F5F9; color: var(--navy); font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px; padding: 8px 10px; text-align: left; white-space: nowrap; }
+    .data-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: top; }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table tr:hover td { background: #F8FAFC; }
+    .badge { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 700; }
+    .badge-blue   { background: #DBEAFE;  color: #1E40AF; }
+    .badge-green  { background: #DCFCE7;  color: #166534; }
+    .badge-orange { background: #FFEDD5;  color: #9A3412; }
+    .badge-red    { background: #FEE2E2;  color: #991B1B; }
+    .badge-gray   { background: #F1F5F9;  color: var(--navy); }
+
+
+    /* ── Action bar ── */
+    .action-bar { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; margin-top: 28px; flex-wrap: wrap; gap: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); }
+    .action-bar-left  { font-size: 13px; color: var(--muted); }
+    .action-bar-right { display: flex; gap: 10px; flex-wrap: wrap; }
+
+    /* ── Footer ── */
+    .footer-spacer { height: 60px; }
+
+    /* (group quick-buttons replaced by dropdown select) */
+
+    /* ── Modal overlay ── */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.45); z-index: 999; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
+    .modal-box { background: #FFFFFF; border: 1px solid var(--border); border-radius: 12px; width: 720px; max-width: 96vw; max-height: 88vh; display: flex; flex-direction: column; box-shadow: 0 24px 72px rgba(15,23,42,0.18); }
+    .modal-hdr { background: var(--edv-steel); padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; border-radius: 12px 12px 0 0; flex-shrink: 0; }
+    .modal-title { font-size: 14px; font-weight: 700; color: white; }
+    .modal-body { padding: 18px; overflow-y: auto; flex: 1; background:#F8FAFC; }
+    .modal-footer { padding: 12px 18px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; flex-shrink: 0; background:#F8FAFC; border-radius:0 0 12px 12px; }
+    /* ── Preset Manager ── */
+    .pm-preset-block { background: #FFFFFF; border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin-bottom: 12px; }
+    .pm-preset-hdr { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .pm-preset-name { font-size: 13px; font-weight: 700; color: var(--edv-steel); border-bottom: 1px dashed #94A3B8; padding: 1px 4px; cursor: text; min-width: 80px;}
+    .pm-preset-name:focus { border-bottom-color: var(--edv-orange); background: rgba(239,99,26,0.06); border-radius: 3px; }
+    .pm-preset-count { font-size: 11px; color: var(--muted); flex: 1; }
+    .pm-del-preset { background: #FEE2E2; border: 1px solid #FCA5A5; color: #991B1B; border-radius: 4px; padding: 2px 8px; font-size: 11px; cursor: pointer; }
+    .pm-del-preset:hover { background: #FECACA; }
+    .pm-tag-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; min-height: 26px; }
+    .pm-tag { display: inline-flex; align-items: center; gap: 4px; background: #DBEAFE; border: 1px solid #93C5FD; border-radius: 20px; padding: 3px 10px; font-size: 12px; color: #1E40AF; }
+    .pm-tag-rm { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; line-height: 1; padding: 0 0 0 2px; }
+    .pm-tag-rm:hover { color: var(--red); }
+    .pm-add-row { display: flex; gap: 6px; align-items: center; }
+    .group-category { margin-bottom: 18px; }
+    .group-category-title { font-size: 10px; font-weight: 700; color: var(--edv-orange); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+    .group-category-title::after { content:''; flex:1; height:1px; background: rgba(239,99,26,0.2); }
+    .group-check-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 5px; }
+    .group-check-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; background: #FFFFFF; border-radius: 6px; cursor: pointer; border: 1px solid var(--border); transition: border-color 0.12s; }
+    .group-check-item:hover { border-color: var(--edv-orange); background:#F8FAFC; }
+    .group-check-item input[type=checkbox] { cursor: pointer; accent-color: var(--edv-orange); width: 14px; height: 14px; flex-shrink: 0; }
+    .group-check-item label { font-size: 12px; color: var(--text); cursor: pointer; line-height: 1.3; }
+
+    @media (max-width: 900px) {
+      .chart-grid-2, .chart-grid-3, .commentary-grid { grid-template-columns: 1fr; }
+      .chart-card.wide { grid-column: span 1; }
+      .chart-grid-2, .chart-grid-3, .commentary-grid { grid-template-columns: minmax(0, 1fr); }
+      .chart-card { min-width: 0; }
+      .chart-wrap canvas { max-width: 100% !important; }
+    }
+
+  /* ── Underlying Data Panel ─────────────────────────────────────── */
+  #dataOverlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9998;display:none;cursor:pointer;backdrop-filter:blur(2px);}
+  #dataOverlay.open{display:block;}
+  #dataPanel{position:fixed;top:0;right:-700px;width:680px;height:100vh;background:#FFFFFF;border-left:2px solid #E2E8F0;z-index:9999;display:flex;flex-direction:column;transition:right .28s cubic-bezier(.4,0,.2,1);box-shadow:-12px 0 40px rgba(0,0,0,.15);}
+  #dataPanel.open{right:0;}
+  #dpHdr{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid #E2E8F0;flex-shrink:0;background:#F1F5F9;}
+  #dpTitle{font-size:13px;font-weight:700;color:#1E293B;flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
+  .dp-icon-btn{background:none;border:none;color:#94A3B8;cursor:pointer;padding:5px 8px;border-radius:5px;font-size:13px;line-height:1;}
+  .dp-icon-btn:hover{background:#E2E8F0;color:#1E293B;}
+  #dpTools{display:flex;gap:8px;padding:10px 16px;border-bottom:1px solid #1E3A50;flex-shrink:0;align-items:center;}
+  #dpSearch{flex:1;background:#FFFFFF;border:1px solid #CBD5E1;color:#1E293B;border-radius:6px;padding:7px 11px;font-size:12px;}
+  #dpSearch:focus{border-color:#2F5597;box-shadow:0 0 0 2px rgba(47,85,151,.15);}
+  #dpSearch::placeholder{color:#4B6280;}
+  #dpSearch:focus{border-color:#3B82F6;}
+  #dpCount{font-size:11px;color:#64748B;white-space:nowrap;}
+  .dp-btn{background:#FFFFFF;border:1px solid #CBD5E1;color:#475569;border-radius:6px;padding:6px 13px;font-size:12px;cursor:pointer;white-space:nowrap;}
+  .dp-btn:hover{background:#F1F5F9;color:#1E293B;border-color:#94A3B8;}
+  .dp-btn.primary{background:#2F5597;border-color:#2F5597;color:#fff;}
+  .dp-btn.primary:hover{background:#2563EB;}
+  #dpBody{flex:1;overflow:auto;}
+  #dpBody::-webkit-scrollbar{width:6px;height:6px;}
+  #dpBody::-webkit-scrollbar-track{background:#F1F5F9;}
+  #dpBody::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:3px;}
+  #dpBody::-webkit-scrollbar-thumb:hover{background:#94A3B8;}
+  #dpTable{width:100%;border-collapse:collapse;font-size:11.5px;}
+  #dpTable thead th{position:sticky;top:0;background:#F1F5F9;color:#2F5597;font-weight:700;padding:9px 12px;text-align:left;border-bottom:1px solid #CBD5E1;white-space:nowrap;cursor:pointer;user-select:none;text-transform:uppercase;font-size:10px;letter-spacing:0.5px;}
+  #dpTable thead th:hover{color:#1E293B;background:#E2E8F0;}
+  #dpTable thead th .si{margin-left:4px;opacity:.35;font-size:10px;}
+  #dpTable thead th.sorted .si{opacity:1;color:#2F5597;}
+  #dpTable tbody tr{border-bottom:1px solid #E2E8F0;}
+  #dpTable tbody tr:hover{background:#F8FAFC;}
+  #dpTable tbody td{padding:7px 12px;color:#334155;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  #dpTable tbody td:first-child{color:#2F5597;font-family:monospace;font-size:11px;font-weight:600;}
+  #dpNoRows{text-align:center;padding:48px 24px;color:#94A3B8;font-size:13px;}
+  #dpFooter{padding:8px 16px;border-top:1px solid #E2E8F0;flex-shrink:0;background:#F8FAFC;font-size:11px;color:#64748B;display:flex;justify-content:space-between;align-items:center;}
+
+  /* ── Multi-select dropdown (msd) — light theme ─────────────────── */
+  .msd-wrap { position: relative; display: inline-block; }
+  .msd-btn { background: #FFFFFF; border: 1px solid var(--border); color: var(--text); padding: 5px 10px; border-radius: 5px; font-size: 12px; cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px; line-height: 1.4; }
+  .msd-btn:hover, .msd-btn.open { background: #F1F5F9; border-color: var(--edv-orange); }
+  .msd-arrow { font-size: 9px; opacity: 0.65; margin-left: 2px; }
+  .msd-btn.open .msd-arrow { opacity: 1; color: var(--edv-orange); }
+  .msd-panel { position: absolute; top: calc(100% + 4px); left: 0; background: #FFFFFF; border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); z-index: 600; min-width: 210px; max-width: 310px; }
+  .msd-toolbar { display: flex; gap: 4px; padding: 7px 10px; border-bottom: 1px solid var(--border); flex-wrap: wrap; background:#F8FAFC; border-top-left-radius:8px; border-top-right-radius:8px; }
+  .msd-toolbar button { background: #FFFFFF; border: 1px solid var(--border); color: var(--navy-3); padding: 3px 9px; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: 600; }
+  .msd-toolbar button:hover { background: #F1F5F9; color: var(--text); border-color: var(--edv-orange); }
+  .msd-list { max-height: 300px; overflow-y: auto; padding: 4px 0; }
+  .msd-list::-webkit-scrollbar { width: 4px; }
+  .msd-list::-webkit-scrollbar-track { background: transparent; }
+  .msd-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .msd-section-hdr { font-size: 10px; font-weight: 700; color: var(--edv-orange); text-transform: uppercase; letter-spacing: 0.5px; padding: 6px 12px 2px; pointer-events: none; }
+  .msd-check-item { display: flex; align-items: center; gap: 7px; padding: 5px 12px; cursor: pointer; }
+  .msd-check-item:hover { background: #F1F5F9; }
+  .msd-check-item input[type=checkbox] { cursor: pointer; accent-color: var(--edv-orange); width: 13px; height: 13px; flex-shrink: 0; }
+  .msd-check-item label { font-size: 12px; color: var(--text); cursor: pointer; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 230px; }
+  .msd-footer { padding: 7px 10px; border-top: 1px solid var(--border); background:#F8FAFC; }
+  .msd-footer button { width: 100%; background: #FFFFFF; border: 1px solid var(--border); color: var(--navy-3); padding: 5px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; text-align: left; }
+  .msd-footer button:hover { background: #F1F5F9; color: var(--text); border-color: var(--edv-orange); }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     TRACKER DESIGN OVERLAY — applied 2026-05-28
+     ───────────────────────────────────────────────────────────────────────
+     Same visual language as /executive.html (Executive Scorecard) overlay
+     and /activity-tracker brand surface. Re-skins existing element classes
+     so JS handlers stay untouched.
+
+     Reads tokens from _tokens.css (already loaded above).
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  /* ── Page background — slightly cooler so white cards pop ─────────── */
+  body { background: #E8EBF0 !important; }
+
+  /* ── Force sans-serif on big KPI numbers (no editorial-serif tilt) ──── */
+  .kpi-value,
+  .kpi-card .kpi-value {
+    font-family: 'Segoe UI', 'Libre Franklin', Calibri, sans-serif !important;
+    font-style: normal !important;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+
+  /* ── KPI tile geometry + accent-bar treatment ─────────────────────────
+     The deck builder uses .kpi-card. Wraps each tile with a neutral card,
+     soft shadow, and a 3px accent stripe on the left edge. RAG colour is
+     driven by adding .kpi-good / .kpi-warn / .kpi-bad on the card (or
+     keeping .kpi-value.good / .warn / .bad which already exists).        */
+  .kpi-card {
+    background: var(--color-card, #FFFFFF) !important;
+    border: 1px solid var(--color-border, #E5E7EB) !important;
+    border-radius: var(--radius-lg, 10px) !important;
+    box-shadow: 0 1px 3px rgba(58,74,96,0.06), 0 4px 12px rgba(58,74,96,0.05);
+    padding: 14px 16px !important;
+    position: relative;
+    overflow: hidden;
+    transition: box-shadow .15s ease, transform .15s ease;
+  }
+  .kpi-card:hover {
+    box-shadow: 0 2px 10px rgba(58,74,96,.10);
+    transform: translateY(-1px);
+  }
+  .kpi-card::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+    width: 3px; background: var(--color-border, #E5E7EB);
+  }
+  /* RAG accent via existing kpi-value.good/warn/bad — light up the stripe */
+  .kpi-card:has(.kpi-value.good)::before { background: var(--edv-green, #1B9A3A); }
+  .kpi-card:has(.kpi-value.warn)::before { background: var(--color-warning, #D97706); }
+  .kpi-card:has(.kpi-value.bad)::before  { background: var(--edv-red, #D90038); }
+
+  .kpi-label {
+    font-size: 10.5px !important; font-weight: 700 !important;
+    color: var(--color-text-muted, #64748B) !important;
+    text-transform: uppercase; letter-spacing: 0.7px;
+  }
+  .kpi-value {
+    font-size: 28px !important; font-weight: 800 !important;
+    color: var(--color-text-strong, #0F172A) !important;
+    line-height: 1.05 !important; margin: 6px 0 4px !important;
+  }
+  .kpi-sub {
+    font-size: 11px;
+    color: var(--color-text-muted, #64748B);
+  }
+
+  /* ── Section heading block (the "01 Helpdesk KPI Scorecard" headers) ─
+     The numbered badge + title is rendered as a .section-num + heading
+     pair. Lift them onto a card-like row with bottom border.            */
+  .section,
+  .section-block {
+    background: var(--color-card, #FFFFFF);
+    border: 1px solid var(--color-border, #E5E7EB);
+    border-radius: var(--radius-lg, 10px);
+    padding: 16px 20px;
+    margin-bottom: 14px;
+    box-shadow: 0 1px 3px rgba(58,74,96,0.04);
+  }
+
+  /* The numbered tile (".section-num.blue" etc.) — keep brand colours,
+     just round it slightly more + add subtle shadow */
+  .section-num {
+    box-shadow: 0 1px 2px rgba(58,74,96,0.10);
+    width: 32px !important; height: 32px !important;
+    border-radius: 8px !important;
+    font-size: 14px !important;
+  }
+
+  /* ── Filter row — sit on a card, tracker-style ───────────────────── */
+  .config-bar,
+  .config-row,
+  div[class*="config-bar"] {
+    background: var(--color-card, #FFFFFF) !important;
+    border: 1px solid var(--color-border, #E5E7EB) !important;
+    border-radius: var(--radius-lg, 10px) !important;
+    box-shadow: 0 1px 3px rgba(58,74,96,0.06);
+    padding: 12px 18px !important;
+    margin: 14px 18px !important;
+  }
+
+  .config-select {
+    border: 1px solid var(--color-border, #E5E7EB) !important;
+    border-radius: var(--radius-md, 6px) !important;
+    background: var(--color-card, #FFFFFF) !important;
+    color: var(--color-text-strong, #0F172A);
+    padding: 6px 10px !important;
+    font: 600 12.5px var(--font-sans, 'Segoe UI', Calibri, sans-serif);
+    cursor: pointer;
+    transition: border-color .15s;
+  }
+  .config-select:focus {
+    border-color: var(--edv-orange, #EF631A) !important;
+    box-shadow: 0 0 0 3px rgba(239,99,26,.12);
+  }
+
+  /* ── Buttons in the action bar (Refresh, Analyze, Executive New Report) ─
+     Match the Executive Scorecard treatment so the entire family looks
+     coherent. Buttons inside .shell-page-bar already inherit white-on-navy
+     from _shell.css; this overlay only touches buttons OUTSIDE that bar. */
+  button.btn-gold,
+  .btn-gold {
+    background: var(--color-primary-fill, #C2410C) !important;
+    color: #fff !important;
+    border-color: var(--edv-orange, #EF631A) !important;
+    border-radius: var(--radius-md, 6px) !important;
+    font: 700 12.5px var(--font-sans, 'Segoe UI', Calibri, sans-serif);
+    padding: 7px 14px !important;
+    box-shadow: 0 1px 2px rgba(239,99,26,.20);
+    transition: background .15s, transform .05s;
+  }
+  button.btn-gold:hover:not(:disabled),
+  .btn-gold:hover:not(:disabled) {
+    background: #D9560F !important;
+    transform: translateY(-1px);
+  }
+
+  /* Ghost buttons in the action bar — white-on-navy via _shell.css */
+  .shell-page-bar button.btn-ghost,
+  .shell-page-bar .btn-ghost {
+    color: rgba(255,255,255,0.85) !important;
+    border-color: rgba(255,255,255,0.25) !important;
+  }
+  .shell-page-bar button.btn-ghost:hover,
+  .shell-page-bar .btn-ghost:hover {
+    background: rgba(255,255,255,0.10) !important;
+    border-color: rgba(255,255,255,0.45) !important;
+    color: #fff !important;
+  }
+
+  /* ── Chart cards (Monthly Ticket Volume, SLA Trend, Ageing, etc.) ────
+     They render inside generic divs; lift them onto cards.              */
+  .chart-card,
+  .chart-block,
+  div[id$="-chart"],
+  div[id$="-trend"] {
+    background: var(--color-card, #FFFFFF);
+    border: 1px solid var(--color-border, #E5E7EB);
+    border-radius: var(--radius-lg, 10px);
+    box-shadow: 0 1px 3px rgba(58,74,96,0.06);
+    padding: 16px 18px;
+    margin-bottom: 14px;
+  }
+
+  /* ── Tables (Recent Changes etc.) ──────────────────────────────────── */
+  table.changes-table thead th,
+  table.recent-changes-table thead th,
+  table thead th {
+    background: var(--edv-slate, #1E293B);
+    color: #fff;
+    font-size: 10.5px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    padding: 10px 12px;
+    text-align: left;
+  }
+  table tbody td {
+    border-bottom: 1px solid var(--color-border-sub, #F1F3F5);
+    padding: 8px 12px;
+    font-size: 12.5px;
+    color: var(--color-text, #1F2937);
+  }
+  table tbody tr:hover td { background: var(--color-bg, #F8FAFC); }
+
+  /* ── Section titles (h2/h3-ish) — slate-uppercase tracker style ───── */
+  .section-title,
+  h2.section-title {
+    color: var(--edv-slate, #1E293B) !important;
+    font-size: 14px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 0.7px;
+  }
+
+  /* ── Loading text — softer + italic, less jarring ─────────────────── */
+  .kpi-sub:has-text("Loading"),
+  div:has-text("⏳ Loading") {
+    color: var(--color-text-muted, #94A3B8);
+    font-style: italic;
+  }
+
+  /* ── Brand-orange accent on hover for table rows + interactive bits ── */
+  tr.clickable:hover { background: rgba(239,99,26,0.04) !important; }
+  
+  /* VISUAL POLISH 2026-11 — UX committee executive: print the figures, not the controls. */
+  @media print {
+    #__shell, nav.shell-breadcrumb, button, select, input, .no-print, [role="toolbar"] { display: none !important; }
+    body { background: white !important; }
+    section, .card, .panel, .edv-widget, .kpi, .tile { break-inside: avoid; box-shadow: none !important; }
+    a { color: inherit; text-decoration: none; }
+  }

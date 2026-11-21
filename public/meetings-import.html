@@ -14,6 +14,7 @@
 <script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
 <link rel="stylesheet" href="module-tabs.css">
 <script nonce="%%CSP_NONCE%%" src="module-tabs.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/reasonDialog.js"></script>
 
 <style nonce="%%CSP_NONCE%%">
   body {
@@ -835,8 +836,10 @@ HGO_Mining_PV_2026-05-24        │ 2026-05-24</div>
     tplDownloadFailed: { en: 'Template download failed',              fr: 'Échec du téléchargement du modèle' },
     previewFailed:     { en: 'Preview failed: {err}',                 fr: 'Échec de la prévisualisation : {err}' },
     commitFailed:      { en: 'Commit failed: {err}',                  fr: 'Échec de la validation : {err}' },
-    confirmCommit:     { en: 'Commit the parsed meetings to the database? Existing references will be updated in place.',
-                         fr: 'Valider les réunions analysées dans la base ? Les références existantes seront mises à jour en place.' },
+    confirmCommit:     { en: 'The parsed meetings are written to the database. Existing references will be updated in place.',
+                         fr: 'Les réunions analysées sont écrites dans la base. Les références existantes seront mises à jour en place.' },
+    confirmCommitTitle: { en: 'Commit this import?',                  fr: 'Valider cet import ?' },
+    confirmCommitOk:   { en: 'Commit',                                fr: 'Valider' },
     noMeetings:        { en: 'No meetings parsed.',                   fr: 'Aucune réunion analysée.' },
     uploadFirst:       { en: 'Upload a workbook to see the preview.', fr: 'Téléversez un classeur pour voir la prévisualisation.' },
     kpiMeetings:       { en: 'Meetings',                              fr: 'Réunions' },
@@ -1199,7 +1202,7 @@ HGO_Mining_PV_2026-05-24        │ 2026-05-24</div>
   // Commit
   document.getElementById('mimCommitBtn').addEventListener('click', async () => {
     if (!currentFile) return;
-    if (!confirm(T('confirmCommit'))) return;
+    if (!(await ReasonDialog.confirm({ lang: document.body.classList.contains('lang-fr') ? 'fr' : 'en', title: T('confirmCommitTitle'), target: currentFile.name, message: T('confirmCommit'), okLabel: T('confirmCommitOk') }))) return;
     const btn = document.getElementById('mimCommitBtn');
     btn.disabled = true;
     showBanner(T('committing'), 'warn');

@@ -83,6 +83,10 @@
     'Site / Teams / Hybrid': 'Site / Teams / Hybride', 'What changed since last meeting?': 'Qu’est-ce qui a changé depuis la dernière réunion ?',
   };
   const RUNTIME_KEYS = {
+    // VISUAL POLISH 3 — texts of the shared confirmation dialog (lib/reasonDialog.js) opened by this page
+    'It is removed from this PV when you save.': 'Il est retiré de ce PV à l’enregistrement.',
+    'Delete this meeting?': 'Supprimer cette réunion ?',
+    'The meeting and ALL its issues and actions are deleted. This cannot be undone.': 'La réunion et TOUS ses problèmes et actions sont supprimés. Cette action est irréversible.',
     'Remove ✕': 'Retirer ✕', 'Project name': 'Nom du projet', '· Nom du projet': '', 'Phase': 'Phase', 'IT involvement': 'Implication IT',
     'Project status': 'Statut du projet', '· Statut projet': '',
     'On track · Sur la trajectoire': 'Dans les temps', 'At risk · À risque': 'À risque', 'Blocked · Bloqué': 'Bloqué', 'Done · Terminé': 'Terminé',
