@@ -7,70 +7,72 @@ records a per-page budget for hex literals, dual axes and doughnuts: those can o
 The "substitution to consider" column is a **proposal** worded from the audit's measure → chart matrix (§5.2).
 Choosing and approving a substitution is a person's decision after a browser review; nothing here is decided.
 
-Files scanned: **150** · inline <style> blocks: **61** · hex literals: **5576** · `new Chart(` call sites: **44** · dual axes (`yAxisID`): **27** · doughnut/pie: **29**
+Files scanned: **155** · inline <style> blocks: **61** · hex literals: **5285** · `new Chart(` call sites: **44** · dual axes (`yAxisID`): **27** · doughnut/pie: **29**
 
 | File | Bytes | <style> | Hex | new Chart( | Chart types | Dual axis | Doughnut/pie | chartTheme.js | ChartTable | pageStates.js | Substitution to consider |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | `public/access.html` | 16360 | 1 | 16 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/activity-tracker.html` | 3023 | 0 | 0 | 0 | — | 0 | 0 | yes | — | — | — |
+| `public/admin-home.html` | 4496 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/analytics.html` | 60140 | 1 | 32 | 1 | bar×2 doughnut×1 | 0 | 1 | yes | yes | — | doughnut/pie → ordered horizontal bars with values and population % (§5.2 "répartition de catégories"); hex literals → _tokens.css variables |
 | `public/assets-finance.html` | 417 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/assets-hygiene.html` | 372 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/assets.html` | 206615 | 1 | 230 | 6 | bar×7 doughnut×4 line×5 | 2 | 4 | yes | yes | yes | dual axis → small multiples, one unit per panel (§5.2 "comparaison à plusieurs séries"); doughnut/pie → ordered horizontal bars with values and population % (§5.2 "répartition de catégories"); hex literals → _tokens.css variables |
-| `public/cockpit.html` | 41281 | 1 | 47 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/cockpit.html` | 42349 | 1 | 16 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/commitments.html` | 20454 | 1 | 19 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/connector-health.html` | 4083 | 1 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/coverage.html` | 9984 | 1 | 25 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/dashboard-composer.html` | 27423 | 1 | 41 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/dashboards.html` | 30239 | 1 | 25 | 2 | line×2 | 0 | 0 | yes | yes | — | hex literals → _tokens.css variables |
+| `public/dashboards.html` | 31496 | 1 | 25 | 2 | line×2 | 0 | 0 | yes | yes | — | hex literals → _tokens.css variables |
 | `public/data-quality.html` | 2733 | 1 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/exec-view.html` | 36337 | 1 | 108 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/executive-report.html` | 472416 | 2 | 294 | 1 | bar×7 doughnut×4 line×5 | 8 | 4 | yes | — | — | dual axis → small multiples, one unit per panel (§5.2 "comparaison à plusieurs séries"); doughnut/pie → ordered horizontal bars with values and population % (§5.2 "répartition de catégories"); chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
-| `public/executive.html` | 601032 | 1 | 1080 | 14 | bar×5 doughnut×3 line×10 | 11 | 3 | yes | — | yes | dual axis → small multiples, one unit per panel (§5.2 "comparaison à plusieurs séries"); doughnut/pie → ordered horizontal bars with values and population % (§5.2 "répartition de catégories"); chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
+| `public/exec-view.html` | 37024 | 1 | 108 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/executive-report.html` | 472849 | 2 | 294 | 1 | bar×7 doughnut×4 line×5 | 8 | 4 | yes | — | — | dual axis → small multiples, one unit per panel (§5.2 "comparaison à plusieurs séries"); doughnut/pie → ordered horizontal bars with values and population % (§5.2 "répartition de catégories"); chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
+| `public/executive.html` | 602669 | 1 | 1075 | 14 | bar×5 doughnut×3 line×10 | 11 | 3 | yes | — | yes | dual axis → small multiples, one unit per panel (§5.2 "comparaison à plusieurs séries"); doughnut/pie → ordered horizontal bars with values and population % (§5.2 "répartition de catégories"); chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
 | `public/finance.html` | 8812 | 1 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/handoffs.html` | 19556 | 1 | 21 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/help.html` | 334985 | 1 | 85 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/home.html` | 7352 | 1 | 12 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/index.html` | 130879 | 1 | 114 | 2 | bar×2 | 0 | 0 | yes | — | yes | chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
+| `public/home.html` | 8509 | 1 | 2 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/index.html` | 131377 | 1 | 114 | 2 | bar×2 | 0 | 0 | yes | — | yes | chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
 | `public/infra-health.html` | 33759 | 1 | 88 | 1 | line×1 | 0 | 2 | yes | — | — | doughnut/pie → ordered horizontal bars with values and population % (§5.2 "répartition de catégories"); chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
-| `public/inspection-actions.html` | 46669 | 1 | 100 | 1 | bar×2 doughnut×3 line×1 | 0 | 3 | yes | — | — | doughnut/pie → ordered horizontal bars with values and population % (§5.2 "répartition de catégories"); chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
+| `public/inspection-actions.html` | 47283 | 1 | 98 | 1 | bar×2 doughnut×3 line×1 | 0 | 3 | yes | — | — | doughnut/pie → ordered horizontal bars with values and population % (§5.2 "répartition de catégories"); chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
 | `public/inspection.html` | 228156 | 1 | 200 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/inspections.html` | 41278 | 1 | 105 | 1 | bar×2 doughnut×3 | 0 | 3 | yes | — | yes | doughnut/pie → ordered horizontal bars with values and population % (§5.2 "répartition de catégories"); chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
-| `public/integrations.html` | 18497 | 1 | 40 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/it-review.html` | 109850 | 1 | 71 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/inspections.html` | 41560 | 1 | 105 | 1 | bar×2 doughnut×3 | 0 | 3 | yes | — | yes | doughnut/pie → ordered horizontal bars with values and population % (§5.2 "répartition de catégories"); chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
+| `public/integrations.html` | 20383 | 1 | 10 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/it-review.html` | 110033 | 1 | 71 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/itsm-integrations-plan.html` | 31308 | 1 | 44 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/itsm-roadmap.html` | 51893 | 1 | 47 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/kpi-builder.html` | 12850 | 1 | 39 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/login.html` | 18399 | 1 | 32 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/meeting.html` | 85199 | 1 | 105 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/meetings-actions.html` | 46421 | 1 | 102 | 1 | bar×2 doughnut×3 line×1 | 0 | 3 | yes | — | — | doughnut/pie → ordered horizontal bars with values and population % (§5.2 "répartition de catégories"); chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
-| `public/meetings-compliance.html` | 20620 | 1 | 68 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/meetings-council.html` | 20317 | 1 | 57 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/meetings-import.html` | 73538 | 1 | 136 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/meetings-insights.html` | 43821 | 1 | 105 | 1 | bar×3 doughnut×1 line×1 | 0 | 1 | yes | — | — | doughnut/pie → ordered horizontal bars with values and population % (§5.2 "répartition de catégories"); chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
-| `public/meetings-issues.html` | 33052 | 1 | 80 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/meetings-progress.html` | 33570 | 1 | 106 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/meetings-setup.html` | 24836 | 1 | 58 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/meetings-unsigned.html` | 19222 | 1 | 62 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/meetings.html` | 36045 | 1 | 87 | 0 | — | 0 | 0 | — | — | yes | hex literals → _tokens.css variables |
+| `public/login.html` | 19564 | 1 | 32 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/meeting.html` | 88083 | 1 | 105 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/meetings-actions.html` | 47072 | 1 | 100 | 1 | bar×2 doughnut×3 line×1 | 0 | 3 | yes | — | — | doughnut/pie → ordered horizontal bars with values and population % (§5.2 "répartition de catégories"); chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
+| `public/meetings-compliance.html` | 21182 | 1 | 68 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/meetings-council.html` | 20875 | 1 | 57 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/meetings-import.html` | 73999 | 1 | 136 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/meetings-insights.html` | 44393 | 1 | 105 | 1 | bar×3 doughnut×1 line×1 | 0 | 1 | yes | — | — | doughnut/pie → ordered horizontal bars with values and population % (§5.2 "répartition de catégories"); chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
+| `public/meetings-issues.html` | 33751 | 1 | 80 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/meetings-progress.html` | 34250 | 1 | 106 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/meetings-setup.html` | 25404 | 1 | 58 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/meetings-unsigned.html` | 19919 | 1 | 62 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/meetings.html` | 36721 | 1 | 87 | 0 | — | 0 | 0 | — | — | yes | hex literals → _tokens.css variables |
 | `public/no-access.html` | 1625 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/notifications.html` | 11618 | 1 | 41 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/not-available.html` | 1180 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/notifications.html` | 12678 | 1 | 11 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/obligations.html` | 3741 | 1 | 13 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/policies.html` | 25419 | 1 | 15 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/policy-center.html` | 7068 | 1 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/portfolio-decisions.html` | 3677 | 1 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/portfolio-phase2.html` | 2596 | 1 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/portfolio-register.html` | 5707 | 1 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/portfolio.html` | 45855 | 1 | 74 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/project.html` | 96418 | 1 | 79 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/report-studio.html` | 18523 | 1 | 42 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/reports.html` | 548810 | 1 | 817 | 2 | bar×2 | 0 | 0 | yes | — | — | chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
-| `public/rfi.html` | 12560 | 1 | 40 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/site-actions.html` | 41652 | 1 | 76 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/site-awareness.html` | 76441 | 1 | 131 | 7 | bar×5 doughnut×3 line×3 | 4 | 5 | yes | — | — | dual axis → small multiples, one unit per panel (§5.2 "comparaison à plusieurs séries"); doughnut/pie → ordered horizontal bars with values and population % (§5.2 "répartition de catégories"); chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
+| `public/portfolio.html` | 47129 | 1 | 19 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/project.html` | 97664 | 1 | 33 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/report-studio.html` | 19599 | 1 | 10 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/reports.html` | 550765 | 1 | 817 | 2 | bar×2 | 0 | 0 | yes | — | — | chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
+| `public/rfi.html` | 13620 | 1 | 10 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/site-actions.html` | 41976 | 1 | 76 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/site-awareness.html` | 77031 | 1 | 131 | 7 | bar×5 doughnut×3 line×3 | 4 | 5 | yes | — | — | dual axis → small multiples, one unit per panel (§5.2 "comparaison à plusieurs séries"); doughnut/pie → ordered horizontal bars with values and population % (§5.2 "répartition de catégories"); chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
 | `public/site-report.html` | 17707 | 1 | 75 | 0 | — | 0 | 0 | yes | — | — | hex literals → _tokens.css variables |
 | `public/system-logs.html` | 19348 | 1 | 57 | 1 | — | 0 | 0 | yes | — | — | chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
-| `public/tracker-builder.html` | 24708 | 1 | 30 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/tracker-builder.html` | 25092 | 1 | 12 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/trackers.html` | 15561 | 1 | 33 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/value-scoreboard.html` | 2716 | 1 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/wan-health.html` | 403 | 0 | 1 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
@@ -79,6 +81,7 @@ Files scanned: **150** · inline <style> blocks: **61** · hex literals: **5576*
 | `public/workspace-settings.html` | 4322 | 1 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/actionGroups.js` | 4944 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/actionSimilarity.js` | 2883 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/admin-home.js` | 3604 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/allocationContract.js` | 8932 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/analyticsLogic.js` | 13104 | 0 | 0 | 0 | — | 0 | 0 | yes | — | — | — |
 | `public/lib/assetHygieneVisuals.js` | 6958 | 0 | 0 | 0 | — | 0 | 0 | — | yes | — | — |
@@ -101,15 +104,16 @@ Files scanned: **150** · inline <style> blocks: **61** · hex literals: **5576*
 | `public/lib/ganttCore.js` | 30824 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/ganttV2.js` | 33609 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/helpdeskSiteDefault.js` | 8995 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/lib/home-page.js` | 22012 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/home-page.js` | 22780 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/homeGroup.js` | 12087 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/lib/homeQueue.js` | 37015 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/homeQueue.js` | 37736 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/i18nText.js` | 5067 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/incubationEditor.js` | 5909 | 0 | 1 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/lib/infraPrefill.js` | 6926 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/kpiCard.js` | 6072 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/kpiRag.js` | 8559 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/landing.js` | 4948 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/modalA11y.js` | 2997 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/moneyCertBand.js` | 4022 | 0 | 3 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/lib/obligations-page.js` | 5902 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/pageHead.js` | 6292 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
@@ -117,7 +121,7 @@ Files scanned: **150** · inline <style> blocks: **61** · hex literals: **5576*
 | `public/lib/pageView.js` | 764 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/parse-actions-csv.js` | 8439 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/policiesRoles.js` | 16086 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/lib/policyCenterPage.js` | 24433 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/policyCenterPage.js` | 24717 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/portfolioDecisionsPage.js` | 10493 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/portfolioMine.js` | 2023 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/portfolioPhase2Page.js` | 10243 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
@@ -139,7 +143,7 @@ Files scanned: **150** · inline <style> blocks: **61** · hex literals: **5576*
 | `public/lib/ppmRoadmapNnl.js` | 3911 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/ppmVisuals.js` | 23603 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/ppmWorkbench.js` | 24986 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/lib/reasonDialog.js` | 6938 | 0 | 10 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/lib/reasonDialog.js` | 8091 | 0 | 10 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/lib/reportingWeek.js` | 3959 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/reports-backups.js` | 7874 | 0 | 15 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/lib/roadmapPublish.js` | 8455 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
@@ -151,6 +155,7 @@ Files scanned: **150** · inline <style> blocks: **61** · hex literals: **5576*
 | `public/lib/stateBadge.js` | 5203 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/statusTransfer.js` | 8601 | 0 | 11 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/lib/tableCards.js` | 1121 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/tableFilter.js` | 1416 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/tableScroll.js` | 2129 | 0 | 1 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/lib/trackerMonthLock.js` | 2160 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/trustLabel.js` | 10620 | 0 | 1 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |

@@ -150,6 +150,7 @@ const UNTRANSLATED = {
   'finance.html': 'A1/B8 Finance certification + Pronto import (hidden by default), French only — English pending',
   'executive-report.html': 'deck builder, decks stay English (D-2)', 'it-review.html': 'faithful port of the executive dashboard, English',
   'system-logs.html': 'admin console, English',
+  'admin-home.html': 'admin console landing (super_admin), English like the rest of the admin console',
   'data-quality.html': 'E-D07 admin data-quality board (hidden by default), English',
   'connector-health.html': 'P4/A2 admin connector-health board (admin tier only), English with French status words (désarmé)',
   'dashboard-composer.html': 'admin authoring, English',

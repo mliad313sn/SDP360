@@ -1444,6 +1444,7 @@ table tbody tr:hover td { background: var(--color-bg); }
 
 <link rel="stylesheet" href="_tokens.css">
 <link rel="stylesheet" href="_shell.css">
+<link rel="stylesheet" href="module-tabs.css">
 <link rel="stylesheet" href="brand/icons.css">
 <script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/pageStates.js"></script>
@@ -1529,6 +1530,7 @@ table tbody tr:hover td { background: var(--color-bg); }
 
 <!-- ═ Unified shell ═ -->
 <div id="__shell" data-section="executive" data-current="scorecard" data-version="v1.10.8"></div>
+<div id="__moduletabs" class="exec-tabs" data-module="executive" data-current="scorecard"></div>
 
 <!-- ═ Page-bar: breadcrumb + page-specific actions + KPI tabs ═
      Commentary actions (Analyze / Edit / Copy) relocated here from the
@@ -1540,11 +1542,7 @@ table tbody tr:hover td { background: var(--color-bg); }
        document.getElementById('apiBar').style.display = 'flex';
        document.getElementById('aiBar').style.display  = 'flex';     -->
 <div class="shell-page-bar">
-  <div class="shell-breadcrumb">
-    <span>Performance</span>
-    <span class="shell-breadcrumb-sep">›</span>
-    <span class="shell-breadcrumb-current">Executive Scorecard</span>
-  </div>
+  <!-- executive F4: the shell breadcrumb is the only trail (the inner "Performance ›" trail contradicted it) -->
   <span class="shell-page-bar-spacer"></span>
   <div class="live-chip" style="margin-right:6px"><div class="live-dot"></div> Live</div>
   <button class="btn btn-ghost" onclick="loadLiveData()" title="Refresh live data" style="font-size:11.5px;padding:5px 10px"><i class="icon icon-refresh-cw"></i>Refresh</button>
@@ -11051,5 +11049,6 @@ initFreshnessBar();
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/common.fr.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/executive.fr.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/boot.js" data-dict="I18N_FR_EXECUTIVE"></script>
+<script nonce="%%CSP_NONCE%%" src="module-tabs.js"></script>
 </body>
 </html>

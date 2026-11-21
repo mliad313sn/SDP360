@@ -29,9 +29,19 @@ test('the rendered header carries no inline event handler', () => {
   assert.ok(!/<[a-zA-Z][^>]*\son[a-z]+\s*=/.test(html), 'inline handler found in shell markup');
 });
 
-test('a click on the user pill logs out through the delegated listener', () => {
+// ia-value F5 (2026-11): the pill OPENS the account menu — one click never signs out; "Sign out" is an explicit item.
+test('a click on the user pill opens the account menu and does NOT log out', () => {
   const b = boot();
-  const target = { closest: (sel) => (sel === '.shell-user-pill' ? {} : null) };
+  assert.match(b.html, /class="shell-user-pill"[^>]*aria-haspopup="menu"/);
+  const target = { closest: (sel) => (sel === '.shell-user-pill' ? { setAttribute() {} } : null) };
+  for (const fn of b.listeners.click || []) fn({ target, preventDefault() {}, stopPropagation() {} });
+  assert.equal(b.loggedOut(), 0);
+});
+
+test('the "Sign out" item logs out through the delegated listener', () => {
+  const b = boot();
+  assert.match(b.html, /class="shell-signout"/);
+  const target = { closest: (sel) => (sel === '.shell-signout' ? {} : null) };
   for (const fn of b.listeners.click || []) fn({ target, preventDefault() {}, stopPropagation() {} });
   assert.equal(b.loggedOut(), 1);
 });

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin home — Endeavour IT</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<link rel="stylesheet" href="lib/admin-home.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="super_admin" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+</head>
+<body>
+<a class="edv-skip" href="#main">Skip to content</a>
+<div id="__shell" data-section="admin" data-current="admin-home"></div>
+<!-- UX committee admin (IA): one Admin landing that says what needs the administrator NOW. Read-only, composed from
+     the existing super_admin APIs (four-eyes requests, sync health, backup schedule, recipients directory); every
+     card links to the page that fixes it. A source that cannot be read says so — it is never shown as "0". -->
+<main id="main" class="ah-wrap">
+  <header class="edv-page-header">
+    <div class="edv-page-header__copy">
+      <h1 class="edv-title">Admin home</h1>
+      <p class="edv-subtitle">What needs an administrator today. Each card opens the page that fixes it.</p>
+    </div>
+  </header>
+  <p class="shell-sr" id="ahStatus" role="status" aria-live="polite"></p>
+  <section class="ah-grid" aria-label="Admin status">
+    <article class="edv-card ah-card" id="ahFourEyes" aria-busy="true">
+      <h2 class="edv-card__title"><i class="icon icon-shield-check"></i>Changes awaiting a second approver</h2>
+      <p class="ah-value" data-k="value">—</p><p class="ah-meta" data-k="meta">Loading…</p>
+      <a class="edv-btn edv-btn--sm" href="policy-center.html">Open the policy control center</a>
+    </article>
+    <article class="edv-card ah-card" id="ahSync" aria-busy="true">
+      <h2 class="edv-card__title"><i class="icon icon-refresh-cw"></i>Data synchronisations</h2>
+      <p class="ah-value" data-k="value">—</p><p class="ah-meta" data-k="meta">Loading…</p>
+      <a class="edv-btn edv-btn--sm" href="system-logs.html#sync">Open sync health</a>
+    </article>
+    <article class="edv-card ah-card" id="ahBackup" aria-busy="true">
+      <h2 class="edv-card__title"><i class="icon icon-save"></i>Backups</h2>
+      <p class="ah-value" data-k="value">—</p><p class="ah-meta" data-k="meta">Loading…</p>
+      <a class="edv-btn edv-btn--sm" href="reports.html#admin/backups">Open backups</a>
+    </article>
+    <article class="edv-card ah-card" id="ahRecipients" aria-busy="true">
+      <h2 class="edv-card__title"><i class="icon icon-users"></i>Report recipients not confirmed</h2>
+      <p class="ah-value" data-k="value">—</p><p class="ah-meta" data-k="meta">Loading…</p>
+      <a class="edv-btn edv-btn--sm" href="reports.html#admin/autoreports">Open automated reports</a>
+    </article>
+  </section>
+  <section class="edv-card ah-links" aria-labelledby="ahLinksH">
+    <h2 class="edv-card__title" id="ahLinksH">Administration</h2>
+    <ul class="ah-groups">
+      <li><h3>Identity</h3><a href="reports.html#admin/users">Users</a> · <a href="reports.html#admin/sessions">Active sessions</a> · <a href="reports.html#admin/sso">Microsoft SSO</a></li>
+      <li><h3>Organisation</h3><a href="reports.html#admin/sites">Sites</a> · <a href="reports.html#admin/departments">Departments</a></li>
+      <li><h3>Integrations</h3><a href="integrations.html">Integrations</a> · <a href="connector-health.html">Connector health</a> · <a href="reports.html#admin/infra">Infrastructure sources</a></li>
+      <li><h3>Policies</h3><a href="policy-center.html">Policy control center</a> · <a href="policies.html">Governance policies</a> · <a href="kpi-builder.html">KPI policies</a></li>
+      <li><h3>Delivery</h3><a href="reports.html#admin/email">Email (SMTP)</a> · <a href="reports.html#admin/autoreports">Automated reports</a></li>
+      <li><h3>Data</h3><a href="reports.html#admin/backups">Backups</a> · <a href="reports.html#admin/restore-drill">Restore drill</a> · <a href="reports.html#admin/trash">Deleted records</a> · <a href="data-quality.html">Data quality</a></li>
+      <li><h3>Audit</h3><a href="system-logs.html">System logs</a></li>
+    </ul>
+  </section>
+</main>
+<script nonce="%%CSP_NONCE%%" src="lib/admin-home.js"></script>
+</body>
+</html>

@@ -74,6 +74,11 @@
     check:            ICONS.html('check'),
     zap:              ICONS.html('zap'),
     search:           ICONS.html('search'),
+    home:             ICONS.html('home'),
+    bell:             ICONS.html('bell'),
+    'help-circle':    ICONS.html('help-circle'),
+    briefcase:        ICONS.html('briefcase'),
+    user:             ICONS.html('user'),
   };
 
   // A-21 — navigation profile (report_config ui_nav_profile via window.__uiPolicy; 'full' = today's menu).
@@ -104,6 +109,7 @@
     try { const p = window.__uiPolicy; return !!(p && p.nav_carry_site === '1'); } catch (_) { return false; }
   }
   // R2-QUEUE — the "My workspace" link exists only while workspace_profiles_enabled = '1' (the page answers 404 otherwise)
+  function notifAllowed() { try { const w = NAV.find(n => n.id === 'work'); const it = w && w.children.find(c => c.id === 'notifications'); return !!(it && mayOpen(it)); } catch (_) { return false; } }
   function workspaceLinkOn() {
     try { const p = window.__uiPolicy; return !!(p && p.workspace_profiles === '1'); } catch (_) { return false; }
   }
@@ -140,7 +146,7 @@
       // a business-only account must not see it. Reachable regardless of ui_role_landing.
       id:    'home',
       label: 'Home',
-      icon:  ICON_LIB.check,
+      icon:  ICON_LIB.home,
       href:  'home.html',
       roles: ['viewer', 'editor', 'admin', 'executive', 'field-tech', 'tracker-editor'],
       title: 'My work — what my sites need today'
@@ -161,73 +167,85 @@
       roles: ['site-business', 'group-business', 'executive'],
       title: 'Read-only business overview of your site'
     },
+    // ── VISUAL POLISH 2026-11 / UX committee (ia-value F4, admin IA): the menu follows what people come to do —
+    // Work (today's site tasks) · Plan (roadmap & projects) · Insights (figures & reports) · Infrastructure · Admin —
+    // instead of one 17-entry "Operations" list. Ids, hrefs and roles are UNCHANGED (a menu move never changes a
+    // gate; every route still enforces its own). A page that still says data-section="operations"/"helpdesk"/
+    // "reports" is resolved to the section that now holds its data-current (sectionOf in render()).
     {
-      // ── Helpdesk — the live service-desk dashboard + its deep analytics.
-      // Analytics was rehomed here from the old Insights bucket: it IS
-      // helpdesk analysis, so it belongs beside the dashboard, not floating
-      // among unrelated modules. Pages set data-section="helpdesk".
-      // For a plain viewer, Analytics is gated → single visible child →
-      // renderNavItem collapses this to a flat "Helpdesk" link (unchanged UX).
-      id:       'helpdesk',
-      label:    'Helpdesk',
-      icon:     ICON_LIB.headset,
-      href:     'index.html',
+      id:       'work',
+      label:    'Work',
+      icon:     ICON_LIB.briefcase,
       roles:    ['any'],
-      title:    'Service desk — dashboard and analytics',
+      title:    'Today\'s site work — actions, inspections, meetings, field',
       children: [
-        { id: 'dashboard', label: 'Dashboard', icon: ICON_LIB.headset,       href: 'index.html',     roles: ['any'] },
-        { id: 'analytics', label: 'Analytics', icon: ICON_LIB['line-chart'], href: 'analytics.html', roles: ['admin', 'scorecard-viewer'] }
+        { id: 'site-actions', group: 'Site work', label: 'Site Actions',       icon: ICON_LIB.check,              href: 'site-actions.html',     roles: ['any'] },
+        { id: 'inspections', group: 'Site work',  label: 'Inspections',        icon: ICON_LIB['clipboard-check'], href: 'inspections.html',      roles: ['any'] },
+        { id: 'meetings', group: 'Site work',     label: 'Meetings & Decisions', icon: ICON_LIB.users,            href: 'meetings.html',         roles: ['any'] },
+        { id: 'handoffs', group: 'Site work',     label: 'Handoffs',           icon: ICON_LIB.users,              href: 'handoffs.html',         roles: ['any'], lean_hidden: true },
+        { id: 'obligations', group: 'Site work',  label: 'Site obligations',   icon: ICON_LIB['clipboard-check'], href: 'obligations.html',      roles: ['any'], lean_hidden: true },
+        // ia-value F4: the field app is daily work, never "Configure"
+        { id: 'field', group: 'Field',            label: 'Field app',          icon: ICON_LIB['clipboard-check'], href: 'field/index.html',      roles: ['editor', 'field-tech'],
+          lean_roles: ['field-tech'] },
+        // notifications are reached from the header bell; the entry stays for the finder (Ctrl+K)
+        { id: 'notifications', group: 'Site work', label: 'Notifications',     icon: ICON_LIB.bell,               href: 'notifications.html',    roles: ['any'], menu_hidden: true }
       ]
     },
     {
-      // ── Operations — the site-governance cadence: what field IT teams run
-      // and track. Inspections (assurance), Meetings (5-Engagements
-      // governance), Site Actions (follow-up register), Activity Tracker
-      // (strategic roadmap input). Pages set data-section="operations".
-      id:       'operations',
-      label:    'Operations',
-      icon:     ICON_LIB['clipboard-check'],
+      id:       'plan',
+      label:    'Plan',
+      icon:     ICON_LIB.target,
       roles:    ['any'],
-      title:    'Site governance — inspections, meetings, actions, roadmap',
+      title:    'Roadmap and projects — activity tracker, portfolio, requests',
       children: [
-        { id: 'inspections', group: 'Governance',  label: 'Inspections',        icon: ICON_LIB['clipboard-check'], href: 'inspections.html',      roles: ['any'] },
-        { id: 'meetings', group: 'Governance',     label: 'Meetings Decisions', icon: ICON_LIB.users,              href: 'meetings.html',         roles: ['any'] },
-        { id: 'site-actions', group: 'Governance', label: 'Site Actions',       icon: ICON_LIB.check,              href: 'site-actions.html',     roles: ['any'] },
-        // Adoption Lot A (item 4): menu roles = the route's roles (routes/tracker.js GET /api/tracker/load requireRole) —
-        // the entry used to show for every profile and 10 of 15 then read a raw English "Forbidden".
-        { id: 'tracker', group: 'Plan & track',      label: 'Activity Tracker',   icon: ICON_LIB.target,             href: 'activity-tracker.html', roles: ['admin', 'tracker-admin', 'tracker-editor'] },
-        { id: 'trackers', group: 'Plan & track',     label: 'Trackers',           icon: ICON_LIB.activity,            href: 'trackers.html',         roles: ['any'],
-          lean_roles: ['admin', 'tracker-admin', 'dashboard-publisher'], lean_group: 'Configure' },
-        { id: 'dashboards', group: 'Report & share',   label: 'Dashboards',         icon: ICON_LIB.gauge,              href: 'dashboards.html',       roles: ['any'] },
-        { id: 'cockpit', group: 'Report & share',      label: 'Meeting Cockpit',    icon: ICON_LIB.calendar,           href: 'cockpit.html',          roles: ['any'],
-          lean_roles: ['editor', 'committee-member', 'finance-viewer', 'scorecard-viewer'] },
-        { id: 'portfolio', group: 'Plan & track',    label: 'Portfolio',          icon: ICON_LIB['trending-up'],     href: 'portfolio.html',        roles: ['any'],
+        // Adoption Lot A (item 4): menu roles = the route's roles (routes/tracker.js GET /api/tracker/load requireRole).
+        { id: 'tracker',   label: 'Activity Tracker', icon: ICON_LIB.target,          href: 'activity-tracker.html', roles: ['admin', 'tracker-admin', 'tracker-editor'] },
+        { id: 'trackers',  label: 'Trackers',         icon: ICON_LIB.activity,        href: 'trackers.html',         roles: ['any'],
+          lean_roles: ['admin', 'tracker-admin', 'dashboard-publisher'] },
+        { id: 'portfolio', label: 'Portfolio',        icon: ICON_LIB['trending-up'],  href: 'portfolio.html',        roles: ['any'],
           lean_roles: ['admin', 'executive', 'committee-member', 'finance-viewer'] },
-        { id: 'rfi', group: 'Plan & track',          label: 'RFI register',       icon: ICON_LIB.lightbulb,          href: 'rfi.html',              roles: ['any'], lean_hidden: true },
-        { id: 'report-studio', group: 'Report & share', label: 'Report studio',     icon: ICON_LIB['file-text'],       href: 'report-studio.html',    roles: ['any'],
-          lean_roles: ['editor', 'report-author', 'committee-member', 'finance-viewer', 'scorecard-viewer'] },
-        // Adoption Lot A (item 4): GET /api/finance/certifications reads money (admin / finance-viewer); a finance-verifier who
-        // cannot read the amounts cannot certify either (routes/finance.js) — the entry follows the read rule.
-        { id: 'finance', group: 'Report & share',  label: 'Finance certification', icon: ICON_LIB['clipboard-check'], href: 'finance.html',         roles: ['admin', 'finance-viewer'], policy: 'finance_page', lean_hidden: true },
-        { id: 'notifications', group: 'Report & share', label: 'Notifications',     icon: ICON_LIB['alert-circle'],    href: 'notifications.html',    roles: ['any'], lean_hidden: true },
-        { id: 'handoffs', group: 'Governance',     label: 'Handoffs',           icon: ICON_LIB.users,              href: 'handoffs.html',         roles: ['any'], lean_hidden: true },
-        { id: 'obligations', group: 'Governance',  label: 'Site obligations',   icon: ICON_LIB['clipboard-check'], href: 'obligations.html',      roles: ['any'], lean_hidden: true },
-        { id: 'policies', group: 'Configure',     label: 'Governance policies', icon: ICON_LIB['clipboard-check'], href: 'policies.html',        roles: ['admin', 'committee-member'] },
-        { id: 'policy-center', group: 'Configure', label: 'Policy control center', icon: ICON_LIB['clipboard-check'], href: 'policy-center.html', roles: ['super_admin'], policy: 'policy_center_page', lean_hidden: true },
-        // Adoption Lot A (item 6): the KPI committee's tool had no entry point (URL or Ctrl+K only).
-        { id: 'kpi-builder', group: 'Configure',  label: 'KPI policies',       icon: ICON_LIB['clipboard-check'], href: 'kpi-builder.html',      roles: ['admin', 'kpi-committee'], lean_hidden: true },
-        { id: 'integrations', group: 'Configure', label: 'Integrations',       icon: ICON_LIB.zap,                href: 'integrations.html',     roles: ['admin'] },
-        { id: 'connector-health', group: 'Configure', label: 'Connector health', icon: ICON_LIB.zap,              href: 'connector-health.html', roles: ['admin'], policy: 'connector_health_page', lean_hidden: true },
-        { id: 'data-quality', group: 'Configure', label: 'Data quality',       icon: ICON_LIB['clipboard-check'], href: 'data-quality.html',     roles: ['admin'], policy: 'data_quality_page' },
-        { id: 'value-scoreboard', group: 'Configure', label: 'Value scoreboard', icon: ICON_LIB['clipboard-check'], href: 'value-scoreboard.html', roles: ['admin'], policy: 'value_scoreboard_page', lean_hidden: true },   // D2 (P10)
-        { id: 'field', group: 'Configure',        label: 'Field app',          icon: ICON_LIB['clipboard-check'], href: 'field/index.html',      roles: ['editor', 'field-tech'],
-          lean_roles: ['field-tech'], lean_group: 'Governance' }
+        { id: 'rfi',       label: 'RFI register',     icon: ICON_LIB.lightbulb,       href: 'rfi.html',              roles: ['any'], lean_hidden: true }
       ]
     },
     {
-      // ── Infrastructure — the technical estate we manage: the asset register
-      // (CMDB / hygiene / finance / licences) and the WAN (health + ISP SLA).
-      // Pages set data-section="infrastructure".
+      id:       'insights',
+      label:    'Insights',
+      icon:     ICON_LIB['bar-chart-3'],
+      roles:    ['any'],
+      title:    'Figures and reports — service desk, dashboards, site reports',
+      children: [
+        { id: 'dashboard', group: 'Service desk',  label: 'Helpdesk',        icon: ICON_LIB.headset,        href: 'index.html',      roles: ['any'] },
+        { id: 'analytics', group: 'Service desk',  label: 'Analytics',       icon: ICON_LIB['line-chart'],  href: 'analytics.html',  roles: ['admin', 'scorecard-viewer'] },
+        { id: 'dashboards', group: 'Dashboards',   label: 'Dashboards',      icon: ICON_LIB.gauge,          href: 'dashboards.html', roles: ['any'] },
+        { id: 'cockpit', group: 'Dashboards',      label: 'Meeting Cockpit', icon: ICON_LIB.calendar,       href: 'cockpit.html',    roles: ['any'],
+          lean_roles: ['editor', 'committee-member', 'finance-viewer', 'scorecard-viewer'] },
+        { id: 'site-reports', group: 'Reports',    label: 'Site Reports',    icon: ICON_LIB['file-text'],   href: 'reports.html',    roles: ['any'] },
+        { id: 'report-studio', group: 'Reports',   label: 'Report studio',   icon: ICON_LIB['file-text'],   href: 'report-studio.html', roles: ['any'],
+          lean_roles: ['editor', 'report-author', 'committee-member', 'finance-viewer', 'scorecard-viewer'] },
+        // roles = the page's data-require (RBAC audit 2026-10-02, A19). A-21: the ENTRY follows report_config
+        // ui_deck_builder_roles ('super_admin' today); the page gate is NOT widened here (navigation is never a permission).
+        { id: 'reports-builder', group: 'Reports', label: 'Deck Builder',    icon: ICON_LIB.presentation,   href: 'executive-report.html', roles: ['super_admin'], roles_from: 'deck_builder_roles' },
+        // Adoption Lot A (item 4): GET /api/finance/certifications reads money (admin / finance-viewer).
+        { id: 'finance', group: 'Reports',         label: 'Finance certification', icon: ICON_LIB['clipboard-check'], href: 'finance.html', roles: ['admin', 'finance-viewer'], policy: 'finance_page', lean_hidden: true }
+      ]
+    },
+    {
+      // ── Executive — ONE door (ia-value F3, executive F3): the section is a single link to Executive Home; IT Review
+      // and the Scorecard stay reachable from it (tabs on the three pages) and from the finder.
+      id:       'executive',
+      label:    'Executive',
+      icon:     ICON_LIB.gauge,
+      roles:    ['executive', 'scorecard-viewer'],
+      title:    'Executive home — where are we',
+      flat:     true,
+      children: [
+        { id: 'exec-home', label: 'Executive Home',      icon: ICON_LIB.gauge,          href: 'dashboards.html?key=exec-home', roles: ['executive', 'scorecard-viewer'] },
+        { id: 'it-review', label: 'IT Review',           icon: ICON_LIB['bar-chart-3'], href: 'it-review.html', roles: ['executive', 'scorecard-viewer'] },
+        { id: 'scorecard', label: 'Executive Scorecard', icon: ICON_LIB['clipboard-list'], href: 'executive.html', roles: ['executive', 'scorecard-viewer'], exec_nav_hidden: true }
+      ]
+    },
+    {
+      // ── Infrastructure — the technical estate we manage: the asset register and the WAN.
       id:       'infrastructure',
       label:    'Infrastructure',
       icon:     ICON_LIB['hard-drive'],
@@ -236,63 +254,31 @@
       children: [
         { id: 'assets',       label: 'Assets',                icon: ICON_LIB['hard-drive'],  href: 'assets.html',       roles: ['any'], lean_roles: INFRA_LEAN },
         { id: 'wan',          label: 'WAN',                   icon: ICON_LIB['bar-chart-3'], href: 'wan.html',          roles: ['any'], lean_roles: INFRA_LEAN },
-        // Infrastructure Health — cumulated per-site × family availability (WAN/LAN/WLAN/Servers)
-        // + trend + governance, from the archived snapshots. Complements OpManager (no live device
-        // status). WAN detail stays on wan.html.
         { id: 'infra-health', label: 'Infrastructure Health', icon: ICON_LIB.activity,       href: 'infra-health.html', roles: ['any'], lean_roles: INFRA_LEAN }
       ]
     },
     {
-      // ── Reports — restitution surfaces: the authored site reports and the
-      // executive deck builder. (Ma Vue Site is now a promoted top-level entry,
-      // not buried here.) Parent smart-lands on Site Reports (broadest audience);
-      // renderNavItem collapses to a flat link for a viewer who sees only one.
-      id:       'reports',
-      label:    'Reports',
-      icon:     ICON_LIB['file-text'],
-      href:     'reports.html',
-      roles:    ['any'],
-      title:    'Site reports and executive deck builder',
-      children: [
-        { id: 'site-reports',    label: 'Site Reports', icon: ICON_LIB['file-text'], href: 'reports.html',          roles: ['any'] },
-        // roles = the page's data-require (RBAC audit 2026-10-02, A19). A-21: the ENTRY follows report_config
-        // ui_deck_builder_roles ('super_admin' today); the page gate is NOT widened here (navigation is never a permission).
-        { id: 'reports-builder', label: 'Deck Builder', icon: ICON_LIB.presentation, href: 'executive-report.html', roles: ['super_admin'], roles_from: 'deck_builder_roles' }
-      ]
-    },
-    {
-      // ── Executive — the two cross-cutting pilotage dashboards: IT Review
-      // (fleet governance rollup from meetings + inspections) and the
-      // Executive Scorecard (KPI / action plan / tech / changes / CSAT).
-      // Pages set data-section="executive".
-      id:       'executive',
-      label:    'Executive',
-      icon:     ICON_LIB.gauge,
-      // Executive / management only. IT Review is a FLEET-WIDE governance rollup
-      // (all sites' meetings + inspections), so — like the Scorecard — it is scoped
-      // to executive + scorecard-viewer. A site admin/editor no longer sees this
-      // group at all (parent gate false + both children gated → sectionVisible false).
-      roles:    ['executive', 'scorecard-viewer'],
-      title:    'Executive dashboards — IT Review and Scorecard',
-      children: [
-        { id: 'exec-home', label: 'Executive Home',      icon: ICON_LIB.gauge,          href: 'dashboards.html?key=exec-home', roles: ['executive', 'scorecard-viewer'] },
-        { id: 'it-review', label: 'IT Review',           icon: ICON_LIB['bar-chart-3'], href: 'it-review.html', roles: ['executive', 'scorecard-viewer'] },
-        { id: 'scorecard', label: 'Executive Scorecard', icon: ICON_LIB['clipboard-list'], href: 'executive.html', roles: ['executive', 'scorecard-viewer'], exec_nav_hidden: true }
-      ]
-    },
-    {
-      // Admin (Settings + System Logs) is super_admin ONLY — the whole admin
-      // console + its routes are super_admin-gated server-side. A plain admin /
-      // executive no longer sees this entry at all.
+      // ── Admin — ONE section for every setting (admin IA): Admin home first, then identity & policies,
+      // integrations & data, audit. Each entry keeps its own route roles; a section is shown when ≥1 entry is.
+      // config_only entries are left off the menu of an executive who is not also super_admin (a reading role has
+      // no setting to change there); the finder still follows the route roles.
       id:       'admin',
       label:    'Admin',
       icon:     ICON_LIB.sliders,
-      href:     'reports.html#admin',
       roles:    ['super_admin'],
-      title:    'User management & system settings',
+      title:    'Administration — users, policies, integrations, data, audit',
       children: [
-        { id: 'admin-settings', label: 'Settings',    icon: ICON_LIB.sliders,          href: 'reports.html#admin', roles: ['super_admin'] },
-        { id: 'system-logs',    label: 'System Logs',  icon: ICON_LIB['shield-check'],  href: 'system-logs.html',   roles: ['super_admin'] }
+        { id: 'admin-home',       group: 'Overview',            label: 'Admin home',            icon: ICON_LIB.sliders,           href: 'admin-home.html',       roles: ['super_admin'] },
+        { id: 'admin-settings',   group: 'Overview',            label: 'Settings',              icon: ICON_LIB.sliders,           href: 'reports.html#admin',    roles: ['super_admin'] },
+        { id: 'policy-center',    group: 'Policies',            label: 'Policy control center', icon: ICON_LIB['shield-check'],   href: 'policy-center.html',    roles: ['super_admin'], policy: 'policy_center_page', lean_hidden: true },
+        { id: 'policies',         group: 'Policies',            label: 'Governance policies',   icon: ICON_LIB['clipboard-check'], href: 'policies.html',        roles: ['admin', 'committee-member'], config_only: true },
+        // Adoption Lot A (item 6): the KPI committee's tool had no entry point (URL or Ctrl+K only).
+        { id: 'kpi-builder',      group: 'Policies',            label: 'KPI policies',          icon: ICON_LIB['clipboard-check'], href: 'kpi-builder.html',     roles: ['admin', 'kpi-committee'], lean_hidden: true, config_only: true },
+        { id: 'integrations',     group: 'Integrations & data', label: 'Integrations',          icon: ICON_LIB.zap,               href: 'integrations.html',     roles: ['admin'], config_only: true },
+        { id: 'connector-health', group: 'Integrations & data', label: 'Connector health',      icon: ICON_LIB.zap,               href: 'connector-health.html', roles: ['admin'], policy: 'connector_health_page', lean_hidden: true, config_only: true },
+        { id: 'data-quality',     group: 'Integrations & data', label: 'Data quality',          icon: ICON_LIB['clipboard-check'], href: 'data-quality.html',    roles: ['admin'], policy: 'data_quality_page', config_only: true },
+        { id: 'value-scoreboard', group: 'Integrations & data', label: 'Value scoreboard',      icon: ICON_LIB['clipboard-check'], href: 'value-scoreboard.html', roles: ['admin'], policy: 'value_scoreboard_page', lean_hidden: true, config_only: true },   // D2 (P10)
+        { id: 'system-logs',      group: 'Audit',               label: 'System Logs',           icon: ICON_LIB['shield-check'],   href: 'system-logs.html',      roles: ['super_admin'] }
       ]
     },
     {
@@ -303,7 +289,8 @@
       target: '_blank',
       // Adoption Lot A (item 18): business-only accounts may read the manual too (auth.js lets help.html through).
       roles:  ['any', 'site-business', 'group-business'],
-      title:  'User manual'
+      title:  'User manual',
+      menu_hidden: true   // ia-value F6: reached from the header "?" button, which opens the page's own chapter
     }
   ];
 
@@ -326,11 +313,16 @@
   function policyOn(it) { if (!it.policy) return true; try { const p = window.__uiPolicy; return !!(p && p[it.policy] === '1'); } catch (_) { return false; } }
   function inMenu(it) {
     if (!mayOpen(it)) return false;
+    if (it.menu_hidden) return false;   // reached from the header (bell, "?") and the finder, not the menu
+    if (it.config_only && execOnly()) return false;
     if (it.exec_nav_hidden && execNav() === 'consolidated') return false;
     if (navProfile() !== 'lean') return true;
     if (it.lean_hidden) return false;
     return it.lean_roles ? hasAnyRole(it.lean_roles) : true;
   }
+  // an executive / scorecard reader who is not super_admin: settings entries stay off the MENU (presentation only —
+  // the route still decides; the finder still offers what the route allows)
+  function execOnly() { const has = window.__userHasRole || (() => false); return !!(has('executive') && !has('super_admin')); }
   function groupOf(c) { return (navProfile() === 'lean' && c.lean_group) || c.group || ''; }
   function visibleItems(items) {
     return (items || []).filter(inMenu);
@@ -384,7 +376,7 @@
   }
 
   // ── RENDER HELPERS ──────────────────────────────────────────────
-  const GROUP_ORDER = ['Governance', 'Plan & track', 'Report & share', 'Configure'];
+  const GROUP_ORDER = ['Site work', 'Field', 'Service desk', 'Dashboards', 'Reports', 'Overview', 'Policies', 'Integrations & data', 'Audit', 'Governance', 'Plan & track', 'Report & share', 'Configure'];
   function groupChildren(items) {
     const out = [];
     for (const c of items) {
@@ -425,6 +417,17 @@
     'Find a page — e.g. inspections, portfolio': 'Rechercher une page — ex. inspections, portefeuille',
     'Breadcrumb': "Fil d'Ariane", 'Click to log out': 'Cliquer pour se déconnecter', 'Primary': 'Navigation principale',
     'No page found': 'Aucune page trouvée', 'Language': 'Langue', 'Skip to content': 'Aller au contenu',
+    'Work': 'Travail', 'Plan': 'Planifier', 'Insights': 'Analyses', 'Site work': 'Travail du site', 'Field': 'Terrain',
+    'Service desk': 'Centre de services', 'Overview': 'Vue d’ensemble', 'Policies': 'Politiques', 'Integrations & data': 'Intégrations et données',
+    'Audit': 'Audit', 'Admin home': 'Accueil administration', 'Meetings & Decisions': 'Réunions et décisions', 'Finance certification': 'Certification finance',
+    'Connector health': 'Santé des connecteurs', 'Value scoreboard': 'Tableau de valeur', 'Account': 'Compte', 'My access': 'Mes accès',
+    'Sign out': 'Se déconnecter', 'Help for this page': 'Aide pour cette page', 'Super admin': 'Super administrateur', 'Administrator': 'Administrateur',
+    'Coordinator': 'Coordinateur', 'Viewer': 'Lecteur', 'Executive reader': 'Lecteur direction',
+    "Today's site work — actions, inspections, meetings, field": 'Le travail du site aujourd’hui — actions, inspections, réunions, terrain',
+    'Roadmap and projects — activity tracker, portfolio, requests': 'Feuille de route et projets — suivi d’activité, portefeuille, demandes',
+    'Figures and reports — service desk, dashboards, site reports': 'Chiffres et rapports — centre de services, tableaux de bord, rapports de site',
+    'Executive home — where are we': 'Accueil direction — où en sommes-nous',
+    'Administration — users, policies, integrations, data, audit': 'Administration — utilisateurs, politiques, intégrations, données, audit',
     'Data quality': 'Qualité des données', 'Feedback': 'Votre avis', 'Send feedback on this page': 'Donner votre avis sur cette page',
     'Business': 'Métier', 'My workspace': 'Mon espace', 'My workspace — profile, order of my pages, density, default site': 'Mon espace — profil, ordre de mes pages, densité, site par défaut',
   };
@@ -499,6 +502,11 @@
     ctx._marked = true;
     return ' aria-current="page"';
   }
+  function sectionOf(id) {
+    if (!id) return null;
+    const sec = NAV.find(n => (n.children || []).some(c => c.id === id)) || NAV.find(n => n.id === id && !n.children);
+    return sec ? sec.id : null;
+  }
   function isMenuId(id) {
     return NAV.some(s => s.id === id || (s.children || []).some(c => c.id === id));
   }
@@ -557,10 +565,11 @@
     // not Deck Builder), render the parent as a flat link straight to
     // that child. Removes the redundant single-item dropdown and the
     // caret affordance that does nothing useful.
-    if (hasKids && visKids.length === 1) {
+    if (hasKids && (visKids.length === 1 || item.flat)) {
       const onlyChild = visKids[0];
       const childT    = onlyChild.target ? ` target="${onlyChild.target}"` : '';
-      const curA      = ctx.current === onlyChild.id ? markCurrent(ctx) : '';
+      // a `flat` section (Executive) is ONE door to its first page; its other pages are tabs inside it
+      const curA      = (item.flat ? isActive : ctx.current === onlyChild.id) ? markCurrent(ctx) : '';
       return `<a href="${escapeHtml(withSite(onlyChild.href))}"${childT}${curA} class="shell-nav-item-link${activeC}"${titleA}>
         <span class="shell-nav-icon">${item.icon || ''}</span>
         <span class="shell-nav-label">${escapeHtml(item.label)}</span>
@@ -604,18 +613,68 @@
     </a>`;
   }
 
+  // ia-value F12 — the chip says what the person IS (Technician, Coordinator…), never a raw role code.
+  function roleLabel(user) {
+    if (window.__isBusinessOnly) return T('Business');
+    const has = window.__userHasRole || (() => false);
+    const roles = Array.isArray(user && user.roles) ? user.roles : [];
+    const own = (r) => roles.includes(r) || (user && user.role === r);
+    if (own('super_admin')) return T('Super admin');
+    if (own('executive')) return T('Executive');
+    if (own('admin')) return T('Administrator');
+    if (own('editor')) return T('Coordinator');
+    if (own('field-tech') || has('field-tech')) return T('Technician');
+    if (own('scorecard-viewer')) return T('Executive reader');
+    return T('Viewer');
+  }
+  // ia-value F5 — the user pill OPENS an account menu (it used to sign out on a single click). Sign out is the last,
+  // explicit item. Every item is a plain link / button handled by the delegated listener (no inline handler).
   function renderUserPill(user) {
     if (!user) return '';
     const name = user.full_name || user.username || '—';
-    // Adoption Lot A (item 18): a business-only account reads "Métier" / "Business", not its technical tier "viewer".
-    const role = window.__isBusinessOnly ? T('Business') : (user.role || '—');
-    return `<div class="shell-user-pill" title="${T('Click to log out')}">
-      <span class="shell-user-initial" aria-hidden="true">${escapeHtml(String(name || '?').trim().charAt(0).toUpperCase())}</span>
-      <span class="shell-user-name">${escapeHtml(name)}</span>
-      <span class="shell-user-role">${escapeHtml(role)}</span>
+    const role = roleLabel(user);
+    const lang = shellLang();
+    return `<div class="shell-account">
+      <button type="button" class="shell-user-pill" aria-haspopup="menu" aria-expanded="false" aria-controls="shell-account-menu" title="${T('Account')}">
+        <span class="shell-user-initial" aria-hidden="true">${escapeHtml(String(name || '?').trim().charAt(0).toUpperCase())}</span>
+        <span class="shell-user-name">${escapeHtml(name)}</span>
+        <span class="shell-user-role">${escapeHtml(role)}</span>
+      </button>
+      <div class="shell-account-menu" id="shell-account-menu" role="menu" hidden>
+        <p class="shell-account-head" role="presentation"><strong>${escapeHtml(name)}</strong><span>${escapeHtml(role)}</span></p>
+        <a role="menuitem" href="access.html">${T('My access')}</a>
+        ${workspaceLinkOn() ? `<a role="menuitem" href="workspace-settings.html">${T('My workspace')}</a>` : ''}
+        <button type="button" role="menuitem" class="shell-account-lang" lang="${lang === 'fr' ? 'en' : 'fr'}">${lang === 'fr' ? 'English' : 'Français'}</button>
+        <a role="menuitem" href="${escapeHtml(helpHref())}" target="_blank" rel="noopener">${T('Help')}</a>
+        <button type="button" role="menuitem" class="shell-signout">${T('Sign out')}</button>
+      </div>
     </div>`;
   }
+  // ia-value F6 — the "?" opens the chapter of the page you are on (anchors kept by the help manual).
+  const HELP_ANCHORS = { home: 'home', 'site-reports': 'reports', 'site-actions': 'site-actions', inspections: 'inspections', meetings: 'meetings',
+    portfolio: 'portfolio', project: 'project', 'admin-settings': 'admin', 'admin-home': 'admin', 'system-logs': 'admin', 'policy-center': 'policy-center',
+    field: 'field', 'exec-home': 'executive', 'it-review': 'executive', scorecard: 'executive' };
+  let _helpCtx = '';
+  function helpHref() {
+    let id = _helpCtx;
+    try { if (!id && typeof location !== 'undefined' && /\/project\.html$/.test(location.pathname)) id = 'project'; } catch (_) { /* no location */ }
+    return 'help.html' + (HELP_ANCHORS[id] ? '#' + HELP_ANCHORS[id] : '');
+  }
 
+  function toggleAccount(pill) {
+    try {
+      const menu = document.getElementById('shell-account-menu'); if (!menu) return;
+      const open = menu.hidden;
+      menu.hidden = !open; pill.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (open) { const first = menu.querySelector('[role="menuitem"]'); if (first && first.focus) first.focus(); }
+    } catch (_) { /* no DOM */ }
+  }
+  function closeAccount() {
+    try {
+      const menu = document.getElementById('shell-account-menu'); if (!menu || menu.hidden) return;
+      menu.hidden = true; const p = document.querySelector('.shell-user-pill'); if (p) p.setAttribute('aria-expanded', 'false');
+    } catch (_) { /* no DOM */ }
+  }
   // E-B07 — in-app feedback button (report_config ui_feedback_enabled via window.__uiPolicy; '0' = no button, today).
   function feedbackOn() { try { const p = window.__uiPolicy; return !!(p && p.feedback === '1'); } catch (_) { return false; } }
   function openFeedback() {
@@ -636,6 +695,9 @@
       current: mount.dataset.current || ''
     };
     try { const a = activeFor(ctx, typeof location !== 'undefined' ? location : null); ctx.section = a.section; ctx.current = a.current; } catch (_) { /* no location */ }
+    // VISUAL POLISH 2026-11 (ia-value F4): pages keep their historic data-section ('operations', 'helpdesk', 'reports');
+    // the active section is the one that now HOLDS data-current, so the highlight and the breadcrumb follow the menu.
+    try { const own = sectionOf(ctx.current); if (own && own !== ctx.section) ctx.section = own; } catch (_) { /* keep the page's section */ }
     wireHashChange();
     const version = mount.dataset.version || '';
     const user    = window.__authUser || null;
@@ -649,6 +711,7 @@
     // A-21 — the lean profile moves the "icons only" breakpoint (public/_shell.css) through this body class
     try { if (document.body && document.body.classList) document.body.classList.toggle('shell-nav-lean', navProfile() === 'lean'); } catch (_) { /* no DOM */ }
     try { if (document.body && document.body.classList) document.body.classList.toggle('shell-exec-consolidated', execNav() === 'consolidated'); } catch (_) { /* no DOM */ }
+    _helpCtx = ctx.current || ctx.section || '';
     const navHtml = NAV.filter(sectionVisible).map(it => renderNavItem(it, ctx)).join('');
 
     const html = `
@@ -661,7 +724,8 @@
         <div class="shell-actions">
           <button type="button" class="shell-search-btn" aria-haspopup="dialog" aria-expanded="false" aria-controls="shell-search" title="${T('Find a page (Ctrl+K)')}">${ICON_LIB.search || ''}<span class="shell-search-label">${T('Find')}</span><kbd>Ctrl K</kbd></button>
           <button type="button" class="shell-lang-btn" title="${T('Language')}" aria-label="${lang === 'fr' ? 'Switch to English' : 'Passer en français'}" lang="${lang === 'fr' ? 'en' : 'fr'}">${lang === 'fr' ? 'EN' : 'FR'}</button>
-          ${workspaceLinkOn() && user ? `<a class="shell-ws-link" href="workspace-settings.html" title="${T('My workspace — profile, order of my pages, density, default site')}">${T('My workspace')}</a>` : ''}
+          ${user && notifAllowed() ? `<a class="shell-icon-btn shell-bell" href="notifications.html" title="${T('Notifications')}" aria-label="${T('Notifications')}">${ICON_LIB.bell || ''}</a>` : ''}
+          <a class="shell-icon-btn shell-help" href="${escapeHtml(helpHref())}" target="_blank" rel="noopener" title="${T('Help for this page')}" aria-label="${T('Help for this page')}">${ICON_LIB['help-circle'] || '?'}</a>
           ${feedbackOn() && user ? `<button type="button" class="shell-feedback-btn" title="${T('Send feedback on this page')}">${T('Feedback')}</button>` : ''}
           ${renderUserPill(user)}
           ${version ? `<span class="shell-version">${escapeHtml(version)}</span>` : ''}
@@ -937,7 +1001,17 @@
     }
     if (e.target.closest('.shell-feedback-btn')) { e.preventDefault(); openFeedback(); return; }
     // P07 — log out through this delegated listener (no inline handler: pages served with the nonce-only script-src)
-    if (e.target.closest('.shell-user-pill')) { if (window.__logout) window.__logout(); return; }
+    // ia-value F5 — account menu: the pill toggles it; "Sign out" is an explicit item; the language item flips sdp_lang
+    const pill = e.target.closest('.shell-user-pill');
+    if (pill) { e.preventDefault(); toggleAccount(pill); return; }
+    if (e.target.closest('.shell-signout')) { e.preventDefault(); if (window.__logout) window.__logout(); return; }
+    if (e.target.closest('.shell-account-lang')) {
+      e.preventDefault();
+      try { localStorage.setItem('sdp_lang', shellLang() === 'fr' ? 'en' : 'fr'); } catch (_) { /* storage blocked */ }
+      location.reload();
+      return;
+    }
+    if (!e.target.closest('.shell-account-menu')) closeAccount();
     if (e.target.closest('.shell-search-btn')) {
       e.preventDefault();
       const box = document.getElementById('shell-search');
@@ -957,6 +1031,8 @@
     if (e.key === 'Escape') {
       const box = document.getElementById('shell-search');
       if (box && !box.hidden) { closeSearch(true); return; }
+      const acct = document.getElementById('shell-account-menu');
+      if (acct && !acct.hidden) { closeAccount(); const p = document.querySelector('.shell-user-pill'); if (p && p.focus) p.focus(); return; }
       const item = t.closest && t.closest('.shell-nav-item');
       if (item) {
         const caret = item.querySelector('.shell-nav-caret');

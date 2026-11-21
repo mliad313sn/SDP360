@@ -232,8 +232,19 @@
   const existing = localStorage.getItem('report_user');
   const nextParam = new URLSearchParams(location.search).get('next');
   if (existing && !nextParam) {
-    // Already logged in, browsed directly to login.html — send to index
-    location.replace('index.html');
+    // Already logged in, browsed directly to login.html — send to the SAME landing a fresh sign-in gets
+    // (ia-value F1: lib/landing.js, report_config ui_role_landing from the cached policy; '0' keeps today's mapping).
+    var dest = 'index.html';
+    try {
+      var u = JSON.parse(existing) || {};
+      var rs = Array.isArray(u.roles) && u.roles.length ? u.roles : (u.role ? [u.role] : []);
+      var H = ['super_admin', 'executive', 'admin', 'editor', 'viewer'];
+      var has = function (r) { if (rs.indexOf(r) >= 0) return true; var i = H.indexOf(r); return i >= 0 && rs.some(function (x) { var k = H.indexOf(x); return k >= 0 && k <= i; }); };
+      var pol = {}; try { pol = JSON.parse(localStorage.getItem('sdp_ui_policy') || '{}') || {}; } catch (_) { pol = {}; }
+      var biz = rs.length > 0 && rs.every(function (r) { return r === 'site-business' || r === 'group-business'; });
+      if (window.Landing && window.Landing.landingFor) dest = window.Landing.landingFor({ has: has, isBusinessOnly: biz, roleLanding: pol.role_landing === '1' ? '1' : '0', profileLanding: pol.role_landing_profiles === '1' ? '1' : '0', roles: rs, profiles: window.WorkspaceProfiles || null }) || 'index.html';
+    } catch (_) { dest = 'index.html'; }
+    location.replace(dest);
   }
 
   document.getElementById('loginForm').addEventListener('submit', async (e) => {
