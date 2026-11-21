@@ -49,13 +49,9 @@ function slipWorkingDays(project, schedule, calendar) {
   return fin && base ? workingDaysBetween(base, fin, calendar) : null;
 }
 
-/** Highest P × I of an open risk or issue (the RAG risk input). 0 only when the register holds rows and none is open. */
-function riskScore(risks) {
-  const open = (risks || []).filter((r) => r.status === 'open' && ['risk', 'issue'].includes(r.kind || 'risk'));
-  const scores = open.map((r) => Number(r.probability) * Number(r.impact)).filter(Number.isFinite);
-  if (scores.length) return Math.max(...scores);
-  return (risks || []).length ? 0 : null;
-}
+/** The RAG risk input — P11 r7 F-29: the shared residual-first rule (riskExposure.projectScore), never a local P × I.
+ *  0 only when the register holds rows and none is open; null (UNKNOWN) when no open entry carries a known score. */
+function riskScore(risks) { return RE.projectScore(risks); }
 
 /** EVM per currency → budget-burn cards (money readers only; the caller passes evm = null otherwise). */
 function budgetBurn(evm) {
@@ -80,7 +76,8 @@ function worstIndex(evm, key) {
  */
 function projectSummary({ project, tasks, milestones, risks, schedule, evm, rag, gates, today, calendar }) {
   const sc = scheduleComplete(tasks || [], schedule);
-  const openRisks = (risks || []).filter((r) => RE.isOpen(r) && String(r.kind || 'risk').toLowerCase() === 'risk');
+  // P11 r7 F-30 — active = the SAME population as high (open risks AND issues, assumptions out), so high ⊆ active
+  const openRisks = (risks || []).filter((r) => RE.isOpen(r) && RE.inScope(r));
   // P11 r6 F-27 — the ONE high-risk rule (riskExposure.isHigh: open risks AND issues, residual first, unknown never high)
   const highRisks = (risks || []).filter(RE.isHigh);
   const blocked = leavesOf(tasks || []).filter((t) => t.status === 'blocked');
@@ -102,8 +99,8 @@ function projectSummary({ project, tasks, milestones, risks, schedule, evm, rag,
       on_hold: p.key === 'execution' && stage === 'on_hold',
     };
   });
-  const top_risks = (risks || []).filter((r) => r.status === 'open').map((r) => ({ id: Number(r.id), kind: r.kind || 'risk', title: r.title, probability: Number(r.probability), impact: Number(r.impact), score: Number(r.probability) * Number(r.impact), owner: r.owner || null }))
-    .filter((r) => Number.isFinite(r.score)).sort((a, b) => b.score - a.score || a.id - b.id).slice(0, 5);
+  const top_risks = (risks || []).filter((r) => RE.isOpen(r) && RE.inScope(r)).map((r) => ({ id: Number(r.id), kind: r.kind || 'risk', title: r.title, probability: Number(r.probability), impact: Number(r.impact), score: RE.effectiveScore(r), owner: r.owner || null }))
+    .filter((r) => r.score != null).sort((a, b) => b.score - a.score || a.id - b.id).slice(0, 5);
   return {
     cards: {
       rag: rag ? rag.rag : null,

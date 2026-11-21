@@ -530,7 +530,11 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     return { project, objective: objective ? { ...idRow(objective), programme_id: Number(objective.programme_id) } : null, milestones, deliverables, risks, tasks, benefits, extra_sites: await projectSites(pid), gate_ctx: await gateCounts(pid) };
   }
   /** The counts the stage gates read: open tasks, open high risks — P11 r6 F-27: the ONE high-risk rule
-   *  (services/ppm/riskExposure.isHigh: open, kind risk | issue, residual level first, unknown score never high). */
+   *  (services/ppm/riskExposure.isHigh: open, kind risk | issue, residual level first, unknown score never high).
+   *  P11 r7 R7-4 — POLICY, PROPOSED (not approved; KPI Committee G-12 / closure policy D-04): that the closure gate is
+   *  blocked by an open high ISSUE (not only a risk) and is released once a residual low/medium level is recorded on a
+   *  high inherent risk are business rules shipped with F-27, awaiting committee confirmation together with the
+   *  evidence required for a residual score. Engineering keeps the one-rule behaviour until then. */
   async function gateCounts(id) {
     // A-19c: live tasks only — a sub-task of a soft-deleted task is hidden with it, so it does not block a gate either
     const openTasks = _liveTaskTree(await P(`SELECT id, parent_id, status FROM portfolio_tasks WHERE project_id=? AND deleted_at IS NULL`).all(Number(id)))

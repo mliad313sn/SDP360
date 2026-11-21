@@ -7,7 +7,8 @@
 //   spi        schedule performance index (EV / PV, W1-EVM)            lower is worse
 //   slip_wd    forecast finish − baseline finish, in WORKING days      higher is worse
 //   cpi        cost performance index (EV / AC, W1-EVM)                lower is worse
-//   risk_score highest probability × impact (1..3 × 1..3) of an OPEN risk or issue   higher is worse
+//   risk_score highest EFFECTIVE (residual-first) probability × impact of an OPEN risk or issue, from the shared rule
+//              services/ppm/riskExposure.projectScore (P11 r7 F-29); null when unscored   higher is worse
 // Components: schedule = worse of spi / slip_wd · cost = cpi · risk = risk_score. Composite = the worst component.
 // UNKNOWN is null, never green: a metric with no value is null and is left out; a component with no measured metric
 // is null. The composite is null unless the schedule or the cost is measured — an empty risk register alone never
@@ -27,7 +28,8 @@ const DEFAULT_THRESHOLDS = Object.freeze({
   spi: Object.freeze({ dir: 'low', red_enter: 0.90, red_exit: 0.92, amber_enter: 0.95, amber_exit: 0.97 }),
   cpi: Object.freeze({ dir: 'low', red_enter: 0.90, red_exit: 0.92, amber_enter: 0.95, amber_exit: 0.97 }),
   slip_wd: Object.freeze({ dir: 'high', red_enter: 10, red_exit: 8, amber_enter: 0, amber_exit: 0 }),
-  risk_score: Object.freeze({ dir: 'high', red_enter: 8, red_exit: 8, amber_enter: 5, amber_exit: 5 }),
+  // P11 r7 F-29 — derived from the one risk mapping (critical → red, high → amber), never a second literal band
+  risk_score: require('./riskExposure').RAG_THRESHOLDS,
 });
 const METRICS = Object.keys(DEFAULT_THRESHOLDS);
 const RANK = { green: 0, amber: 1, red: 2 };

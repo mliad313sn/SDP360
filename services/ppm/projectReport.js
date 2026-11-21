@@ -19,7 +19,7 @@ function projectBlock(x) {
     ['Schedule complete (work-weighted)', esc(n(c.schedule_complete_pct, ' %'))],
     ['Forecast finish / baseline', `${esc(n(c.forecast_finish))} / ${esc(n(c.baseline_finish))} (slip ${esc(n(c.slip_working_days, ' working days'))})`],
     ['Budget burn (non certifié)', burn],
-    ['Open risks / high / blocked tasks', `${esc(n(c.active_risks))} / ${esc(n(c.high_risks))} / ${esc(n(c.blocked_tasks))}`],
+    ['Open risks + issues / high / blocked tasks', `${esc(n(c.active_risks))} / ${esc(n(c.high_risks))} / ${esc(n(c.blocked_tasks))}`],
     ['Next milestone', c.next_milestone ? `${esc(c.next_milestone.name)} — ${esc(c.next_milestone.due_date)}` : '—'],
     ['Overdue milestones', esc(n(c.overdue_milestones))],
   ];

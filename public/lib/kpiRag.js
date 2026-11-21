@@ -50,7 +50,10 @@
     // P11 r6 F-26 — PROPOSED Vue Groupe helpdesk cell bands (services/siteHelpdeskSla.fleetCell): on-time share of the
     // closed tickets AND share of the window not open-and-overdue, worst of the two. The former cell's < 5 % / < 15 %
     // missed cut-offs, kept verbatim. Not approved: a KPI Committee decision (G06).
-    'helpdesk-fleet-sla': { scale: 'ratio', green: 0.95, amber: 0.85, proposed: true, status: 'PROPOSED', source: 'services/siteHelpdeskSla.js fleetCell (PROPOSED, not approved — G06)' },
+    // P11 r7 F-31 — min_closed (PROPOSED, G06): a closed base below it is too small to judge → the closed band is not
+    // measured (cell 'na' unless the open band is bad), never a green verdict on 1–4 tickets. The cell's own red /
+    // amber, from EITHER band, caps the site overall (services/siteAwarenessFleet.rollupRag).
+    'helpdesk-fleet-sla': { scale: 'ratio', green: 0.95, amber: 0.85, min_closed: 5, proposed: true, status: 'PROPOSED', source: 'services/siteHelpdeskSla.js fleetCell (PROPOSED, not approved — G06)' },
     'ppm-capacity':      { scale: 'ratio',  green: 1.18, amber: 1.0,  proposed: true, status: 'PROPOSED', source: 'services/ppm/resourceDemand.js — IT portfolio spec §17 (PROPOSED, not approved)' },
   };
 

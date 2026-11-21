@@ -57,7 +57,7 @@ function view(row, details, { today, money }) {
     severity: (function () { const l = require('./riskExposure').level(p, i); return l == null ? null : l === 'critical' ? 'high' : l; })(),
     owner: row.owner || null, status: row.status, mitigation: row.mitigation || null,
     response: d.response || null, review_date: d.review_date || null,
-    review_overdue: !!(d.review_date && row.status === 'open' && today && d.review_date < today),
+    review_overdue: !!(d.review_date && require('./riskExposure').isOpen(row) && today && d.review_date < today),
     probability_pct: pp, dependency_ref: d.dependency_ref || null,
   };
   if (money) Object.assign(out, { impact_amount: amt, impact_currency: d.impact_currency || null, exposure_amount: exposure, money_hidden: false });

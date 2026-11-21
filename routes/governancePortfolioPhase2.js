@@ -128,18 +128,33 @@ module.exports = function governancePortfolioPhase2Routes(router, h) {
       // never a GREEN while the group cell is RED. The group lines are read server-side only (no other project's figure
       // is returned); a cell this project alone demands keeps its verdict.
       const others = (await p2().demandProjectIds()).filter((id) => id !== Number(p.id));
+      // P11 r7 (PPM R7-2) — whether another project shares a cell is told ONLY to a reader who can read every project
+      // carrying demand (portfolio-wide read). Anyone else gets no per-cell sharing flag and no colour except a certain
+      // RED, plus a neutral response-level view_partial (as /portfolio/capacity does) — never which month or skill an
+      // unreadable project demands, never its name or figure.
+      const seen = new Set((await readable(req)).map((x) => Number(x.id)));
+      const fullRead = others.every((id) => seen.has(id));
+      // P11 r7 (PPM R7-1) — this project's OWN known demand already above capacity is a certain RED (the others can only
+      // add to it, as resourceDemand.monthlyLoad treats unknown lines): it keeps its colour and counts in load.over.
+      const certainRed = (c) => c.rag === 'RED';
       let shared = 0;
-      if (others.length && load.cells.length) {
+      if (others.length && load.cells.length && fullRead) {
         const group = RD.monthlyLoad(await p2().listDemand(others), { capacity: {} });
         const busy = new Set(group.cells.map((c) => c.skill + '|' + c.month));
         for (const c of load.cells) {
           c.shared_with_other_projects = busy.has(c.skill + '|' + c.month);
-          if (c.shared_with_other_projects) { c.rag = 'NA'; c.utilisation_pct = null; shared += 1; }
+          if (c.shared_with_other_projects) { shared += 1; if (certainRed(c)) c.own_demand_over_capacity = true; else { c.rag = 'NA'; c.utilisation_pct = null; } }
         }
-        load.over = load.cells.filter((c) => c.rag === 'RED').length;
-      } else { for (const c of load.cells) c.shared_with_other_projects = false; }
+      } else if (others.length && load.cells.length) {
+        for (const c of load.cells) { if (certainRed(c)) c.own_demand_over_capacity = true; else { c.rag = 'NA'; c.utilisation_pct = null; } }
+        shared = load.cells.length;
+      } else if (fullRead) { for (const c of load.cells) c.shared_with_other_projects = false; }
+      load.over = load.cells.filter((c) => c.rag === 'RED').length;
+      const note = fullRead
+        ? 'other projects also demand these skills in these months; capacity is group-wide, so those months get no colour here (except where this project alone is already over capacity) — see the portfolio capacity view'
+        : 'partial view — capacity is group-wide and you cannot read every project carrying demand, so no capacity verdict is shown here except where this project alone is already over capacity';
       res.json({ ok: true, lines, load, capacity_configured: cap.configured, sourcing: RD.SOURCING,
-        view_partial: shared > 0, ...(shared > 0 ? { view_partial_note: 'other projects also demand these skills in these months; capacity is group-wide, so those months get no colour here — see the portfolio capacity view' } : {}) });
+        view_partial: shared > 0, ...(shared > 0 ? { view_partial_note: note } : {}) });
     } catch (e) { fail(res, e); }
   });
   async function saveDemand(req, res, lineId) {

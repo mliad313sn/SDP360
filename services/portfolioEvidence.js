@@ -57,9 +57,8 @@ function ganttRows(projects, milestones = [], { now = new Date() } = {}) {
  *  medium, low, or null when the score is unknown (never 'low'). */
 function riskView(r) {
   const RE = require('./ppm/riskExposure');
-  const inh = RE.level(r.probability, r.impact);
   const eff = RE.effective(r);
-  return { ...r, exposure: inh ? Number(r.probability) * Number(r.impact) : null, level: eff, severity: eff == null ? null : (eff === 'critical' ? 'high' : eff) };
+  return { ...r, exposure: RE.pairScore(r.probability, r.impact), level: eff, severity: eff == null ? null : (eff === 'critical' ? 'high' : eff) };
 }
 
 /** Monthly roll-up per programme: weighted evidence, objectives with auto evidence (the ≥ 50 % acceptance), late projects, high risks, budget. */

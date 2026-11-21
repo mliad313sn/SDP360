@@ -23,7 +23,7 @@ function level(probability, impact) {
   const p = sc(probability), i = sc(impact);
   if (!Number.isInteger(p) || !Number.isInteger(i) || p < 1 || p > 3 || i < 1 || i > 3) return null;
   const s = p * i;
-  return s >= 9 ? 'critical' : s >= 6 ? 'high' : s >= 3 ? 'medium' : 'low';
+  return s >= SCORE_MIN.critical ? 'critical' : s >= SCORE_MIN.high ? 'high' : s >= SCORE_MIN.medium ? 'medium' : 'low';
 }
 /** Normalise a residual body {residual_probability, residual_impact, due_date}; '' / null = unknown. Throws INVALID. */
 function normaliseResidual(body) {
@@ -42,6 +42,28 @@ const inScope = (r) => String(r.kind || 'risk').trim().toLowerCase() !== 'assump
 const effective = (r) => level(r.residual_probability, r.residual_impact) || level(r.probability, r.impact);
 /** P11 F-23 — the shared high-risk predicate: open, kind risk | issue, effective level high | critical. */
 const isHigh = (r) => !!r && isOpen(r) && inScope(r) && ['high', 'critical'].includes(effective(r));
+/** P11 r7 F-29 — the probability × impact score of one pair (1..9), null when either is unknown / out of range. */
+const pairScore = (p, i) => (level(p, i) == null ? null : sc(p) * sc(i));
+/** Effective SCORE of one risk, residual first (same precedence as effective()): null when no pair is known. */
+const effectiveScore = (r) => (level(r.residual_probability, r.residual_impact) ? pairScore(r.residual_probability, r.residual_impact) : pairScore(r.probability, r.impact));
+/** P11 r7 F-29 — the project RAG risk input: highest effective (residual-first) score of an OPEN risk or issue.
+ *  0 only when the register holds rows and none is open; null (UNKNOWN, never green) when no open entry has a known
+ *  score, or when an unknown-score entry sits beside known entries that are not high / critical (it could be worse —
+ *  same rule as rollup(): a known high / critical is never hidden by an unknown sibling). */
+function projectScore(risks) {
+  const open = (risks || []).filter((r) => r && isOpen(r) && inScope(r));
+  if (!open.length) return (risks || []).length ? 0 : null;
+  const known = open.map(effectiveScore).filter((x) => x != null);
+  if (!known.length) return null;
+  const top = Math.max(...known);
+  const unknown = known.length < open.length;
+  if (unknown && top < SCORE_MIN.high) return null;
+  return top;
+}
+// P11 r7 F-29 — the project RAG risk bands DERIVED from the one mapping above (PROPOSED like the mapping):
+// critical (score >= 9) → red, high (score >= 6) → amber, below → green. projectRag reads these; no second literal.
+const SCORE_MIN = Object.freeze({ medium: 3, high: 6, critical: 9 });
+const RAG_THRESHOLDS = Object.freeze({ dir: 'high', red_enter: SCORE_MIN.critical - 1, red_exit: SCORE_MIN.critical - 1, amber_enter: SCORE_MIN.high - 1, amber_exit: SCORE_MIN.high - 1 });
 /** One risk row as served (no amount: the RAID amounts stay behind their own rule in raid.js). */
 function view(r, { today } = {}) {
   const inherent = level(r.probability, r.impact), residual = level(r.residual_probability, r.residual_impact);
@@ -69,4 +91,4 @@ function portfolio(projects, risks, { today } = {}) {
   for (const r of rows) totals[r.level || 'unknown'] += 1;
   return { rows, totals, mapping: MAPPING };
 }
-module.exports = { LEVELS, MAPPING, TERMINAL, level, effective, isOpen, isHigh, normaliseResidual, view, rollup, portfolio };
+module.exports = { LEVELS, MAPPING, TERMINAL, SCORE_MIN, RAG_THRESHOLDS, level, pairScore, effective, effectiveScore, projectScore, isOpen, inScope, isHigh, normaliseResidual, view, rollup, portfolio };
