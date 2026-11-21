@@ -70,7 +70,9 @@ test('R8-A2: same attack with system_log scrubbed too → "unknown key id", unve
     await AC.nightly(rdb);
     await deleteTail(db);
     await deleteAllAnchors(db);
-    await db.exec('DELETE FROM system_log');
+    // P11 r9 (migration 140): audit_chain events survive a DELETE unless the owner disables the guard trigger
+    await db.exec('ALTER TABLE system_log DISABLE TRIGGER system_log_audit_chain_guard');
+    try { await db.exec('DELETE FROM system_log'); } finally { await db.exec('ALTER TABLE system_log ENABLE TRIGGER system_log_audit_chain_guard'); }
     await insertAnchorsFor(db, real, await AC.verify(db, { anchors: false }), 'deadbeefdeadbeef');
     const v = await AC.verify(db);
     assert.equal(v.ok, false); assert.equal(v.status, 'unverifiable');
@@ -86,7 +88,7 @@ test('R8-A2: same attack with system_log scrubbed too → "unknown key id", unve
 test('O-11: a genuine rotation A→B with an app-written invented-kid row → unverifiable, no resume', async () => {
   const { rdb, db, AC, real } = await reset(3);
   await withEnv({ SDP_CONFIG_KEY: KEY_A, SDP_LEDGER_SCHEMA: null }, () => AC.nightly(rdb));
-  await withEnv({ SDP_CONFIG_KEY: KEY_B, SDP_LEDGER_SCHEMA: null }, async () => {
+  await withEnv({ SDP_CONFIG_KEY: KEY_B, SDP_CONFIG_KEY_OLD: KEY_A, SDP_LEDGER_SCHEMA: null }, async () => {
     const live = mh(await AC.verify(db, { anchors: false }));
     await db.prepare('INSERT INTO audit_chain_anchors (table_name, schema_name, last_id, head, row_count, sig, kid) VALUES (?, ?, ?, ?, ?, ?, ?)')
       .run('minutes_history', real, live.last_id, live.head, live.rows, 'e'.repeat(64), 'ffffffffffffffff');
@@ -102,10 +104,10 @@ test('R8-A2 control: a genuine rotation (job signed under kid A, now key B) stil
   const { rdb, db, AC } = await reset(3);
   await withEnv({ SDP_CONFIG_KEY: KEY_A, SDP_LEDGER_SCHEMA: null }, () => AC.nightly(rdb));
   const kidA = AC.anchorKid(AC.anchorKey({ SDP_CONFIG_KEY: KEY_A }));
-  assert.ok(await db.prepare('SELECT 1 AS ok FROM audit_chain_meta WHERE k = ?').get('kid:' + kidA), 'the job records the kid it signs with');
+  assert.ok(await db.prepare('SELECT 1 AS ok FROM audit_chain_meta WHERE k LIKE ?').get(`kidatt:${kidA}:${kidA}:%`), 'the job records a signed attestation of the kid it signs with (P11 r9)');
   const ev = await db.prepare("SELECT details FROM system_log WHERE action = 'audit_chain_anchor' ORDER BY id DESC LIMIT 1").get();
   assert.equal(JSON.parse(ev.details).kid, kidA);
-  await withEnv({ SDP_CONFIG_KEY: KEY_B, SDP_LEDGER_SCHEMA: null }, async () => {
+  await withEnv({ SDP_CONFIG_KEY: KEY_B, SDP_CONFIG_KEY_OLD: KEY_A, SDP_LEDGER_SCHEMA: null }, async () => {
     const n = await AC.nightly(rdb);
     assert.ok(n.key_rotated && n.key_rotated.anchored >= 1);
     assert.equal(await rotEvents(db), 1);
@@ -117,11 +119,12 @@ test('R8-A2: a known prior kid cannot launder a truncation either (logged positi
   const { rdb, db, AC, real } = await reset(3);
   await withEnv({ SDP_CONFIG_KEY: KEY_A, SDP_LEDGER_SCHEMA: null }, () => AC.nightly(rdb));
   const kidA = AC.anchorKid(AC.anchorKey({ SDP_CONFIG_KEY: KEY_A }));
-  await withEnv({ SDP_CONFIG_KEY: KEY_B, SDP_LEDGER_SCHEMA: null }, async () => {
+  await withEnv({ SDP_CONFIG_KEY: KEY_B, SDP_CONFIG_KEY_OLD: KEY_A, SDP_LEDGER_SCHEMA: null }, async () => {
     await deleteTail(db); await deleteAllAnchors(db);
     await insertAnchorsFor(db, real, await AC.verify(db, { anchors: false }), kidA);
     const v = await AC.verify(db);
-    assert.equal(v.status, 'broken'); assert.match(mh(v).anchor_error, /row count shrank from 3/);
+    // P11 r9: with the previous key at hand the made-up rows claiming kid A are forged; the logged position constrains too
+    assert.equal(v.status, 'broken'); assert.match(mh(v).anchor_error, /not signed by the nightly job|row count shrank from 3/);
     await assert.rejects(AC.nightly(rdb), /audit chain broken/);
     assert.equal(await rotEvents(db), 0);
   });
@@ -160,7 +163,7 @@ test('O-13 pure: a counts file is trusted only for ITS dump (name, sha256, size)
     write({ dump: path.basename(dump), dump_sha256: '0'.repeat(64), dump_bytes: dg.bytes });
     r = await B.dumpCountsFor(dump); assert.equal(r.counts, null); assert.match(r.problem, /another sha256/);
     write({ dump: path.basename(dump) });
-    r = await B.dumpCountsFor(dump); assert.ok(r.counts); assert.equal(r.unbound, true, 'a pre-fix counts file is flagged as unbound');
+    r = await B.dumpCountsFor(dump); assert.equal(r.counts, null, 'P11 r9 R9-A4: a counts file with no sha256 is ignored, never "unbound"'); assert.match(r.problem, /no sha256/);
     fs.unlinkSync(B.countsFileFor(dump));
     r = await B.dumpCountsFor(dump); assert.deepEqual([r.counts, r.problem], [null, null]);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }

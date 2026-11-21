@@ -45,6 +45,13 @@
 //  - with no anchor verified under the current key, the highest anchored position logged by the job in system_log
 //    still constrains the ledger (a truncated ledger is "broken", never re-baselined);
 //  - a database hardened before migration 137 (no kid column) names the remedy (re-run the hardening script).
+//
+// P11 round 9 (O-14 / R9-2 / O-16 / R9-A1, ADR docs/ai-decisions/ADR-P11-R9-signed-kid-history-anchor-events-request-origin.md):
+//  - the kid history and the high-water mark are SIGNED (keys derived from SDP_CONFIG_KEY, outside the database): an
+//    app-role row 'kid:<x>' or an unsigned / altered audit_chain_anchor event is ignored (reported in evidence_ignored);
+//  - a rotation resumes with the previous key in SDP_CONFIG_KEY_OLD (old anchors checked with it) or after a human
+//    holding the current key ran tools/pg/audit-chain-accept-rotation.js; migration 140 makes the audit_chain rows of
+//    system_log append-only. The owner of an unhardened database can still erase evidence (stated residual).
 const crypto = require('crypto');
 const TABLES = Object.freeze(['governance_policy_history', 'handoff_events', 'commitment_events', 'closure_verifications', 'minutes_history', 'governance_role_events', 'ppm_events', 'report_publications', 'weekly_report_submissions', 'access_request_events', 'finance_certification_events', 'wan_sla_claim_events']);
 const ANCHOR_TABLE = 'audit_chain_anchors';
@@ -124,6 +131,47 @@ function anchorKid(key) {
   if (!key) return null;
   return crypto.createHmac('sha256', key).update('sdp-audit-chain-anchor-kid-v1').digest('hex').slice(0, 16);
 }
+
+// ---- P11 r9 O-14 / R9-2 / O-16 (ADR docs/ai-decisions/ADR-P11-R9-signed-kid-history-anchor-events-request-origin.md) --
+// The kid history and the system_log high-water mark were plain rows the application database login can write. Both are
+// now SIGNED with a key derived from SDP_CONFIG_KEY (never stored in the database):
+//  - kid attestation: audit_chain_meta key 'kidatt:<attested kid>:<attester kid>:<hmac>'; the hmac is keyed from the
+//    ATTESTER's key, so it verifies only with the current key or the previous one (SDP_CONFIG_KEY_OLD). The job writes a
+//    self-attestation of the key it signs with every night, and on a resume re-attests every kid it trusted under the
+//    current key (a chain of rotation entries: A→B attested by B, then B→C re-attests A and B under C). The signature is
+//    part of the meta KEY, so an INSERT made beforehand can never pre-empt the job's row (append-only table).
+//  - anchor event: the nightly audit_chain_anchor event carries hwm_sig = hmac over (schema, kid, the logged positions);
+//    an event without a valid signature never feeds the high-water mark (it is counted in evidence_ignored.log_events).
+// Residual (stated, not fixed): whoever holds SDP_CONFIG_KEY AND the database can still forge both (gate G01 / HD-S04).
+const KIDATT = 'kidatt:';
+function kidHistKey(key) { return key ? crypto.createHmac('sha256', key).update('sdp-audit-chain-kid-history-v1').digest() : null; }
+function kidAttestSig(key, attested, attester) {
+  return crypto.createHmac('sha256', kidHistKey(key)).update(JSON.stringify(['kid-attest-v1', String(attested), String(attester)])).digest('hex');
+}
+/** meta key of an attestation of `attested` by the holder of `key` (whose kid is the attester). */
+function kidAttestation(key, attested) { const by = anchorKid(key); return `${KIDATT}${attested}:${by}:${kidAttestSig(key, attested, by)}`; }
+/** The previous anchor key (SDP_CONFIG_KEY_OLD — the documented rotation variable), null when unset. */
+function oldAnchorKey(env = process.env) { return env.SDP_CONFIG_KEY_OLD ? anchorKey({ SDP_CONFIG_KEY: env.SDP_CONFIG_KEY_OLD }) : null; }
+function hwmPayload(schema, kid, tables) {
+  return JSON.stringify(['hwm-v1', String(schema == null ? '' : schema), String(kid || ''), (tables || []).filter((x) => x && x.ok === true && x.rows != null)
+    .map((x) => [String(x.table), String(Number(x.rows)), x.last_id == null ? null : String(Number(x.last_id)), x.head == null ? null : String(x.head)])]);
+}
+function hwmSig(key, schema, kid, tables) { return crypto.createHmac('sha256', crypto.createHmac('sha256', key).update('sdp-audit-chain-hwm-v1').digest()).update(hwmPayload(schema, kid, tables)).digest('hex'); }
+/** Pure: which kids are attested by a key we hold (current / previous)? Returns { known:Set, ignored:n }. */
+function trustedKids(metaKeys, keys) {
+  const known = new Set(); let ignored = 0;
+  const holders = (keys || []).filter(Boolean).map((k) => ({ k, kid: anchorKid(k) }));
+  for (const h of holders) known.add(h.kid);
+  for (const raw of metaKeys || []) {
+    const k = String(raw);
+    if (k.startsWith('kid:')) { ignored++; continue; }   // legacy unsigned kid history (before fix 39): never trusted
+    if (!k.startsWith(KIDATT)) continue;
+    const [attested, by, sig] = k.slice(KIDATT.length).split(':');
+    const h = holders.find((x) => x.kid === by);
+    if (h && attested && sig && _sigEq(sig, kidAttestSig(h.k, attested, by))) known.add(attested); else ignored++;
+  }
+  return { known, ignored };
+}
 /**
  * Pure: classify the anchor rows of ONE ledger (ordered by id) and choose the comparison baseline.
  * Returns { anchor, forged:[ids], foreign:[ids], constraints:[rows], keyRotated, foreignKids:[], unverifiable, integrity }.
@@ -196,13 +244,18 @@ async function anchorsExpected(db, schema) {
  *  anchors (possible before tools/pg/harden-audit-grants.sql, now also refused by migration 132's trigger) therefore no
  *  longer leaves a chain check that compares nothing and passes. Best-effort: an unreadable source counts as "unknown",
  *  never as "anchored". */
-async function anchorHistory(db, schema) {
+async function anchorHistory(db, schema, opts = {}) {
   // P11 r8 (R8-A2 / O-11 / R8-4, ADR docs/ai-decisions/ADR-P11-R8-anchor-rotation-resume.md): also collect
   //  - hwm: per ledger, the highest position the nightly job logged as anchored ok (rows, last id, head) — an unsigned
   //    copy of the anchor stream that survives a deletion of the anchor rows;
-  //  - knownKids: the key identifiers this deployment's job has signed with (audit_chain_meta 'kid:<kid>', written by
-  //    recordAnchors; a DBA may record a documented prior key the same way). A kid outside this set is "unknown".
-  const out = { written: false, tables: new Set(), signed: false, hwm: new Map(), knownKids: new Set() };
+  //  - knownKids: the key identifiers attested by a key this server holds (P11 r9: signed 'kidatt:' rows written by
+  //    recordAnchors or tools/pg/audit-chain-accept-rotation.js; plain 'kid:' rows are ignored). Outside it = "unknown".
+  const out = { written: false, tables: new Set(), signed: false, hwm: new Map(), knownKids: new Set(), ignoredEvents: 0, ignoredKidRows: 0 };
+  // P11 r9 O-16 / O-14 — only evidence signed with a key we hold (current, or SDP_CONFIG_KEY_OLD) is trusted
+  const key = opts.key !== undefined ? opts.key : anchorKey();
+  const oldKey = opts.oldKey !== undefined ? opts.oldKey : oldAnchorKey();
+  const holders = [key, oldKey].filter(Boolean).map((k) => ({ k, kid: anchorKid(k) }));
+  for (const h of holders) out.knownKids.add(h.kid);
   try {
     const r = await db.prepare(`SELECT pg_sequence_last_value(pg_get_serial_sequence(?, 'id')::regclass) AS v`).get(qual(schema, ANCHOR_TABLE));
     out.written = r && r.v != null;
@@ -213,6 +266,10 @@ async function anchorHistory(db, schema) {
       let d = null; try { d = typeof row.details === 'string' ? JSON.parse(row.details) : row.details; } catch (_) { d = null; }
       if (d && (Number(d.signed_written) > 0 || (d.anchor_integrity === 'signed' && Number(d.anchored) > 0))) out.signed = true;
       if (!d || !(Number(d.anchored) > 0) || !Array.isArray(d.tables)) continue;
+      // P11 r9 O-16 — a high-water mark only from an event the job signed (kid we hold + valid hwm_sig over the figures)
+      //  (no key at all on this server: nothing can be signed — anchors are advisory and events are read as before)
+      const h = d.kid ? holders.find((x) => x.kid === d.kid) : null;
+      if (holders.length && !(h && d.hwm_sig && _sigEq(d.hwm_sig, hwmSig(h.k, d.schema, d.kid, d.tables)))) { out.ignoredEvents++; continue; }
       const sameSchema = d.schema == null || d.schema === schema;
       for (const x of d.tables) {
         if (!(x && x.ok === true && x.rows != null)) continue;
@@ -226,7 +283,10 @@ async function anchorHistory(db, schema) {
   if ((await metaValue(db, schema, 'signed_anchors')) != null) out.signed = true;
   try {
     const reg = await db.prepare('SELECT to_regclass(?) AS r').get(qual(schema, META_TABLE));
-    if (reg && reg.r) for (const r of await db.prepare(`SELECT k FROM ${qual(schema, META_TABLE)} WHERE k LIKE 'kid:%'`).all()) out.knownKids.add(String(r.k).slice(4));
+    if (reg && reg.r) {
+      const t = trustedKids((await db.prepare(`SELECT k FROM ${qual(schema, META_TABLE)} WHERE k LIKE 'kid%'`).all()).map((r) => r.k), holders.map((x) => x.k));
+      out.knownKids = t.known; out.ignoredKidRows = t.ignored;
+    }
   } catch (_) { /* no meta table: no kid is known */ }
   try { if (await db.prepare(`SELECT 1 AS ok FROM ${qual(schema, ANCHOR_TABLE)} WHERE kid IS NOT NULL LIMIT 1`).get()) out.signed = true; } catch (_) { /* no kid column */ }
   return out;
@@ -254,12 +314,14 @@ async function verify(db, opts = {}) {
     try { hasAnchors = !!(await db.prepare('SELECT to_regclass(?) AS r').get(qual(schema, ANCHOR_TABLE))).r; } catch (_) { hasAnchors = false; }
   }
   const out = [];
-  const history = hasAnchors ? await anchorHistory(db, schema) : { written: false, tables: new Set(), signed: false, hwm: new Map(), knownKids: new Set() };
+  const key = opts.key !== undefined ? opts.key : anchorKey();
+  const oldKey = opts.oldKey !== undefined ? opts.oldKey : oldAnchorKey();
+  const oldKid = oldKey ? anchorKid(oldKey) : null;
+  const history = hasAnchors ? await anchorHistory(db, schema, { key, oldKey }) : { written: false, tables: new Set(), signed: false, hwm: new Map(), knownKids: new Set(), ignoredEvents: 0, ignoredKidRows: 0 };
   let anchorRows = null;
   if (hasAnchors) { try { anchorRows = Number((await db.prepare(`SELECT COUNT(*) AS n FROM ${qual(schema, ANCHOR_TABLE)}`).get()).n); } catch (_) { anchorRows = null; } }
   // R6-A2: anchors expected but the anchor table is not in the ledger schema → unverifiable, never ok
   const expected = useAnchors && !hasAnchors ? await anchorsExpected(db, schema) : false;
-  const key = opts.key !== undefined ? opts.key : anchorKey();
   const sigColumn = hasAnchors ? await hasSigColumn(db, schema) : false;
   const kidColumn = hasAnchors ? await hasColumn(db, schema, 'kid') : false;
   // P11 r7 R7-A2(b) — the sig column is gone although signed anchors were written: never "advisory ok"
@@ -287,6 +349,9 @@ async function verify(db, opts = {}) {
         integrity.add(c.integrity);
       }
       const anchor = c.anchor;
+      // P11 r9 O-14 — with the previous key at hand (SDP_CONFIG_KEY_OLD), a row claiming the previous kid must carry a
+      // signature that verifies under it; otherwise it is forged, never a "rotation"
+      if (oldKey && kidColumn && sigColumn) for (const f of c.constraints || []) if (f.kid === oldKid && f.sig && !_sigEq(f.sig, anchorSig(oldKey, f))) c.forged = [...c.forged, Number(f.id)].sort((a, b) => a - b);
       let brk = c.forged.length ? `anchor row(s) #${c.forged.join(', #')} not signed by the nightly job (forged or altered anchor)` : null;
       if (!brk) brk = anchorBreak(rows, anchor);
       // P11 r7 — an anchor that cannot be verified (other key, or no key) still constrains the chain: it can only add
@@ -305,7 +370,7 @@ async function verify(db, opts = {}) {
       // P11 r8 R8-A2 / O-11 — a pending anchor under a key id this deployment never signed with is not a rotation
       const unknownKids = c.keyRotated && kidColumn ? (c.foreignKids || []).filter((k) => !history.knownKids.has(k)) : [];
       if (unknownKids.length && c.unverifiable) {
-        c = { ...c, unverifiable: `unknown key id: anchor row(s) signed under kid ${unknownKids.join(', ')}, which this deployment's nightly job never signed with (audit_chain_meta has no 'kid:${unknownKids[0]}') — unverifiable, the job does NOT resume; investigate (possible forged anchor). Only after confirming a documented key rotation may a DBA record it: INSERT INTO audit_chain_meta (k, v) VALUES ('kid:${unknownKids[0]}', '<who, date, reason>')` };
+        c = { ...c, unverifiable: `unknown key id: anchor row(s) signed under kid ${unknownKids.join(', ')}, for which no attestation signed with a key this server holds exists — unverifiable, the job does NOT resume; investigate (possible forged anchor). A documented rotation resumes when the previous key is set as SDP_CONFIG_KEY_OLD for one nightly run, or after an operator holding SDP_CONFIG_KEY confirms it: node tools/pg/audit-chain-accept-rotation.js --kid=${unknownKids[0]} --i-confirm-documented-rotation (a plain INSERT into audit_chain_meta is NOT enough: kid history rows are signed)` };
       }
       const last = rows.length ? rows[rows.length - 1] : null;
       const broken = !!bad || !!brk;
@@ -336,6 +401,8 @@ async function verify(db, opts = {}) {
   if (sigGone) anchorErrors.push(`${schema}.${ANCHOR_TABLE} has no sig column although signed anchors were written — signatures removed (unverifiable)`);
   return { ok: status === 'ok', status, schema, anchors: hasAnchors, anchor_integrity: anchorIntegrity,
     ...(anchorErrors.length ? { anchor_error: anchorErrors.join('; ') } : {}),
+    known_kids: [...history.knownKids],
+    evidence_ignored: { kid_rows: history.ignoredKidRows || 0, log_events: history.ignoredEvents || 0 },
     ...(rotatedOnly ? { key_rotated: true, key_rotation: { from_kids: [...new Set(out.flatMap((x) => x.foreign_kids || []))], to_kid: anchorKid(key) } } : {}),
     tables: out, checked_at: new Date().toISOString() };
 }
@@ -373,7 +440,13 @@ async function recordAnchors(db, result, opts = {}) {
     try { await db.prepare(`INSERT INTO ${qual(result.schema, META_TABLE)} (k, v) VALUES ('signed_anchors', ?) ON CONFLICT (k) DO NOTHING`).run(new Date().toISOString()); } catch (_) { /* no meta table (migration 137 not applied): the kid / nightly events still say it */ }
     // P11 r8 R8-A2 / O-11 — kid history: this deployment's job signed with this key id (only the job, which holds the
     // key, writes it; a later anchor under a kid absent from this list is "unknown", never a resumable rotation)
-    if (kidColumn) { try { await db.prepare(`INSERT INTO ${qual(result.schema, META_TABLE)} (k, v) VALUES (?, ?) ON CONFLICT (k) DO NOTHING`).run('kid:' + kid, 'signed by the nightly job ' + new Date().toISOString()); } catch (_) { /* no meta table */ } }
+    // P11 r9 O-14 — the kid history is SIGNED (kidAttestation): a self-attestation of the key the job signs with, plus,
+    // on a resume, a re-attestation under the current key of every kid this run trusted (opts.attest) — the rotation chain
+    if (kidColumn) {
+      for (const k of new Set([kid, ...(opts.attest || [])])) {
+        try { await db.prepare(`INSERT INTO ${qual(result.schema, META_TABLE)} (k, v) VALUES (?, ?) ON CONFLICT (k) DO NOTHING`).run(kidAttestation(key, k), (k === kid ? 'signed by the nightly job ' : `attested by the nightly job (kid ${kid}) `) + new Date().toISOString()); } catch (_) { /* no meta table */ }
+      }
+    }
   }
   return n;
 }
@@ -386,7 +459,7 @@ async function nightly(rdb) {
   let r = await verify(db);
   let rotated = null;
   if (!r.ok && r.key_rotated) {
-    const n = await recordAnchors(db, r, { resume: true });
+    const n = await recordAnchors(db, r, { resume: true, attest: [...(r.known_kids || []), ...r.key_rotation.from_kids] });
     rotated = { from_kids: r.key_rotation.from_kids, to_kid: r.key_rotation.to_kid, tables: r.tables.filter((x) => x.key_rotated).map((x) => x.table), anchored: n };
     await rdb.logEvent({ category: 'governance', action: 'audit_chain_key_rotated', target: 'audit',
       details: { schema: r.schema, ...rotated, signed_written: n, note: 'anchors signed under another SDP_CONFIG_KEY could not be verified; the chain was checked against their content and re-anchored under the current key' }, risk: 1 });
@@ -395,7 +468,7 @@ async function nightly(rdb) {
   const anchored = r.ok ? await recordAnchors(db, r) : 0;
   const signedWritten = anchored && anchorKey() && (await hasSigColumn(db, r.schema)) ? anchored : 0;
   await rdb.logEvent({ category: 'governance', action: r.ok ? 'audit_chain_anchor' : (r.status === 'unverifiable' ? 'audit_chain_unverifiable' : 'audit_chain_broken'), target: 'audit',
-    details: { schema: r.schema, anchored, signed_written: signedWritten, ...(signedWritten ? { kid: anchorKid(anchorKey()) } : {}), status: r.status, anchor_integrity: r.anchor_integrity, ...(rotated ? { key_rotated: rotated } : {}), ...(r.anchor_error ? { anchor_error: r.anchor_error } : {}), tables: r.tables.map((x) => ({ table: x.table, rows: x.rows, ok: x.ok, head: x.head, last_id: x.last_id == null ? null : x.last_id, first_broken_id: x.first_broken_id, ...(x.anchor_error ? { anchor_error: x.anchor_error } : {}), ...(x.error && x.ok !== true ? { error: x.error } : {}), ...(x.shadowed ? { shadowed: true } : {}) })) }, risk: r.ok ? 0 : 1 });
+    details: { schema: r.schema, anchored, signed_written: signedWritten, ...(signedWritten ? { kid: anchorKid(anchorKey()), hwm_sig: hwmSig(anchorKey(), r.schema, anchorKid(anchorKey()), r.tables) } : {}), status: r.status, anchor_integrity: r.anchor_integrity, ...(rotated ? { key_rotated: rotated } : {}), ...(r.anchor_error ? { anchor_error: r.anchor_error } : {}), tables: r.tables.map((x) => ({ table: x.table, rows: x.rows, ok: x.ok, head: x.head, last_id: x.last_id == null ? null : x.last_id, first_broken_id: x.first_broken_id, ...(x.anchor_error ? { anchor_error: x.anchor_error } : {}), ...(x.error && x.ok !== true ? { error: x.error } : {}), ...(x.shadowed ? { shadowed: true } : {}) })) }, risk: r.ok ? 0 : 1 });
   if (!r.ok) {
     const bad = r.tables.filter((x) => x.ok !== true).map((x) => `${x.table}#${x.first_broken_id != null ? x.first_broken_id : (x.anchor_error || x.error || '?')}`);
     if (r.anchor_error) bad.unshift(r.anchor_error);
@@ -404,4 +477,4 @@ async function nightly(rdb) {
   return { rows: r.tables.reduce((n, x) => n + (x.rows || 0), 0), anchored, ...(rotated ? { key_rotated: rotated } : {}) };
 }
 
-module.exports = { TABLES, ANCHOR_TABLE, META_TABLE, verify, recordAnchors, anchorBreak, anchorHistory, ledgerSchema, resolveLedgerSchema, nightly, anchorKey, anchorKid, anchorSig, chooseAnchor, anchorsExpected };
+module.exports = { TABLES, ANCHOR_TABLE, META_TABLE, verify, recordAnchors, anchorBreak, anchorHistory, ledgerSchema, resolveLedgerSchema, nightly, anchorKey, anchorKid, anchorSig, chooseAnchor, anchorsExpected, oldAnchorKey, kidAttestation, kidAttestSig, trustedKids, hwmSig };

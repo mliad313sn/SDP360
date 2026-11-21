@@ -14,6 +14,7 @@ process.env.DASH_PASS = process.env.DASH_PASS || 'r8-pass-0000';
 process.env.DASHBOARD_API_KEY = process.env.DASHBOARD_API_KEY || 'r8-key';
 process.env.SDP_TEST_NO_RATE_LIMIT = '1';
 process.env.AI_PROVIDER = 'off';
+process.env.SDP_CONFIG_KEY = process.env.SDP_CONFIG_KEY || 'p11-test-config-key-0123456789abcdef';   // P11 r9 R9-A2: requests carry an origin signature keyed from it
 for (const k of ['ZOHO_CLIENT_ID', 'ZOHO_CLIENT_SECRET', 'ZOHO_REFRESH_TOKEN']) process.env[k] = process.env[k] || 'dummy';
 const { test, before, after } = require('node:test');
 const assert = require('node:assert');

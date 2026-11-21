@@ -10,7 +10,7 @@
 | Decision cell in RELEASE-GATES.md | empty — this gate is **NO-GO** until the approver fills it. This dossier fills nothing. |
 | What this gate blocks | blocks the two-site pilot on the TEST instance |
 | Decide after | [G03](G03-cab-dependencies-postgres-only.md) CAB: dependency upgrade and PostgreSQL-only cutover |
-| Target SHA | `b0a69f66` |
+| Target SHA | `861e2bb0` |
 | Generated | 2026-11-21 |
 
 ## 1. Question to decide
@@ -22,7 +22,7 @@ What data loss (RPO) and restore time (RTO) do you accept, and is the restore dr
 | Evidence | What it shows | Regenerate / re-run | Last changed (commit, date) | Content hash |
 |---|---|---|---|---|
 | `docs/ops/restore-drills/2026-10-21.md` | Restore drill: row counts equal on the restored copy (synthetic database) | `node tools/pg/restore-drill.js` | de418131, 2026-10-21 | `c6515dbb34f803de` |
-| `tools/pg/restore-drill.js` | Drill tool | `node tools/pg/restore-drill.js` | 2e1f3a54, 2026-11-21 | `c7565e627ab72e97` |
+| `tools/pg/restore-drill.js` | Drill tool | `node tools/pg/restore-drill.js` | 861e2bb0, 2026-11-21 | `c992308b84f0b285` |
 | `tests/restore-drill.test.js` | Drill tool behaviour | `node --test --test-force-exit tests/restore-drill.test.js` | f001ec01, 2026-11-12 | `5df8903f7cc56426` |
 | `tests/backup-encrypt.test.js` | Encrypted backup behaviour | `node --test --test-force-exit tests/backup-encrypt.test.js` | e57c1880, 2026-11-20 | `cde8b83169659eb4` |
 | `tests/blob-backup.test.js` | File store (photos, signatures, uploads, documents) archived with the dump and checked by the drill (count + SHA-256) | `node --test --test-force-exit tests/blob-backup.test.js` | 277386f1, 2026-11-20 | `28e0285a89518d4c` |

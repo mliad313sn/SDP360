@@ -32,7 +32,7 @@ const SIDECAR = path.join(ROOT, 'docs', 'ops', 'flag-decisions.json');
 /** The decision fields a dark switch needs before anyone turns it on (GAP-MATRIX D1). */
 const DECISION_FIELDS = ['owner', 'risk', 'dependencies', 'canary_site', 'rollback_trigger', 'success_metric', 'decision_deadline', 'expiry'];
 
-const SECRET_RE = /(pass|secret|token|_key$|api_key|webhook_url|teams_url|channels|ca_bundle|PASS|SECRET|TOKEN|_KEY$)/;
+const SECRET_RE = /(pass|secret|token|_key$|api_key|webhook_url|teams_url|channels|ca_bundle|PASS|SECRET|TOKEN|_KEY$|_KEY_OLD$)/;
 const cell = (v) => String(v == null ? '' : v).replace(/\|/g, '\\|').replace(/\n/g, ' ');
 const code = (v) => '`' + String(v).replace(/`/g, "'") + '`';
 

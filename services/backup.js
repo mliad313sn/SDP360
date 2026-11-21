@@ -106,21 +106,22 @@ async function fileDigest(file, { fsx = fs } = {}) {
 }
 /**
  * P11 r8 O-13 — the dump-time counts of `dumpFile`, trusted ONLY when the counts file belongs to that dump: its `dump`
- * name, and (when recorded, every backup since fix 36) the dump's sha256 and size. Returns { counts, problem }:
+ * name and the dump's sha256 (both required since fix 39), and its size when recorded. Returns { counts, problem }:
  * counts = the parsed file or null; problem = why a present counts file was ignored (null when none / it matches).
  */
 async function dumpCountsFor(dumpFile, { fsx = fs } = {}) {
   const j = readDumpCounts(dumpFile, { fsx });
   if (!j) return { counts: null, problem: null };
   const name = path.basename(String(dumpFile));
-  if (j.dump && j.dump !== name) return { counts: null, problem: `the counts file names dump ${j.dump}, not ${name}` };
-  if (j.dump_sha256 || j.dump_bytes != null) {
-    let d; try { d = await fileDigest(dumpFile, { fsx }); } catch (e) { return { counts: null, problem: `the dump could not be hashed (${e.message})` }; }
-    if (j.dump_bytes != null && Number(j.dump_bytes) !== d.bytes) return { counts: null, problem: `the counts file was written for a dump of ${j.dump_bytes} bytes, this file has ${d.bytes}` };
-    if (j.dump_sha256 && String(j.dump_sha256) !== d.sha256) return { counts: null, problem: 'the counts file was written for a dump with another sha256 (different or altered file)' };
-    return { counts: j, problem: null };
-  }
-  return { counts: j, problem: null, unbound: true };
+  // P11 r9 R9-A4 / O-15 / R9-3 — the binding is no longer opt-in: a counts file that names no dump, or carries no sha256,
+  // is IGNORED (the drill then compares with live counts and says so) — never accepted "unbound".
+  if (!j.dump) return { counts: null, problem: 'the counts file names no dump (written before the dump binding, or stripped) — not bound to this dump' };
+  if (j.dump !== name) return { counts: null, problem: `the counts file names dump ${j.dump}, not ${name}` };
+  if (!j.dump_sha256) return { counts: null, problem: 'the counts file carries no sha256 of its dump — not bound to this dump' };
+  let d; try { d = await fileDigest(dumpFile, { fsx }); } catch (e) { return { counts: null, problem: `the dump could not be hashed (${e.message})` }; }
+  if (j.dump_bytes != null && Number(j.dump_bytes) !== d.bytes) return { counts: null, problem: `the counts file was written for a dump of ${j.dump_bytes} bytes, this file has ${d.bytes}` };
+  if (String(j.dump_sha256) !== d.sha256) return { counts: null, problem: 'the counts file was written for a dump with another sha256 (different or altered file)' };
+  return { counts: j, problem: null };
 }
 
 /**

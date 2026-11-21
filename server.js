@@ -3752,6 +3752,7 @@ app.post('/api/reports/auth/login', loginLimiter, jsonBody, async (req, res) => 
   if (!rdb) return res.status(503).json({ error: 'Reports module not available' });
   const { username, password } = req.body || {};
   if (!username || !password) return res.status(400).json({ error: 'username and password required' });
+  try {   // P11 r9 O-17: a database outage anywhere below is 503 database_unavailable (asUnavailable), never 500
   // 'only' mode: password sign-in is reserved for the break-glass account so an
   // Entra outage can't lock everyone out. 'available' mode keeps password login
   // open for everyone (the hybrid transition window). 'off' → unrestricted.
@@ -3769,7 +3770,6 @@ app.post('/api/reports/auth/login', loginLimiter, jsonBody, async (req, res) => 
     res.setHeader('Retry-After', _blk.retryAfterSec);
     return fail(res, require('./services/httpError').typed('RATE_LIMITED', _blk.error));
   }
-  try {
     const result = await rdb.login(username, password);
     // Step 4 — every use of the break-glass account is a RISK event (System Logs), success or not.
     if (_sso.breakglassUser && username === _sso.breakglassUser && _sso.mode !== 'off') {
@@ -3795,7 +3795,7 @@ app.post('/api/reports/auth/login', loginLimiter, jsonBody, async (req, res) => 
       if (_bg.applies) await _bgG.capSession(rdb, result.token, _bg.minutes);
     }
     res.json({ user: result.user });   // E5: the token travels ONLY in the httpOnly cookie
-  } catch(e) { fail(res, e); }
+  } catch(e) { fail(res, asUnavailable(e) || e); }
 });
 
 app.post('/api/reports/auth/logout', requireReportSession, async (req, res) => {

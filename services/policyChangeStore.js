@@ -24,14 +24,39 @@ function makePolicyChangeStore(handle, { now = () => new Date().toISOString(), d
   }
   async function get(id) { await expireOld(); return row(await Q('SELECT * FROM policy_change_requests WHERE id = ?').get(Number(id))); }
   async function pendingFor(key, scope = 'global') { await expireOld(); return row(await Q("SELECT * FROM policy_change_requests WHERE key=? AND scope=? AND status='pending'").get(key, scope)); }
-  async function create({ key, scope = 'global', oldValue, newValue, reason, actor }) {
+  /**
+   * P11 r9 R9-A2 / N-R9-1 — `origin` names the trusted path ('web' = the logged-in Policy Center route, 'cli' =
+   * tools/ops/activate-switches.js with `operatorTokenId`). The row is written with an origin signature
+   * (services/policyOrigin.js, keyed outside the database) and, for a CLI request, the consumed operator token is bound
+   * to the new request id — both in the same transaction. Without SDP_CONFIG_KEY nothing is filed (fail closed).
+   */
+  async function create({ key, scope = 'global', oldValue, newValue, reason, actor, origin = 'web', operatorTokenId = null }) {
+    const PO = require('./policyOrigin');
     const why = String(reason || '').trim();
     if (why.length < 10) throw typed('VALIDATION', 'a high-risk change needs a reason (10+ characters)', 400);
+    if (!PO.ORIGINS.includes(origin)) throw typed('VALIDATION', 'unknown request origin', 400);
+    if (origin === 'cli' && operatorTokenId == null) throw typed('VALIDATION', 'a CLI request must name the operator token that authenticated it', 400);
+    const okey = PO.originKey();
+    if (!okey) throw typed('CONFLICT', PO.NO_KEY, 409);
     if (await pendingFor(key, scope)) throw typed('CONFLICT', `a change of ${key} is already awaiting approval`, 409);
     const t = now(); const exp = new Date(Date.parse(t) + days * 864e5).toISOString();
-    const r = await Q('INSERT INTO policy_change_requests (key, scope, old_value, new_value, reason, requested_by, requested_by_name, requested_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id')
-      .run(key, scope, oldValue == null ? null : String(oldValue), newValue == null ? null : String(newValue), why.slice(0, 1000), Number(actor.id), String(actor.username || actor.name || ''), t, exp);
-    return get(r.lastID);
+    const work = async () => {
+      const r = await Q('INSERT INTO policy_change_requests (key, scope, old_value, new_value, reason, requested_by, requested_by_name, requested_at, expires_at, origin, operator_token_id, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id')
+        .run(key, scope, oldValue == null ? null : String(oldValue), newValue == null ? null : String(newValue), why.slice(0, 1000), Number(actor.id), String(actor.username || actor.name || ''), t, exp,
+          origin, operatorTokenId == null ? null : Number(operatorTokenId), origin === 'cli' ? 'cli' : 'policy_center');
+      const id = Number(r.lastID);
+      const row = await Q('SELECT * FROM policy_change_requests WHERE id = ?').get(id);
+      await Q('UPDATE policy_change_requests SET origin_sig = ? WHERE id = ?').run(PO.sign(okey, row), id);
+      if (origin === 'cli') {
+        const b = await Q("UPDATE operator_tokens SET bound_request_ids = COALESCE(NULLIF(bound_request_ids, ''), ',') || ? WHERE id = ? AND user_id = ? AND consumed_at IS NOT NULL RETURNING id")
+          .run(id + ',', Number(operatorTokenId), Number(actor.id));
+        if (!b || !b.lastID) throw typed('CONFLICT', `operator token #${operatorTokenId} is not a consumed token of ${actor.username || actor.id} — request not filed`, 409);
+      }
+      return id;
+    };
+    const h = handle();
+    const id = typeof h.runTransaction === 'function' ? await h.runTransaction(work) : await work();
+    return get(id);
   }
   const samePerson = (req, actor) => Number(req.requested_by) === Number(actor.id)
     || (!!skeletonKey(req.requested_by_name) && [actor.username, actor.email, actor.name].map(skeletonKey).includes(skeletonKey(req.requested_by_name)));

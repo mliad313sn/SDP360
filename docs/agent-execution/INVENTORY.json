@@ -14,7 +14,7 @@
   "routes_in_server_js": 160,
   "jobs": 33,
   "jobs_without_test_reference": 0,
-  "migrations": 118,
+  "migrations": 119,
   "test_files": 945
  },
  "pages": [
@@ -831,7 +831,7 @@
    "parent": "inspections.html",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 228156,
+   "bytes": 225551,
    "tests": [
     "tests/adoption-lota-labels.test.js",
     "tests/csp-journey-report.test.js",
@@ -842,7 +842,6 @@
     "tests/module-tabs.test.js",
     "tests/p11-r7-field-fixes.test.js",
     "tests/p11-r8-field-fixes.test.js",
-    "tests/p11-r9-field-fixes.test.js",
     "tests/rbac-ui-gates.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
@@ -9075,7 +9074,6 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/p11-r7-field-fixes.smoke.test.js",
     "tests/p11-r8-field-fixes.smoke.test.js",
-    "tests/p11-r9-field-fixes.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/read-scope-express5.smoke.test.js",
     "tests/soft-delete-routes.smoke.test.js",
@@ -9109,7 +9107,6 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/p11-r7-field-fixes.smoke.test.js",
     "tests/p11-r8-field-fixes.smoke.test.js",
-    "tests/p11-r9-field-fixes.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/read-scope-express5.smoke.test.js",
     "tests/soft-delete-routes.smoke.test.js",
@@ -9143,7 +9140,6 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/p11-r7-field-fixes.smoke.test.js",
     "tests/p11-r8-field-fixes.smoke.test.js",
-    "tests/p11-r9-field-fixes.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/read-scope-express5.smoke.test.js",
     "tests/soft-delete-routes.smoke.test.js",
@@ -9177,7 +9173,6 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/p11-r7-field-fixes.smoke.test.js",
     "tests/p11-r8-field-fixes.smoke.test.js",
-    "tests/p11-r9-field-fixes.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/read-scope-express5.smoke.test.js",
     "tests/soft-delete-routes.smoke.test.js",
@@ -9202,8 +9197,7 @@
     "tests/inspection-routes.test.js",
     "tests/inspection-verify.smoke.test.js",
     "tests/p11-r7-field-fixes.smoke.test.js",
-    "tests/p11-r8-field-fixes.smoke.test.js",
-    "tests/p11-r9-field-fixes.smoke.test.js"
+    "tests/p11-r8-field-fixes.smoke.test.js"
    ]
   },
   {
@@ -9224,8 +9218,7 @@
     "tests/inspection-routes.test.js",
     "tests/inspection-verify.smoke.test.js",
     "tests/p11-r7-field-fixes.smoke.test.js",
-    "tests/p11-r8-field-fixes.smoke.test.js",
-    "tests/p11-r9-field-fixes.smoke.test.js"
+    "tests/p11-r8-field-fixes.smoke.test.js"
    ]
   },
   {
@@ -9246,8 +9239,7 @@
     "tests/inspection-routes.test.js",
     "tests/inspection-verify.smoke.test.js",
     "tests/p11-r7-field-fixes.smoke.test.js",
-    "tests/p11-r8-field-fixes.smoke.test.js",
-    "tests/p11-r9-field-fixes.smoke.test.js"
+    "tests/p11-r8-field-fixes.smoke.test.js"
    ]
   },
   {
@@ -9361,7 +9353,6 @@
     "tests/inspection-verify.smoke.test.js",
     "tests/p11-r7-field-fixes.smoke.test.js",
     "tests/p11-r8-field-fixes.smoke.test.js",
-    "tests/p11-r9-field-fixes.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/read-scope-express5.smoke.test.js",
     "tests/soft-delete-routes.smoke.test.js",
@@ -10345,7 +10336,7 @@
    "method": "GET",
    "path": "/api/policy-center/export",
    "file": "routes/policyCenter.js",
-   "line": 255,
+   "line": 264,
    "tests": [
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
@@ -10356,7 +10347,7 @@
    "method": "POST",
    "path": "/api/policy-center/import",
    "file": "routes/policyCenter.js",
-   "line": 306,
+   "line": 315,
    "tests": [
     "tests/p11-r7-security.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
@@ -10367,10 +10358,11 @@
    "method": "POST",
    "path": "/api/policy-center/operator-tokens",
    "file": "routes/policyCenter.js",
-   "line": 234,
+   "line": 243,
    "tests": [
     "tests/activate-switches-r6-impersonation.smoke.test.js",
-    "tests/p11-r8-policy-center.smoke.test.js"
+    "tests/p11-r8-policy-center.smoke.test.js",
+    "tests/p11-r9-audit-ops.smoke.test.js"
    ]
   },
   {
@@ -10378,12 +10370,13 @@
    "method": "POST",
    "path": "/api/policy-center/requests/:id/approve",
    "file": "routes/policyCenter.js",
-   "line": 227,
+   "line": 236,
    "tests": [
     "tests/activate-switches-r6-impersonation.smoke.test.js",
     "tests/p11-r5-security.smoke.test.js",
     "tests/p11-r8-data-ppm.smoke.test.js",
     "tests/p11-r8-policy-center.smoke.test.js",
+    "tests/p11-r9-audit-ops.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
    ]
@@ -10393,12 +10386,13 @@
    "method": "POST",
    "path": "/api/policy-center/requests/:id/cancel",
    "file": "routes/policyCenter.js",
-   "line": 229,
+   "line": 238,
    "tests": [
     "tests/activate-switches-r6-impersonation.smoke.test.js",
     "tests/p11-r5-security.smoke.test.js",
     "tests/p11-r8-data-ppm.smoke.test.js",
     "tests/p11-r8-policy-center.smoke.test.js",
+    "tests/p11-r9-audit-ops.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
    ]
@@ -10408,12 +10402,13 @@
    "method": "POST",
    "path": "/api/policy-center/requests/:id/reject",
    "file": "routes/policyCenter.js",
-   "line": 228,
+   "line": 237,
    "tests": [
     "tests/activate-switches-r6-impersonation.smoke.test.js",
     "tests/p11-r5-security.smoke.test.js",
     "tests/p11-r8-data-ppm.smoke.test.js",
     "tests/p11-r8-policy-center.smoke.test.js",
+    "tests/p11-r9-audit-ops.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
    ]
@@ -10429,6 +10424,7 @@
     "tests/p11-r5-security.smoke.test.js",
     "tests/p11-r8-data-ppm.smoke.test.js",
     "tests/p11-r8-policy-center.smoke.test.js",
+    "tests/p11-r9-audit-ops.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
    ]
@@ -10443,6 +10439,7 @@
     "tests/p11-r5-security.smoke.test.js",
     "tests/p11-r7-security.smoke.test.js",
     "tests/p11-r8-policy-center.smoke.test.js",
+    "tests/p11-r9-audit-ops.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
    ]
@@ -10457,6 +10454,7 @@
     "tests/p11-r5-security.smoke.test.js",
     "tests/p11-r7-security.smoke.test.js",
     "tests/p11-r8-policy-center.smoke.test.js",
+    "tests/p11-r9-audit-ops.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
    ]
@@ -10749,6 +10747,7 @@
     "tests/p11-r6-security.smoke.test.js",
     "tests/p11-r7-security.smoke.test.js",
     "tests/p11-r8-field-fixes.smoke.test.js",
+    "tests/p11-r9-audit-ops.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -10856,6 +10855,7 @@
     "tests/p11-r6-security.smoke.test.js",
     "tests/p11-r7-security.smoke.test.js",
     "tests/p11-r8-field-fixes.smoke.test.js",
+    "tests/p11-r9-audit-ops.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -10963,6 +10963,7 @@
     "tests/p11-r6-security.smoke.test.js",
     "tests/p11-r7-security.smoke.test.js",
     "tests/p11-r8-field-fixes.smoke.test.js",
+    "tests/p11-r9-audit-ops.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -11070,6 +11071,7 @@
     "tests/p11-r6-security.smoke.test.js",
     "tests/p11-r7-security.smoke.test.js",
     "tests/p11-r8-field-fixes.smoke.test.js",
+    "tests/p11-r9-audit-ops.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -11177,6 +11179,7 @@
     "tests/p11-r6-security.smoke.test.js",
     "tests/p11-r7-security.smoke.test.js",
     "tests/p11-r8-field-fixes.smoke.test.js",
+    "tests/p11-r9-audit-ops.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -11284,6 +11287,7 @@
     "tests/p11-r6-security.smoke.test.js",
     "tests/p11-r7-security.smoke.test.js",
     "tests/p11-r8-field-fixes.smoke.test.js",
+    "tests/p11-r9-audit-ops.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -11391,6 +11395,7 @@
     "tests/p11-r6-security.smoke.test.js",
     "tests/p11-r7-security.smoke.test.js",
     "tests/p11-r8-field-fixes.smoke.test.js",
+    "tests/p11-r9-audit-ops.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -11498,6 +11503,7 @@
     "tests/p11-r6-security.smoke.test.js",
     "tests/p11-r7-security.smoke.test.js",
     "tests/p11-r8-field-fixes.smoke.test.js",
+    "tests/p11-r9-audit-ops.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -11605,6 +11611,7 @@
     "tests/p11-r6-security.smoke.test.js",
     "tests/p11-r7-security.smoke.test.js",
     "tests/p11-r8-field-fixes.smoke.test.js",
+    "tests/p11-r9-audit-ops.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -11712,6 +11719,7 @@
     "tests/p11-r6-security.smoke.test.js",
     "tests/p11-r7-security.smoke.test.js",
     "tests/p11-r8-field-fixes.smoke.test.js",
+    "tests/p11-r9-audit-ops.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -11819,6 +11827,7 @@
     "tests/p11-r6-security.smoke.test.js",
     "tests/p11-r7-security.smoke.test.js",
     "tests/p11-r8-field-fixes.smoke.test.js",
+    "tests/p11-r9-audit-ops.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -11926,6 +11935,7 @@
     "tests/p11-r6-security.smoke.test.js",
     "tests/p11-r7-security.smoke.test.js",
     "tests/p11-r8-field-fixes.smoke.test.js",
+    "tests/p11-r9-audit-ops.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -12033,6 +12043,7 @@
     "tests/p11-r6-security.smoke.test.js",
     "tests/p11-r7-security.smoke.test.js",
     "tests/p11-r8-field-fixes.smoke.test.js",
+    "tests/p11-r9-audit-ops.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -12140,6 +12151,7 @@
     "tests/p11-r6-security.smoke.test.js",
     "tests/p11-r7-security.smoke.test.js",
     "tests/p11-r8-field-fixes.smoke.test.js",
+    "tests/p11-r9-audit-ops.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -12247,6 +12259,7 @@
     "tests/p11-r6-security.smoke.test.js",
     "tests/p11-r7-security.smoke.test.js",
     "tests/p11-r8-field-fixes.smoke.test.js",
+    "tests/p11-r9-audit-ops.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -12354,6 +12367,7 @@
     "tests/p11-r6-security.smoke.test.js",
     "tests/p11-r7-security.smoke.test.js",
     "tests/p11-r8-field-fixes.smoke.test.js",
+    "tests/p11-r9-audit-ops.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -12461,6 +12475,7 @@
     "tests/p11-r6-security.smoke.test.js",
     "tests/p11-r7-security.smoke.test.js",
     "tests/p11-r8-field-fixes.smoke.test.js",
+    "tests/p11-r9-audit-ops.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -12568,6 +12583,7 @@
     "tests/p11-r6-security.smoke.test.js",
     "tests/p11-r7-security.smoke.test.js",
     "tests/p11-r8-field-fixes.smoke.test.js",
+    "tests/p11-r9-audit-ops.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -12675,6 +12691,7 @@
     "tests/p11-r6-security.smoke.test.js",
     "tests/p11-r7-security.smoke.test.js",
     "tests/p11-r8-field-fixes.smoke.test.js",
+    "tests/p11-r9-audit-ops.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -12782,6 +12799,7 @@
     "tests/p11-r6-security.smoke.test.js",
     "tests/p11-r7-security.smoke.test.js",
     "tests/p11-r8-field-fixes.smoke.test.js",
+    "tests/p11-r9-audit-ops.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -12889,6 +12907,7 @@
     "tests/p11-r6-security.smoke.test.js",
     "tests/p11-r7-security.smoke.test.js",
     "tests/p11-r8-field-fixes.smoke.test.js",
+    "tests/p11-r9-audit-ops.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -12996,6 +13015,7 @@
     "tests/p11-r6-security.smoke.test.js",
     "tests/p11-r7-security.smoke.test.js",
     "tests/p11-r8-field-fixes.smoke.test.js",
+    "tests/p11-r9-audit-ops.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -13103,6 +13123,7 @@
     "tests/p11-r6-security.smoke.test.js",
     "tests/p11-r7-security.smoke.test.js",
     "tests/p11-r8-field-fixes.smoke.test.js",
+    "tests/p11-r9-audit-ops.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -13210,6 +13231,7 @@
     "tests/p11-r6-security.smoke.test.js",
     "tests/p11-r7-security.smoke.test.js",
     "tests/p11-r8-field-fixes.smoke.test.js",
+    "tests/p11-r9-audit-ops.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -13361,6 +13383,7 @@
     "tests/login-account-throttle.smoke.test.js",
     "tests/login-limit-failures-only.smoke.test.js",
     "tests/origin-guard.test.js",
+    "tests/p11-r9-audit-ops.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/session-security.smoke.test.js",
     "tests/sli-readings.test.js",
@@ -14196,6 +14219,7 @@
     "tests/p11-r6-security.smoke.test.js",
     "tests/p11-r7-security.smoke.test.js",
     "tests/p11-r8-field-fixes.smoke.test.js",
+    "tests/p11-r9-audit-ops.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -15876,7 +15900,6 @@
     "tests/csp-journey-report.test.js",
     "tests/p11-r7-field-fixes.test.js",
     "tests/p11-r8-field-fixes.test.js",
-    "tests/p11-r9-field-fixes.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
   },
@@ -17012,6 +17035,10 @@
   {
    "id": "MG-reports-139-portfolio-risk-unscored-default",
    "file": "db/postgres/reports/139_portfolio_risk_unscored_default.sql"
+  },
+  {
+   "id": "MG-reports-140-audit-ops-signatures",
+   "file": "db/postgres/reports/140_audit_ops_signatures.sql"
   },
   {
    "id": "MG-sync-000-upgrade-from-1-11",

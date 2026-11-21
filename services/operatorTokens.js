@@ -106,4 +106,19 @@ async function evidenceForRequest(db, reason, requesterId, env = process.env) {
   return { id, issued_event: await hasIssuanceEvent(db, id), binding_ok: bindingOk(row, env), account_matches: !!(row && requesterId != null && Number(row.user_id) === Number(requesterId)) };
 }
 
-module.exports = { issue, check, hash, looksLikeToken, bindingKey, binding, hasIssuanceEvent, evidenceForRequest, TTL_MINUTES, PREFIX };
+/**
+ * P11 r9 N-R9-1 — evidence for the token a CLI-ORIGIN request was filed under (operator_token_id, part of the request's
+ * origin signature): issued by the server, same account, consumed, and bound to THIS request id at filing time (a token
+ * used for one run cannot be pointed at by a request it did not file). Never throws.
+ */
+async function evidenceForToken(db, tokenId, requesterId, requestId, env = process.env) {
+  if (tokenId == null) return null;
+  const id = Number(tokenId);
+  let row = null;
+  try { row = await db.prepare('SELECT id, token_hash, user_id, username, purpose, expires_at, binding, consumed_at, bound_request_ids FROM operator_tokens WHERE id = ?').get(id); } catch (_) { row = null; }
+  const bound = String((row && row.bound_request_ids) || '');
+  return { id, issued_event: await hasIssuanceEvent(db, id), binding_ok: bindingOk(row, env), account_matches: !!(row && requesterId != null && Number(row.user_id) === Number(requesterId)),
+    consumed: !!(row && row.consumed_at), bound_to_request: requestId != null && bound.includes(`,${Number(requestId)},`) };
+}
+
+module.exports = { evidenceForToken, issue, check, hash, looksLikeToken, bindingKey, binding, hasIssuanceEvent, evidenceForRequest, TTL_MINUTES, PREFIX };
