@@ -96,6 +96,33 @@ function readDumpCounts(dumpFile, { fsx = fs } = {}) {
   } catch (_) { return null; }
 }
 
+/** P11 r8 O-13 — sha256 (hex) and size of a file; streamed when on the real filesystem (a dump can be large). */
+async function fileDigest(file, { fsx = fs } = {}) {
+  if (fsx !== fs) { const b = fsx.readFileSync(file); return { sha256: crypto.createHash('sha256').update(b).digest('hex'), bytes: b.length }; }
+  return new Promise((resolve, reject) => {
+    const h = crypto.createHash('sha256'); let bytes = 0;
+    fs.createReadStream(file).on('data', (c) => { h.update(c); bytes += c.length; }).on('error', reject).on('end', () => resolve({ sha256: h.digest('hex'), bytes }));
+  });
+}
+/**
+ * P11 r8 O-13 — the dump-time counts of `dumpFile`, trusted ONLY when the counts file belongs to that dump: its `dump`
+ * name, and (when recorded, every backup since fix 36) the dump's sha256 and size. Returns { counts, problem }:
+ * counts = the parsed file or null; problem = why a present counts file was ignored (null when none / it matches).
+ */
+async function dumpCountsFor(dumpFile, { fsx = fs } = {}) {
+  const j = readDumpCounts(dumpFile, { fsx });
+  if (!j) return { counts: null, problem: null };
+  const name = path.basename(String(dumpFile));
+  if (j.dump && j.dump !== name) return { counts: null, problem: `the counts file names dump ${j.dump}, not ${name}` };
+  if (j.dump_sha256 || j.dump_bytes != null) {
+    let d; try { d = await fileDigest(dumpFile, { fsx }); } catch (e) { return { counts: null, problem: `the dump could not be hashed (${e.message})` }; }
+    if (j.dump_bytes != null && Number(j.dump_bytes) !== d.bytes) return { counts: null, problem: `the counts file was written for a dump of ${j.dump_bytes} bytes, this file has ${d.bytes}` };
+    if (j.dump_sha256 && String(j.dump_sha256) !== d.sha256) return { counts: null, problem: 'the counts file was written for a dump with another sha256 (different or altered file)' };
+    return { counts: j, problem: null };
+  }
+  return { counts: j, problem: null, unbound: true };
+}
+
 /**
  * P11 r7 O-7 — open a REPEATABLE READ transaction, export its snapshot for pg_dump (--snapshot) and count the main
  * tables IN THAT SNAPSHOT: the restore drill then compares the restored copy with what the dump captured, not with
@@ -290,11 +317,21 @@ async function runBackup({ dir, keep = 14, spawn, env = process.env, fsx = fs, o
   // P11 r6 O-1 — gzip + encryption of the dump runs in the file-store worker (child process), off the event loop.
   const packed = fsx === fs ? await require('./blobBackup').runWorker('pack-dump', { rawFile: file }, { key, env: process.env }) : packDump(file, { key, fsx });
   if (snap) {
-    try { fsx.writeFileSync(countsFileFor(packed.file), JSON.stringify({ dump: path.basename(packed.file), snapshot: true, taken_at: snap.taken_at, counts: snap.counts }, null, 1)); } catch (_) { /* best effort: the drill then uses live counts and says so */ }
+    // P11 r8 O-13 — the counts file is bound to its dump (sha256 + size): the drill ignores one that does not match
+    try {
+      const dg = await fileDigest(packed.file, { fsx });
+      fsx.writeFileSync(countsFileFor(packed.file), JSON.stringify({ dump: path.basename(packed.file), dump_sha256: dg.sha256, dump_bytes: dg.bytes, snapshot: true, taken_at: snap.taken_at, counts: snap.counts }, null, 1));
+    } catch (_) { /* best effort: the drill then uses live counts and says so */ }
   }
   let offsite = null;
   if (offsitePath && String(offsitePath).trim()) {
-    try { offsite = copyOffsite(packed.file, String(offsitePath).trim(), { fsx }); }
+    try {
+      offsite = copyOffsite(packed.file, String(offsitePath).trim(), { fsx });
+      // P11 r8 O-13 — the counts file travels with its dump, so a drill on a copy brought back from off-site still
+      // compares with the dump's own snapshot
+      const cf = countsFileFor(packed.file);
+      if (fsx.existsSync(cf)) copyOffsite(cf, String(offsitePath).trim(), { fsx });
+    }
     catch (e2) { const e = new Error(`off-site copy failed (${String(offsitePath).trim()}): ${e2.message}`); e.transient = true; e.file = packed.file; throw e; }
   }
   // P11 r5 N-14 — the file store (photos, signatures, field uploads, project documents) is archived next to the dump,
@@ -310,7 +347,7 @@ async function runBackup({ dir, keep = 14, spawn, env = process.env, fsx = fs, o
 }
 
 module.exports = {
-  runBackup, planBackup, prune, latestDump, isDumpName, countsFileFor, readDumpCounts, openDumpSnapshot,
+  runBackup, planBackup, prune, latestDump, isDumpName, countsFileFor, readDumpCounts, dumpCountsFor, fileDigest, openDumpSnapshot,
   deriveKey, encryptBuffer, decryptBuffer, isEncryptedBuffer,
   hasDumpTrailer, verifyDumpFile, packDump, openDump, copyOffsite, spawnAsync,
   TRAILER, MIN_KEY_CHARS, MIN_KEY_DISTINCT, keyQualityProblem,

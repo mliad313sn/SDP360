@@ -175,6 +175,14 @@ module.exports = function policyCenterRoutes(deps) {
         if (m[1] === 'pc') {
           const pr = (await cstore().get(Number(m[2]))) || {};
           const ev = await require('../services/operatorTokens').evidenceForRequest(rdb().pgHandle ? rdb().pgHandle() : rdb().db, pr.reason, pr.requested_by);
+          // P11 r8 R8-A1 — a request filed outside the web session flow (source='cli', or a reason carrying the CLI's
+          // "filed by activate-switches" marker) must name the operator token that authenticated it: since fix 29 every
+          // genuine CLI request does, so one with no token evidence is a row written straight into the table.
+          const cliFiled = String(pr.source || '') === 'cli' || /filed by activate-switches/i.test(String(pr.reason || ''));
+          if (cliFiled && !ev) {
+            await log(req, { category: 'config', action: 'policy_approval_refused', target: req.params.id, details: { reason: 'cli request without operator token evidence', source: pr.source || null }, risk: 1 });
+            throw typed('CONFLICT', 'this request was filed outside the web session flow (source cli) but names no operator token — a genuine CLI request always names the token that authenticated it; refused as a possibly forged request (reject it)', 409);
+          }
           if (ev && !(ev.issued_event && ev.binding_ok && ev.account_matches)) {
             await log(req, { category: 'config', action: 'policy_approval_refused', target: req.params.id, details: { reason: 'operator token not verifiable', operator_token: ev }, risk: 1 });
             throw typed('CONFLICT', `this request names operator token #${ev.id}, but ${!ev.issued_event ? 'no operator_token_issued event exists for it' : !ev.binding_ok ? 'the token was not issued by the server (no valid binding)' : 'the token belongs to another account'} — refused as a possibly forged request`, 409);

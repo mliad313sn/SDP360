@@ -2,6 +2,8 @@
  "status": "PROPOSED by the agent (P05) — not approved. The SRE / service owner approves, changes or rejects each figure.",
  "approved_by": null,
  "approved_at": null,
+ "min_samples_per_class": 5,
+ "min_samples_basis": "PROPOSED by the agent (P11 r8 O-5 residual) — a class measured with fewer requests (or, for pages, fewer measured pages) reads 'too few samples', never 'within'; blocking mode fails on it. The SRE owner decides the figure.",
  "mode": "warn — tools/test/perf-budget-check.js prints over-budget classes and exits 0; the repository variable PERF_BUDGETS_BLOCKING=1 makes it fail the build",
  "measured_on": "docs/agent-execution/P05-performance.md — 100 000-ticket rehearsal set, one 4 vCPU sandbox, server and load harness in separate processes",
  "api_route_classes": {

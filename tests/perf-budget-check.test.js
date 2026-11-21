@@ -74,8 +74,10 @@ test('F-07: designed 4xx leave the budget class (counted apart); a real 4xx/5xx 
   assert.ok(agg.classes.write.p95 < 1000, 'the 5 s designed rejections do not drive the write p95');
   assert.strictEqual(agg.steps['field.envelope'].errors, 2, 'still visible per step');
   assert.strictEqual(agg.overall.errors, 2, 'and overall');
-  const rows = PB.check(agg.classes, { write: { p95_ms: 1000, error_rate_pct: 1, five_xx_max: 0 } });
+  // P11 r8 O-5 residual: 2 samples is below the default minimum (5) — this test is about the 4xx split, so minimum 1
+  const rows = PB.check(agg.classes, { write: { p95_ms: 1000, error_rate_pct: 1, five_xx_max: 0 } }, { minSamples: 1 });
   assert.strictEqual(rows[0].status, 'within');
+  assert.strictEqual(PB.check(agg.classes, { write: { p95_ms: 1000, error_rate_pct: 1, five_xx_max: 0 } })[0].status, 'insufficient_sample');
   // a 403 on the same step, or a 500, is not designed: it counts
   const bad = L.aggregate([...samples, { step: 'field.envelope', ms: 50, status: 403 }, { step: 'reports.save_section', ms: 50, status: 500 }]);
   assert.strictEqual(bad.classes.write.errors, 2);
