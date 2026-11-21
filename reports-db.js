@@ -317,19 +317,8 @@ async function _setExecMiSummaryPg(request_id, s) {
 }
 
 // ── SEED DEFAULT ADMIN ────────────────────────────────────────────
-// E-S05 — the work factor is stored per hash (users.password_iterations, migration 077). NULL = 100000, the count
-// every hash before that column was made with. The target for NEW hashes is report_config auth_pbkdf2_iterations
-// (default '100000' = today); an invalid, lower or absurd value falls back to 100000 (never weakens a new hash).
-const PBKDF2_LEGACY = 100000;
-const _PBKDF2_RANGE = require('./services/policyRanges').RANGES.auth_pbkdf2_iterations;   // N-R7-1 — shared bounds
-function _pbkdf2Target(v) {
-  const n = Number(v);
-  return Number.isInteger(n) && n >= _PBKDF2_RANGE.min && n <= _PBKDF2_RANGE.max ? n : PBKDF2_LEGACY;
-}
-function _storedIterations(user) {
-  const n = Number(user && user.password_iterations);
-  return Number.isInteger(n) && n > 0 ? n : PBKDF2_LEGACY;
-}
+// E-S05 — PBKDF2 work factor helpers live in services/passwordWorkFactor.js (target for new hashes, stored count).
+const { PBKDF2_LEGACY, pbkdf2Target: _pbkdf2Target, storedIterations: _storedIterations } = require('./services/passwordWorkFactor');
 async function _pbkdf2TargetPg(h) {
   const r = await h.prepare("SELECT value FROM report_config WHERE key='auth_pbkdf2_iterations'").get().catch(() => null);
   return _pbkdf2Target(r ? r.value : undefined);
