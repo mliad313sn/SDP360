@@ -187,3 +187,21 @@ node tools/test/run-all.js > /home/user/suite.log 2>&1     # full suite, ~18 min
 - New human steps: who may issue CLI operator tokens (HD-G01); anchors advisory until `SDP_CONFIG_KEY` set and the
   DBA hardening script applied; PMO to confirm the residual-first gate rule; KPI committee to approve
   `helpdesk-fleet-sla` bands. Nothing in fixes 25–29 has been re-checked by a P11 panel yet (round 7 optional).
+
+## Update 2026-11-21 03:00 UTC (orchestrator)
+
+- Round 7 (7ea49070, CI green): **P0 = 0, P1 = 0 on all six seats (second round in a row).** Fixes 30–33 merged:
+  30 data/PPM (project RAG residual-first, unscored = UNKNOWN; card counts; fleet cell caps from either band,
+  `min_closed: 5` PROPOSED; own-demand overload red; sharing flag not leaked), 31 security (one range table for
+  numeric four-eyes keys; blank switch = not sent), 32 field/UX (id-less inspection actions matched only on unique
+  keys, kept rows protected; field retry back-off with a needs-attention state; French templates; helpdesk site
+  filter release note HD-O15), 33 audit/ops (drill counts in the dump snapshot; anchor key ids, migrations 137/138;
+  HMAC-bound operator tokens; audit chain unverifiable on shadow schema / dropped sig; dossiers hash dependencies;
+  blocking budgets need every class).
+- Round-7 seat reports in `docs/agent-execution/p11/round7-7ea49070/`; Round 7 section in P11-readiness-report.md.
+- Trunk head pushed after fix 33 (see git log); CI to confirm.
+- **Installer note:** fix 33 adds an optional `--snapshot` to `tools/pg/dump-db.js`, which belongs to the installer
+  file set kept out of deploy ZIPs until the TEST-instance E2E (DEC-2); ship it with that set.
+- Human decisions added: G01 who holds both the DB login and `SDP_CONFIG_KEY`; DBA hardening script + `SDP_LEDGER_SCHEMA`
+  (the real control for R7-A2); KPI committee `min_closed`, project-RAG residual rule, closure gate (R7-4); HD-O15
+  coordinators warned about per-site helpdesk count changes; R1-F2 exception now covers four route patterns.
