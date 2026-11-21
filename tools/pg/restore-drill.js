@@ -7,9 +7,10 @@
 //
 //   1. picks the newest dump in SDP_BACKUP_DIR (or --dump), opens it (gunzip + AES-256-GCM with
 //      SDP_BACKUP_KEY when the file is .enc) and checks pg_dump's trailer;
-//   2. counts the rows of the 10 main tables on the LIVE database (PG_URL) — BEFORE the restore,
-//      so the live counts and the dump are as close in time as possible (--backup-first takes a
-//      fresh dump first, which is what the monthly job does: the whole chain is exercised);
+//   2. takes the reference row counts of the 10 main tables from the counts recorded IN THE DUMP'S OWN SNAPSHOT
+//      (<dump>.counts.json, written by services/backup.js — P11 r7 O-7); a dump without them falls back to live
+//      counts read now, and the report says so (--backup-first takes a fresh dump first, which is what the
+//      monthly job does: the whole chain is exercised);
 //   3. restores into a DISPOSABLE target: a throwaway DATABASE when PG_ADMIN_URL can create one,
 //      otherwise a throwaway SCHEMA of the live database (recipe G-02, CLAUDE.md / tests/pg-helpers.js
 //      — pg_dump qualifies objects with `public.`, so the SQL is rewritten to the schema);
@@ -251,13 +252,24 @@ async function run(o = {}) {
   const files = drill.fileStoreStep({ liveRefs: fsr.liveRefs, liveHashes: fsr.liveHashes || {}, archiveName: blobArchive, verify, listError: fsr.listError });
   log(`[restore-drill] file store: ${files.status === 'ok' ? 'ok' : 'FAILED'} — ${files.detail}`);
 
-  // live counts first (closest to the dump in time)
+  // P11 r7 O-7 — compare with the counts taken IN THE DUMP'S OWN SNAPSHOT (services/backup.openDumpSnapshot, sidecar
+  // <dump>.counts.json): the server keeps writing while the drill runs (it runs in-process, off the event loop since
+  // fix 27), so counts read now would differ from a healthy dump. Only a dump with no sidecar (taken before this fix,
+  // or when the snapshot could not be opened) falls back to live counts — and the report says so.
+  const dumpCounts = backup.readDumpCounts(dumpFile);
   const live = new Client({ connectionString: liveUrl });
   await live.connect();
   let liveCounts;
   let full = o.full, rtoMinutes = '';
   try {
-    liveCounts = await countTables(live, drill.MAIN_TABLES);
+    if (dumpCounts) {
+      liveCounts = { ...dumpCounts.counts };
+      for (const t of drill.MAIN_TABLES) if (!(t in liveCounts)) liveCounts[t] = null;
+      notes.push(`Reference counts were taken in the dump's own snapshot (${dumpCounts.taken_at || 'time not recorded'}): rows the server wrote during the drill do not count as a mismatch.`);
+    } else {
+      liveCounts = await countTables(live, drill.MAIN_TABLES);
+      notes.push('No dump-time counts are recorded for this dump: the reference counts were read from the live database AFTER the dump — on a busy server, rows written meanwhile can show as a mismatch.');
+    }
     // F-ARCH-05 — the monthly job stays database-only unless the switch is on (default '0').
     if (full === undefined) full = (await readConfigValue(live, 'restore_drill_full')) === '1';
     if (full) rtoMinutes = o.rtoMinutes !== undefined ? o.rtoMinutes : await readConfigValue(live, 'restore_rto_minutes');

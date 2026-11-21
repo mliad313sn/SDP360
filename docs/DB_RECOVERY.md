@@ -51,7 +51,10 @@ Run from **prod cmd.exe as administrator** at `C:\Apps\SDP-Dashboard\`.
 
 A nightly encrypted dump (`*.sql.gz.enc`) is restored the same way once decrypted with
 `SDP_BACKUP_KEY` (see `docs/ops/INCIDENT-RESPONSE.md`). Restoring on another machine needs the
-same `SDP_CONFIG_KEY`, or the encrypted configuration secrets read back empty.
+same `SDP_CONFIG_KEY`, or the encrypted configuration secrets read back empty. Audit chain anchors (P11 r7 F-32):
+on a server with **another** key the anchors read `unverifiable (key rotated)` — never "forged" — and the next nightly
+run logs `audit_chain_key_rotated` and re-anchors under the new key; with **no** key they read `unverifiable`, never ok.
+The drill's reference counts come from the dump's own snapshot (`<dump>.counts.json`), not from the live database.
 
 ### Full-service drill (files + keys + timing)
 

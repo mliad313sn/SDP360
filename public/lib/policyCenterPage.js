@@ -18,6 +18,7 @@
       who: 'Who', when: 'When', from: 'From', to: 'To', why: 'Reason', approver: 'Second person', noHistory: 'No change recorded.', approve: 'Approve…', reject: 'Reject…', cancel: 'Withdraw',
       tokTitle: 'CLI operator token', tokBtn: 'Issue a token for me', tokIntro: 'For tools/ops/activate-switches.js: issue a one-time token (valid 10 minutes) for YOUR account. The tool files four-eyes changes as a request in your name; another super_admin approves them here. Never hand your token to someone else.',
       tokShown: (u, exp) => `Token for ${u}, valid once until ${exp}. It is shown only now. On the server: set SDP_OPERATOR_TOKEN to it, then run the tool with --operator-token=env.`,
+      tokOk: 'operator token #{id}: issued by the server to this account (event found)', tokBad: 'operator token #{id}: NOT verifiable — {why}; approval will be refused', tokNoEv: 'no issuance event', tokNoBind: 'not issued by the server', tokAcct: 'belongs to another account',
       noReq: 'Nothing is waiting.', reasonT: 'Why this change?', reasonL: 'Reason (kept in the history)', saved: 'Saved.', pendingMsg: 'Recorded as a request — another super_admin must approve it.',
       unchanged: 'Nothing changed.', managed: 'Changed in', kpiNote: 'KPI RAG policies are changed through the KPI policy builder and adopted by the KPI committee.',
       cov: (c) => `${c.catalogued} rules catalogued (${c.report_config} configuration keys, ${c.governance} governance policies), ${c.excluded} excluded with a reason.`,
@@ -38,6 +39,7 @@
       who: 'Qui', when: 'Quand', from: 'Avant', to: 'Après', why: 'Motif', approver: 'Seconde personne', noHistory: 'Aucun changement enregistré.', approve: 'Approuver…', reject: 'Refuser…', cancel: 'Retirer',
       tokTitle: 'Jeton opérateur pour l\'outil CLI', tokBtn: 'Émettre un jeton pour moi', tokIntro: 'Pour tools/ops/activate-switches.js : émettez un jeton à usage unique (valable 10 minutes) pour VOTRE compte. L\'outil dépose les changements à double contrôle comme une demande à votre nom ; un autre super_admin les approuve ici. Ne confiez jamais votre jeton à quelqu\'un d\'autre.',
       tokShown: (u, exp) => `Jeton pour ${u}, valable une seule fois jusqu'à ${exp}. Il n'est affiché que maintenant. Sur le serveur : placez-le dans SDP_OPERATOR_TOKEN, puis lancez l'outil avec --operator-token=env.`,
+      tokOk: 'jeton opérateur #{id} : émis par le serveur pour ce compte (événement trouvé)', tokBad: 'jeton opérateur #{id} : NON vérifiable — {why} ; l\'approbation sera refusée', tokNoEv: 'aucun événement d\'émission', tokNoBind: 'non émis par le serveur', tokAcct: 'appartient à un autre compte',
       noReq: 'Rien en attente.', reasonT: 'Pourquoi ce changement ?', reasonL: 'Motif (conservé dans l\'historique)', saved: 'Enregistré.', pendingMsg: 'Enregistré comme demande — un autre super_admin doit l\'approuver.',
       unchanged: 'Rien n\'a changé.', managed: 'Se modifie dans', kpiNote: 'Les politiques RAG des indicateurs se modifient dans le constructeur de politiques KPI et sont adoptées par le comité KPI.',
       cov: (c) => `${c.catalogued} règles cataloguées (${c.report_config} clés de configuration, ${c.governance} politiques de gouvernance), ${c.excluded} exclues avec un motif.`,
@@ -155,11 +157,19 @@
       await load();
     } catch (e) { msg(e.message, false); }
   });
+  // P11 r7 R7-A1 — the approver sees whether the operator token a CLI request names was really issued by the server
+  function tokenNote(t) {
+    if (!t) return '';
+    const ok = t.issued_event && t.binding_ok && t.account_matches;
+    const why = !t.issued_event ? S.tokNoEv : !t.binding_ok ? S.tokNoBind : S.tokAcct;
+    const txt = (ok ? S.tokOk : S.tokBad).replace('{id}', String(t.id)).replace('{why}', why);
+    return `<div class="pc-muted" data-token-ok="${ok ? '1' : '0'}">${esc(txt)}</div>`;
+  }
   async function loadRequests() {
     try {
       const j = await api('GET', '/api/policy-center/requests');
       $('pcReqs').innerHTML = j.requests.length ? `<table><thead><tr><th>${esc(S.when)}</th><th>${esc(S.planCols[0])}</th><th>${esc(S.scope)}</th><th>${esc(S.from)}</th><th>${esc(S.to)}</th><th>${esc(S.who)}</th><th>${esc(S.why)}</th><th></th></tr></thead><tbody>${j.requests.map((q) => `<tr data-id="${esc(q.id)}">
-        <td>${esc(q.requested_at)}</td><td class="pc-key">${esc(q.key)}</td><td>${esc(q.scope)}</td><td>${esc(show(q.from))}</td><td>${esc(show(q.to))}</td><td>${esc(q.requested_by)}</td><td>${esc(q.reason)}</td>
+        <td>${esc(q.requested_at)}</td><td class="pc-key">${esc(q.key)}</td><td>${esc(q.scope)}</td><td>${esc(show(q.from))}</td><td>${esc(show(q.to))}</td><td>${esc(q.requested_by)}</td><td>${esc(q.reason)}${tokenNote(q.operator_token)}</td>
         <td>${data.can_write ? (q.mine ? (q.source === 'policy_center' ? `<button type="button" data-req="cancel">${esc(S.cancel)}</button>` : '') : `<button type="button" data-req="approve">${esc(S.approve)}</button> <button type="button" data-req="reject">${esc(S.reject)}</button>`) : ''}</td></tr>`).join('')}</tbody></table>` : `<p class="pc-muted">${esc(S.noReq)}</p>`;
     } catch (e) { $('pcReqs').textContent = e.message; }
   }

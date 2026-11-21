@@ -14,8 +14,8 @@
   "routes_in_server_js": 160,
   "jobs": 33,
   "jobs_without_test_reference": 0,
-  "migrations": 115,
-  "test_files": 932
+  "migrations": 117,
+  "test_files": 933
  },
  "pages": [
   {
@@ -10176,7 +10176,7 @@
    "method": "GET",
    "path": "/api/policy-center/export",
    "file": "routes/policyCenter.js",
-   "line": 219,
+   "line": 236,
    "tests": [
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
@@ -10187,7 +10187,7 @@
    "method": "POST",
    "path": "/api/policy-center/import",
    "file": "routes/policyCenter.js",
-   "line": 270,
+   "line": 287,
    "tests": [
     "tests/p11-r7-security.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
@@ -10198,7 +10198,7 @@
    "method": "POST",
    "path": "/api/policy-center/operator-tokens",
    "file": "routes/policyCenter.js",
-   "line": 200,
+   "line": 215,
    "tests": [
     "tests/activate-switches-r6-impersonation.smoke.test.js"
    ]
@@ -10208,7 +10208,7 @@
    "method": "POST",
    "path": "/api/policy-center/requests/:id/approve",
    "file": "routes/policyCenter.js",
-   "line": 193,
+   "line": 208,
    "tests": [
     "tests/activate-switches-r6-impersonation.smoke.test.js",
     "tests/p11-r5-security.smoke.test.js",
@@ -10221,7 +10221,7 @@
    "method": "POST",
    "path": "/api/policy-center/requests/:id/cancel",
    "file": "routes/policyCenter.js",
-   "line": 195,
+   "line": 210,
    "tests": [
     "tests/activate-switches-r6-impersonation.smoke.test.js",
     "tests/p11-r5-security.smoke.test.js",
@@ -10234,7 +10234,7 @@
    "method": "POST",
    "path": "/api/policy-center/requests/:id/reject",
    "file": "routes/policyCenter.js",
-   "line": 194,
+   "line": 209,
    "tests": [
     "tests/activate-switches-r6-impersonation.smoke.test.js",
     "tests/p11-r5-security.smoke.test.js",
@@ -16789,6 +16789,14 @@
   {
    "id": "MG-reports-136-operator-tokens",
    "file": "db/postgres/reports/136_operator_tokens.sql"
+  },
+  {
+   "id": "MG-reports-137-audit-chain-anchor-kid",
+   "file": "db/postgres/reports/137_audit_chain_anchor_kid.sql"
+  },
+  {
+   "id": "MG-reports-138-operator-token-binding",
+   "file": "db/postgres/reports/138_operator_token_binding.sql"
   },
   {
    "id": "MG-sync-000-upgrade-from-1-11",

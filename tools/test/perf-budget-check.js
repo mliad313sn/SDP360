@@ -8,7 +8,7 @@
 // WARN MODE by default: every "over" row is printed and the exit code stays 0. The budgets are a proposal
 // until the SRE owner approves them (status / approved_by in the JSON); setting the repository variable
 // PERF_BUDGETS_BLOCKING=1 makes an over-budget row fail the build. A class with no sample is "no_sample",
-// never "within".
+// never "within" — and in blocking mode one unsampled class fails the check (P11 r7 O-5).
 const fs = require('fs');
 const path = require('path');
 
@@ -56,6 +56,12 @@ function main(argv = process.argv.slice(2), env = process.env, out = (s) => proc
   // P11 r6 O-5 — a load file that measured nothing ("no sample" everywhere) is not a pass in blocking mode.
   const measured = rows.filter((r) => r.status === 'within' || r.status === 'over').length;
   if (!measured) { out(`[perf-budgets] no class was measured (${rows.length} class(es), all "no sample")${blocking ? ' — blocking mode fails' : ''}`); if (blocking) return 1; }
+  // P11 r7 O-5 — no data is not a pass: in blocking mode EVERY budget class checked must have a sample
+  const unsampled = rows.filter((r) => r.status === 'no_sample');
+  if (measured && unsampled.length) {
+    out(`[perf-budgets] ${unsampled.length} of ${rows.length} budget class(es) have no sample (${unsampled.map((r) => r.class).join(', ')})${blocking ? ' — blocking mode fails' : ' — warning only'}`);
+    if (blocking) return 1;
+  }
   if (over && !blocking) out(`[perf-budgets] ${over} class(es) over budget — warning only (PERF_BUDGETS_BLOCKING is not 1)`);
   return over && blocking ? 1 : 0;
 }

@@ -71,7 +71,7 @@ test('the freshness check fails when cited evidence changes or awaited evidence 
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'gate-dossiers-'));
   try {
     const manifest = JSON.parse(read(gd.MANIFEST));
-    const files = new Set([gd.SOURCE, gd.GATES_MD, gd.MANIFEST, ...Object.keys(manifest.evidence), ...Object.keys(manifest.scripts || {})]);
+    const files = new Set([gd.SOURCE, gd.GATES_MD, gd.MANIFEST, ...Object.keys(manifest.evidence), ...Object.keys(manifest.scripts || {}), ...Object.keys(manifest.script_deps || {})]);
     for (const lang of ['en', 'fr']) for (const n of fs.readdirSync(path.join(ROOT, gd.OUT_DIR, lang))) files.add(`${gd.OUT_DIR}/${lang}/${n}`);
     files.add(`${gd.OUT_DIR}/INDEX.md`);
     for (const rel of files) {
@@ -102,7 +102,7 @@ test('the freshness check fails when a script a cited command runs changes or di
   const script = Object.keys(manifest.scripts).find((p) => p.startsWith('tools/')) || Object.keys(manifest.scripts)[0];
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'gate-dossiers-scripts-'));
   try {
-    const files = new Set([gd.SOURCE, gd.GATES_MD, gd.MANIFEST, ...Object.keys(manifest.evidence), ...Object.keys(manifest.scripts)]);
+    const files = new Set([gd.SOURCE, gd.GATES_MD, gd.MANIFEST, ...Object.keys(manifest.evidence), ...Object.keys(manifest.scripts), ...Object.keys(manifest.script_deps || {})]);
     for (const lang of ['en', 'fr']) for (const n of fs.readdirSync(path.join(ROOT, gd.OUT_DIR, lang))) files.add(`${gd.OUT_DIR}/${lang}/${n}`);
     files.add(`${gd.OUT_DIR}/INDEX.md`);
     for (const rel of files) { fs.mkdirSync(path.dirname(path.join(tmp, rel)), { recursive: true }); fs.copyFileSync(path.join(ROOT, rel), path.join(tmp, rel)); }

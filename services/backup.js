@@ -75,8 +75,56 @@ function prune(dir, { keep = 14, prefix = 'sdp_dashboard', fsx = fs } = {}) {
   let all = []; try { all = fsx.readdirSync(dir); } catch (_) { all = []; }
   const rejected = all.filter((n) => n.endsWith('.rejected') && isDumpName(n.slice(0, -9), prefix)).sort();
   rejected.forEach((n, i) => { const st = (stampRe.exec(n) || [])[1]; if ((oldest && st && st < oldest) || i < rejected.length - keep) doomed.push(n); });
+  // P11 r7 O-7 — the dump-time counts sidecar (<prefix>_<stamp>.counts.json) goes with its dump
+  const counts = all.filter((n) => new RegExp('^' + _escRe(prefix) + '_\\d{8}T\\d{6}Z\\.counts\\.json$').test(n));
+  for (const n of counts) { const st = (stampRe.exec(n) || [])[1]; if (!oldest || (st && st < oldest)) doomed.push(n); }
   for (const n of doomed) { try { fsx.unlinkSync(path.join(dir, n)); } catch (_) { /* best effort */ } }
   return doomed;
+}
+
+/** P11 r7 O-7 — the sidecar holding the row counts taken in the dump's own snapshot (same stamp as the dump). */
+function countsFileFor(dumpFile) {
+  const f = String(dumpFile);
+  for (const e of EXTENSIONS) if (f.endsWith(e)) return f.slice(0, -e.length) + '.counts.json';
+  return f + '.counts.json';
+}
+/** Read the dump-time counts of `dumpFile` (null when there is none / it is unreadable). */
+function readDumpCounts(dumpFile, { fsx = fs } = {}) {
+  try {
+    const j = JSON.parse(fsx.readFileSync(countsFileFor(dumpFile), 'utf8'));
+    return j && j.counts && typeof j.counts === 'object' ? j : null;
+  } catch (_) { return null; }
+}
+
+/**
+ * P11 r7 O-7 — open a REPEATABLE READ transaction, export its snapshot for pg_dump (--snapshot) and count the main
+ * tables IN THAT SNAPSHOT: the restore drill then compares the restored copy with what the dump captured, not with
+ * counts taken minutes later while the server keeps writing. Returns { id, counts, close() } or null (best effort:
+ * any failure → null, the dump runs without a snapshot and the drill falls back to live counts, saying so).
+ */
+async function openDumpSnapshot(env, { Client = null, tables = null } = {}) {
+  const url = env.PG_URL || env.DATABASE_URL;
+  if (!url) return null;
+  let c = null;
+  try {
+    const C = Client || require('pg').Client;
+    c = new C({ connectionString: url });
+    await c.connect();
+    await c.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
+    const id = (await c.query('SELECT pg_export_snapshot() AS s')).rows[0].s;
+    const list = tables || require('./restoreDrill').MAIN_TABLES;
+    const counts = {};
+    for (const t of list) {
+      const reg = await c.query('SELECT to_regclass($1) AS r', [`public.${t}`]);
+      if (!reg.rows[0] || reg.rows[0].r == null) { counts[t] = null; continue; }
+      counts[t] = Number((await c.query(`SELECT count(*)::bigint AS n FROM public.${t}`)).rows[0].n);
+    }
+    const client = c;
+    return { id: String(id), counts, taken_at: new Date().toISOString(), async close() { try { await client.query('COMMIT'); } catch (_) { /* gone */ } try { await client.end(); } catch (_) { /* gone */ } } };
+  } catch (_) {
+    if (c) { try { await c.end(); } catch (_) { /* gone */ } }
+    return null;
+  }
 }
 
 // Newest dump in `dir` (by the UTC stamp in the name), or null.
@@ -211,7 +259,12 @@ async function runBackup({ dir, keep = 14, spawn, env = process.env, fsx = fs, o
   // P11 r6 O-1 — pg_dump runs as an ASYNC child: spawnSync froze the web server (this job runs in-process) for the
   // whole dump. An injected spawn may still be synchronous (tests); both are awaited.
   const run = spawn || ((cmd, args) => spawnAsync(cmd, args, { env, timeoutMs: 30 * 60 * 1000 }));
-  const r = await run(process.execPath, [path.join(__dirname, '..', 'tools', 'pg', 'dump-db.js'), file]);
+  // P11 r7 O-7 — the dump reads an exported snapshot in which the main tables were counted (real pg_dump only)
+  const snap = spawn ? null : await openDumpSnapshot(env);
+  let r;
+  try {
+    r = await run(process.execPath, [path.join(__dirname, '..', 'tools', 'pg', 'dump-db.js'), file, ...(snap ? ['--snapshot=' + snap.id] : [])]);
+  } finally { if (snap) await snap.close(); }
   if (!r || r.status !== 0) {
     const e = new Error(`pg_dump failed (exit ${r && r.status}): ${String((r && (r.stderr || r.stdout)) || '').trim().slice(0, 300)}`);
     e.transient = true; // a locked file / busy server is worth one retry
@@ -236,6 +289,9 @@ async function runBackup({ dir, keep = 14, spawn, env = process.env, fsx = fs, o
   if (!key) log(`[backup] WARNING: SDP_BACKUP_KEY is ${keyProblem} — the dump is stored as PLAINTEXT gzip because SDP_BACKUP_ALLOW_PLAINTEXT=1 is set. Set SDP_BACKUP_KEY in .env (distinct from SDP_CONFIG_KEY) and remove the override.`);
   // P11 r6 O-1 — gzip + encryption of the dump runs in the file-store worker (child process), off the event loop.
   const packed = fsx === fs ? await require('./blobBackup').runWorker('pack-dump', { rawFile: file }, { key, env: process.env }) : packDump(file, { key, fsx });
+  if (snap) {
+    try { fsx.writeFileSync(countsFileFor(packed.file), JSON.stringify({ dump: path.basename(packed.file), snapshot: true, taken_at: snap.taken_at, counts: snap.counts }, null, 1)); } catch (_) { /* best effort: the drill then uses live counts and says so */ }
+  }
   let offsite = null;
   if (offsitePath && String(offsitePath).trim()) {
     try { offsite = copyOffsite(packed.file, String(offsitePath).trim(), { fsx }); }
@@ -250,11 +306,11 @@ async function runBackup({ dir, keep = 14, spawn, env = process.env, fsx = fs, o
     fileStore = await BB.backupStoreAsync({ root, dir, stamp: BB.stampOf(packed.file), key, offsitePath, fsx, env: process.env });
   }
   const pruned = prune(dir, { keep, fsx }).concat(blobs !== false ? require('./blobBackup').pruneArchives(dir, { keep, fsx }) : []);
-  return { file: packed.file, bytes, stored_bytes: packed.stored_bytes, encrypted: packed.encrypted, plaintext_override: plaintextOverride, compressed: true, trailer_ok: true, offsite, pruned, file_store: fileStore, rows: 1 };
+  return { file: packed.file, snapshot_counts: snap ? snap.counts : null, bytes, stored_bytes: packed.stored_bytes, encrypted: packed.encrypted, plaintext_override: plaintextOverride, compressed: true, trailer_ok: true, offsite, pruned, file_store: fileStore, rows: 1 };
 }
 
 module.exports = {
-  runBackup, planBackup, prune, latestDump, isDumpName,
+  runBackup, planBackup, prune, latestDump, isDumpName, countsFileFor, readDumpCounts, openDumpSnapshot,
   deriveKey, encryptBuffer, decryptBuffer, isEncryptedBuffer,
   hasDumpTrailer, verifyDumpFile, packDump, openDump, copyOffsite, spawnAsync,
   TRAILER, MIN_KEY_CHARS, MIN_KEY_DISTINCT, keyQualityProblem,

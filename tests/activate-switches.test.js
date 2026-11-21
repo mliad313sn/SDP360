@@ -68,7 +68,7 @@ test('refusals: no db url, production without operator flag', async () => {
   finally { if (saved === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = saved; }
 });
 
-test('apply + journal + rollback on the throwaway database', async () => {
+test('apply + journal + rollback on the throwaway database', async () => withConfigKey(async () => {   // P11 r7: keyed run (sealed rollback file, bound tokens)
   const url = process.env.PG_URL;
   const dir = tmp();
   try {
@@ -113,7 +113,7 @@ test('apply + journal + rollback on the throwaway database', async () => {
     const again = await A.main(['--apply', `--db-url=${url}`, '--lots=L01', `--rollback-dir=${dir}`, '--dry-run'], { ...quiet, ...(await liveDeps(url)) });
     assert.equal(again.steps.filter((s) => s.key !== 'ui_role_landing').length, 0);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
-});
+}));
 
 // P11 r6 O-4 — the second operator must be a real active super_admin account: the live tests create one.
 async function ensureAccount(username, { role = 'super_admin', active = 1 } = {}) {
@@ -125,13 +125,22 @@ async function ensureAccount(username, { role = 'super_admin', active = 1 } = {}
 }
 
 // P11 r6 R6-A1 — an operator token issued for an account (what /policy-center.html does for the logged-in user)
+// P11 r7 R7-A1 — tokens are bound with SDP_CONFIG_KEY and need their operator_token_issued event (what the route logs)
+const TOKEN_CONFIG_KEY = 'activate-switches-test-config-key-0123';
 async function issueToken(username) {
   const id = await ensureAccount(username);
-  return (await require('../services/operatorTokens').issue(require('../reports-db').pgHandle(), { id, username })).token;
+  const OT = require('../services/operatorTokens');
+  const out = await OT.issue(require('../reports-db').pgHandle(), { id, username }, { env: { SDP_CONFIG_KEY: TOKEN_CONFIG_KEY } });
+  await require('../reports-db').logEvent({ category: 'config', action: 'operator_token_issued', target: username, details: { token_id: out.id, expires_at: out.expires_at, purpose: 'activate-switches' }, risk: 1 });
+  return out.token;
 }
 async function withToken(token, fn) {
   const prev = process.env.SDP_OPERATOR_TOKEN; process.env.SDP_OPERATOR_TOKEN = token;
-  try { return await fn(); } finally { if (prev === undefined) delete process.env.SDP_OPERATOR_TOKEN; else process.env.SDP_OPERATOR_TOKEN = prev; }
+  return withConfigKey(async () => { try { return await fn(); } finally { if (prev === undefined) delete process.env.SDP_OPERATOR_TOKEN; else process.env.SDP_OPERATOR_TOKEN = prev; } });
+}
+async function withConfigKey(fn) {
+  const prev = process.env.SDP_CONFIG_KEY; process.env.SDP_CONFIG_KEY = TOKEN_CONFIG_KEY;
+  try { return await fn(); } finally { if (prev === undefined) delete process.env.SDP_CONFIG_KEY; else process.env.SDP_CONFIG_KEY = prev; }
 }
 
 async function liveDeps() {

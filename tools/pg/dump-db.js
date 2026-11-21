@@ -47,6 +47,10 @@ const db = (u.pathname || '/sdp_dashboard').slice(1);
 const args = ['-h', u.hostname || 'localhost', '-p', u.port || '5432',
               '-U', decodeURIComponent(u.username || 'sdp_app'),
               '-d', db, '--no-password', '-f', outFile];
+// P11 r7 O-7 — services/backup.js passes --snapshot=<id> (an exported snapshot of a transaction it holds open, in which
+// it counted the main tables): the dump then shows exactly that state, and the restore drill compares like with like.
+const snapArg = process.argv.slice(3).find((a) => /^--snapshot=[0-9A-Fa-f-]+$/.test(a));
+if (snapArg) args.push(snapArg);
 const r = spawnSync(pgDump, args, {
   env: { ...process.env, PGPASSWORD: decodeURIComponent(u.password || '') },
   encoding: 'utf8', timeout: 300000,

@@ -148,7 +148,12 @@ module.exports = function policyCenterRoutes(deps) {
       const st = req.query.status === 'all' ? null : String(req.query.status || 'pending');
       const pc = (await cstore().list({ status: st })).map((r) => ({ id: 'pc-' + r.id, source: 'policy_center', key: r.key, scope: r.scope, from: r.old_value, to: r.new_value,
         reason: r.reason, requested_by: r.requested_by_name || '#' + r.requested_by, requested_at: r.requested_at, expires_at: r.expires_at, status: r.status,
-        decided_by: r.decided_by_name || null, decided_at: r.decided_at, decision_reason: r.decision_reason, mine: Number(r.requested_by) === Number(req.reportUser.id) }));
+        decided_by: r.decided_by_name || null, decided_at: r.decided_at, decision_reason: r.decision_reason, mine: Number(r.requested_by) === Number(req.reportUser.id),
+        _requester: r.requested_by }));
+      // P11 r7 R7-A1 — what can be established about the operator token a CLI-filed request names (issuance event,
+      // server binding, same account): shown to the approver, never a substitute for the approver's own judgement.
+      const OT = require('../services/operatorTokens'); const tdb = rdb().pgHandle ? rdb().pgHandle() : rdb().db;
+      for (const x of pc) { x.operator_token = await OT.evidenceForRequest(tdb, x.reason, x._requester); delete x._requester; }
       const names = {}; for (const x of (await rdb().listUsers()) || []) names[Number(x.id)] = x.full_name || x.username;
       const gp = ((await gstore().listProposals({ status: st })) || []).map((p) => ({ id: 'gp-' + p.id, source: 'governance_policy', key: p.key, scope: p.scope, from: null, to: p.value,
         reason: p.reason, requested_by: names[p.proposed_by] || '#' + p.proposed_by, requested_at: p.proposed_at, expires_at: p.expires_at, status: p.status,
@@ -165,6 +170,16 @@ module.exports = function policyCenterRoutes(deps) {
       if (decision === 'approve') {   // P11 R4-A2(b): the approver must be independent of the requester (identity journal)
         const requesterId = m[1] === 'pc' ? ((await cstore().get(Number(m[2]))) || {}).requested_by
           : (((await gstore().listProposals({ status: null })) || []).find((p) => Number(p.id) === Number(m[2])) || {}).proposed_by;
+        // P11 r7 R7-A1 — a request that says it was filed under an operator token must point at a token the server
+        // issued (binding valid, operator_token_issued event present, same account); otherwise it is a forged record.
+        if (m[1] === 'pc') {
+          const pr = (await cstore().get(Number(m[2]))) || {};
+          const ev = await require('../services/operatorTokens').evidenceForRequest(rdb().pgHandle ? rdb().pgHandle() : rdb().db, pr.reason, pr.requested_by);
+          if (ev && !(ev.issued_event && ev.binding_ok && ev.account_matches)) {
+            await log(req, { category: 'config', action: 'policy_approval_refused', target: req.params.id, details: { reason: 'operator token not verifiable', operator_token: ev }, risk: 1 });
+            throw typed('CONFLICT', `this request names operator token #${ev.id}, but ${!ev.issued_event ? 'no operator_token_issued event exists for it' : !ev.binding_ok ? 'the token was not issued by the server (no valid binding)' : 'the token belongs to another account'} — refused as a possibly forged request`, 409);
+          }
+        }
         if (requesterId != null && Number(requesterId) !== Number(u.id)) {
           const ind = await require('../services/approverProvenance').checkIndependent({ db: rdb().db, requesterId, approver: u });
           if (!ind.ok) {
@@ -200,7 +215,9 @@ module.exports = function policyCenterRoutes(deps) {
   router.post('/api/policy-center/operator-tokens', requireReportSession, requireSuperAdmin, enabled, json, async (req, res) => {
     try {
       const u = req.reportUser;
-      const out = await require('../services/operatorTokens').issue(rdb().pgHandle ? rdb().pgHandle() : rdb().db, u);
+      const OT = require('../services/operatorTokens');
+      if (!OT.bindingKey()) throw typed('CONFLICT', 'operator tokens are refused: SDP_CONFIG_KEY is not set on this server (the token binding needs it — fail closed)', 409);
+      const out = await OT.issue(rdb().pgHandle ? rdb().pgHandle() : rdb().db, u);
       await log(req, { category: 'config', action: 'operator_token_issued', target: String(u.username || u.id), details: { token_id: out.id, expires_at: out.expires_at, purpose: 'activate-switches' }, risk: 1 });
       res.json({ ok: true, token: out.token, expires_at: out.expires_at, ttl_minutes: out.ttl_minutes, username: u.username });
     } catch (e) { fail(res, e); }

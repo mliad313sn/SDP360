@@ -4783,7 +4783,8 @@
    "read_in": [
     "services/auditChain.js",
     "services/backendGuard.js",
-    "services/configSecrets.js"
+    "services/configSecrets.js",
+    "services/operatorTokens.js"
    ]
   },
   {
