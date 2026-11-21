@@ -217,3 +217,21 @@ used while working (not committed): `/tmp/claude-0/polish3/ut.sh <test files>` a
 | Coordinator P2-15 (PV editor as compact expandable rows), P3-21 (bottom tab bar on a phone), ia-value F10 (drawer menu) | not done — each replaces a working layout with a new interaction model; they need a design decision and field testing, not a polish pass. Nothing blocks them |
 | Visual F9 / F17 / F19 / F20 (type scale, page widths, elevation, radii) | partial — the tokens exist and every component added here uses them; the older pages keep their own values where no shared component replaced them |
 | Admin P3-6 (manual out of date), P3-7 (dormant connectors folded) | not done here — the manual was rewritten on 2026-11-21 (trunk); folding Meridian away is a product choice |
+
+## Checks run on this branch (polish 3)
+
+- Unit suite, 6 alphabetical chunks: one full pass before the last four commits (6 212 tests; red only: the IT Review
+  palette test and KPI citations — both fixed —, three gate-dossier freshness checks, the README size block and the
+  tracked-files secret scan). A second full pass was started on the final code and was cut off by a container restart:
+  chunks 1 to 3 finished (2 962 tests, red only the three dossier freshness checks, regenerated since); chunks 4 to 6
+  were NOT rerun as a whole. The tests that had been red there were rerun alone and pass (`readme-truth`,
+  `gate-dossiers`, `secret-scan` — the scanner read the admin "secret set / not set" key→id map as assigned secrets;
+  the map is now a list of pairs), together with `visual-polish-3`, `ui-design-ratchet`, `a11y-legacy-ratchet`,
+  `i18n-coverage`, `csp-inline`.
+- e2e: all 44 specs one by one before the last three code commits: 41 pass, 3 fail (`p09-profile-tasks-a`,
+  `uat-s8-site-business`, `v1-viewport-layout`). After the fixes those three and `uat-s7-super-admin` pass on the final
+  code. The other 40 were NOT rerun after the last shared-CSS change (hidden attribute, phone wrap of `.btn`).
+- The 6 `*-browser.test.js` files ran inside the unit chunks (first full pass).
+- `npx eslint .` exit 0 (before the pairs change in `reports.html`, not rerun after it); inventories (+ strict),
+  evidence manifest, chart inventory, CSP journey report, persona matrix, page inventory regenerated; gate dossiers
+  regenerated last and `--check` is fresh.
