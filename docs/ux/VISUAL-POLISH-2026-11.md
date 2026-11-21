@@ -134,6 +134,12 @@ screenshots, not re-tested one by one. Nothing here is user research or field ac
 `docs/ux/polish-shots/` — before (commit `5588a2ba`) and after, desktop 1440 px and phone 390 px, and the contact
 sheet `before-after.png`. Screenshots are for a person to look at; nothing is compared automatically.
 
+Refreshed after polish 3 (same file names in `after/`, contact sheet rebuilt: 16 before/after pairs + 8 pages that had
+no "before"): `exec-view-html-1440`, `it-review-html-390`, `policy-center-html-1440`, `portfolio-register-html-390`,
+`reports-html-1440`, `reports-editor-1440`, `rfi-html-1440`, `site-awareness-html-1440`. They were taken through the e2e
+harness on synthetic data, with the pilot switches on (`ppm_portfolio_dashboard_v2_enabled`, `policy_center_enabled`)
+so the pages behind them render; the images are downscaled (720 px desktop, 300 px phone).
+
 ## Visual polish 3 — log (branch `feat/visual-polish-3`, based on trunk `b09825fb`)
 
 Scope: every row above marked "not done" or "partial". One line per finished item, committed as it lands. Helper scripts
