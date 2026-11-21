@@ -11,8 +11,10 @@ const key = (login) => String(login || '').trim().toLowerCase().slice(0, 200);
 function settings(cfg) {
   const c = cfg || {};
   const int = (v, d, lo, hi) => { const n = Math.floor(Number(v)); return Number.isFinite(n) && n >= lo ? Math.min(n, hi) : d; };
-  return { enabled: String(c.auth_account_throttle_enabled) === '1', max: int(c.auth_account_throttle_max, 10, 1, 1000),
-    windowMs: int(c.auth_account_throttle_window_min, 15, 1, 1440) * 60 * 1000 };
+  const R = require('./policyRanges').RANGES;   // N-R7-1 — bounds shared with the write path and the catalogue
+  const M = R.auth_account_throttle_max, W = R.auth_account_throttle_window_min;
+  return { enabled: String(c.auth_account_throttle_enabled) === '1', max: int(c.auth_account_throttle_max, 10, M.min, M.max),
+    windowMs: int(c.auth_account_throttle_window_min, 15, W.min, W.max) * 60 * 1000 };
 }
 /** { blocked, retryAfterSec } — never counts. */
 async function check(store, login, s, now = Date.now()) {

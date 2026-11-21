@@ -503,7 +503,9 @@ const KNOWN_OUTCOME_MONEY = [
   { persona: 'f:committee-member', re: /^GET \/api\/governance\/portfolio(\/|$)/, reason: 'committee-member money exception (policy pending)' },
   { persona: 'f:committee-member', re: /^GET \/api\/governance\/ppm\/project\/:id\/budget-periods$/, reason: 'committee-member money exception (policy pending)' },
   // P11 R6 (R1-F5) — the same exception seen through the Lots 1–6 money sentinels: a change request's impact_budget and
-  // the title / file of a money document are amounts the committee reads (canSeeMoney) — not a separate decision.
+  // the title / file of a money document are amounts the committee reads (canSeeMoney). Fix 31: listing these two route
+  // patterns here was an AI classification that EXTENDS the pending R1-F2 / SEC-F2 exception to new routes — it is not
+  // decided; the extension must be put to Finance + InfoSec with R1-F2 (docs/agent-execution/FIX-31-SECURITY.md).
   { persona: 'f:committee-member', re: /^GET \/api\/governance\/ppm\/project\/:id\/changes$/, reason: 'committee-member money exception (policy pending)' },
   { persona: 'f:committee-member', re: /^GET \/api\/governance\/ppm\/project\/:id\/documents(\/:docId\/download)?$/, reason: 'committee-member money exception (policy pending)' },
 ];

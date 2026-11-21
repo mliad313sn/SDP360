@@ -101,7 +101,17 @@ function check(cat, src = sources()) {
     if (hasV && Array.isArray(e.allowed) && !e.allowed.map(String).includes(String(e.strict_value))) return true;
     return false;
   }).map(([k]) => k);
-  return { missing, stale, noReason, badCat, badStrict };
+  // N-R7-1 (P11 round 7): every numeric four-eyes key with a strict_direction must declare its reader's range, and the
+  // file must say exactly what services/policyRanges.js says (min, max, integer) — the readers use that table.
+  const R = require(path.join(ROOT, 'services', 'policyRanges')).RANGES;
+  const badRange = [];
+  for (const [k, e] of Object.entries(keys)) {
+    const r = R[k];
+    if (e.four_eyes && e.strict_direction && !r) { badRange.push(`${k}: strict_direction without a range in services/policyRanges.js`); continue; }
+    if (r && (e.min !== r.min || e.max !== r.max || !!e.integer !== !!r.integer)) badRange.push(`${k}: catalogue min/max/integer ${e.min}/${e.max}/${!!e.integer} ≠ services/policyRanges.js ${r.min}/${r.max}/${!!r.integer}`);
+  }
+  for (const k of Object.keys(R)) if (!keys[k]) badRange.push(`${k}: range declared but no catalogue entry`);
+  return { missing, stale, noReason, badCat, badStrict, badRange };
 }
 
 function bootstrap(cat, src = sources()) {
@@ -158,12 +168,13 @@ if (require.main === module) {
   let notShipped = [];
   try { const M = require(path.join(ROOT, 'tools', 'deploy', 'make-update-package')); notShipped = ['docs/ops/policy-catalogue.json', 'docs/ops/FLAG-REGISTER.json'].filter((f) => !M.RUNTIME_DOCS.has(f)); } catch (_) { notShipped = []; }
   if (notShipped.length) console.log('runtime file not in the update package (tools/deploy/make-update-package.js RUNTIME_DOCS):\n  ' + notShipped.join('\n  '));
-  const bad = r.missing.length + r.stale.length + r.noReason.length + r.badCat.length + r.badStrict.length + notShipped.length;
+  const bad = r.missing.length + r.stale.length + r.noReason.length + r.badCat.length + r.badStrict.length + r.badRange.length + notShipped.length;
   if (r.missing.length) console.log('missing (add an entry or an exclusion with a reason):\n  ' + r.missing.join('\n  '));
   if (r.stale.length) console.log('stale (key no longer in the code):\n  ' + r.stale.join('\n  '));
   if (r.noReason.length) console.log('excluded without a reason:\n  ' + r.noReason.join('\n  '));
   if (r.badCat.length) console.log('unknown category:\n  ' + r.badCat.join('\n  '));
   if (r.badStrict.length) console.log('bad strict_value / strict_direction (four-eyes keys only; higher|lower; within allowed):\n  ' + r.badStrict.join('\n  '));
+  if (r.badRange.length) console.log('numeric range out of step with the readers (services/policyRanges.js):\n  ' + r.badRange.join('\n  '));
   if (bad) process.exit(1);
   console.log(`[policy-catalogue] OK — ${Object.keys(cat.keys).length} catalogued, ${Object.keys(cat.excluded).length} excluded with a reason`);
 }

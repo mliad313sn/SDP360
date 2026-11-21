@@ -14,7 +14,8 @@ const DEFAULT_MINUTES = 60;
 
 function minutesFrom(cfg) {
   const n = Number(cfg && cfg.breakglass_session_minutes);
-  return Number.isFinite(n) && n > 0 ? Math.max(5, Math.min(1440, Math.floor(n))) : DEFAULT_MINUTES;
+  const R = require('./policyRanges').RANGES.breakglass_session_minutes;   // N-R7-1 — shared bounds
+  return Number.isFinite(n) && n > 0 ? Math.max(R.min, Math.min(R.max, Math.floor(n))) : DEFAULT_MINUTES;
 }
 const isBreakglassUse = (sso, username) => !!(sso && sso.breakglassUser && username === sso.breakglassUser && sso.mode !== 'off');
 

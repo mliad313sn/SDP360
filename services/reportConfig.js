@@ -840,14 +840,32 @@ const _UPSERT = `INSERT INTO report_config (key, value, updated_at, updated_by)
 const NOT_SWITCH = new Set(['asset_replacement_uplift_pct', 'opm_rest_concurrency', 'exec_view_min_cell', 'site_codes_from_registry']);
 const SWITCH_KEYS = new Set(KEYS.filter((k) => (DEFAULTS[k] === '0' || DEFAULTS[k] === '1') && !NOT_SWITCH.has(k)));
 const _ON = new Set(['1', 'true', 'on', 'yes']), _OFF = new Set(['0', 'false', 'off', 'no']);
+// Fix 31 (P11 round 7, P3) — a switch sent as an EMPTY string ('' or blanks) means "not sent": canonicalValue returns
+// OMITTED, canonicalPatch drops the key, the four-eyes guard sees no change. Before, one blank box refused the whole
+// form (400). Garbage ('maybe', null, [], {}) is still a 400 and a real change still goes through the four-eyes guard.
+const OMITTED = undefined;
+// N-R7-1 (P11 round 7) — the accepted ranges of the numeric four-eyes keys whose reader clamps or discards a value
+// live in services/policyRanges.js (shared with the readers and the catalogue). An out-of-range value is a 400 HERE,
+// before the four-eyes direction check — a "stricter-looking" value the reader would discard is never stored.
+const _ranges = require('./policyRanges');
 function canonicalValue(key, v) {
   if (SWITCH_KEYS.has(key)) {
     const t = typeof v === 'boolean' ? (v ? '1' : '0') : (typeof v === 'number' || typeof v === 'string') ? String(v).trim().toLowerCase() : null;
+    if (t === '') return OMITTED;
     if (t !== null && _ON.has(t)) return '1';
     if (t !== null && _OFF.has(t)) return '0';
     const e = require('./httpError').typed('VALIDATION', `${key}: a switch takes 1 or 0 (true/false, on/off accepted) — got ${JSON.stringify(v === undefined ? null : v)}`, 400);
     e.key = key;
     throw e;
+  }
+  if (_ranges.rangeOf(key)) {
+    const why = (typeof v === 'number' || typeof v === 'string') ? _ranges.rangeProblem(key, v) : 'a number is expected';
+    if (why) {
+      const e = require('./httpError').typed('VALIDATION', `${key}: ${why} (the value its reader accepts) — got ${JSON.stringify(v === undefined ? null : v)}`, 400);
+      e.key = key;
+      throw e;
+    }
+    return String(Number(String(v).trim()));
   }
   if (v === undefined || v === null) return '';
   return typeof v === 'object' ? JSON.stringify(v) : String(v);
@@ -855,7 +873,11 @@ function canonicalValue(key, v) {
 /** The patch as it will be stored (config keys canonicalised, other keys — e.g. a `reason` — passed through). Throws 400. */
 function canonicalPatch(patch) {
   const out = {};
-  for (const [k, v] of Object.entries(patch || {})) out[k] = KEYS.includes(k) ? canonicalValue(k, v) : v;
+  for (const [k, v] of Object.entries(patch || {})) {
+    if (!KEYS.includes(k)) { out[k] = v; continue; }
+    const c = canonicalValue(k, v);
+    if (c !== OMITTED) out[k] = c;   // a blank switch = not sent (fix 31)
+  }
   return out;
 }
 
@@ -880,4 +902,4 @@ function setConfig(db, patch, user, opts) {
   })();
 }
 
-module.exports = { DEFAULTS, KEYS, _SECRET_BLANK_KEEP, SWITCH_KEYS, canonicalValue, canonicalPatch, getConfig, setConfig };
+module.exports = { DEFAULTS, KEYS, _SECRET_BLANK_KEEP, SWITCH_KEYS, NUMERIC_RANGES: _ranges.RANGES, canonicalValue, canonicalPatch, getConfig, setConfig };

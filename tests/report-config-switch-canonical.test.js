@@ -12,7 +12,10 @@ const PC = require('../services/policyCatalogue');
 
 const ON = [true, 1, '1', 'true', 'TRUE', ' on ', 'On', 'yes'];
 const OFF = [false, 0, '0', 'false', 'False', 'off', ' OFF', 'no'];
-const BAD = ['', 'maybe', 'true1', 2, -1, null, {}, [], '1 0'];
+// Fix 31 (P11 round 7, P3): '' / blanks are no longer a 400 — they mean "not sent" (canonicalValue → undefined,
+// canonicalPatch drops the key). Everything else that is not a switch spelling stays a 400.
+const BAD = ['maybe', 'true1', 2, -1, null, {}, [], '1 0'];
+const BLANK = ['', '   '];
 
 test('switch keys = the policy catalogue bool keys (one list, two views)', () => {
   const bools = [...PC.build().by.values()].filter((e) => e.source === 'report_config' && e.type === 'bool').map((e) => e.key).sort();
@@ -26,7 +29,9 @@ test('canonicalValue: every switch key maps every accepted spelling to 1/0 and r
     for (const v of ON) assert.strictEqual(RC.canonicalValue(k, v), '1', `${k} ${JSON.stringify(v)}`);
     for (const v of OFF) assert.strictEqual(RC.canonicalValue(k, v), '0', `${k} ${JSON.stringify(v)}`);
     for (const v of BAD) assert.throws(() => RC.canonicalValue(k, v), (e) => e.status === 400 && e.code === 'VALIDATION', `${k} ${JSON.stringify(v)}`);
+    for (const v of BLANK) assert.strictEqual(RC.canonicalValue(k, v), undefined, `${k} ${JSON.stringify(v)} = not sent`);
   }
+  assert.deepStrictEqual(RC.canonicalPatch({ hygiene_send_enabled: '', reason: 'x' }), { reason: 'x' });
   // a non-switch key keeps its string (numbers that default to 0/1 too)
   assert.strictEqual(RC.canonicalValue('asset_replacement_uplift_pct', '3'), '3');
   assert.strictEqual(RC.canonicalValue('site_codes_from_registry', 'shadow'), 'shadow');
