@@ -199,3 +199,22 @@ th[aria-sort=descending] .ppm-sort::after { content: '▼'; color: var(--color-t
   .ppm-page-header .ppm-actions { margin-left: 0; }
 }
 @media print { .ppm-groups, .ppm-drawer, .ppm-drawer-back, .ppm-toast, .ppm-filters, .ppm-more { display: none !important; } }
+
+/* ---- sibling portfolio pages (register · decisions · capacity) — same frame, same grey sticky header ------------- */
+.ppm-page.pr-wrap, .ppm-page.pd-wrap, .ppm-page.p2-wrap { max-width: 1360px; padding: 24px 24px var(--space-12); }
+@media (max-width: 640px) { .ppm-page.pr-wrap, .ppm-page.pd-wrap, .ppm-page.p2-wrap { padding: var(--space-4); } }
+.ppm-page .pr-table thead th, .ppm-page .pd-table thead th { background: var(--color-bg); color: var(--color-text-strong); font-weight: 600; border-bottom: 1px solid var(--color-border-strong); }
+.ppm-page .pr-table thead th a { color: inherit; }
+.ppm-page .pr-table tbody th.pr-frz, .ppm-page .pr-table tbody td.pr-frz { background: var(--color-card); color: var(--color-text-strong); }
+.ppm-page .pr-table tbody tr:nth-child(even) td, .ppm-page .pr-table tbody tr:nth-child(even) th { background: var(--color-card); }
+.ppm-page .pr-table tbody tr:hover > td, .ppm-page .pr-table tbody tr:hover > th { background: var(--color-primary-bg); }
+.ppm-page .pr-date, .ppm-page .pr-num { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pr-info { display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; border-radius: 50%; border: 1px solid var(--color-border-strong); font-size: 10px; font-weight: 600; color: var(--color-text-muted); cursor: help; vertical-align: middle; }
+.pr-bars { width: 100%; max-width: 520px; height: auto; display: block; margin: var(--space-2) 0; }
+.pr-bars-l, .pr-bars-v { font-size: 11px; fill: var(--color-text-muted); }
+.pr-bars-v { fill: var(--color-text-strong); font-weight: 600; }
+.pr-bars-t { fill: var(--color-bg); }
+.pr-bars-b { fill: var(--edv-slate); }
+.ppm-page .pr-btn, .ppm-page .pd-btn { min-height: 32px; box-sizing: border-box; padding: 5px 12px; border-radius: var(--radius-md); font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; text-decoration: none; }
+.ppm-page .pr-bar label .ppm-chips { min-width: 170px; max-width: 240px; }
+.ppm-back { font-size: 13px; }

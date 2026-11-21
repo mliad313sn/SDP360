@@ -71,12 +71,21 @@
       purchase_request: ['Purchase request', 'Demande d’achat'], risk_assessment: ['Risk assessment', 'Évaluation des risques'],
       cybersecurity_assessment: ['Cybersecurity assessment', 'Évaluation cybersécurité'], commissioning: ['Commissioning', 'Mise en service'], handover: ['Handover', 'Transfert'],
     },
+    depcat: {
+      procurement: ['Procurement', 'Achats'], network_infrastructure: ['Network infrastructure', 'Infrastructure réseau'], civil_works: ['Civil works', 'Génie civil'],
+      electrical_works: ['Electrical works', 'Travaux électriques'], power: ['Power', 'Énergie'], connectivity: ['Connectivity', 'Connectivité'],
+      architecture_approval: ['Architecture approval', 'Validation d’architecture'], cybersecurity_assessment: ['Cybersecurity assessment', 'Évaluation cybersécurité'],
+      contract_approval: ['Contract approval', 'Validation du contrat'], vendor_mobilization: ['Vendor mobilisation', 'Mobilisation du fournisseur'],
+      hse_approval: ['HSE approval', 'Validation HSE'], other: ['Other', 'Autre'],
+    },
     depstatus: { met: ['Met', 'Satisfaite'] },
     role: {
       'committee-member': ['Committee member', 'Membre du comité'], executive: ['Executive', 'Direction'], admin: ['Administrator', 'Administrateur'],
       super_admin: ['Super administrator', 'Super administrateur'], editor: ['Editor', 'Éditeur'], viewer: ['Viewer', 'Lecteur'], finance: ['Finance', 'Finance'],
       'portfolio-manager': ['Portfolio manager', 'Gestionnaire de portefeuille'], 'project-manager': ['Project manager', 'Chef de projet'],
     },
+    capacity: { GREEN: ['Within capacity', 'Dans la capacité'], AMBER: ['Near capacity', 'Proche de la capacité'], RED: ['Over capacity', 'Au-delà de la capacité'], NA: ['Not measured', 'Non mesuré'] },
+    band: { small: ['Small', 'Petit'], medium: ['Medium', 'Moyen'], large: ['Large', 'Grand'], very_large: ['Very large', 'Très grand'] },
     rag: { GREEN: ['On baseline', 'Dans la référence'], AMBER: ['Slipping', 'En glissement'], RED: ['Late', 'En retard'], NA: ['Not measured', 'Non mesuré'] },
   };
   function humanise(code) {

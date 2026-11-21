@@ -12,6 +12,10 @@
 <script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
 <script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
 <script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/format.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/codeLabels.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/ppmLabels.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/ppmUx.js"></script>
 <style nonce="%%CSP_NONCE%%">
   body { margin: 0; background: var(--color-bg); color: var(--color-text-strong); font-family: var(--font-sans); font-size: 14px; }
   .p2-wrap { max-width: 1280px; margin: 0 auto; padding: var(--space-6) var(--space-6) var(--space-12); }
@@ -21,12 +25,15 @@
   h1 { margin: 0 0 var(--space-2); font-size: 22px; } h2 { font-size: 16px; margin: 0 0 var(--space-2); }
   @media (max-width: 640px) { .p2-wrap { padding: var(--space-4); } .p2-card { padding: var(--space-3); } }
 </style>
+<!-- PMO UX (2026-11) — one page frame + components, loaded last --><link rel="stylesheet" href="lib/ppmUx.css">
 </head>
 <body>
 <a class="edv-skip" href="#main">Skip to content</a>
 <div id="__shell" data-section="operations" data-current="portfolio"></div>
-<main id="main" class="p2-wrap">
-  <div class="p2-card"><h1 id="p2Title">Portfolio capacity and scenarios</h1><p class="p2-note" id="p2Intro"></p><p class="p2-note" id="p2Meta" role="status" aria-live="polite"></p></div>
+<main id="main" class="p2-wrap ppm-page">
+  <header class="ppm-page-header"><div class="ppm-title"><h1 id="p2Title">Portfolio capacity and scenarios</h1></div>
+    <div class="ppm-actions"><a class="ppm-back" id="p2Back" href="portfolio.html">← Portfolio</a></div></header>
+  <p class="ppm-sub" id="p2Intro"></p><p class="p2-note" id="p2Meta" role="status" aria-live="polite"></p>
   <section class="p2-card" id="p2Cap" aria-labelledby="p2CapH" hidden><h2 id="p2CapH"></h2><div id="p2CapBody"></div></section>
   <section class="p2-card" id="p2Risk" aria-labelledby="p2RiskH" hidden><h2 id="p2RiskH"></h2><div id="p2RiskBody"></div></section>
   <section class="p2-card" id="p2Deps" aria-labelledby="p2DepsH" hidden><h2 id="p2DepsH"></h2><div id="p2DepsBody"></div></section>

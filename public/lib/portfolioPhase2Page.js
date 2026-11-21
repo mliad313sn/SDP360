@@ -25,6 +25,10 @@
       conflicts: 'Conflits de dépendances', over_cells: 'Mois au-delà de la capacité', ro: 'Rien n’est enregistré : projets, dates et besoins restent inchangés.', nothing: 'Aucune vue de la phase 2 n’est activée pour ce portefeuille.' },
   };
   const T = TX[lang === 'fr' ? 'fr' : 'en'];
+  // PMO UX — exposure levels and bands read as labels (lib/ppmLabels.js); the back link follows the page language
+  const FL = lang === 'fr' ? 'fr' : 'en';
+  const lab = (g, c) => (c == null || c === '' ? '—' : window.PpmLabels ? window.PpmLabels.label(g, c, FL) : String(c));
+  const back = document.getElementById('p2Back'); if (back) back.textContent = FL === 'fr' ? '← Portefeuille' : '← Portfolio';
   $('p2Title').textContent = T.title; $('p2Intro').textContent = T.intro;
   [['p2CapH', 'cap'], ['p2RiskH', 'risk'], ['p2DepsH', 'deps'], ['p2EffH', 'eff'], ['p2ScenH', 'scen']].forEach(([id, k]) => { $(id).textContent = T[k]; });
   async function api(path, o) {
@@ -40,14 +44,14 @@
 
   async function cap() {
     const d = await api('/api/governance/ppm/portfolio/capacity'); show('p2Cap');
-    const rows = (d.cells || []).map((c) => `<tr><td>${esc(c.skill)}</td><td>${esc(c.month)}</td><td class="p2-num">${esc(c.avg_fte)}</td><td class="p2-num">${esc(dash(c.capacity_fte))}</td><td class="p2-num">${esc(c.utilisation_pct == null ? '—' : c.utilisation_pct + ' %')}</td><td><span class="p2-rag p2-${esc(c.rag)}">${esc(c.rag)}</span></td><td>${esc(c.projects.length)}</td></tr>`);
+    const rows = (d.cells || []).map((c) => `<tr><td>${esc(c.skill)}</td><td>${esc(c.month)}</td><td class="p2-num">${esc(c.avg_fte)}</td><td class="p2-num">${esc(dash(c.capacity_fte))}</td><td class="p2-num">${esc(c.utilisation_pct == null ? '—' : c.utilisation_pct + ' %')}</td><td><span class="p2-rag p2-${esc(c.rag)}">${esc(lab('capacity', c.rag))}</span></td><td>${esc(c.projects.length)}</td></tr>`);
     $('p2CapBody').innerHTML = (d.capacity_configured ? '' : `<p class="p2-note">${esc(T.cap_unknown)}</p>`) + (d.view_partial ? `<p class="p2-note">${esc(T.view_partial)}</p>` : '') + `<p>${esc(d.over)} ${esc(T.over)}</p>` + (rows.length ? table(T.cap, [T.skill, T.month, T.avg, T.capacity, T.util, 'RAG', T.projects], rows) : `<p class="p2-note">${esc(T.none)}</p>`);
   }
   async function risk() {
     const d = await api('/api/governance/ppm/portfolio/risk-exposure'); show('p2Risk');
     (d.rows || []).forEach((r) => { names[r.project_id] = `${r.key || ''} — ${r.name || ''}`; });
     const tot = Object.entries(d.totals || {}).map(([k, v]) => `${esc(k)}: ${esc(v)}`).join(' · ');
-    const rows = (d.rows || []).map((r) => `<tr><td><a href="project.html?id=${encodeURIComponent(r.project_id)}#p2deps">${esc(names[r.project_id])}</a></td><td>${esc(dash(r.level))}</td><td class="p2-num">${esc(r.open)}</td><td class="p2-num">${esc(r.overdue)}</td><td>${esc(dash(r.declared))}</td></tr>`);
+    const rows = (d.rows || []).map((r) => `<tr><td><a href="project.html?id=${encodeURIComponent(r.project_id)}#p2deps">${esc(names[r.project_id])}</a></td><td>${esc(lab('severity', r.level))}</td><td class="p2-num">${esc(r.open)}</td><td class="p2-num">${esc(r.overdue)}</td><td>${esc(dash(r.declared))}</td></tr>`);
     $('p2RiskBody').innerHTML = `<p>${tot}</p><p class="p2-note">${esc(d.mapping && d.mapping.rule)}</p>` + table(T.risk, [T.project, T.level, T.open, T.overdue, T.declared], rows);
   }
   async function deps() {
@@ -59,7 +63,7 @@
   async function eff() {
     const d = await api('/api/governance/ppm/portfolio/effort'); show('p2Eff');
     (d.rows || []).forEach((r) => { names[r.project_id] = names[r.project_id] || `${r.key || ''} — ${r.name || ''}`; });
-    const rows = (d.rows || []).map((r) => `<tr><td>${esc(names[r.project_id])}</td><td class="p2-num">${esc(dash(r.score))}</td><td>${esc(dash(r.band))}</td><td>${esc(dash(r.declared))}${r.mismatch ? ` — <strong>${esc(T.mismatch)}</strong>` : ''}</td></tr>`);
+    const rows = (d.rows || []).map((r) => `<tr><td>${esc(names[r.project_id])}</td><td class="p2-num">${esc(dash(r.score))}</td><td>${esc(lab('band', r.band))}</td><td>${esc(lab('band', r.declared))}${r.mismatch ? ` — <strong>${esc(T.mismatch)}</strong>` : ''}</td></tr>`);
     $('p2EffBody').innerHTML = `<p class="p2-note">${esc(d.weights_status)}</p>` + table(T.eff, [T.project, T.score, T.band, T.declared], rows);
   }
   async function scen() {

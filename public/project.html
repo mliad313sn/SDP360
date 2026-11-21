@@ -590,7 +590,7 @@
   // ---- load -----------------------------------------------------------------------------------------------
   // PMO UX — "not found" / no id: the tabs and areas disappear, one card says why and leads back to the portfolio
   function notFound(title, text) {
-    $("p-title").textContent = title; $("p-nf-title").textContent = title; $("p-nf-text").textContent = text;
+    $("p-title").textContent = "Project"; $("p-nf-title").textContent = title; $("p-nf-text").textContent = text;
     NF = true; $("msg").innerHTML = ""; var wm = $("w3-mode"); if (wm) { wm.hidden = true; wm.setAttribute("data-nf", "1"); } var ws = $("w3-simple"); if (ws) ws.hidden = true; var ft = $("p-sub"); if (ft) ft.hidden = true;
     $("p-notfound").hidden = false; $("groups").hidden = true; $("tabs").hidden = true; $("p-pills").innerHTML = "";
     Array.prototype.forEach.call(document.querySelectorAll("main > section[role=tabpanel]"), function (x) { x.hidden = true; });

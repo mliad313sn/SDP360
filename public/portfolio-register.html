@@ -11,6 +11,10 @@
 <script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
 <script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
 <script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/format.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/codeLabels.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/ppmLabels.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/ppmUx.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/urlFilters.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/portfolioRegister.js"></script>
 <style nonce="%%CSP_NONCE%%">
@@ -30,6 +34,7 @@
   input, select, button { font: inherit; }
   input, select { padding: 4px 6px; border: 1px solid var(--color-border-strong); border-radius: var(--radius-sm); background: var(--color-card); color: var(--color-text-strong); }
   select[multiple] { min-width: 150px; min-height: 72px; }
+  .pr-table th, .pr-table td { white-space: normal; }
   .pr-btn { display: inline-block; border: 1px solid var(--color-border-strong); background: var(--color-card); color: var(--color-text-strong); border-radius: var(--radius-sm); padding: 4px 10px; cursor: pointer; text-decoration: none; font-size: 13px; }
   a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible, .pr-scroll:focus-visible { outline: 2px solid var(--color-secondary); outline-offset: 2px; }
   .pr-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: var(--space-4); }
@@ -47,21 +52,21 @@
   .pr-cols label { display: flex; gap: 4px; align-items: center; font-size: 12.5px; }
   .pr-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 </style>
+<!-- PMO UX (2026-11) — one page frame + components, loaded last --><link rel="stylesheet" href="lib/ppmUx.css">
 </head>
 <body>
 <a class="edv-skip" href="#main">Skip to content</a>
 <div id="__shell" data-section="operations" data-current="portfolio"></div>
-<main id="main" class="pr-wrap">
-  <div class="pr-card">
-    <h1 id="prTitle">Portfolio register</h1>
-    <p class="pr-muted" id="prIntro"></p>
-    <p class="pr-muted" id="prMeta" role="status" aria-live="polite"></p>
-  </div>
+<main id="main" class="pr-wrap ppm-page">
+  <header class="ppm-page-header"><div class="ppm-title"><h1 id="prTitle">Portfolio register</h1></div>
+    <div class="ppm-actions"><a class="ppm-back" id="prBack" href="portfolio.html">← Portfolio</a><a class="pr-btn" id="prCsv" href="#"></a><a class="pr-btn" id="prXlsx" href="#"></a></div></header>
+  <p class="ppm-sub" id="prIntro"></p>
+  <p class="pr-muted" id="prMeta" role="status" aria-live="polite"></p>
   <div class="pr-card" id="prFilterCard" hidden>
     <h2 id="prFiltersH"></h2>
     <form class="pr-bar" id="prFilters"></form>
     <details><summary id="prColsH"></summary><div class="pr-cols" id="prCols"></div></details>
-    <p class="pr-bar"><a class="pr-btn" id="prReset" href="?"></a><a class="pr-btn" id="prCsv" href="#"></a><a class="pr-btn" id="prXlsx" href="#"></a></p>
+    <p class="pr-bar"><a class="pr-btn" id="prReset" href="?"></a></p>
   </div>
   <div class="pr-card" id="prKpiCard" hidden><h2 id="prKpisH"></h2><div id="prKpis"></div><p class="pr-muted" id="prReports"></p></div>
   <div class="pr-card" id="prTableCard" hidden><h2 id="prRowsH"></h2><div id="prTable"></div></div>
