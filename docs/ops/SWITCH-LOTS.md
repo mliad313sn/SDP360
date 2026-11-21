@@ -80,7 +80,7 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 
 | Switch | Who decides (register) | Human prerequisite (register text) | Depends on | Roles named | Tables touched | Job | Consumer files | Tests naming it |
 |---|---|---|---|---|---|---|---|---|
-| `portfolio_site_scope_reads` | Owner (access policy) | — | — | — | — | — | 7 | 12 |
+| `portfolio_site_scope_reads` | Owner (access policy) | — | — | — | — | — | 7 | 13 |
 | `portfolio_views_enabled` | PMO | once the PMO wants the portfolio read as a list or a board as well as the timeline  | — | — | — | — | 3 | 0 |
 | `portfolio_my_projects_default` | PMO | once the PMO wants the portfolio page to open on "My projects"  | — | admin, finance-viewer | — | — | 3 | 1 |
 | `ppm_project_team_enabled` | PMO | once the PMO wants a named team per project  | — | — | portfolio_deliverables, portfolio_objectives, portfolio_programmes, portfolio_projects | — | 5 | 3 |
@@ -379,7 +379,7 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 | Switch | Who decides (register) | Human prerequisite (register text) | Depends on | Roles named | Tables touched | Job | Consumer files | Tests naming it |
 |---|---|---|---|---|---|---|---|---|
 | `ppm_structured_dependencies_enabled` | to be named | after `ppm_intake_register_enabled`, for a PMO shadow period: the project page gets a Dependencies tab — each dependency is on another project OR an external category  | `ppm_intake_register_enabled` | — | decisions, meeting_cadences, meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits +19 | — | 6 | 2 |
-| `ppm_resource_demand_enabled` | to be named | once the resource owner has set `ppm_capacity_fte`  | — | — | — | — | 5 | 2 |
+| `ppm_resource_demand_enabled` | to be named | once the resource owner has set `ppm_capacity_fte`  | — | — | — | — | 5 | 3 |
 | `ppm_effort_scoring_enabled` | to be named | — | — | — | — | — | 5 | 1 |
 | `ppm_documents_enabled` | to be named | only after the operator has decided document storage, retention and malware scanning: typed, versioned project documents in the filesystem blob store  | — | — | — | — | 6 | 3 |
 | `ppm_scenarios_enabled` | to be named | — | `ppm_resource_demand_enabled`, `ppm_structured_dependencies_enabled` | — | — | — | 3 | 2 |

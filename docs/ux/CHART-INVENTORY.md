@@ -67,7 +67,7 @@ Files scanned: **149** · inline <style> blocks: **61** · hex literals: **5576*
 | `public/reports.html` | 548810 | 1 | 817 | 2 | bar×2 | 0 | 0 | yes | — | — | chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
 | `public/rfi.html` | 12560 | 1 | 40 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/site-actions.html` | 41652 | 1 | 76 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/site-awareness.html` | 74817 | 1 | 131 | 7 | bar×5 doughnut×3 line×3 | 4 | 5 | yes | — | — | dual axis → small multiples, one unit per panel (§5.2 "comparaison à plusieurs séries"); doughnut/pie → ordered horizontal bars with values and population % (§5.2 "répartition de catégories"); chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
+| `public/site-awareness.html` | 75068 | 1 | 131 | 7 | bar×5 doughnut×3 line×3 | 4 | 5 | yes | — | — | dual axis → small multiples, one unit per panel (§5.2 "comparaison à plusieurs séries"); doughnut/pie → ordered horizontal bars with values and population % (§5.2 "répartition de catégories"); chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
 | `public/site-report.html` | 17707 | 1 | 75 | 0 | — | 0 | 0 | yes | — | — | hex literals → _tokens.css variables |
 | `public/system-logs.html` | 19348 | 1 | 57 | 1 | — | 0 | 0 | yes | — | — | chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
 | `public/tracker-builder.html` | 24708 | 1 | 30 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
@@ -108,7 +108,7 @@ Files scanned: **149** · inline <style> blocks: **61** · hex literals: **5576*
 | `public/lib/incubationEditor.js` | 5909 | 0 | 1 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/lib/infraPrefill.js` | 6926 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/kpiCard.js` | 6072 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/lib/kpiRag.js` | 8208 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/kpiRag.js` | 8559 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/landing.js` | 4948 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/moneyCertBand.js` | 4022 | 0 | 3 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/lib/obligations-page.js` | 5902 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
@@ -129,7 +129,7 @@ Files scanned: **149** · inline <style> blocks: **61** · hex literals: **5576*
 | `public/lib/ppmConnectorsUi.js` | 5604 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/ppmExtras.js` | 8858 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/ppmFieldHelp.js` | 8790 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/lib/ppmGovernanceW3.js` | 17821 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/ppmGovernanceW3.js` | 17830 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/ppmIntake.js` | 15168 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/ppmIntakeAdmin.js` | 9357 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/ppmOfflineQueue.js` | 11711 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
