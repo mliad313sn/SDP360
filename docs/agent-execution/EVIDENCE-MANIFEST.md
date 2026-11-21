@@ -231,6 +231,6 @@ not the browser-checked level.
 | `docs/agent-execution/INVENTORY.json` | `263ae69a07d0c53e68c4b62dd6e61beb723a97dc0e809c762421a7eadc57d07d` |
 | `docs/agent-execution/INVENTORY.md` | `e6d5e6b960917594937add819a4052491a3203f45f3f28fa61b961d521fa9e2e` |
 | `docs/agent-execution/TRACEABILITY.md` | `bab98d60573cc653947f1acead471e8655cbc78134969e91ee7f281ff9876c0a` |
-| `docs/ops/AUTHZ-MATRIX.md` | `50aa56033757c28d4c8012d7a64c4a7b21441d9aba6c6d5be2c8ae0db792c4f6` |
+| `docs/ops/AUTHZ-MATRIX.md` | `b718b64fff1f6f6f4fc6ea729f66ad9565c988f5dc601b9073dfc20b4ab4e93e` |
 | `docs/ops/FLAG-REGISTER.md` | `b0b56fc509b8f355476fa4ab698f6584f7c9fa7c7b96c49186a05a3a180dbf64` |
 | `docs/ops/METRIC-WIDGET-MAP.md` | `0182748fc8573c3995b593fc0801c13c51ba31868941e2b4a62942a71a3f71fe` |
