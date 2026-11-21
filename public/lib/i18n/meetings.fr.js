@@ -5,6 +5,10 @@
   'use strict';
   const STATIC = {
     // I18N-QUALITY — severity options (md_severities name_fr)
+    // UX committee (visual polish): shorter hero sentence and icon buttons without glyph prefixes
+    'One place for department meetings, IT survey concerns and Mine IT Council decisions; issues that meet an escalation criterion flow to the Council view.':
+      'Un seul endroit pour les réunions de département, les préoccupations de l’enquête IT et les décisions du Mine IT Council ; les problèmes qui remplissent un critère d’escalade remontent dans la vue Council.',
+    'New meeting': 'Nouvelle réunion', 'Bulk import': 'Import en masse', 'Export Excel': 'Export Excel', 'Refresh': 'Actualiser',
     'High@status': 'Haute',
     'Medium@status': 'Moyenne',
     'Low@status': 'Basse',

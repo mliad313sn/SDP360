@@ -208,7 +208,7 @@ not the browser-checked level.
 | `docs/agent-execution/P07-security-closure.md` | P07 | code+test | pending | pending | `d11eb355b50431bf1079f78a67dae052446ffd1bcd51bafd8bf6a856da9b7c2b` |
 | `docs/agent-execution/P08-kpi-certification.md` | P08 | code+test | pending | pending | `c6f7ad6bf671fdf67b4c2879bb124c54528ab8312abf7100946d108e56b68d49` |
 | `docs/agent-execution/P08-unknown-sweep.md` | P08 | code+test | pending | pending | `2823e1b20aa60048c27e6bc796e0bea4bf846d9a07b57c138d09f0391771df89` |
-| `docs/agent-execution/P09-PAGE-INVENTORY.md` | P09 | code+test | pending | pending | `b4f14d15b61d6737b3829af6fa1bb044333f246a80d490d94fb40de5f39abcc2` |
+| `docs/agent-execution/P09-PAGE-INVENTORY.md` | P09 | code+test | pending | pending | `233a14cca72cd65cac02cf91fb947b6c9d3e5f1e4175c8f36c6a9f35f399c6e8` |
 | `docs/agent-execution/P09-adoption-kit.md` | P09 | code+test | pending | pending | `8246fb83ee6409fc87ec55235daf09386dd24fcc7509ae392e649aff81bb1081` |
 | `docs/agent-execution/P10-gate-dossiers.md` | P10 | code+test | pending | pending | `20c3eb48b5a799f93ababe903e956ed4e6d32bcfb182098d86317fa8aec282b6` |
 | `docs/agent-execution/P11-R2-ppm-fix.md` | P11 | code+test | pending | pending | `d0b350bb851c15e251daa0d5dc9b84082fa359f3291207c81b8c0e759ae69a4e` |
@@ -240,8 +240,8 @@ not the browser-checked level.
 
 | File | SHA-256 |
 |---|---|
-| `docs/agent-execution/INVENTORY.json` | `2aae73ca31860bffee5ac701cb922648b8ea34714d2382aca242d92093132844` |
-| `docs/agent-execution/INVENTORY.md` | `e3a3e7d6eea0409582fe1868bf71db631d303d128fee1b8a05933ff3d6ee2e9f` |
+| `docs/agent-execution/INVENTORY.json` | `15e9c1ef10b048d193d6076271cb9356cbde1b61517c8609efa7d9cb634efac1` |
+| `docs/agent-execution/INVENTORY.md` | `4a94e13f60d2e78a92b4ee6f81bf9c9563c7593d564631b5bb137c61ad09ff62` |
 | `docs/agent-execution/TRACEABILITY.md` | `bab98d60573cc653947f1acead471e8655cbc78134969e91ee7f281ff9876c0a` |
 | `docs/ops/AUTHZ-MATRIX.md` | `b718b64fff1f6f6f4fc6ea729f66ad9565c988f5dc601b9073dfc20b4ab4e93e` |
 | `docs/ops/FLAG-REGISTER.md` | `f0c695c7960cac781d281c1bb4f929890911542445c0bc2338df5a5e40019cb4` |

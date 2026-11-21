@@ -29,7 +29,7 @@
 | Layer | Numerator | Denominator | Exclusions | Window | Code | Pinned by |
 |---|---|---|---|---|---|---|
 | Screen (trend) | responded − flagged late | responded tickets (non-empty `Responded Time`) | none | selected period | `public/lib/dashboard-shared.js:271` (`fr_violated_pct:  pct(frViol, responded)`) | `tests/dashboard-shared-sla-rates.test.js` |
-| Screen (technician table) | 1 − late/responded | responded per technician | none | selected period | `public/index.html:1473` (`frSla: e.respondedN > 0`) | — |
+| Screen (technician table) | 1 − late/responded | responded per technician | none | selected period | `public/index.html:1483` (`frSla: e.respondedN > 0`) | — |
 | API (calendar reader, registry `helpdesk.first_reply_sla_pct`) | responded AND flag not true/1/yes | responded | none (cancelled kept) | calendar month | `reports-db.js:2991` (`sla_reply_pct: rplyTotal > 0`), `services/metricRegistry.js:39` (`M('helpdesk.first_reply_sla_pct'`) | `tests/uat-itsm-figures.test.js` |
 | A7 — incl. open past target | responded − late | responded **+ open, unanswered tickets flagged late** (no first-response due time is synced → flag only) | cancelled never | same | `public/lib/slaDual.js:72` (`function openFrBreached(t)`), SQL `services/slaDefinition.js:74` (`const OPEN_FR_BREACHED_SQL`) | `tests/sla-dual.test.js`, `tests/sla-dual-pg.test.js` |
 | PPTX | = API `sla_reply_pct` | | | calendar month | `services/reportPayload.js:129` (`out.frt_sla        = _nullable(cur.sla_reply_pct)`) | `tests/report-figures-parity.test.js` |
@@ -38,7 +38,7 @@
 ## 3. Change success rate
 | Layer | Numerator | Denominator | Exclusions | Window | Code | Pinned by |
 |---|---|---|---|---|---|---|
-| Screen (deck builder, executive report) | success + success with issues (UDF-aware classifier) | successful + partial + failed + backed out + **cancelled** | pending, rework, deferred | report month | `public/executive-report.html:5249` (`function _tallyChanges(rows)`), classifier `public/executive-report.html:5220` (`function _changeOutcome(r)`) | `tests/report-figures-parity.test.js` |
+| Screen (deck builder, executive report) | success + success with issues (UDF-aware classifier) | successful + partial + failed + backed out + **cancelled** | pending, rework, deferred | report month | `public/executive-report.html:5258` (`function _tallyChanges(rows)`), classifier `public/executive-report.html:5229` (`function _changeOutcome(r)`) | `tests/report-figures-parity.test.js` |
 | API — site report / IT Review ("deck" definition, registry `changes.success_pct_deck`) | same classifier, ported | same, **cancelled included** | same | site report: month; IT Review: rolling 90 days | `reports-db.js:1427` (`success_pct: executed ?`), classifier `reports-db.js:1365` (`function _changeOutcome(row)`), registry `services/metricRegistry.js:92` (`changes.success_pct_deck`) | `tests/review-fidelity.test.js` |
 | API — ITSM definition (registry `changes.success_pct_itsm`) | same | successful + partial + failed + backed out (**cancelled excluded**) | cancelled, pending | same | `reports-db.js:1431` (`success_pct_itsm: (successful`), `services/metricRegistry.js:93` (`changes.success_pct_itsm`) | — |
 | API — status-based (exec summary, roadmap evidence) | `status = Completed` | completed + failed + backed out (status-based, no UDF) | cancelled, rejected | bounded month | `reports-db.js:4956` (`const changeSuccessRate = executed > 0`) | `tests/kpi-change-success.test.js` |

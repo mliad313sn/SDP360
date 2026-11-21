@@ -3,11 +3,11 @@
  "summary": {
   "pages": 68,
   "pages_without_test_reference": 0,
-  "pages_without_declared_role": 7,
+  "pages_without_declared_role": 6,
   "pages_not_in_navigation": 33,
   "pages_not_in_shell_or_module_tabs": 24,
-  "pages_deep_link_only": 9,
-  "pages_without_entry_point": 3,
+  "pages_deep_link_only": 10,
+  "pages_without_entry_point": 2,
   "pages_with_inline_scripts": 45,
   "routes": 810,
   "routes_without_test_reference": 30,
@@ -1472,7 +1472,7 @@
    "id": "PG-not-available",
    "page": "public/not-available.html",
    "requires": [
-    "UNKNOWN"
+    "public"
    ],
    "in_navigation": false,
    "entry_points": {
@@ -1480,11 +1480,11 @@
     "module_tab": false,
     "linked_from": [],
     "redirect_to": null,
-    "deep_link_only": null,
+    "deep_link_only": "branded 404 body served by routes/policyCenter.js when a switched-off page is requested (UX committee); never linked",
     "known_dead_end": null
    },
    "parent": null,
-   "reachable": false,
+   "reachable": true,
    "inline_scripts": 0,
    "bytes": 1180,
    "tests": [
@@ -1959,7 +1959,6 @@
     "tests/home-queue-page.test.js",
     "tests/home-queue.test.js",
     "tests/i18n-coverage.test.js",
-    "tests/i18n-quality.test.js",
     "tests/meeting-status-options.test.js",
     "tests/module-tabs.test.js",
     "tests/my-work.test.js",
@@ -16316,7 +16315,6 @@
     "tests/csp-journey-report.test.js",
     "tests/csp-strict-pages-config.test.js",
     "tests/first-usable.test.js",
-    "tests/i18n-quality.test.js",
     "tests/meeting-status-options.test.js",
     "tests/shell-nav-r4.test.js",
     "tests/site-actions-register.test.js",

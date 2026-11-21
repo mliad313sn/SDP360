@@ -8,11 +8,11 @@
 |---|---:|
 | pages | 68 |
 | pages without test reference | 0 |
-| pages without declared role | 7 |
+| pages without declared role | 6 |
 | pages not in navigation | 33 |
 | pages not in shell or module tabs | 24 |
-| pages deep link only | 9 |
-| pages without entry point | 3 |
+| pages deep link only | 10 |
+| pages without entry point | 2 |
 | pages with inline scripts | 45 |
 | routes | 810 |
 | routes without test reference | 30 |
@@ -70,7 +70,7 @@
 | PG-meetings-unsigned | public/meetings-unsigned.html | any | no | 2 | 4 |
 | PG-meetings | public/meetings.html | any | yes | 2 | 10 |
 | PG-no-access | public/no-access.html | any | no | 0 | 2 |
-| PG-not-available | public/not-available.html | UNKNOWN | no | 0 | 1 |
+| PG-not-available | public/not-available.html | public | no | 0 | 1 |
 | PG-notifications | public/notifications.html | any | yes | 1 | 4 |
 | PG-obligations | public/obligations.html | any | yes | 0 | 5 |
 | PG-policies | public/policies.html | admin / committee-member | yes | 1 | 7 |
@@ -83,7 +83,7 @@
 | PG-report-studio | public/report-studio.html | any | yes | 1 | 4 |
 | PG-reports | public/reports.html | any | yes | 2 | 43 |
 | PG-rfi | public/rfi.html | any | yes | 1 | 5 |
-| PG-site-actions | public/site-actions.html | any | yes | 1 | 20 |
+| PG-site-actions | public/site-actions.html | any | yes | 1 | 19 |
 | PG-site-awareness | public/site-awareness.html | site-business / group-business / executive | yes | 2 | 13 |
 | PG-site-report | public/site-report.html | UNKNOWN | no | 0 | 6 |
 | PG-system-logs | public/system-logs.html | super_admin | yes | 1 | 4 |
@@ -145,7 +145,7 @@
 | public/meetings-unsigned.html | — | yes | — | — | — | meetings.html |
 | public/meetings.html | yes | yes | lib/workspaceProfiles.js, meeting.html, meetings-import.html | — | — | shell |
 | public/no-access.html | — | — | auth.js | — | denial page: reached by redirect from auth.js when a role is missing | auth.js |
-| public/not-available.html | — | — | — | — | — | **NO ENTRY POINT** |
+| public/not-available.html | — | — | — | — | branded 404 body served by routes/policyCenter.js when a switched-off page is requested (UX committee); never linked | — |
 | public/notifications.html | yes | — | home.html, site-actions.html | — | — | shell |
 | public/obligations.html | yes | — | home.html, site-actions.html | — | — | shell |
 | public/policies.html | yes | — | access.html, admin-home.html, lib/workspaceProfiles.js | — | — | shell |

@@ -13,7 +13,7 @@ Pages found: **91** HTML files under `public/` (68 top-level, 21 design-system s
 |---|---|---|---|---|---|---|---|
 | `access.html` | any | no | — (reached from no-access.html) | self-translated | unknown |  | keep |
 | `activity-tracker.html` | admin, tracker-admin, tracker-editor | yes | pmo | translated | unknown |  | keep |
-| `admin-home.html` | ? | no | — | English (pending) | unknown |  | keep |
+| `admin-home.html` | super_admin | yes | — (reached from shell) | English (pending) | unknown |  | keep |
 | `analytics.html` | admin, scorecard-viewer | yes | analyst | translated | unknown | overlaps index.html (ticket trends) and dashboards.html | keep (analyst depth); review after usage data |
 | `assets-finance.html` | UNKNOWN | no | — (reached from assets.html) | — | unknown | redirect stub → assets.html#finance | retire after one release of bookmark grace |
 | `assets-hygiene.html` | UNKNOWN | no | — (reached from assets.html) | — | unknown | redirect stub → assets.html#hygiene | retire after one release of bookmark grace |
@@ -57,7 +57,7 @@ Pages found: **91** HTML files under `public/` (68 top-level, 21 design-system s
 | `meetings-unsigned.html` | any | no | — (reached from meetings.html) | translated | unknown | unsigned PVs also on home.html "awaiting me" | keep (bulk signing) |
 | `meetings.html` | any | yes | coordinator, governance | translated | unknown |  | keep |
 | `no-access.html` | any | no | — (reached from auth.js) | — | unknown |  | keep |
-| `not-available.html` | ? | no | — | — | unknown |  | keep |
+| `not-available.html` | public | no | — (reached from ?) | — | unknown |  | keep |
 | `notifications.html` | any | yes | — (reached from shell) | translated | unknown |  | keep |
 | `obligations.html` | any | yes | — (reached from shell) | self-translated | unknown | governance obligations vs policies.html | keep |
 | `policies.html` | admin, committee-member | yes | governance | self-translated | unknown |  | keep |

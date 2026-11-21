@@ -142,7 +142,9 @@ function install(dicts, html) {
 }
 
 test('a sentence split by <strong> is translated whole and keeps its inline tags', () => {
-  const src = read('public/site-actions.html').match(/<div class="sa-hero">[\s\S]*?<p>([\s\S]*?)<\/p>/)[1];
+  // The page's hero was shortened to one plain sentence by the UX committee work; the mechanism is still pinned on
+  // the original bold-split sentence, whose whole-sentence entry stays in site-actions.fr.js.
+  const src = 'Every still-open action — and every still-open <strong>problem</strong> raised in a meeting — for one site, gathered from where they live — <strong>Meetings</strong>,\n      <strong>Business Incubation</strong> sessions, <strong>Inspections</strong> and the weekly <strong>Report follow-ups</strong> — so you can see it all in one\n      place and close it (or jump to where it is closed). Report follow-ups show the latest weekly report.';
   const { body } = install(['common.fr.js', 'site-actions.fr.js'], (el) => {
     const p = el('P');
     for (const part of src.split(/(<strong>[^<]*<\/strong>)/)) {
