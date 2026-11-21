@@ -43,6 +43,11 @@ desktop.ini
 # them client-side.
 !public/tracker-icons/*.png
 
+# ── EXCEPTION: UX polish evidence (2026-11) — small before/after screenshots and their contact sheet.
+# For a person to look at; never compared by a test. Regenerate with the journey harness (docs/ux/VISUAL-POLISH-2026-11.md).
+!docs/ux/polish-shots/*.png
+!docs/ux/polish-shots/*/*.png
+
 # ── EXCEPTION: official EDV brand assets used by the unified shell ───
 # The shell logo and login-page badge load from public/brand/. These
 # files come from the EDV brand-guidelines folder (logo HIGH WHITE.png
