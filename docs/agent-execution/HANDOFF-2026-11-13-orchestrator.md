@@ -223,3 +223,19 @@ node tools/test/run-all.js > /home/user/suite.log 2>&1     # full suite, ~18 min
 - Still human: G01 (who holds DB login + SDP_CONFIG_KEY), DBA hardening re-run after 137 + SDP_LEDGER_SCHEMA, KPI committee
   bands/min_closed/residual rule, HD-P14/P15, HD-S04/S14, French glossary D-2, field UAT before relaxing "one editor per
   inspection", Finance G14, the 21 RELEASE-GATES rows.
+
+## Update 2026-11-21 07:30 UTC (orchestrator)
+
+- Round 9 (928ca8f0, CI green): **P0 = 0, P1 = 0 on all six seats (fourth round in a row).** Fixes 37–39 merged:
+  37 PPM/data (RAID edits merge onto the stored entry — only an explicit clear resets; pre-filled edit form; scores 1–3;
+  high card lower bound; partial marker), 38 field/UX (offline-queue drains share the save write-back and chain versions;
+  versionless saves never delete actions by omission), 39 audit/ops (signed kid history `kidatt:` and signed anchor events;
+  rotation resumes only with `SDP_CONFIG_KEY_OLD` or `tools/pg/audit-chain-accept-rotation.js`; system_log audit rows
+  append-only, migration 140; Policy Center requests origin-signed and CLI tokens bound to their request; unbound counts
+  files refused; login 503 on DB outage).
+- Round-9 seat reports in `docs/agent-execution/p11/round9-928ca8f0/`; Round 9 section in P11-readiness-report.md.
+- Operational changes for deployment: a key rotation / restore onto another key no longer resumes the audit chain on its own
+  (keep the old key for one night as SDP_CONFIG_KEY_OLD, or run the accept tool — a human decision); Policy Center requests
+  pending at deployment must be re-filed; reload open inspection tabs after deploy.
+- Still human: G01 key/DB separation, DBA hardening (now also owns system_log), KPI committee items, HD-P14/P15, HD-S04/S14,
+  versionless-save cut-off, French glossary D-2, field UAT, Finance G14, the 21 RELEASE-GATES rows.
