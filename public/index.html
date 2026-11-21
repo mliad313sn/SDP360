@@ -27,6 +27,13 @@ a{color:var(--blue);text-decoration:none}
 .btn-export{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.4);border-radius:4px;color:#fff;padding:5px 12px;cursor:pointer;font-size:12px;font-weight:600;letter-spacing:.3px}
 .btn-export:hover{background:rgba(255,255,255,.24)}
 .btn-export:disabled{opacity:.5;cursor:not-allowed}
+.pb-menu{position:relative;display:inline-block}
+.pb-menu>summary{list-style:none;display:inline-flex;align-items:center}
+.pb-menu>summary::-webkit-details-marker{display:none}
+.pb-menu>summary::after{content:"▾";margin-left:6px;font-size:10px}
+.pb-menu__list{position:absolute;right:0;top:calc(100% + 6px);z-index:70;min-width:230px;padding:6px;display:flex;flex-direction:column;gap:2px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:8px;box-shadow:var(--shadow-md)}
+.pb-menu__list .btn-export{display:flex;align-items:center;gap:8px;min-height:36px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:var(--color-text-strong);font-size:13px;font-weight:600;letter-spacing:0;text-align:left}
+.pb-menu__list .btn-export:hover{background:var(--gray-50)}
 .btn-unassigned{border-radius:4px;color:#fff;padding:5px 12px;cursor:pointer;font-size:12px;font-weight:600;letter-spacing:.3px;border:1px solid rgba(220,38,38,.7);background:rgba(220,38,38,.2)}
 .btn-unassigned:hover{background:rgba(220,38,38,.38)}
 .btn-unassigned.none{border-color:rgba(255,255,255,.4);background:rgba(255,255,255,.15);font-weight:400}
@@ -44,6 +51,18 @@ a{color:var(--blue);text-decoration:none}
 .fb-sync-btn:hover{background:rgba(0,0,0,.07)}
 @keyframes fb-pulse{0%,100%{opacity:1}50%{opacity:.45}}
 .filter-bar{display:flex;align-items:center;gap:8px;padding:8px 14px;background:#fff;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.flt-more-btn{display:inline-flex;align-items:center;gap:6px;min-height:30px;padding:0 10px;border:1px solid var(--border);border-radius:6px;background:var(--color-surface);color:var(--slate);font-size:12px;font-weight:600;cursor:pointer}
+.flt-more-btn:hover,.flt-more-btn[aria-expanded="true"]{background:var(--gray-50);border-color:var(--gray-400)}
+.flt-more-btn .icon{width:14px;height:14px;margin:0}
+.flt-more-n{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--color-primary-fill);color:var(--color-text-on-dark);font-size:11px;font-weight:700}
+.flt-chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.flt-chips:empty{display:none}
+.flt-chip{display:inline-flex;align-items:center;gap:6px;min-height:26px;padding:0 4px 0 10px;border-radius:13px;background:var(--color-info-bg);color:var(--color-text-strong);font-size:12px;max-width:260px}
+.flt-chip b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.flt-chip button{width:22px;height:22px;border:0;border-radius:50%;background:transparent;color:inherit;font-size:14px;line-height:1;cursor:pointer}
+.flt-chip button:hover,.flt-chip button:focus-visible{background:var(--gray-200)}
+.flt-more-panel{flex:1 1 100%;display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding-top:8px;border-top:1px solid var(--border)}
+.flt-more-panel[hidden]{display:none}
 .filter-label{font-size:11px;color:var(--slate3);font-weight:600;letter-spacing:.5px;text-transform:uppercase;white-space:nowrap}
 select.flt{border:1px solid var(--border);border-radius:5px;padding:5px 10px;font-size:12px;color:var(--slate);background:#fff;cursor:pointer;min-width:140px}
 select.flt:focus{outline:2px solid var(--orange);border-color:transparent}
@@ -211,9 +230,15 @@ select.flt:focus{outline:2px solid var(--orange);border-color:transparent}
   <span class="shell-page-bar-spacer"></span>
   <button class="btn-refresh" onclick="location.reload()" style="font-size:11.5px;padding:5px 10px">⟳ Refresh</button>
   <button class="btn-refresh" id="btnForceSync" onclick="forceSync()" title="Clear server cache and fetch fresh data from Zoho" style="display:none;font-size:11.5px;padding:5px 10px"><i class="icon icon-zap"></i>Force Sync</button>
-  <button class="btn-export" id="btnExport" onclick="exportCSV()" title="Export current period ticket data to CSV" style="font-size:11.5px;padding:5px 10px"><i class="icon icon-download"></i>Export CSV</button>
-  <!-- Risk Register Occurrence export (purely additive, 2026-05-28). Reads from local SQLite (request_records), classifies incidents into 5 risk domains, outputs the monthly Occurrence sheet. Monthly-only — disabled when view mode is weekly. -->
-  <button class="btn-export" id="btnRiskRegister" onclick="exportRiskRegister()" title="Export Risk Register Occurrence sheet for the selected month (Excel)" style="font-size:11.5px;padding:5px 10px"><i class="icon icon-download"></i>Export Risk Register</button>
+  <!-- visual F15: one "Export" menu instead of two buttons of equal weight (same buttons, same ids, same handlers) -->
+  <details class="pb-menu" id="pbExport">
+    <summary class="btn-export" style="font-size:11.5px;padding:5px 10px"><i class="icon icon-download"></i>Export</summary>
+    <div class="pb-menu__list">
+    <button class="btn-export" id="btnExport" onclick="exportCSV()" title="Export current period ticket data to CSV"><i class="icon icon-download"></i>Export CSV</button>
+    <!-- Risk Register Occurrence export (purely additive, 2026-05-28). Reads from local SQLite (request_records), classifies incidents into 5 risk domains, outputs the monthly Occurrence sheet. Monthly-only — disabled when view mode is weekly. -->
+    <button class="btn-export" id="btnRiskRegister" onclick="exportRiskRegister()" title="Export Risk Register Occurrence sheet for the selected month (Excel)"><i class="icon icon-download"></i>Export Risk Register</button>
+    </div>
+  </details>
   <button class="btn-unassigned none" id="btnUnassigned" onclick="openUnassignedModal()" title="View open tickets not yet assigned to a technician — respects current Site &amp; Group filters" style="font-size:11.5px;padding:5px 10px"><i class="icon icon-user"></i>Unassigned (—)</button>
 </div>
 <div class="accent-strip"></div>
@@ -274,6 +299,16 @@ select.flt:focus{outline:2px solid var(--orange);border-color:transparent}
     <button class="grp-config-btn" onclick="openGroupConfig()" title="Configure team presets" aria-label="Configure team presets"><i class="icon icon-sliders"></i></button>
   </div>
   <span class="filter-sep"></span>
+  <span class="filter-label" id="periodLabel">Report Week</span>
+  <select class="flt" id="fPeriod" aria-labelledby="periodLabel" onchange="applyFilters()" style="min-width:200px"></select>
+  <span class="filter-sep"></span>
+  <!-- visual F15 — the secondary filters fold behind one disclosure; an active one stays visible as a chip. The
+       controls, their ids and what they filter are unchanged. -->
+  <button type="button" class="flt-more-btn" id="fltMoreBtn" aria-expanded="false" aria-controls="fltMorePanel"><i class="icon icon-sliders" aria-hidden="true"></i><span>More filters</span><span class="flt-more-n" id="fltMoreN" hidden></span></button>
+  <div class="flt-chips" id="fltChips" aria-label="Active filters"></div>
+  <div class="hdr-sep"></div>
+  <span class="period-badge" id="periodBadge">Loading…</span>
+  <div class="flt-more-panel" id="fltMorePanel" hidden>
   <span class="filter-label">Category</span>
   <select class="flt" id="fCat" aria-label="Category" onchange="applyFilters()"><option value="all">All Categories</option></select>
   <span class="filter-sep"></span>
@@ -285,9 +320,6 @@ select.flt:focus{outline:2px solid var(--orange);border-color:transparent}
     <option value="Medium">Medium</option>
     <option value="Low">Low</option>
   </select>
-  <span class="filter-sep"></span>
-  <span class="filter-label" id="periodLabel">Report Week</span>
-  <select class="flt" id="fPeriod" aria-labelledby="periodLabel" onchange="applyFilters()" style="min-width:200px"></select>
   <span class="filter-sep"></span>
   <!-- 4 multi-select filters added 2026-06-09 (status/type/impact/mode).
        Each widget uses the same dropdown-checkbox pattern as the Group
@@ -347,8 +379,7 @@ select.flt:focus{outline:2px solid var(--orange);border-color:transparent}
     <option value="12" selected>12 wks</option>
     <option value="16">16 wks</option>
   </select>
-  <div class="hdr-sep"></div>
-  <span class="period-badge" id="periodBadge">Loading…</span>
+  </div>
 </div>
 
 <div class="page">
@@ -1924,7 +1955,43 @@ function _zohoSlaPct(periodKey){
   return isNaN(v)?null:Math.round((100-v)*10)/10;
 }
 
+// visual F15 — "More filters": a disclosure for the secondary filters and chips for the active ones. Presentation
+// only: the chips read the same controls applyFilters() reads, and removing a chip resets that control through its
+// own handler (applyFilters / mfAll), exactly as doing it by hand would.
+function toggleMoreFilters(open){
+  const p=document.getElementById('fltMorePanel'), b=document.getElementById('fltMoreBtn'); if(!p||!b) return;
+  const on = open===undefined ? p.hidden : !!open;
+  p.hidden=!on; b.setAttribute('aria-expanded', on?'true':'false');
+  try{ localStorage.setItem('hd_more_filters', on?'1':'0'); }catch(_e){}
+}
+function _activeSecondaryFilters(){
+  const out=[]; const sel=(id,label)=>{ const el=document.getElementById(id); if(el && el.value!=='all'){ const o=el.options[el.selectedIndex]; out.push({label, value:o?o.textContent:el.value, clear:()=>{ el.value='all'; applyFilters(); }}); } };
+  sel('fCat','Category'); sel('fPri','Priority');
+  [['mfStatus','Status'],['mfType','Type'],['mfImpact','Impact'],['mfMode','Mode']].forEach(([wid,label])=>{
+    let s=null; try{ s=_mfGetState(wid); }catch(_e){ s=null; }
+    if(s===null||s===undefined) return;
+    const btn=document.getElementById(wid+'Btn');
+    out.push({label, value:(btn?btn.textContent:'').replace(/^▾\s*/,''), clear:()=>mfAll(wid,true)});
+  });
+  return out;
+}
+function renderFilterChips(){
+  const box=document.getElementById('fltChips'), n=document.getElementById('fltMoreN'); if(!box) return;
+  const act=_activeSecondaryFilters();
+  box.textContent='';
+  act.forEach(f=>{
+    const chip=document.createElement('span'); chip.className='flt-chip';
+    const b=document.createElement('b'); b.textContent=f.label+': '+f.value; b.title=b.textContent;
+    const x=document.createElement('button'); x.type='button'; x.textContent='×'; x.setAttribute('aria-label','Remove filter '+f.label);
+    x.addEventListener('click', f.clear);
+    chip.appendChild(b); chip.appendChild(x); box.appendChild(chip);
+  });
+  if(n){ n.hidden=!act.length; n.textContent=act.length?String(act.length):''; }
+}
+(function(){ const b=document.getElementById('fltMoreBtn'); if(b) b.addEventListener('click',()=>toggleMoreFilters());
+  try{ if(localStorage.getItem('hd_more_filters')==='1') toggleMoreFilters(true); }catch(_e){} })();
 function renderAll(){
+  try{ renderFilterChips(); }catch(_e){}
   const modeLabel={weekly:'Weekly',monthly:'Monthly',quarterly:'Quarterly',yearly:'Yearly'}[VIEW_MODE];
   setH('periodBadge',modeLabel+': '+pCmpLabel(REF_P)+'  vs  '+pCmpLabel(CMP_P));
   const r=pStats(REF_P),c=pStats(CMP_P);

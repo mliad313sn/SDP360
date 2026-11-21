@@ -67,10 +67,15 @@ runJourney('UAT S7 super_admin / IT operations (simulation, not acceptance)', as
         await p.waitForTimeout(1500);
         assert.deepStrictEqual(await c.layoutProblems(p), [], 'Users panel');
         // UAT-OI-03 — every visible rail entry (and every tab of a grouped entry), not only the Users card
+        // VISUAL POLISH 3 (admin P2-10): at this width the section list is folded behind the "Section: …" button and
+        // closes after each choice — the walk opens it first, as a user would.
+        const openRail = () => p.evaluate(() => { const r = document.getElementById('admin-rail'), t = document.getElementById('admin-rail-toggle'); if (t && t.offsetParent !== null && !r.classList.contains('is-open')) t.click(); });
+        await openRail();
         const rail = await p.evaluate(() => [...document.querySelectorAll('#admin-rail .admin-rail__item')]
           .filter((b) => b.offsetParent !== null).map((b) => b.dataset.panel || b.dataset.group));
         let seen = 0;
         for (const id of rail) {
+          await openRail();
           await p.evaluate((k) => [...document.querySelectorAll('#admin-rail .admin-rail__item')]
             .find((b) => b.offsetParent !== null && (b.dataset.panel || b.dataset.group) === k).click(), id);
           await p.waitForTimeout(300);

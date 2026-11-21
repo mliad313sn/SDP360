@@ -152,29 +152,6 @@ figcaption {
 }
 
 /* — buttons — */
-.btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  cursor: pointer; text-decoration: none;
-  font-family: var(--ir-font-heading); font-weight: var(--ir-font-heading-weight);
-  font-size: 14px; line-height: 1.2; color: var(--ir-color-text); /* matches the .input's 14px —
-     the pair sits side by side in sign-up rows */
-  background: transparent; border: 1px solid transparent;
-  padding: var(--ir-space-2) calc(var(--ir-space-3) * 1.2);
-  border-radius: var(--ir-radius-md);
-}
-.btn svg { display: block; }
-.btn:disabled { opacity: 0.45; cursor: not-allowed; }
-.btn-primary { background: var(--ir-color-accent); color: var(--ir-color-bg); }
-.btn-primary:hover { background: var(--ir-color-accent-600); }
-.btn-primary:active { background: var(--ir-color-accent-700); }
-.btn-secondary { border-color: var(--ir-color-divider); }
-.btn-secondary:hover { background: color-mix(in srgb, var(--ir-color-text) 7%, transparent); }
-.btn-secondary:active { background: color-mix(in srgb, var(--ir-color-text) 14%, transparent); }
-.btn-ghost { color: var(--ir-color-accent); padding-inline: var(--ir-space-1); }
-.btn-ghost:hover { background: color-mix(in srgb, var(--ir-color-accent) 10%, transparent); }
-.btn-ghost:active { background: color-mix(in srgb, var(--ir-color-accent) 18%, transparent); }
-.btn-icon { width: 36px; height: 36px; padding: 0; }
-.btn-block { width: 100%; margin-top: var(--ir-space-2); justify-content: flex-start; text-align: left; }
 
 /* — forms — */
 .field > label {
@@ -301,6 +278,12 @@ textarea.input { min-height: 90px; resize: vertical; }
       .brief-page { border: none !important; }
     }
 
+    /* ours (executive F22): the KPI band wraps instead of scrolling sideways — 4 columns on a tablet, 2 on a phone;
+       the site filter wraps too (it carries names now) */
+    @media (max-width: 1100px) { .ir-kpi-band { grid-template-columns: repeat(4, 1fr) !important; } }
+    @media (max-width: 600px) { .ir-kpi-band { grid-template-columns: repeat(2, 1fr) !important; } }
+    a[data-q="site"] { white-space: nowrap; }
+    div:has(> a[data-q="site"]) { flex-wrap: wrap; }
     /* --- ours: three small additions on top of his system --- */
     /* style-hover is his runtime's hover shorthand; all 3 uses are opacity:0.85. */
     [style-hover]:hover { opacity: 0.85; }
@@ -387,7 +370,7 @@ textarea.input { min-height: 90px; resize: vertical; }
     </div>
 
     <!-- 1. KPI BAND -->
-    <div style="display:grid; grid-template-columns:repeat(8,1fr); gap:2px; background:var(--ir-color-divider); border-bottom:2px solid var(--ir-color-divider)">
+    <div class="ir-kpi-band" style="display:grid; grid-template-columns:repeat(8,1fr); gap:2px; background:var(--ir-color-divider); border-bottom:2px solid var(--ir-color-divider)">
       <sc-for list="{{ kpis }}" as="k">
         <div style="background:var(--ir-color-bg); padding:16px 16px 14px">
           <div style="font-size:11px; font-weight:700; letter-spacing:0.08em; color:var(--ir-color-neutral-600); text-transform:uppercase">{{ k.label }}</div>

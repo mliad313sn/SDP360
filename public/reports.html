@@ -66,17 +66,6 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 .week-bar .spacer{flex:1}
 
 /* ── Buttons ─────────────────────────────────────────────────── */
-.btn{padding:9px 18px;border-radius:7px;border:none;font-size:0.88rem;font-weight:600;cursor:pointer;transition:all 0.15s;display:inline-flex;align-items:center;gap:6px}
-.btn-primary{background:var(--color-primary-fill, #C2410C);color:#fff !important;-webkit-text-fill-color:#fff !important}
-.btn-primary:hover{background:var(--color-primary-fill-hover, #9A3412)}
-.btn-secondary{background:var(--light-bg);color:var(--dark-blue) !important;-webkit-text-fill-color:var(--dark-blue) !important;border:1.5px solid var(--border)}
-.btn-secondary:hover{background:#e8ecf5}
-.btn-danger{background:#fff;color:var(--red) !important;-webkit-text-fill-color:var(--red) !important;border:1.5px solid #f5b7b1}
-.btn-danger:hover{background:#fdf2f2}
-.btn-sm{padding:5px 12px;font-size:0.8rem}
-.btn-success{background:var(--green);color:#fff !important;-webkit-text-fill-color:#fff !important}
-.btn-success:hover{opacity:0.88}
-.btn:disabled{opacity:0.5;cursor:not-allowed}
 
 /* ── Form elements ───────────────────────────────────────────── */
 .form-group{margin-bottom:14px}
@@ -104,6 +93,14 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 .btn-remove{background:none;border:none;color:#bbb;cursor:pointer;font-size:1rem;padding:2px 6px;border-radius:4px;transition:color 0.15s}
 .btn-remove:hover{color:var(--red)}
 .btn-add-row{margin-top:10px;font-size:0.82rem}
+.act-row .btn-add-row{margin-top:0}
+.act-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px}
+.act-menu{position:relative}
+.act-menu>summary{list-style:none}
+.act-menu>summary::-webkit-details-marker{display:none}
+.act-menu__list{position:absolute;left:0;top:calc(100% + 6px);z-index:60;min-width:260px;padding:6px;display:flex;flex-direction:column;gap:2px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:8px;box-shadow:var(--shadow-md)}
+.act-menu__list button{display:flex;align-items:center;gap:8px;min-height:36px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:var(--color-text-strong);font:inherit;font-size:0.85rem;font-weight:600;text-align:left;cursor:pointer}
+.act-menu__list button:hover,.act-menu__list button:focus-visible{background:var(--gray-50)}
 
 /* ── Lights section ──────────────────────────────────────────── */
 .lights-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
@@ -149,9 +146,11 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 .role-pill{padding:2px 8px;border-radius:10px;font-size:0.74rem;font-weight:700}
 .role-admin{background:#1c3a5e22;color:var(--dark-blue)}
 .role-executive{background:#7c3aed22;color:#5b21b6}
+.role-super_admin{background:var(--color-text-strong);color:var(--color-text-on-dark)}
 .role-editor{background:#e8730022;color:#c55a00}
 .role-viewer{background:#27ae6022;color:#1a7a44}
 .status-active{color:var(--green);font-weight:600;font-size:0.82rem}
+tr.is-dirty > td:first-child{box-shadow:inset 3px 0 0 var(--color-primary-fill)}
 .status-inactive{color:#bbb;font-weight:600;font-size:0.82rem}
 
 /* ── Report list ─────────────────────────────────────────────── */
@@ -200,6 +199,18 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 .section-tab{padding:7px 16px;border-radius:6px;border:1.5px solid var(--border);background:#fff;font-size:0.83rem;font-weight:600;cursor:pointer;color:#6b7a99;transition:all 0.15s}
 .section-tab.active{background:var(--color-primary-fill, #C2410C);color:#fff;border-color:var(--orange)}
 .section-tab.done{border-color:var(--green);color:var(--green)}
+.section-tab.done::before{content:"✓ ";font-weight:700}
+.rl-lead{display:flex;align-items:center;gap:16px;flex-wrap:wrap;border-left:4px solid var(--color-primary-fill);margin-bottom:18px}
+.rl-lead[hidden]{display:none}
+.rl-lead__copy{flex:1 1 280px;min-width:0}
+.rl-lead__eyebrow{font-size:0.75rem;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--color-text-muted)}
+.rl-lead__title{font-size:1.2rem;font-weight:700;color:var(--dark-blue);margin:2px 0}
+.rl-lead__site{font-weight:600;color:var(--color-text-muted)}
+.rl-lead__status{font-size:0.9rem;color:var(--color-text)}
+.rl-lead__btn{min-height:44px;padding:0 22px;font-size:0.95rem}
+/* with the lead card on screen its button is the page's one primary action */
+body.rl-has-lead #btn-open-create{background:var(--light-bg);color:var(--dark-blue) !important;-webkit-text-fill-color:var(--dark-blue) !important;border:1.5px solid var(--border)}
+.report-progress{font-size:0.8rem;color:var(--color-text-muted);font-weight:600;margin-top:2px}
 
 /* ── Submit bar ──────────────────────────────────────────────── */
 .submit-bar{position:sticky;bottom:0;background:#fff;border-top:2px solid var(--border);padding:14px 32px;display:flex;align-items:center;gap:12px;z-index:50;box-shadow:0 -2px 10px rgba(0,0,0,0.07)}
@@ -269,9 +280,19 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 .saving-indicator{font-size:0.78rem;color:#6b7a99;display:flex;align-items:center;gap:4px}
 .saving-indicator.saving{color:var(--amber)}
 .saving-indicator.saved{color:var(--green)}
+.saving-indicator.failed{color:var(--red)}
+.saving-retry{border:1px solid var(--rag-red);background:var(--color-surface);color:var(--rag-red);border-radius:6px;padding:4px 10px;font:inherit;font-weight:700;cursor:pointer}
+.saving-retry:hover{background:var(--color-danger-bg)}
 
 /* ── Admin left-rail (settings-style two-column layout) ─────────── */
 .admin-layout{display:flex;gap:22px;align-items:flex-start}
+.admin-rail-toggle{display:none;align-items:center;gap:6px;min-height:44px;padding:0 14px;border:1px solid var(--color-border-strong);border-radius:8px;background:var(--color-surface);color:var(--color-text-strong);font:inherit;font-size:0.9rem;cursor:pointer}
+.admin-rail-toggle .icon{margin-left:auto;width:16px;height:16px}
+.fe-badge{text-decoration:none;margin-left:4px}
+#page-admin .form-group:has(> input[type="checkbox"]){display:flex;flex-direction:row-reverse;justify-content:flex-end;align-items:flex-start;gap:8px;grid-column:1/-1}
+#page-admin .form-group:has(> input[type="checkbox"]) > input[type="checkbox"]{flex:none;width:auto;margin:3px 0 0}
+#page-admin .form-group:has(> input[type="checkbox"]) > label{margin:0}
+.fe-badge:hover{text-decoration:underline}
 .admin-rail{flex:0 0 210px;position:sticky;top:16px;display:flex;flex-direction:column;gap:4px;
   background:#fff;border:1px solid var(--border);border-radius:10px;padding:8px}
 .admin-rail__item{display:flex;align-items:center;gap:10px;width:100%;text-align:left;
@@ -316,6 +337,8 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
   .admin-content{width:100%}
   .admin-panel.active{overflow-x:auto;-webkit-overflow-scrolling:touch}
   .admin-rail{flex:1 1 auto;position:static;flex-direction:row;flex-wrap:wrap;width:100%}
+  .admin-rail:not(.is-open){display:none}
+  .admin-rail-toggle{display:flex}
   .admin-rail__group{flex:1 1 100%}
   .admin-rail__item{width:auto;flex:1 1 auto;justify-content:flex-start}
   .admin-rail__item small{display:none}
@@ -351,7 +374,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 <script nonce="%%CSP_NONCE%%" src="lib/format.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/codeLabels.js"></script>
 </head>
-<body>
+<body class="edv-ui">
 
 <!-- ══════════════════════════════════════════════════════════════
      APP SHELL
@@ -424,6 +447,16 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
     <div class="page-title">Site Reports</div>
     <div class="page-subtitle">Open or create weekly reports · Export monthly &amp; all-sites PPTX · Browse recent submissions</div>
 
+    <!-- Lead card (site coordinator P2-17): the report that is due, its state, one primary action -->
+    <div class="card rl-lead" id="rl-lead" hidden>
+      <div class="rl-lead__copy">
+        <div class="rl-lead__eyebrow">Weekly report due</div>
+        <div class="rl-lead__title"><span id="rl-lead-week"></span> <span class="rl-lead__site" id="rl-lead-site"></span></div>
+        <div class="rl-lead__status">Status: <b id="rl-lead-status">—</b></div>
+      </div>
+      <button type="button" class="btn btn-primary rl-lead__btn" id="rl-lead-btn">Continue</button>
+    </div>
+
     <!-- ① Open / Create Weekly Report ─────────────────────────────── -->
     <div class="card" style="background:#fff;border-left:4px solid var(--mid-blue);margin-bottom:18px">
       <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px">
@@ -440,7 +473,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <input id="sel-week" type="number" style="width:70px" min="1" max="53" onchange="onSiteWeekChange()">
         <div class="week-badge" id="week-range-badge">—</div>
         <div class="spacer"></div>
-        <button class="btn btn-primary" onclick="openOrCreateReport()">Open / Create Report</button>
+        <button class="btn btn-primary" id="btn-open-create" onclick="openOrCreateReport()">Open / Create Report</button>
       </div>
     </div>
 
@@ -549,7 +582,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <div class="page-subtitle" id="form-subtitle"></div>
       </div>
       <div class="spacer"></div>
-      <div class="saving-indicator" id="saving-indicator"></div>
+      <div class="saving-indicator" id="saving-indicator" role="status" aria-live="polite"></div>
     </div>
 
     <div class="section-tabs" id="section-tabs">
@@ -591,7 +624,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         </div>
         <div id="infra-auto-banner" style="display:none;margin-top:8px;padding:8px 12px;border-radius:8px;background:#fff7ed;border:1px solid #f0c9a0;color:#7a3d12;font-size:0.85rem"></div>
         <div style="margin-top:14px;display:flex;gap:10px;align-items:center">
-          <button class="btn btn-primary" onclick="saveSection(0)"><i class="icon icon-save"></i>Save Infrastructure KPIs</button>
+          <button class="btn btn-secondary" onclick="saveSection(0)" title="Save Infrastructure KPIs"><i class="icon icon-save"></i>Save now</button>
           <button class="btn btn-secondary btn-sm" onclick="resetInfraDefaults()"
             title="Replace all rows with the standard defaults (WAN1/WAN2/LAN/WLAN/Servers/Backup/Radio)"
             style="opacity:0.75">↺ Reset to defaults</button>
@@ -701,7 +734,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         </div>
 
         <div style="margin-top:18px">
-          <button class="btn btn-primary" onclick="saveSection(1)"><i class="icon icon-save"></i>Save Helpdesk Metrics</button>
+          <button class="btn btn-secondary" onclick="saveSection(1)" title="Save Helpdesk Metrics"><i class="icon icon-save"></i>Save now</button>
         </div>
       </div>
     </div>
@@ -750,7 +783,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
           </div>
         </div>
         <div style="margin-top:18px">
-          <button class="btn btn-primary" onclick="saveSection(2)"><i class="icon icon-save"></i>Save Lights</button>
+          <button class="btn btn-secondary" onclick="saveSection(2)" title="Save Lights"><i class="icon icon-save"></i>Save now</button>
         </div>
       </div>
     </div>
@@ -780,16 +813,30 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         </table>
         <!-- Technician autocomplete source (populated by loadTechnicianList) -->
         <datalist id="ai-tech-datalist"></datalist>
-        <button class="btn btn-secondary btn-sm btn-add-row" onclick="addActionRow()">+ Add Action</button>
-        <button class="btn btn-secondary btn-sm" id="btn-carry-over" onclick="carryOverActions()" style="margin-left:10px">&#8629; Import open actions from a previous week</button>
-        <button class="btn btn-secondary btn-sm" id="btn-merge-dupes" onclick="openMergeCleanup()" style="margin-left:8px" title="Regrouper des actions en double du site (toutes semaines)"><i class="icon icon-git-merge" aria-hidden="true"></i> Fusionner des doublons</button>
-        <button class="btn btn-secondary btn-sm" id="btn-import-modules" onclick="openImportFromModules()" style="margin-left:8px">&#8629; Import from Meetings / Inspections</button>
-        <button class="btn btn-secondary btn-sm" onclick="downloadActionsTemplate()" style="margin-left:10px" title="Download a CSV template with column headers + 3 sample rows"><i class="icon icon-download"></i>CSV Template</button>
-        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('actions-csv-file').click()" style="margin-left:6px" title="Bulk-import action items from a CSV file">⬆ Import CSV</button>
-        <input type="file" id="actions-csv-file" aria-label="Import CSV" accept=".csv,text/csv" style="display:none" onchange="onActionsCsvSelected(event)">
-        <a href="#" onclick="event.preventDefault(); showCsvAllowedValuesModal();" style="margin-left:8px;font-size:0.78rem;color:#6b7a99;text-decoration:none" title="Allowed values reference">ℹ Allowed values</a>
+        <!-- site coordinator P2-11: one primary action; the four ways to import sit in one menu; merging duplicates
+             under "more". Same buttons, same ids, same handlers. -->
+        <div class="act-row">
+          <button class="btn btn-primary btn-sm btn-add-row" onclick="addActionRow()">+ Add Action</button>
+          <details class="act-menu">
+            <summary class="btn btn-secondary btn-sm"><i class="icon icon-download" aria-hidden="true"></i>Import</summary>
+            <div class="act-menu__list">
+              <button type="button" id="btn-carry-over" onclick="carryOverActions()">Open actions from a previous week</button>
+              <button type="button" id="btn-import-modules" onclick="openImportFromModules()">From Meetings / Inspections</button>
+              <button type="button" onclick="document.getElementById('actions-csv-file').click()" title="Bulk-import action items from a CSV file">From a CSV file</button>
+              <button type="button" onclick="downloadActionsTemplate()" title="Download a CSV template with column headers + 3 sample rows">Download the CSV template</button>
+              <button type="button" onclick="showCsvAllowedValuesModal()" title="Allowed values reference">CSV allowed values</button>
+            </div>
+          </details>
+          <details class="act-menu">
+            <summary class="btn btn-secondary btn-sm" aria-label="More actions" title="More actions"><i class="icon icon-more-horizontal" aria-hidden="true"></i></summary>
+            <div class="act-menu__list">
+              <button type="button" id="btn-merge-dupes" onclick="openMergeCleanup()" title="Group duplicate actions of the site (all weeks)"><i class="icon icon-git-merge" aria-hidden="true"></i> Merge duplicates</button>
+            </div>
+          </details>
+          <input type="file" id="actions-csv-file" aria-label="Import CSV" accept=".csv,text/csv" style="display:none" onchange="onActionsCsvSelected(event)">
+        </div>
         <div style="margin-top:18px">
-          <button class="btn btn-primary" onclick="saveSection(3)"><i class="icon icon-save"></i>Save Action Items</button>
+          <button class="btn btn-secondary" onclick="saveSection(3)" title="Save Action Items"><i class="icon icon-save"></i>Save now</button>
         </div>
       </div>
     </div>
@@ -873,7 +920,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
           <label for="ar-plan-note">Plan / blocages</label>
           <textarea id="ar-plan-note" rows="3" style="width:100%" placeholder="Ex. coûts en attente de la comptabilité…"></textarea>
         </div>
-        <div style="margin-top:10px"><button class="btn btn-primary btn-sm" id="ar-save-btn" onclick="saveSection(4)">Enregistrer</button></div>
+        <div style="margin-top:10px"><button class="btn btn-secondary btn-sm" id="ar-save-btn" onclick="saveSection(4)"><i class="icon icon-save"></i>Save now</button></div>
       </div>
     </div>
 
@@ -885,9 +932,10 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
       <div class="report-info">
         <div class="ri-label">Report Status</div>
         <div class="ri-value" id="report-status-label">—</div>
+        <div class="report-progress" id="report-progress" aria-live="polite"></div>
       </div>
       <button class="btn btn-secondary" id="btn-pptx-weekly" onclick="downloadWeeklyPptx()"><i class="icon icon-download"></i>Weekly PPTX</button>
-      <button class="btn btn-success" id="btn-submit" onclick="submitReport()"><i class="icon icon-check" aria-hidden="true"></i> Submit Report</button>
+      <button class="btn btn-primary" id="btn-submit" onclick="submitReport()"><i class="icon icon-check" aria-hidden="true"></i> Submit Report</button>
       <button class="btn btn-secondary" id="btn-revert" onclick="revertReport()" style="display:none">↩ Revert to Draft</button>
       <button class="btn btn-danger btn-sm" id="btn-delete-draft" onclick="deleteCurrentReport()" style="display:none;margin-left:8px" title="Delete this draft report"><i class="icon icon-trash" aria-hidden="true"></i> Delete</button>
     </div>
@@ -1154,6 +1202,8 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
     <div class="page-subtitle">Users, sites, departments, sessions &amp; integrations</div>
 
     <div class="admin-layout">
+      <!-- admin P2-10: on a phone the section list folds into this one button, so the chosen panel comes first -->
+      <button type="button" class="admin-rail-toggle" id="admin-rail-toggle" aria-expanded="false" aria-controls="admin-rail"><span>Section:</span> <b id="admin-rail-current">Users</b> <i class="icon icon-chevron-down" aria-hidden="true"></i></button>
       <nav class="admin-rail" id="admin-rail" aria-label="Admin sections">
         <div class="admin-rail__group">
           <div class="admin-rail__grouphdr"><i class="icon icon-sliders" aria-hidden="true"></i> Global</div>
@@ -1191,7 +1241,11 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <button class="btn btn-secondary btn-sm" style="margin-left:auto" onclick="openEmailMapModal()" title="Bulk-set corporate emails for Microsoft SSO (auto-suggested from each name)."><i class="icon icon-mail" aria-hidden="true"></i> Map SSO emails</button>
         <button class="btn btn-primary btn-sm" onclick="openUserModal()">+ New User</button>
       </h3>
-      <div style="display:flex;gap:8px;align-items:center;margin:0 0 10px"><input type="search" class="edv-input" data-table-filter="#user-table" aria-controls="user-filter-count" aria-label="Search users" placeholder="Search users (name, site, role…)" style="max-width:320px;width:100%"><span id="user-filter-count" class="muted" aria-live="polite" style="font-size:12px;color:var(--gray-500)"></span></div>
+      <div style="display:flex;gap:8px;align-items:center;margin:0 0 10px"><input type="search" class="edv-input" data-table-filter="#user-table" aria-controls="user-filter-count" aria-label="Search users" placeholder="Search users (name, site, role…)" style="max-width:320px;width:100%">
+        <select class="edv-select" id="user-facet-role" data-table-facet="#user-table" data-facet="role" aria-label="Filter by role"><option value="">All roles</option></select>
+        <select class="edv-select" id="user-facet-site" data-table-facet="#user-table" data-facet="site" aria-label="Filter by site"><option value="">All sites</option><option value="none">No site</option></select>
+        <select class="edv-select" data-table-facet="#user-table" data-facet="status" aria-label="Filter by status"><option value="">Any status</option><option value="active">Active</option><option value="disabled">Disabled</option></select>
+        <span id="user-filter-count" class="muted" aria-live="polite" style="font-size:12px;color:var(--gray-500)"></span></div>
       <table class="user-table" id="user-table">
         <thead>
           <tr>
@@ -1199,6 +1253,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
             <th>Full Name</th>
             <th>Site</th>
             <th>Role</th>
+            <th>Sign-in</th>
             <th>Status</th>
             <th>Actions</th>
           </tr>
@@ -2714,6 +2769,8 @@ function api(method, path, body) {
     if (!r.ok) {
       return Promise.reject((data && data.error) || `HTTP ${r.status} ${r.statusText || ''}`.trim());
     }
+    // a settings save may have stored or replaced a secret: refresh the "Set / Not set" badges (display only)
+    if (method === 'PUT' && path === '/api/reports/config' && typeof paintSecretBadges === 'function') setTimeout(paintSecretBadges, 0);
     return data;
   });
 }
@@ -2726,12 +2783,25 @@ function toast(msg, type='info') {
   setTimeout(() => t.remove(), 3500);
 }
 
-function setSaving(state) {
+// ONE save signal for the editor (site coordinator P2-9): "Saving…" → "Saved at 07:18" (it stays, so the user can
+// always see when the last save landed) → "Not saved — retry" (a button; autosave failures are no longer silent).
+// A call with '' keeps the last "Saved at" text instead of blanking the line.
+let _lastSavedAt = null;
+function setSaving(state, section) {
   const el = document.getElementById('saving-indicator');
   if (!el) return;
-  if (state === 'saving') { el.className='saving-indicator saving'; el.textContent='💾 Saving…'; }
-  else if (state === 'saved') { el.className='saving-indicator saved'; el.textContent='✓ Saved'; }
-  else { el.className='saving-indicator'; el.textContent=''; }
+  const hhmm = (d) => String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  if (state === 'saving') { el.className='saving-indicator saving'; el.textContent='Saving…'; }
+  else if (state === 'saved') { _lastSavedAt = new Date(); el.className='saving-indicator saved'; el.textContent='✓ Saved at ' + hhmm(_lastSavedAt); }
+  else if (state === 'failed') {
+    el.className='saving-indicator failed'; el.textContent='';
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'saving-retry'; b.textContent = 'Not saved — retry';
+    b.addEventListener('click', () => saveSection(section == null ? currentSection : section));
+    el.appendChild(b);
+  }
+  else if (state === 'reset') { _lastSavedAt = null; el.className='saving-indicator'; el.textContent=''; }
+  else if (_lastSavedAt) { el.className='saving-indicator saved'; el.textContent='✓ Saved at ' + hhmm(_lastSavedAt); }
+  else { el.className='saving-indicator'; el.textContent='Changes are saved automatically'; }
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -2861,6 +2931,7 @@ async function initApp() {
   if (currentUser.site_id) {
     document.getElementById('sel-site').value = currentUser.site_id;
   }
+  renderLeadCard();
 
   loadReportList();
 
@@ -2943,6 +3014,10 @@ function showPage(name) {
     document.getElementById('nav-admin').style.display = 'inline-block';
   }
 
+  // ia-value F5 / admin P1-3: the admin console is not "Site Reports" — the page bar names it, and the Weekly /
+  // Monthly report tabs (which do not apply there) are hidden while it is open
+  const _lbl = document.getElementById('reports-section-label'); if (_lbl) _lbl.textContent = name === 'admin' ? 'Admin settings' : 'Site Reports';
+  ['nav-reports', 'nav-monthly'].forEach(id => { const b = document.getElementById(id); if (b) b.hidden = name === 'admin'; });
   if (name === 'admin')   loadAdminPage();
   if (name === 'reports') loadReportList();
   if (name === 'monthly') initMonthlyPage();
@@ -2996,17 +3071,55 @@ async function loadReportList(offset) {
       window.__markFirstUsable && window.__markFirstUsable('reports:list');   // F-UX-05
       return;
     }
-    const STATUS = { submitted: '✅ Submitted', ready: '✔ Ready', in_progress: '⏳ In Progress' };
     grid.innerHTML = reports.map(r => `
       <div class="report-card ${esc(r.status)}" onclick="openReportById(${Number(r.id)})">
         <div class="rc-site">${esc(r.site_name)}</div>
         <div class="rc-week">${r.week_display ? esc(r.week_display) : `${esc(r.week_label)} &nbsp;(${esc(r.start_date)} → ${esc(r.end_date)})`}</div>
-        <span class="rc-status ${esc(r.status)}">${STATUS[r.status] || '✏ Draft'}</span>
+        <span class="rc-status ${esc(r.status)}">${esc(reportStatusLabel(r.status))}</span>
         <span style="font-size:0.77rem;color:#bbb;margin-left:8px">Updated ${r.updated_at ? esc(String(r.updated_at).slice(0,10)) : '—'}</span>
       </div>
     `).join('');
     window.__markFirstUsable && window.__markFirstUsable('reports:list');   // F-UX-05
   } catch(e) { grid.innerHTML = `<div class="empty-state"><p>Error loading reports: ${esc(e)}</p></div>`; window.__markFirstUsable && window.__markFirstUsable('reports:error'); }
+}
+
+// ONE status vocabulary for a weekly report — the words Home ("My work") already shows for the same report
+// (services/myWork.js weeklyLabel): the list, the editor and the lead card no longer say "Draft" where Home says
+// "In progress" (site coordinator P2-17).
+function reportStatusLabel(status) {
+  if (status === 'ready') return 'Complete but not submitted';
+  if (status === 'submitted') return 'Submitted';
+  if (status === 'draft' || status === 'in_progress') return 'In progress';
+  return 'Not started';
+}
+
+// Site coordinator P2-17 — the landing page leads with the ONE thing a coordinator comes for: the report that is
+// due, with its state and a single primary button. It uses the picker's own defaults (the user's site, the due
+// week) and the picker's own open/create path; the Group / Year / Week picker stays below for any other week.
+async function renderLeadCard() {
+  const box = document.getElementById('rl-lead'); if (!box) return;
+  const site_id = currentUser && currentUser.site_id ? Number(currentUser.site_id) : null;
+  const year = parseInt(document.getElementById('sel-year').value), week = parseInt(document.getElementById('sel-week').value);
+  if (!site_id || !year || !week) { box.hidden = true; document.body.classList.remove('rl-has-lead'); return; }
+  const site = allSites.find(x => Number(x.id) === site_id);
+  let rep = null, known = true;
+  try {
+    const page = await api('GET', `/api/reports?${new URLSearchParams({ limit: '1', offset: '0', site_id: String(site_id), year: String(year), week: String(week) })}`);
+    rep = ((page && page.rows) || [])[0] || null;
+  } catch (_) { known = false; }
+  const w = 'W' + String(week).padStart(2, '0');
+  const status = rep ? rep.status : null;
+  document.getElementById('rl-lead-week').textContent = _weekBadge(year, week);
+  document.getElementById('rl-lead-site').textContent = site ? (site.name || site.zoho_group || '') : '';
+  // the state is unknown when the list could not be read — never "Not started" on a failed read
+  document.getElementById('rl-lead-status').textContent = known ? reportStatusLabel(status) : '—';
+  const btn = document.getElementById('rl-lead-btn');
+  btn.textContent = (status === 'submitted' ? 'Open ' : rep ? 'Continue ' : 'Start ') + w;
+  btn.onclick = () => {
+    document.getElementById('sel-site').value = site_id; document.getElementById('sel-year').value = year; document.getElementById('sel-week').value = week;
+    return rep ? openReportById(rep.id) : openOrCreateReport();
+  };
+  box.hidden = false; document.body.classList.add('rl-has-lead');
 }
 
 async function openOrCreateReport() {
@@ -3076,6 +3189,7 @@ function renderForm() {
   renderLights();
   renderActions();
   _markSectionTabsFromData();
+  setSaving('reset'); setSaving('');   // a new report: no "Saved at" carried over from the previous one
   loadAssetFollowups();
   // Show audit trail panel and load entries
   document.getElementById('audit-panel').style.display = 'block';
@@ -3084,6 +3198,17 @@ function renderForm() {
 
 // Tabs are marked done from what is already saved (they used to be marked only on
 // a save in the current session, and the class leaked from one report to the next).
+let _actionsSavedEmpty = false;
+// admin P2-6 — Sites: the row's Save appears (as the primary) only once its Zoho group was edited, and the row is
+// marked; the route and what it saves are unchanged (saveSiteGroup → PUT /api/reports/sites/:id).
+document.addEventListener('input', (e) => {
+  const m = e.target && e.target.id && /^site-grp-(\d+)$/.exec(e.target.id); if (!m) return;
+  const b = document.querySelector('[data-site-save="' + m[1] + '"]'); if (b) b.hidden = false;
+  const tr = e.target.closest('tr'); if (tr) tr.classList.add('is-dirty');
+});
+// the Import / "more" menus of the action row close after a choice, on a click outside and on Escape
+document.addEventListener('click', (e) => { document.querySelectorAll('.act-menu[open]').forEach((d) => { if (!d.contains(e.target) || e.target.closest('.act-menu__list button')) d.open = false; }); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') document.querySelectorAll('.act-menu[open]').forEach((d) => { d.open = false; }); });
 function _assetReviewDone(ar) {
   return !!ar && (ar.applicable === false ||
     (String(ar.handled_note || '').trim() !== '' && String(ar.plan_note || '').trim() !== ''));
@@ -3091,15 +3216,33 @@ function _assetReviewDone(ar) {
 // a tab turns green only when its content is complete: every infra KPI row carries a typed value (an empty row is
 // "— Not measured", not done)
 function _infraComplete(rows) { return Array.isArray(rows) && rows.length > 0 && rows.every((k) => String((k && k.status_value) || '').trim() !== ''); }
-function _markSectionTabsFromData() {
+// ONE rule per tab, used when a report opens AND after every save (site coordinator P2-10: a save alone never
+// turns a tab green). 3 = Action Items: rows present, or the section was saved empty in this session ("nothing to
+// follow up this week" is a complete answer once the editor has said so).
+function _sectionComplete(n) {
   const r = currentReport || {};
-  for (let i = 0; i < 5; i++) { const t = document.getElementById('stab-' + i); if (t) t.classList.remove('done'); }
-  const mark = (i, on) => { const t = document.getElementById('stab-' + i); if (t && on) t.classList.add('done'); };
-  mark(0, _infraComplete(r.infra_kpis));   // site coordinator P2: green only when every KPI row has a value
-  mark(1, !!(r.helpdesk && (r.helpdesk.fetched_at || r.helpdesk.updated_at)));
-  mark(2, (r.lights || []).length > 0);
-  mark(3, (r.action_items || []).length > 0);
-  mark(4, _assetReviewDone(r.asset_review));
+  if (n === 0) return _infraComplete(r.infra_kpis);
+  if (n === 1) { const h = r.helpdesk; return !!(h && (h.fetched_at || h.updated_at || (h.chart_data && Array.isArray(h.chart_data.weeks) && h.chart_data.weeks.length))); }
+  if (n === 2) return (r.lights || []).length > 0;
+  if (n === 3) return (r.action_items || []).length > 0 || _actionsSavedEmpty;
+  if (n === 4) return _assetReviewDone(r.asset_review);
+  return false;
+}
+function _paintSectionTab(n, done) {
+  const t = document.getElementById('stab-' + n); if (!t) return;
+  const on = done === undefined ? _sectionComplete(n) : !!done;
+  t.classList.toggle('done', on);
+  t.setAttribute('data-state', on ? 'complete' : 'todo');
+  _paintSectionProgress();
+}
+function _paintSectionProgress() {
+  const el = document.getElementById('report-progress'); if (!el) return;
+  const n = document.querySelectorAll('#section-tabs .section-tab.done').length;
+  el.textContent = n + ' / 5 sections complete';
+}
+function _markSectionTabsFromData() {
+  _actionsSavedEmpty = false;
+  for (let i = 0; i < 5; i++) _paintSectionTab(i);
 }
 
 let _assetFollowups = null;   // last /asset-followups payload for the open report
@@ -3171,7 +3314,7 @@ function renderAssetReview() {
   const tab = document.getElementById('stab-4');
   if (!d.applicable) {
     box.innerHTML = '<div style="color:#64748b">Aucun matériel rattaché à ce site.</div>';
-    if (tab) tab.classList.add('done');
+    if (tab) _paintSectionTab(4, true);
     return;
   }
   const submitted = currentReport.status === 'submitted' && currentReport.asset_review && currentReport.asset_review.counts;
@@ -3201,7 +3344,7 @@ function renderAssetReview() {
   }).join('');
   const note = submitted ? '<div style="font-size:0.75rem;color:#64748b;margin-bottom:6px">Compteurs figés à la soumission.</div>' : '';
   box.innerHTML = `${note}<div style="display:flex;gap:10px;flex-wrap:wrap">${cards}</div>`;
-  if (tab) tab.classList.toggle('done', _assetTabDone());
+  if (tab) _paintSectionTab(4, _assetTabDone());
 }
 function collectAssetReview() {
   return { handled_note: document.getElementById('ar-handled-note').value, plan_note: document.getElementById('ar-plan-note').value };
@@ -3317,7 +3460,7 @@ function updateStatusBar() {
   const btnRevert = document.getElementById('btn-revert');
   const btnDelete = document.getElementById('btn-delete-draft');
   if (r.status === 'submitted') {
-    lbl.textContent = '✅ Submitted — ' + (r.submitted_at ? r.submitted_at.slice(0,10) : '');
+    lbl.textContent = '✓ ' + reportStatusLabel('submitted') + ' — ' + (r.submitted_at ? r.submitted_at.slice(0,10) : '');
     lbl.style.color = 'var(--green)';
     btnSubmit.style.display = 'none';
     // Same rule as PUT /api/reports/:id/status: an editor of the report's site, the admin
@@ -3325,19 +3468,19 @@ function updateStatusBar() {
     btnRevert.style.display = (window.__userHasRole && window.__userHasRole('editor')) ? 'inline-flex' : 'none';
     if (btnDelete) btnDelete.style.display = 'none';
   } else if (r.status === 'ready') {
-    lbl.textContent = '✔ Ready to Submit';
+    lbl.textContent = reportStatusLabel('ready');
     lbl.style.color = '#059669';
     btnSubmit.style.display = 'inline-flex';
     btnRevert.style.display = 'none';
     if (btnDelete) btnDelete.style.display = 'inline-flex';
   } else if (r.status === 'in_progress') {
-    lbl.textContent = '⏳ In Progress';
+    lbl.textContent = reportStatusLabel('in_progress');
     lbl.style.color = '#2563eb';
     btnSubmit.style.display = 'inline-flex';
     btnRevert.style.display = 'none';
     if (btnDelete) btnDelete.style.display = 'inline-flex';
   } else {
-    lbl.textContent = '✏ Draft';
+    lbl.textContent = reportStatusLabel('draft');
     lbl.style.color = 'var(--amber)';
     btnSubmit.style.display = 'inline-flex';
     btnRevert.style.display = 'none';
@@ -3369,8 +3512,13 @@ function defaultInfraRows() {
   ];
 }
 
-function resetInfraDefaults() {
-  if (!confirm('Replace all Infrastructure KPI rows with the standard defaults?\n\nWAN1 98% / WAN2 98% / LAN 99% / WLAN 99% / Servers 99% / Backup 100% / Radio 98%')) return;
+// Shared confirmation dialog (lib/reasonDialog.js): it names what the action applies to and follows the page
+// language. If the library did not load the answer is "no" — nothing is sent, replaced or deleted unconfirmed.
+function askConfirm(o) { return (window.ReasonDialog && ReasonDialog.confirm) ? ReasonDialog.confirm(o) : Promise.resolve(false); }
+function _reportName() { return currentReport ? `${currentReport.site_name} — ${currentReport.week_label}` : ''; }
+function _rowName(call) { const b = document.querySelector('[onclick="' + call + '"]'); const tr = b && b.closest('tr'); const c = tr && tr.querySelector('td strong'); return c ? c.textContent.trim() : ''; }
+async function resetInfraDefaults() {
+  if (!(await askConfirm({ title: 'Replace the KPI rows with the standard defaults?', target: _reportName(), message: 'All Infrastructure KPI rows are replaced:\nWAN1 98% / WAN2 98% / LAN 99% / WLAN 99% / Servers 99% / Backup 100% / Radio 98%', okLabel: 'Replace' }))) return;
   const tbody = document.getElementById('infra-body');
   tbody.innerHTML = '';
   defaultInfraRows().forEach(k => addInfraRow(k));
@@ -3585,7 +3733,7 @@ async function copyInfraFromPrevWeek() {
   if (!currentReport) return;
   const existingRows = document.getElementById('infra-body').querySelectorAll('tr');
   if (existingRows.length > 0) {
-    if (!confirm('This will replace the current KPI rows with those from the previous week.\n\nCurrent values will be cleared so you can enter this week\'s data.\n\nContinue?')) return;
+    if (!(await askConfirm({ title: 'Copy the KPI rows from the previous week?', target: _reportName(), message: 'The current KPI rows are replaced with those from the previous week.\nCurrent values will be cleared so you can enter this week\'s data.', okLabel: 'Copy' }))) return;
   }
   const btn = document.getElementById('btn-copy-infra-prev');
   btn.disabled = true;
@@ -4331,7 +4479,7 @@ function _renderActiveIncidentsPanel(incidents, panel) {
     const ico = status === 'done' ? '🟢' : status === 'partial' ? '🟡' : '🔴';
     const colour = status === 'done' ? '#16a34a' : status === 'partial' ? '#d97706' : '#dc2626';
     const t = (fullText || '').replace(/[<>"']/g, '').slice(0, 200);
-    return `<span title="${label}: ${esc(status)}${t ? ' — ' + esc(t) : ''}" style="color:${colour};font-size:0.78rem;font-weight:600;display:inline-flex;align-items:center;gap:2px">${ico}${esc(label)}</span>`;
+    return `<span title="${label}: ${esc(window.SDPLabels ? window.SDPLabels.label('completion', status) : status)}${t ? ' — ' + esc(t) : ''}" style="color:${colour};font-size:0.78rem;font-weight:600;display:inline-flex;align-items:center;gap:2px">${ico}${esc(label)}</span>`;
   };
 
   const col = items => items.map(i => {
@@ -5174,17 +5322,14 @@ async function saveSection(n) {
       const kpis = collectInfra();
       await api('PUT', `/api/reports/${id}/infra`, kpis);
       currentReport.infra_kpis = kpis;
-      document.getElementById('stab-0').classList.toggle('done', _infraComplete(kpis));
     } else if (n === 1) {
       const hd = collectHelpdesk();
       await api('PUT', `/api/reports/${id}/helpdesk`, hd);
       currentReport.helpdesk = hd;
-      document.getElementById('stab-1').classList.add('done');
     } else if (n === 2) {
       const lights = collectLights();
       await api('PUT', `/api/reports/${id}/lights`, lights);
       currentReport.lights = lights;
-      document.getElementById('stab-2').classList.add('done');
     } else if (n === 3) {
       const actions = collectActions();
       // Client-side block: every row with a non-empty task must have a department.
@@ -5209,19 +5354,17 @@ async function saveSection(n) {
       }
       await api('PUT', `/api/reports/${id}/actions`, actions);
       currentReport.action_items = actions;
-      document.getElementById('stab-3').classList.add('done');
+      _actionsSavedEmpty = actions.length === 0;   // an explicit Save of an empty list = "nothing to follow up"
     } else if (n === 4) {
       const rev = await api('PUT', `/api/reports/${id}/asset-review`, collectAssetReview());
       currentReport.asset_review = rev;
-      document.getElementById('stab-4').classList.toggle('done', _assetTabDone());
+      _paintSectionTab(4, _assetTabDone());
     }
     setSaving('saved');
-    toast('Saved ✓', 'success');
-    setTimeout(() => setSaving(''), 3000);
     loadAuditLog(); // refresh audit trail after each save
     await _afterSectionSaved(n);   // mark section done + auto-advance status
   } catch(e) {
-    setSaving('');
+    setSaving('failed', n);
     toast('Save failed: ' + e, 'error');
   } finally {
     _autoSaveBusy = false;
@@ -5237,8 +5380,7 @@ async function saveSection(n) {
 async function _afterSectionSaved(n) {
   // Tab 4 (Parc informatique) has its own done rule (both notes, or not applicable),
   // applied by its save path — a plain save of an empty note must not tick it.
-  const tab = document.getElementById('stab-' + n);
-  if (tab && n !== 4) tab.classList.add('done');
+  if (n !== 4) _paintSectionTab(n);
   if (!currentReport || !['draft','in_progress'].includes(currentReport.status)) return;
   // Weekly strip ONLY (the monthly editor also uses .section-tab). The old
   // stab-done class selector matched nothing, so auto-ready never fired.
@@ -5310,14 +5452,13 @@ async function autoSaveSection(n) {
       _autoSaveBusy = true; setSaving('saving');
       const rev = await api('PUT', `/api/reports/${id}/asset-review`, collectAssetReview());
       currentReport.asset_review = rev;
-      document.getElementById('stab-4').classList.toggle('done', _assetTabDone());
+      _paintSectionTab(4, _assetTabDone());
     } else { return; }
     setSaving('saved');
     await _afterSectionSaved(n);   // mark section done + auto-advance status
-    setTimeout(() => setSaving(''), 1500);
   } catch (e) {
-    // Silent: the manual Save remains the authoritative path that reports errors.
-    setSaving('');
+    // Not silent any more: the save signal turns into "Not saved — retry" (no toast — the user did not ask to save).
+    setSaving('failed', n);
     console.warn('[autosave] section ' + n + ' failed:', e);
   } finally {
     _autoSaveBusy = false;
@@ -5393,7 +5534,7 @@ async function submitReport() {
     finally { _autoSaveBusy = false; }
   }
   if (_assetFollowups && _assetFollowups.applicable && !_assetNotesFilled()) {
-    if (!confirm("La section Parc informatique n'est pas renseignée — elle apparaîtra comme « non renseigné » dans le rapport.\n\nSoumettre quand même ?")) return;
+    if (!(await askConfirm({ title: 'Submit with the IT assets section empty?', target: _reportName(), message: 'The IT assets section is not filled in — it will read "not provided" in the report.', okLabel: 'Submit anyway' }))) return;
   }
   try {
     await api('PUT', `/api/reports/${currentReport.id}/status`, { status: 'submitted' });
@@ -5415,10 +5556,11 @@ async function revertReport() {
   // A-24 — report_revert_policy = second_person (PROPOSED D-3, OFF by default): explain the rule, ask a reason.
   let reason = null;
   if (_reportIntegrity && _reportIntegrity.revert_policy === 'second_person') {
-    reason = prompt(`Revert "${currentReport.site_name} — ${currentReport.week_label}" to Draft?\n\nSecond-person rule: the person who submitted this report cannot revert it; an admin, executive or super_admin must, with a reason (max 500 characters).\n\nReason:`);
+    reason = (window.ReasonDialog && ReasonDialog.ask) ? await ReasonDialog.ask({ title: 'Revert "' + _reportName() + '" to Draft?', multiline: true, min: 1,
+      label: 'Second-person rule: the person who submitted this report cannot revert it; an admin, executive or super_admin must, with a reason (max 500 characters). Reason:' }) : null;
     if (reason == null) return;
     if (!reason.trim()) { toast('A reason is required to revert a submitted report', 'error'); return; }
-  } else if (!confirm(`Revert "${currentReport.site_name} — ${currentReport.week_label}" to Draft?\n\nThis will allow editors to make changes again.`)) return;
+  } else if (!(await askConfirm({ title: 'Revert this report to Draft?', target: _reportName(), message: 'Editors will be able to make changes again.', okLabel: 'Revert to Draft' }))) return;
   try {
     const res = await fetch(`/api/reports/${currentReport.id}/status`, {
       method: 'PUT',
@@ -5486,7 +5628,7 @@ async function loadAuditLog() {
 async function deleteCurrentReport() {
   if (!currentReport) return;
   const label = `${currentReport.site_name} — ${currentReport.week_label}`;
-  if (!confirm(`Delete this report (${label})?\n\nThis cannot be undone.`)) return;
+  if (!(await askConfirm({ title: 'Delete this report?', target: label, message: 'This cannot be undone.', okLabel: 'Delete', danger: true }))) return;
   try {
     await api('DELETE', `/api/reports/${currentReport.id}`);
     toast('Report deleted', 'info');
@@ -6384,6 +6526,56 @@ function _renderGroupTabs(name) {
     cfg.members.map(m => `<button type="button" class="ap-tab${m === name ? ' active' : ''}" onclick="showAdminPanel('${m}')">${cfg.labels[m] || m}</button>`).join('');
   host.style.display = 'flex';
 }
+document.addEventListener('click', (e) => { const t = e.target.closest && e.target.closest('#admin-rail-toggle'); if (!t) return;
+  const rail = document.getElementById('admin-rail'); const on = !rail.classList.contains('is-open'); rail.classList.toggle('is-open', on); t.setAttribute('aria-expanded', on ? 'true' : 'false'); });
+// ── Admin P2-7 — four-eyes is visible BEFORE the save ─────────────────────────────────────────────────────────
+// While the Policy Center is on, a four-eyes setting changes only through a request a second super_admin approves
+// (services/fourEyesGuard.js). The catalogue (super_admin only, the same call the Policy Center page makes) says
+// which settings those are; each matching field gets a badge, and a pending request is shown where it applies.
+// Display only: the server keeps refusing a single-person change, and never lets a requester approve their own.
+// Center off (the route answers 404) → no badge: a save is immediate then, as today.
+const FOUR_EYES_FIELDS = { sso_mode: 'cfg-sso-mode', entra_tenant_id: 'cfg-entra-tenant', entra_client_id: 'cfg-entra-client', entra_redirect_uri: 'cfg-entra-redirect',
+  sso_breakglass_user: 'cfg-sso-breakglass', never_send_unconfirmed: 'cfg-never-send-unconfirmed', hygiene_send_enabled: 'hyg-enabled', asset_group_send_enabled: 'agp-enabled',
+  scoreboard_send_enabled: 'sbd-enabled', weekly_report_send_enabled: 'wk-enabled', asset_reminder_send_enabled: 'arm-recap-enabled', asset_new_alert_enabled: 'arm-alert-enabled',
+  teams_sla_enabled: 'tsla-enabled', xof_usd_rate: 'hyg-xof-usd-rate', opmanager_tls_insecure: 'cfg-opm-tls' };
+function _fieldLabel(id) { const el = document.getElementById(id); if (!el) return null; return document.querySelector('label[for="' + id + '"]') || el.closest('label') || el.parentNode; }
+async function paintFourEyesBadges() {
+  // the UI policy says whether the Policy Center exists on this server (policy_center_page): off → no request at all
+  if (!(window.__uiPolicy && window.__uiPolicy.policy_center_page === '1')) return;
+  let cat;
+  try { cat = await api('GET', '/api/policy-center/catalogue'); } catch (_) { return; }
+  for (const r of (cat && cat.rules) || []) {
+    const id = FOUR_EYES_FIELDS[r.key]; if (!id || !r.four_eyes || r.source !== 'report_config') continue;
+    const host = _fieldLabel(id); if (!host) continue;
+    host.querySelectorAll('.fe-badge').forEach(n => n.remove());
+    const a = document.createElement('a'); a.className = 'edv-badge edv-badge--warning fe-badge'; a.href = 'policy-center.html';
+    a.title = 'While the Policy Center is on, this setting changes only through a request that a second super_admin approves.';
+    a.textContent = r.pending ? 'Change pending — second approver (' + r.pending + ')' : 'Needs a second approver';
+    host.appendChild(document.createTextNode(' ')); host.appendChild(a);
+  }
+}
+// ── Admin P2-4 — "Set" / "Not set" beside each secret field (presence only; the value never comes back) ────────
+// [config key, input id] pairs — written as pairs so the secret scanner does not read "key: 'id'" as an assigned secret.
+const SECRET_FIELDS = [['smtp_pass', 'cfg-smtp-pass'], ['entra_client_secret', 'cfg-entra-secret'], ['meridian_out_key', 'cfg-meridian-out'],
+  ['meridian_in_key', 'cfg-meridian-in'], ['meraki_api_key', 'cfg-meraki-key'], ['opmanager_api_key', 'cfg-opm-key']];
+function secretBadge(host, isSet) {
+  if (!host) return;
+  host.querySelectorAll('.secret-state').forEach(n => n.remove());
+  const b = document.createElement('span');
+  // null = the page could not tell (older server answer): no badge rather than a guess
+  if (isSet == null) return;
+  b.className = 'edv-badge secret-state ' + (isSet ? 'edv-badge--success' : 'edv-badge--neutral');
+  b.textContent = isSet ? 'Set' : 'Not set';
+  b.title = isSet ? 'A value is stored (encrypted). Leave the field blank to keep it; type a new value to replace it.' : 'No value is stored yet.';
+  host.appendChild(document.createTextNode(' ')); host.appendChild(b);
+}
+async function paintSecretBadges() {
+  let c;
+  try { c = await api('GET', '/api/reports/config'); } catch (_) { return; }
+  const set = c && c.secrets_set;
+  for (const [k, id] of SECRET_FIELDS) secretBadge(_fieldLabel(id), set && k in set ? !!set[k] : null);
+}
+
 function showAdminPanel(name) {
   // Guard: 'risk' / 'backups' / 'autoreports' / 'sso' / 'meridian' / 'infra' are super_admin-only — fall back to Users for everyone else.
   if ((name === 'risk' || name === 'backups' || name === 'autoreports' || name === 'sso' || name === 'meridian' || name === 'infra' || name === 'sla' || name === 'restore-drill' || name === 'asset-reminders' || name === 'teams-sla' || name === 'analytics-api') && currentUser?.role !== 'super_admin') name = 'users';
@@ -6396,6 +6588,11 @@ function showAdminPanel(name) {
     // Chrome (treats undefined as "no force"), which would turn every non-active item navy.
     b.classList.toggle('active', !!(b.dataset.panel === name || (b.dataset.group && b.dataset.group === _grp))));
   _renderGroupTabs(name);
+  // phone: name the open section on the fold button and close the list
+  const _act = document.querySelector('#admin-rail .admin-rail__item.active > span:not(.ar-ico):not(.ar-scope)');
+  const _cur = document.getElementById('admin-rail-current'), _tog = document.getElementById('admin-rail-toggle'), _rail = document.getElementById('admin-rail');
+  if (_cur && _act) _cur.textContent = (_act.firstChild && _act.firstChild.nodeValue ? _act.firstChild.nodeValue : _act.textContent).trim();
+  if (_rail) _rail.classList.remove('is-open'); if (_tog) _tog.setAttribute('aria-expanded', 'false');
   const panel = document.getElementById(_ADMIN_PANEL_IDS[name]);
   if (panel) panel.classList.add('active');
   // Fresh data when opening Active Sessions.
@@ -6490,6 +6687,7 @@ async function loadAdminPage() {
     // Open the panel from the hash sub-section (#admin/<section>) or default to Users.
     // A group name (#admin/wan) opens the group's first tab; a member name still deep-links.
     const sub = (location.hash.split('/')[1] || '').toLowerCase();
+    paintFourEyesBadges(); paintSecretBadges();   // display only, never block the page
     if (PANEL_GROUPS[sub]) showAdminGroup(sub);
     else showAdminPanel(['users','sessions','sites','departments','execview','email','backups','restore-drill','trash','sso','meridian','infra','sla','risk','autoreports','assets-finance','assets-deprec','hygiene','scoreboard','weekly','asset-group','asset-reminders','teams-sla','analytics-api'].includes(sub) ? sub : 'users');
 
@@ -6537,18 +6735,33 @@ async function loadAdminPage() {
         ...hRoles.map(r => `<span class="role-pill role-${esc(r)}" title="${esc(r)}">${esc(roleLabel(r))}</span>`),
         ...fRoles.map(r => `<span class="role-pill" style="background:#CCFBF1;color:#0F766E;border:1px solid #5EEAD4;font-size:10px" title="${esc(r)}">${esc(roleLabel(r))}</span>`),
       ].join(' ');
-      return `<tr>
+      // admin P2-5: facets for the filter lists (role / site / status), the sign-in method the API already returns
+      // (has_entra — never the Entra object id), status as a badge. "Last sign-in" is NOT shown: the users API does
+      // not return it, and a date is never invented.
+      const siteFacet = [u.site_id, ...(Array.isArray(u.extra_site_ids) ? u.extra_site_ids : [])].filter(v => v != null).map(v => 's' + Number(v)).join(' ') || 'none';
+      const auth = u.has_entra ? '<span class="edv-badge edv-badge--info" title="Linked to a Microsoft account">Microsoft SSO</span>' : '<span class="edv-badge edv-badge--neutral">Password</span>';
+      return `<tr data-f-role="${esc(roleArr.join(' '))}" data-f-site="${esc(siteFacet)}" data-f-status="${u.active ? 'active' : 'disabled'}">
         <td><strong>${esc(u.username)}</strong></td>
         <td>${esc(u.full_name)}</td>
         <td>${siteName ? esc(siteName) : '<span style="color:var(--gray-500)">No site</span>'}${_extraSitesBadge(u)}</td>
         <td style="line-height:1.8">${chips}</td>
-        <td><span class="${u.active ? 'status-active' : 'status-inactive'}">${u.active ? 'Active' : 'Disabled'}</span></td>
+        <td>${auth}</td>
+        <td><span class="edv-badge ${u.active ? 'edv-badge--success' : 'edv-badge--neutral'}"><span class="edv-badge__dot"></span>${u.active ? 'Active' : 'Disabled'}</span></td>
         <td>
           <button class="btn btn-secondary btn-sm" onclick="openUserModal(${escJsonAttr(u)})">Edit</button>
           ${u.id !== currentUser.id ? `<button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id})">Delete</button>` : ''}
         </td>
       </tr>`;
     }).join('');
+
+    // facet lists built from what the table holds (roles present, sites with at least one user)
+    const fr = document.getElementById('user-facet-role'), fs = document.getElementById('user-facet-site');
+    if (fr) { const keep = fr.value; const present = [...new Set(users.flatMap(u => Array.isArray(u.roles) && u.roles.length ? u.roles : [u.role || 'viewer']))].sort((a, b) => roleLabel(a).localeCompare(roleLabel(b)));
+      fr.innerHTML = '<option value="">All roles</option>' + present.map(r => `<option value="${esc(r)}">${esc(roleLabel(r))}</option>`).join(''); fr.value = keep; }
+    if (fs) { const keep = fs.value; const ids = [...new Set(users.flatMap(u => [u.site_id, ...(Array.isArray(u.extra_site_ids) ? u.extra_site_ids : [])]).filter(v => v != null).map(Number))];
+      const named = ids.map(id => { const x = sites.find(z => Number(z.id) === id); return [id, x ? x.name : '#' + id]; }).sort((a, b) => String(a[1]).localeCompare(String(b[1])));
+      fs.innerHTML = '<option value="">All sites</option>' + named.map(([id, n]) => `<option value="s${id}">${esc(n)}</option>`).join('') + '<option value="none">No site</option>'; fs.value = keep; }
+    if (window.TableFilter) window.TableFilter.apply('#user-table');
 
     // Sites table (group mapping + create/disable for executive+)
     const stbody = document.getElementById('sites-table-body');
@@ -6566,7 +6779,7 @@ async function loadAdminPage() {
           <td style="text-align:center">${s.sort_order}</td>
           <td>${s.active ? '<span class="status-active">Active</span>' : '<span class="status-inactive">Inactive</span>'}</td>
           <td>
-            <button class="btn btn-secondary btn-sm" onclick="saveSiteGroup(${s.id})"><i class="icon icon-save" aria-hidden="true"></i> Save</button>
+            <button class="btn btn-primary btn-sm site-save" data-site-save="${s.id}" onclick="saveSiteGroup(${s.id})" hidden><i class="icon icon-save" aria-hidden="true"></i> Save change</button>
             ${isExecOrSuper ? `<button class="btn btn-secondary btn-sm" style="margin-left:4px" onclick="openSiteModal(${s.id})">Edit</button>` : ''}
             ${isExecOrSuper && s.active  ? `<button class="btn btn-secondary btn-sm" style="margin-left:4px" onclick="disableSite(${s.id})">⊘ Disable</button>` : ''}
             ${isExecOrSuper && !s.active ? `<button class="btn btn-secondary btn-sm" style="margin-left:4px" onclick="enableSite(${s.id})">↻ Enable</button>` : ''}
@@ -6591,6 +6804,8 @@ async function saveSiteGroup(siteId) {
     allSites = await api('GET', '/api/reports/sites');
     populateSiteSelects();
     toast('Group mapping saved ✓', 'success');
+    const sb = document.querySelector('[data-site-save="' + siteId + '"]'); if (sb) sb.hidden = true;
+    const str = input.closest('tr'); if (str) str.classList.remove('is-dirty');
   } catch(e) { toast('Error: ' + e, 'error'); }
 }
 
@@ -6667,7 +6882,7 @@ async function saveSite() {
 }
 
 async function disableSite(id) {
-  if (!confirm('Disable this site? It will be hidden from new dropdowns. Existing reports for this site stay accessible.')) return;
+  if (!(await askConfirm({ title: 'Disable this site?', target: _rowName('disableSite(' + id + ')') || ('#' + id), message: 'It will be hidden from new dropdowns. Existing reports for this site stay accessible.', okLabel: 'Disable', danger: true }))) return;
   try {
     await api('DELETE', `/api/reports/sites/${id}`);
     toast('Site disabled', 'success');
@@ -6772,7 +6987,7 @@ function _startActiveSessionsPolling() {
 }
 
 async function forceLogoutSession(token, username) {
-  if (!confirm(`Force logout ${username}?\n\nTheir current session token will be invalidated. They'll see "Not authenticated" on their next click and have to log in again.`)) return;
+  if (!(await askConfirm({ title: 'Force this user to sign out?', target: username, message: 'Their current session is invalidated. They will see "Not authenticated" on their next click and have to sign in again.', okLabel: 'Force sign-out', danger: true }))) return;
   try {
     await api('DELETE', '/api/reports/sessions/' + encodeURIComponent(token));
     toast(`${username} signed out ✓`, 'success');
@@ -6890,7 +7105,7 @@ async function submitRrAlias() {
 }
 
 async function deleteRrAlias(label) {
-  if (!confirm(`Remove the mapping for "${label}"?\n\nThe next export will count incidents with this label as "unmapped" instead.`)) return;
+  if (!(await askConfirm({ title: 'Remove this mapping?', target: label, message: 'The next export will count incidents with this label as "unmapped" instead.', okLabel: 'Remove', danger: true }))) return;
   try {
     await api('DELETE', '/api/risk-register-config/aliases/' + encodeURIComponent(label));
     toast(`Deleted: ${label}`, 'success');
@@ -7018,7 +7233,7 @@ async function saveDept() {
 }
 
 async function disableDept(id) {
-  if (!confirm('Disable this department? It will be hidden from new dropdowns. Existing action items keep the name.')) return;
+  if (!(await askConfirm({ title: 'Disable this department?', target: _rowName('disableDept(' + id + ')') || ('#' + id), message: 'It will be hidden from new dropdowns. Existing action items keep the name.', okLabel: 'Disable', danger: true }))) return;
   try {
     await api('DELETE', `/api/reports/departments/${id}`);
     toast('Department disabled', 'success');
@@ -7203,7 +7418,7 @@ async function deleteUser(id) {
   const ok = window.ReasonDialog
     ? await window.ReasonDialog.confirm({ title: 'Delete user', target: uname, message: 'This permanently removes the account. It cannot be undone.',
         hint: 'To keep the history, prefer Edit → Status: inactive (deactivate).', typeToConfirm: uname, okLabel: 'Delete user', danger: true })
-    : confirm('Delete user "' + uname + '"? This cannot be undone.');
+    : false;   // no dialog library → nothing is deleted
   if (!ok) return;
   try {
     await api('DELETE', `/api/reports/users/${id}`);
@@ -8213,7 +8428,7 @@ async function saveSlaContract(key) {
   } catch (e) { if (msg) msg.textContent = 'Save failed: ' + (e.message || e); toast('Save failed: ' + (e.message || e), 'error'); }
 }
 async function reviewSlaContract(key) {
-  if (!confirm('Confirm you have read the contract evidence and the terms match it. Your name is recorded as reviewer.')) return;
+  if (!(await askConfirm({ title: 'Record your review of this contract?', target: key, message: 'Confirm you have read the contract evidence and the terms match it. Your name is recorded as reviewer.', okLabel: 'I have reviewed it' }))) return;
   try { await api('POST', '/api/analytics/wan/sla/contracts/' + encodeURIComponent(key) + '/review', {}); toast('Contract reviewed ✓', 'success'); loadSlaContracts(); }
   catch (e) { toast('Review refused: ' + (e.message || e), 'error'); }
 }
@@ -8467,8 +8682,8 @@ function previewHygiene(btn) {
     .catch(e => toast('Preview failed: ' + (e.message || e), 'error'))
     .finally(() => { if (btn) btn.disabled = false; });
 }
-function sendHygieneNow(btn) {
-  if (!confirm('Send the Assets Hygiene digest now to the configured recipients?')) return;
+async function sendHygieneNow(btn) {
+  if (!(await askConfirm({ title: 'Send this digest now?', target: 'Assets Hygiene digest', message: 'It goes to the configured recipients.', okLabel: 'Send now' }))) return;
   if (btn) btn.disabled = true;
   api('POST', '/api/assets/hygiene/send?preview=0')
     .then(r => {
@@ -8530,8 +8745,8 @@ function previewAssetGroup(btn) {
     .catch(e => toast('Preview failed: ' + (e.message || e), 'error'))
     .finally(() => { if (btn) btn.disabled = false; });
 }
-function sendAssetGroupNow(btn) {
-  if (!confirm('Send the Assets — Group digest now to the configured recipients?')) return;
+async function sendAssetGroupNow(btn) {
+  if (!(await askConfirm({ title: 'Send this digest now?', target: 'Assets — Group digest', message: 'It goes to the configured recipients.', okLabel: 'Send now' }))) return;
   if (btn) btn.disabled = true;
   api('POST', '/api/reports/asset-group/send?preview=0')
     .then(r => {
@@ -8573,8 +8788,8 @@ function loadTeamsSlaCard() {
     set('tsla-base', c.sdp_api_base_url); set('tsla-accounts', c.sdp_api_accounts_url);
     set('tsla-client-id', c.sdp_api_client_id); set('tsla-filter', c.sdp_api_open_filter);
     // secrets: never prefilled — only say whether one is stored
-    document.getElementById('tsla-secret-state').textContent = c.has_client_secret ? '✓ enregistré' : '(non renseigné)';
-    document.getElementById('tsla-refresh-state').textContent = c.has_refresh_token ? '✓ enregistré' : '(non renseigné)';
+    secretBadge(document.getElementById('tsla-secret-state'), !!c.has_client_secret);
+    secretBadge(document.getElementById('tsla-refresh-state'), !!c.has_refresh_token);
     set('tsla-rules', JSON.stringify(c.rules, null, 2));
     set('tsla-max-age', c.rules && c.rules.max_ticket_age_days != null ? c.rules.max_ticket_age_days : '');
     set('tsla-paused', (c.rules && Array.isArray(c.rules.paused_statuses) ? c.rules.paused_statuses : []).join('\n'));
@@ -8660,6 +8875,8 @@ function loadAnalyticsApiCard() {
       el.textContent = src ? '· ' + (_AN_SRC[src] || src) : '';
       el.style.cssText = 'font-weight:400;color:' + (src === 'db' ? '#15803d' : '#6b7a99');
     });
+    secretBadge(_fieldLabel('an-client-secret'), c.has_client_secret == null ? null : !!c.has_client_secret);
+    secretBadge(_fieldLabel('an-refresh'), c.has_refresh_token == null ? null : !!c.has_refresh_token);
     const t = c.token || {};
     const st = document.getElementById('an-status');
     st.innerHTML = (t.valid ? '<span style="color:#15803d">● Connecté</span>' : '<span style="color:#b91c1c">● Pas de jeton valide</span>') +
@@ -8736,8 +8953,8 @@ function previewScoreboard(btn) {
     .catch(e => toast('Preview failed: ' + (e.message || e), 'error'))
     .finally(() => { if (btn) btn.disabled = false; });
 }
-function sendScoreboardNow(btn) {
-  if (!confirm('Send the operational scoreboard now to every site\'s confirmed coordinator?')) return;
+async function sendScoreboardNow(btn) {
+  if (!(await askConfirm({ title: 'Send the scoreboard now?', target: 'Operational scoreboard', message: 'It goes to every site\'s confirmed coordinator.', okLabel: 'Send now' }))) return;
   if (btn) btn.disabled = true;
   api('POST', '/api/reports/scoreboard/send?preview=0')
     .then(r => {
@@ -8821,8 +9038,8 @@ function previewWeekly(btn) {
     .finally(() => { if (btn) btn.disabled = false; });
 }
 
-function sendWeeklyNow(btn) {
-  if (!confirm('Send the authored weekly report now to every site\'s confirmed coordinator?')) return;
+async function sendWeeklyNow(btn) {
+  if (!(await askConfirm({ title: 'Send the weekly report now?', target: 'Authored weekly report', message: 'It goes to every site\'s confirmed coordinator.', okLabel: 'Send now' }))) return;
   if (btn) btn.disabled = true;
   api('POST', '/api/reports/weekly/send?preview=0')
     .then(r => { _wkRender(r, false); toast('Sent ' + ((r && r.sent) || 0) + ' email' + ((r && r.sent === 1) ? '' : 's'), (r && r.sent) ? 'success' : 'info'); })
@@ -8881,8 +9098,8 @@ function previewAssetReminders(btn) {
   api('POST', _armQuery(true)).then(r => { _armRender(r, true); toast('Preview complete — nothing was sent', 'info'); })
     .catch(e => toast('Preview failed: ' + (e.message || e), 'error')).finally(() => { if (btn) btn.disabled = false; });
 }
-function sendAssetRemindersNow(btn) {
-  if (!confirm('Envoyer maintenant les rappels parc aux contacts confirmés ?')) return;
+async function sendAssetRemindersNow(btn) {
+  if (!(await askConfirm({ title: 'Send the asset reminders now?', target: 'Asset reminders', message: 'They go to the confirmed contacts.', okLabel: 'Send now' }))) return;
   if (btn) btn.disabled = true;
   api('POST', _armQuery(false)).then(r => { _armRender(r, false); toast('Sent ' + ((r && r.sent) || 0), (r && r.sent) ? 'success' : 'info'); })
     .catch(e => toast('Send failed: ' + (e.message || e), 'error')).finally(() => { if (btn) btn.disabled = false; });

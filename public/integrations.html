@@ -92,7 +92,12 @@
     $("dry").innerHTML = j.preview.length ? "<table><caption class=\"muted\">Dry run — who would be told</caption><thead><tr><th>Rule</th><th>Severity</th><th>Site</th><th>In-app</th><th>E-mail</th><th>Outbound</th><th>Problems</th></tr></thead><tbody>" + j.preview.map(function (p) { return "<tr><td>" + esc(p.name) + "</td><td>" + esc(p.severity) + (p.in_cooldown ? " · in cool-down" : "") + "</td><td>" + esc(p.site) + "</td><td>" + esc(p.inapp_recipients.join(", ") || "—") + "</td><td>" + esc(p.email_recipients.join(", ") || "—") + "</td><td>" + esc(p.external_blocked ? "blocked: " + p.external_blocked : (p.channels.filter(function (c) { return c !== "inapp"; }).join(", ") || "—")) + "</td><td>" + esc(p.problems.join("; ") || "—") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">Dry run: no rule would fire now.</p>";
   }).catch(fail); });
   $("ev-now").addEventListener("click", function () { ask2({ title: "Run the alert rules now", message: "Firings are recorded and in-app notifications sent (outbound channels only if armed). Use Dry run to check first.", okLabel: "Run now" }).then(function (ok) { if (!ok) return; msg("Evaluating…"); api("/api/engagement/rules/evaluate", { method: "POST" }).then(function (j) { msg("Evaluated " + j.rules + " rule(s) on " + j.readings + " reading(s): " + j.firings + " firing(s), " + j.notified + " notification(s)."); return load(); }).catch(fail); }); });
-  $("c-add").addEventListener("click", function () { api("/api/engagement/consumers", { method: "POST", body: JSON.stringify({ name: $("c-name").value.trim(), quota_per_day: Number($("c-quota").value) || 5000 }) }).then(function (j) { msg("Key for \"" + $("c-name").value + "\" (shown ONCE — copy it now): " + j.key); return load(); }).catch(fail); });
+  $("c-add").addEventListener("click", function () { api("/api/engagement/consumers", { method: "POST", body: JSON.stringify({ name: $("c-name").value.trim(), quota_per_day: Number($("c-quota").value) || 5000 }) }).then(function (j) {
+    // admin P3-5: the key is revealed ONCE in a dialog with a Copy button and an "I have stored it" tick — it is no longer written into the status line (where it stayed on screen)
+    var name = $("c-name").value, D = window.ReasonDialog;
+    var shown = D && D.reveal ? D.reveal({ title: "API key created", target: name, label: "Key — copy it now", value: j.key }) : Promise.resolve(msg("Key for \"" + name + "\" (shown ONCE — copy it now): " + j.key));
+    return shown.then(function () { if (D && D.reveal) msg("Key created for \"" + name + "\"."); return load(); });
+  }).catch(fail); });
   load();
 })();
 </script>

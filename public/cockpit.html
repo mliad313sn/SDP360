@@ -40,13 +40,14 @@
   .grid2 { grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); }
   #cadences, #cadForm { overflow-x: auto; }
   @media (max-width: 480px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .wrap { padding: 16px; } }
+  .tiles.is-quiet { display: block; } .delay-line { margin: 4px 0 0; font-size: 13.5px; color: var(--color-text-strong); }
 </style>
 </head>
 <body class="edv-house">
 <a class="edv-skip" href="#main">Skip to content</a>
 <div id="__shell" data-section="operations" data-current="cockpit"></div>
 <main id="main" class="wrap">
-  <div class="lang" role="group" aria-label="Language / Langue"><button class="btn" type="button" id="lgEn" aria-pressed="true">EN</button><button class="btn" type="button" id="lgFr" aria-pressed="false">FR</button></div>
+  <!-- PMO F17: one language switch — the header's (this page reads the same shared preference) -->
   <h1>Meeting Cockpit</h1>
   <div class="sub">Cadences → generated agenda → full-screen session with timestamps, decisions (DEC-) and actions → automatic minutes.</div>
   <div id="msg" role="status" aria-live="polite"></div>
@@ -134,7 +135,12 @@
   function loadDelays() {
     return api("/api/governance/engagement-delays").then(function (j) {
       var b = j.summary.buckets;
-      $("delay-tiles").innerHTML = [[T("Overdue"), j.summary.overdue], [T("1–7 days"), b.d1_7], [T("8–30 days"), b.d8_30], [T("31–90 days"), b.d31_90], [T("> 90 days"), b.d90_plus], [T("On time"), b.on_time], [T("No due date (unknown)"), b.unknown], [T("Oldest delay (days)"), j.summary.max_days_overdue == null ? "—" : j.summary.max_days_overdue]].map(function (t) { return "<div class=\"tile\"><div class=\"tn\">" + esc(String(t[1])) + "</div><div class=\"tl\">" + esc(t[0]) + "</div></div>"; }).join("");
+      // PMO F21: nothing overdue → one line instead of eight "0" tiles. What is NOT known stays said: the count without
+      // a due date, and the oldest delay as "—".
+      var nothingLate = j.summary.overdue === 0 && !b.d1_7 && !b.d8_30 && !b.d31_90 && !b.d90_plus;
+      $("delay-tiles").classList.toggle("is-quiet", nothingLate);
+      if (nothingLate) $("delay-tiles").innerHTML = "<p class=\"delay-line\"><b>" + esc(T("Nothing overdue")) + "</b> · " + esc(String(b.on_time)) + " " + esc(T("On time")).toLowerCase() + " · " + esc(String(b.unknown)) + " " + esc(T("No due date (unknown)")).toLowerCase() + " · " + esc(T("Oldest delay (days)")).toLowerCase() + " " + (j.summary.max_days_overdue == null ? "—" : esc(String(j.summary.max_days_overdue))) + "</p>";
+      else $("delay-tiles").innerHTML = [[T("Overdue"), j.summary.overdue], [T("1–7 days"), b.d1_7], [T("8–30 days"), b.d8_30], [T("31–90 days"), b.d31_90], [T("> 90 days"), b.d90_plus], [T("On time"), b.on_time], [T("No due date (unknown)"), b.unknown], [T("Oldest delay (days)"), j.summary.max_days_overdue == null ? "—" : j.summary.max_days_overdue]].map(function (t) { return "<div class=\"tile\"><div class=\"tn\">" + esc(String(t[1])) + "</div><div class=\"tl\">" + esc(t[0]) + "</div></div>"; }).join("");
       var late = j.items.filter(function (x) { return x.days_overdue == null || x.days_overdue > 0; });
       $("delays").innerHTML = late.length ? "<table><thead><tr><th>" + T("Kind") + "</th><th>" + T("Item") + "</th><th>" + T("Owner") + "</th><th>" + T("Due") + "</th><th>" + T("Days overdue") + "</th></tr></thead><tbody>" + late.map(function (x) { var name = esc((x.ref ? x.ref + " " : "") + x.title); return "<tr><td>" + esc(T(x.kind)) + "</td><td>" + (x.href ? "<a href=\"" + esc(x.href) + "\">" + name + "</a>" : name) + "</td><td>" + esc(x.owner || "—") + "</td><td>" + esc(x.due_date || "—") + "</td><td>" + (x.days_overdue == null ? "<span class=\"muted\">" + T("unknown") + "</span>" : "<b>" + x.days_overdue + "</b>") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">" + T("Nothing overdue.") + "</p>";
     }).catch(function (e) { $("delays").innerHTML = "<p class=\"muted\">" + esc(errT(e)) + "</p>"; });
@@ -258,7 +264,7 @@
   }
   ["l-notes", "l-att"].forEach(function (id) { $(id).addEventListener("input", function () { if (!cur || !cur._can) return; saveDraft(); clearTimeout(draftTimer); draftTimer = setTimeout(function () { flushNotes().catch(function () { $("l-draft").textContent = T("Not sent yet — kept on this device"); }); }, 3000); }); });
   $("l-exit").addEventListener("click", function () { $("live").hidden = true; document.body.style.overflow = ""; if (timer) clearInterval(timer); cur = null; loadAll(); });
-  I.install({ storageKey: "cockpit_lang", toggle: { en: $("lgEn"), fr: $("lgFr") }, dict: window.COCKPIT_FR || {} });
+  I.install({ storageKey: "cockpit_lang", dict: window.COCKPIT_FR || {} });
   var q = new URLSearchParams(location.search).get("session");
   loadAll().then(function () { if (q) return openSession(q); }).catch(fail);
 })();

@@ -28,6 +28,7 @@
   .hm-pv { font-size: 12.5px; margin: 4px 0 0; padding-left: 16px; text-align: left; }
   .hm-shortcuts { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 0; padding: 0; }
   .hm-shortcuts a { display: inline-flex; align-items: center; min-height: 34px; padding: 0 14px; border: 1px solid var(--gray-200); border-radius: var(--radius-md); background: var(--color-surface); box-shadow: var(--shadow-xs); color: var(--gray-700); font-weight: 600; font-size: var(--text-md); text-decoration: none; transition: border-color var(--motion-fast), color var(--motion-fast), background var(--motion-fast); }
+  .hm-shortcuts a.hm-primary, .hm-shortcuts a.hm-primary:hover { background: var(--color-primary-fill); border-color: var(--color-primary-fill); color: var(--color-text-on-dark); min-height: 44px; }
   .hm-shortcuts a:hover { border-color: var(--gray-300); background: var(--gray-50); color: var(--color-link); }
   a { color: var(--color-link); }
   .hm-retry { margin-left: 8px; font-size: 12px; }
@@ -91,6 +92,7 @@
   </div>
 </main>
 <script nonce="%%CSP_NONCE%%" src="lib/errorText.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/reasonDialog.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/pageHead.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/stateBadge.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/statusTransfer.js"></script>

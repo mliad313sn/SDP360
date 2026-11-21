@@ -15,6 +15,7 @@
 <link rel="stylesheet" href="module-tabs.css">
 <script nonce="%%CSP_NONCE%%" src="module-tabs.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/statusTransfer.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/reasonDialog.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/siteCodeBanner.js" data-module="meetings"></script>
 <script src="lib/incubationEditor.js"></script>
 
@@ -822,7 +823,7 @@
     copyBtn.addEventListener('click', async () => {
       const text = JSON.stringify(localState, null, 2);
       try { await navigator.clipboard.writeText(text); copyBtn.textContent = 'Copied ✓'; }
-      catch (_) { window.prompt('Copy your edits:', text); }
+      catch (_) { ReasonDialog.ask({ title: 'Copy your edits', label: 'Select the text, then copy it (Ctrl+C / long-press → Copy).', value: text }); }
     });
     bar.appendChild(reloadBtn); bar.appendChild(copyBtn);
     box.appendChild(msg); box.appendChild(bar);
@@ -1294,13 +1295,16 @@
   });
 
   // Remove buttons
-  document.body.addEventListener('click', e => {
+  document.body.addEventListener('click', async e => {
     const rm = e.target.closest('[data-rm]');
     if (!rm) return;
     if (state.locked) return;
     const ix = parseInt(rm.dataset.ix, 10);
     const kind = rm.dataset.rm;
-    if (!confirm('Remove this ' + kind + '?')) return;
+    // the shared confirmation dialog names the row (its title or description, else its position)
+    const row = (kind === 'project' ? state.projects : kind === 'issue' ? state.issues : state.actions)[ix] || {};
+    const named = String(row.title || row.name || row.description || '').trim() || ('#' + (ix + 1));
+    if (!(await ReasonDialog.confirm({ title: 'Remove this ' + kind + '?', target: named, message: 'It is removed from this PV when you save.', okLabel: 'Remove', danger: true }))) return;
     if (kind === 'project') { state.projects.splice(ix, 1); renderProjects(); }
     if (kind === 'issue')   { state.issues.splice(ix, 1);   renderIssues(); renderActions(); }
     if (kind === 'action')  { state.actions.splice(ix, 1);  renderActions(); }
@@ -1537,7 +1541,7 @@
 
   document.getElementById('pvDeleteBtn').addEventListener('click', async () => {
     if (!state.id) return;
-    if (!confirm('Delete this meeting and ALL its issues/actions? This cannot be undone.')) return;
+    if (!(await ReasonDialog.confirm({ title: 'Delete this meeting?', target: (state.header && state.header.reference) || ('#' + state.id), message: 'The meeting and ALL its issues and actions are deleted. This cannot be undone.', okLabel: 'Delete', danger: true }))) return;
     const r = await fetch(API + '/' + state.id, { method: 'DELETE', credentials: 'same-origin', headers: authHeaders() });
     if (r.ok) { location.href = 'meetings.html'; }
     else { const j = await r.json().catch(() => ({})); showBanner(j.error || 'Delete failed', 'error'); }

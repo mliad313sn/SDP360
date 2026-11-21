@@ -373,7 +373,13 @@
   function ragGridHtml(d, opts) {
     var rows = sortRows((d && d.rows) || [], d.higher_is_better !== false);
     var ss = !!(opts && opts.sampleSize);   // E-K02 — switch ui_kpi_sample_size; off = byte-identical to before
-    var cells = rows.map(function (r) {
+    // executive F17 — sites with NO value are not drawn as a wall of identical grey cells: from two of them on they
+    // are named on one line ("3 sites not measured: Abidjan, Dakar, Kalana"). Nothing is hidden: every site is still
+    // on the panel, the count is in the summary line above, and a stale value (a number whose colour is withheld)
+    // keeps its own cell.
+    var blank = rows.filter(function (r) { return !r || r.value == null; });
+    var group = blank.length >= 2;
+    var cells = rows.filter(function (r) { return !(group && (!r || r.value == null)); }).map(function (r) {
       var st = rowState(r, d);
       return '<div class="edv-ragcell edv-ragcell-' + st + '" role="listitem" aria-label="' + escapeHtml(r.site + ': ' + STATE_WORD[st] + ', ' + formatValue(r.value, d.unit)) + '">' + stateDot(st, r, d) +
         '<span class="edv-ragcell-site">' + escapeHtml(r.site) + '</span><span class="edv-ragcell-val">' + formatValue(r.value, d.unit) + '</span>' +
@@ -382,7 +388,9 @@
     }).join('');
     var legend = '<div class="edv-rag-legend" aria-label="Legend">' + ragDot('GREEN') + 'Green ' + ragDot('AMBER') + 'Amber ' + ragDot('RED') + 'Red ' +
       '<span class="edv-rag-dot rag-na" aria-hidden="true"></span>Unknown — not measured, stale or never synced</div>';
-    return summaryLine(d) + '<div class="edv-raggrid" role="list">' + (cells || '<div class="edv-kpi-sub">No site in scope.</div>') + '</div>' + legend;
+    var unmeasured = group ? '<p class="edv-nodata edv-unmeasured-line">' + blank.length + ' sites not measured: ' + blank.map(function (r) { return escapeHtml(r && r.site); }).join(', ') + '</p>' : '';
+    var grid = cells ? '<div class="edv-raggrid" role="list">' + cells + '</div>' : (rows.length ? '' : '<div class="edv-raggrid" role="list"><div class="edv-kpi-sub">No site in scope.</div></div>');
+    return summaryLine(d) + grid + unmeasured + legend;
   }
 
   /** The body of a per-site widget by its declared type (heatmap = retired → table with a notice). */

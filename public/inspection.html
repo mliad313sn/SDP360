@@ -116,21 +116,13 @@ body{
 .brand-title{font-weight:700;font-size:15px;letter-spacing:.3px}
 .brand-sub{font-size:11px;color:#9aa3ad;text-transform:uppercase;letter-spacing:1.2px;margin-top:2px}
 .header-actions{display:flex;gap:8px;flex-wrap:wrap}
-.btn{
-  border:1px solid transparent;background:transparent;
-  padding:8px 14px;border-radius:6px;cursor:pointer;
-  font-family:inherit;font-size:13px;font-weight:600;
-  display:inline-flex;align-items:center;gap:6px;
-  transition:all .15s ease;
-}
-.btn-primary{background:var(--color-primary-fill, #C2410C);color:#fff}
-.btn-primary:hover{background:var(--accent-2)}
-.btn-ghost{color:#fff;border-color:#384450}
-.btn-ghost:hover{background:#1a2129}
-.btn-light{background:#fff;color:var(--ink);border-color:var(--line)}
-.btn-light:hover{background:var(--panel-2)}
-.btn-danger{background:transparent;color:#fca5a5;border-color:#5b1d1d}
-.btn-danger:hover{background:#2a1010}
+.hdr-more{position:relative}
+.hdr-more > summary{list-style:none}
+.hdr-more > summary::-webkit-details-marker{display:none}
+.hdr-more__menu{position:absolute;right:0;top:calc(100% + 6px);z-index:60;min-width:180px;padding:6px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-md);box-shadow:var(--shadow-md);display:flex;flex-direction:column;gap:2px}
+.hdr-more__menu button{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 12px;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--color-text-strong);font:inherit;font-weight:600;text-align:left;cursor:pointer}
+.hdr-more__menu button:hover,.hdr-more__menu button:focus-visible{background:var(--gray-50)}
+.hdr-more__menu button.is-danger{color:var(--rag-red)}
 
 /* ---------- Layout ---------- */
 .container{max-width:1180px;margin:0 auto;padding:24px}
@@ -775,7 +767,7 @@ body.submission-locked .submit-row::before{
      The 36 px height in the source HTML was rejected by accessibility review. */
   .status-btn{padding:11px 14px;font-size:13px;min-height:44px;min-width:44px}
   .chip{min-height:44px;padding:10px 14px}
-  .btn{min-height:44px;padding:11px 14px}
+  body .btn{min-height:44px;padding:11px 14px}   /* phone touch target */
   .cat-tab{padding:14px 16px;min-height:48px}
   .photo-btn{padding:16px 6px;min-height:64px}
   .mic-btn{width:44px;height:44px;font-size:18px;right:4px;bottom:4px}
@@ -1039,7 +1031,7 @@ body.submission-locked .submit-row::before{
 <script nonce="%%CSP_NONCE%%" src="lib/format.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/codeLabels.js"></script>
 </head>
-<body>
+<body class="edv-ui">
 
 <!-- Unified Endeavour navigation shell -->
 <div id="__shell" data-section="operations" data-current="inspections"></div>
@@ -1060,8 +1052,14 @@ body.submission-locked .submit-row::before{
       <select id="savedSelect" onchange="switchInspection(this.value)" title="Switch inspection" aria-label="Switch inspection"></select>
       <button class="btn btn-ghost" onclick="newInspection()" title="New inspection">+ New</button>
       <button class="btn btn-ghost" id="langToggleBtn" onclick="toggleDictLang()" title="Dictation language / Langue de dictée" style="font-size:13px;min-width:62px"><i class="icon icon-mic"></i>EN</button>
-      <button class="btn btn-ghost" onclick="renameInspection()" title="Rename current" aria-label="Rename current"><i class="icon icon-edit"></i></button>
-      <button class="btn btn-ghost" onclick="deleteInspection()" title="Delete current" aria-label="Delete current"><i class="icon icon-trash"></i></button>
+      <!-- field F13: the rarely used tools sit behind one "more" menu, so the first field comes sooner on a phone -->
+      <details class="hdr-more" id="hdrMore">
+        <summary class="btn btn-ghost" title="More actions" aria-label="More actions"><i class="icon icon-more-horizontal"></i></summary>
+        <div class="hdr-more__menu" role="group" aria-label="More actions">
+          <button type="button" onclick="document.getElementById('hdrMore').open=false;renameInspection()" title="Rename current"><i class="icon icon-edit"></i><span>Rename</span></button>
+          <button type="button" class="is-danger" onclick="document.getElementById('hdrMore').open=false;deleteInspection()" title="Delete current"><i class="icon icon-trash"></i><span>Delete</span></button>
+        </div>
+      </details>
     </div>
     <button class="btn btn-primary" onclick="openShareMenu()"><i class="icon icon-upload"></i>Share</button>
   </div>
@@ -1435,8 +1433,8 @@ body.submission-locked .submit-row::before{
     </div>
     <div class="section-body">
       <p style="font-size:13px;color:var(--ink-2);margin:0 0 14px">
-        Auto-save has been syncing your work the whole time. Tap <strong>Submit</strong> when this inspection is complete and ready for review — the record is then marked <em>submitted</em>, locked from further edits by editors, and visible to reviewers on the dashboard.<br>
-        <span style="color:var(--ink-3);font-size:12px">L'auto-sauvegarde envoie déjà chaque modification. Le bouton ci-dessous marque l'inspection comme terminée et prête à être revue.</span>
+        Your work is saved on this device as you type; it is sent to the server by <strong>Save now</strong> and by Submit. Tap <strong>Submit</strong> when this inspection is complete and ready for review — the record is then marked <em>submitted</em>, locked from further edits by editors, and visible to reviewers on the dashboard.<br>
+        <span style="color:var(--ink-3);font-size:12px">Votre saisie est enregistrée sur cet appareil ; « Enregistrer maintenant » ou « Soumettre » l'envoie au serveur. Le bouton ci-dessous marque l'inspection comme terminée et prête à être revue.</span>
       </p>
       <div class="submit-row">
         <button type="button" class="btn-submit" id="submitBtn" onclick="submitInspection()">
@@ -1511,14 +1509,15 @@ body.submission-locked .submit-row::before{
 </div>
 
 <script nonce="%%CSP_NONCE%%" src="lib/draftStore.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/reasonDialog.js"></script>
 <script nonce="%%CSP_NONCE%%">
 /* ============================================================
    INSPECTION CATEGORIES & ITEMS
    ============================================================ */
 const CATEGORIES = [
   { id:'env', name:'Environment', fr:'Environnement', icon:'🌡', items:[
-    { l:'Temperature within range (18-24°C)', fr:'Température dans la plage' },
-    { l:'Relative humidity within range (40-60%)', fr:'Humidité relative dans la plage' },
+    { l:'Temperature within range (18-24°C)', fr:'Température dans la plage (18–24 °C)' },
+    { l:'Relative humidity within range (40-60%)', fr:'Humidité relative dans la plage (40–60 %)' },
     { l:'HVAC / cooling units operational', fr:'Climatisation opérationnelle' },
     { l:'HVAC redundancy (N+1)', fr:'Redondance climatisation (N+1)' },
     { l:'Temperature/humidity monitoring & alarms', fr:'Surveillance & alarmes T°/HR' },
@@ -1820,7 +1819,7 @@ async function newInspection(){
   // currentId changes below; awaiting lets us stop when it could NOT be written.
   if (currentId) {
     const r = await saveCurrent();
-    if (r && r.ok === false && !_confirmLeaveUnsaved(r.error)) return;
+    if (r && r.ok === false && !(await _confirmLeaveUnsaved(r.error))) return;
   }
   const id = genId();
   state = { meta:{ f_id:id, f_date:new Date().toISOString().split('T')[0], f_time:new Date().toTimeString().slice(0,5) }, items:{}, actions:[], signatures:{} };
@@ -1837,7 +1836,7 @@ async function switchInspection(id){
   if (!id || id === currentId) return;
   const prevId = currentId;
   const r = await saveCurrent();
-  if (r && r.ok === false && !_confirmLeaveUnsaved(r.error)) { refreshSavedSelect(); return; }
+  if (r && r.ok === false && !(await _confirmLeaveUnsaved(r.error))) { refreshSavedSelect(); return; }
   currentId = id;
   if (await loadCurrent()) {
     localStorage.setItem(KEY_CURRENT, id);
@@ -1860,11 +1859,25 @@ async function switchInspection(id){
 }
 
 // The current draft could not be written on this device: say so before discarding it.
+// One confirmation dialog for the page (lib/reasonDialog.js), in the interface language, naming what it is about.
+// If the dialog library did not load, the answer is "no": nothing is discarded or deleted without a confirmation.
+function _pageFr(){
+  try { const s = localStorage.getItem('sdp_lang'); if (s === 'fr' || s === 'en') return s === 'fr'; } catch (_) { /* private mode */ }
+  return /^fr/i.test(document.documentElement.lang || '');
+}
+function _askConfirm(o){
+  if (!(window.ReasonDialog && ReasonDialog.confirm)) return Promise.resolve(false);
+  const fr = _pageFr();
+  return ReasonDialog.confirm({ lang: fr ? 'fr' : 'en', title: fr ? o.title_fr : o.title, target: o.target, message: fr ? o.message_fr : o.message,
+    okLabel: fr ? o.ok_fr : o.ok, danger: !!o.danger });
+}
 function _confirmLeaveUnsaved(err){
   const why = (window.DraftStore && DraftStore.describeError(err)) || 'storage error';
-  return confirm('This inspection is NOT saved on this device (' + why + ').\n'
-    + 'Leave it anyway? Unsent changes will be lost — Cancel, then click Save now or Export (JSON).\n\n'
-    + 'Cette inspection n\'est PAS enregistrée sur cet appareil. Quitter quand même ?');
+  return _askConfirm({ danger: true, target: (typeof inspectionLabel === 'function' && state && inspectionLabel(state.meta)) || currentId || '',
+    title: 'Leave an inspection that is not saved?', title_fr: 'Quitter une inspection non enregistrée ?',
+    message: 'This inspection is NOT saved on this device (' + why + ').\nUnsent changes will be lost — Cancel, then click Save now or Export (JSON).',
+    message_fr: 'Cette inspection n\'est PAS enregistrée sur cet appareil (' + why + ').\nLes modifications non envoyées seront perdues — Annulez, puis cliquez sur Enregistrer maintenant ou Exporter (JSON).',
+    ok: 'Leave anyway', ok_fr: 'Quitter quand même' });
 }
 
 // Triggered by the toolbar 🗑 button. Pops a styled confirmation
@@ -1879,11 +1892,10 @@ function deleteInspection(){
   const body   = document.getElementById('deleteModalBody');
   const title  = document.getElementById('deleteModalTitle');
   if (!body || !title) {
-    // Defensive: if the modal markup is missing for any reason, fall
-    // back to native confirm() rather than silently dropping the action.
-    if (confirm('Delete this inspection? This cannot be undone.\n\nSupprimer cette inspection ? Action irréversible.')) {
-      confirmDelete();
-    }
+    // Defensive: if the modal markup is missing for any reason, ask through the shared dialog
+    // rather than silently dropping the action.
+    _askConfirm({ danger: true, target: inspectionLabel(state.meta) || currentId, title: 'Delete this inspection?', title_fr: 'Supprimer cette inspection ?',
+      message: 'This cannot be undone.', message_fr: 'Action irréversible.', ok: 'Delete', ok_fr: 'Supprimer' }).then((yes) => { if (yes) confirmDelete(); });
     return;
   }
   const lbl = inspectionLabel(state.meta) || currentId;
@@ -1969,10 +1981,13 @@ async function confirmDelete(){
   if (typeof showToast === 'function') showToast('Inspection deleted.', 'info', 2500);
 }
 
-function renameInspection(){
-  const lbl = prompt('Optional label / Libellé optionnel (e.g. "Q1 routine", "Pre-audit"):', state.meta.f_label || '');
-  if (lbl === null) return;
-  state.meta.f_label = lbl.trim();
+async function renameInspection(){
+  if (!(window.ReasonDialog && ReasonDialog.form)) return;
+  const fr = _pageFr();
+  const r = await ReasonDialog.form({ lang: fr ? 'fr' : 'en', title: fr ? 'Renommer cette inspection' : 'Rename this inspection',
+    fields: [{ name: 'label', optional: true, value: state.meta.f_label || '', label: fr ? 'Libellé optionnel (ex. « Routine T1 », « Pré-audit »)' : 'Optional label (e.g. "Q1 routine", "Pre-audit")' }] });
+  if (r === null) return;
+  state.meta.f_label = String(r.label || '').trim();
   updateIndexEntry();
   refreshSavedSelect();
   autosave();
@@ -2906,7 +2921,7 @@ function priorityFromStatus(status){
   return ({critical:'Critical', major:'High', minor:'Medium', opp:'Low'})[status] || 'Medium';
 }
 
-function generateAction(btn){
+async function generateAction(btn){
   const key = btn.dataset.key;
   const code = btn.dataset.code;
   const label = btn.dataset.label;
@@ -2914,7 +2929,8 @@ function generateAction(btn){
   // Avoid duplicates: check if an action already linked to this code exists
   const existing = state.actions.find(a => a.link === code);
   if (existing){
-    if (!confirm(`An action is already linked to ${code}. Add another?`)) return;
+    if (!(await _askConfirm({ target: code + ' — ' + (btn.dataset.label || ''), title: 'Add another action?', title_fr: 'Ajouter une autre action ?',
+      message: 'An action is already linked to this item.', message_fr: 'Une action est déjà liée à ce point.', ok: 'Add another', ok_fr: 'Ajouter' }))) return;
   }
   const desc = it.notes
     ? `${label}\n\nObservation: ${it.notes}`
@@ -3137,12 +3153,22 @@ document.addEventListener('visibilitychange', () => {
 });
 window.addEventListener('pagehide', _flushPendingAutosave);
 
+function _defaultType(){
+  const el = document.getElementById('f_type');
+  if (!el || !el.options || !el.options.length) return;
+  if (state.meta.f_type && el.value === state.meta.f_type) return;
+  if (!state.meta.f_type) { el.selectedIndex = 0; state.meta.f_type = el.value; }
+}
+
 function applyStateToUI(){
   // restore meta
   META_FIELDS.forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = state.meta[id] || '';
   });
+  // Type has no empty choice: an inspection whose type was never changed stored nothing, so the list came back
+  // blank after a reload. The default option is what the form shows, so it is also what the record holds.
+  _defaultType();
 
   // reset all status buttons & item visibility
   document.querySelectorAll('.status-btn').forEach(b => b.classList.remove('active'));
@@ -3409,7 +3435,8 @@ function closeSubmitModal(){
 }
 
 async function reopenInspection(){
-  if (!confirm('Re-open this submitted inspection for edits?\nRouvrir cette inspection soumise pour modification ?')) return;
+  if (!(await _askConfirm({ target: inspectionLabel(state.meta) || currentId, title: 'Re-open this submitted inspection?', title_fr: 'Rouvrir cette inspection soumise ?',
+    message: 'It becomes a draft again and can be edited.', message_fr: 'Elle redevient un brouillon modifiable.', ok: 'Re-open', ok_fr: 'Rouvrir' }))) return;
   state.status = 'draft';
   state.meta.reopened_at = new Date().toISOString();
   if (typeof saveCurrent === 'function') await saveCurrent();
@@ -3482,10 +3509,11 @@ function importJSON(){
     const f = e.target.files[0];
     if (!f) return;
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       try {
         const data = JSON.parse(reader.result);
-        if (!confirm('Import as a new inspection? / Importer comme nouvelle inspection ?')) return;
+        if (!(await _askConfirm({ target: f.name, title: 'Import as a new inspection?', title_fr: 'Importer comme nouvelle inspection ?',
+          message: 'The file is loaded as a new inspection on this device.', message_fr: 'Le fichier est chargé comme une nouvelle inspection sur cet appareil.', ok: 'Import', ok_fr: 'Importer' }))) return;
         const id = data.meta?.f_id || genId();
         currentId = id;
         state = { meta: data.meta||{}, items: data.items||{}, actions: data.actions||[], signatures: data.signatures||{} };
@@ -3666,7 +3694,9 @@ function copyToClipboard(text){
   }
 }
 function promptCopy(text){
-  prompt('Copy this summary (Ctrl+C / long-press → Copy):', text);
+  // the clipboard is not available: show the text in the shared dialog so it can be selected and copied
+  const fr = _pageFr();
+  if (window.ReasonDialog && ReasonDialog.ask) ReasonDialog.ask({ lang: fr ? 'fr' : 'en', title: fr ? 'Copier ce résumé' : 'Copy this summary', label: fr ? 'Sélectionnez le texte puis copiez-le (Ctrl+C / appui long → Copier).' : 'Select the text, then copy it (Ctrl+C / long-press → Copy).', value: text });
 }
 
 function sharePDF(){
@@ -4112,6 +4142,7 @@ document.addEventListener('DOMContentLoaded', init);
       if (!res.ok) return;
       const lk = await res.json();
       _hydrateSelect('f_type', lk.types || [], t => t.code, t => t.label_en + ' / ' + t.label_fr);
+      if (typeof _defaultType === 'function') _defaultType();
       _hydrateSiteSelect(lk.sites  || []);
       _hydrateAreaSelect(lk.areas  || []);
     } catch(e) { /* offline — fall back to the hard-coded options */ }
@@ -4663,9 +4694,11 @@ document.addEventListener('DOMContentLoaded', init);
   async function handleInspectionConflict(id) {
     const localCopy = JSON.parse(JSON.stringify(state || {}));
     try { if (typeof DRAFTS !== 'undefined' && DRAFTS) await DRAFTS.put(id + '__conflict_backup', localCopy); } catch (_) { /* best-effort */ }
-    const ask = uiT('Someone else saved this inspection after you opened it. Your changes were NOT sent.') + '\n\n'
-      + uiT('OK = load the latest version and reapply your changes (you check them, then click Save now). Cancel = keep editing your copy (use Export JSON to keep it).');
-    if (!confirm(ask)) return false;
+    // the shared dialog (not the browser's): the two choices are the two buttons
+    const fr = _pageFr();
+    if (!(await ReasonDialog.confirm({ lang: fr ? 'fr' : 'en', target: id, title: uiT('Someone else saved this inspection after you opened it. Your changes were NOT sent.'),
+      message: uiT('Load the latest version and reapply your changes (you check them, then click Save now), or cancel to keep editing your copy (use Export JSON to keep it).'),
+      okLabel: uiT('Load the latest version') }))) return false;
     const server = await fetchInspectionFromServer(id);
     if (!server || currentId !== id) { if (typeof showToast === 'function') showToast(uiT('The latest version could not be loaded — your copy is kept on this device. Try again.'), 'warn', 8000); return false; }
     const merged = reapplyLocalEdits(localCopy, server);

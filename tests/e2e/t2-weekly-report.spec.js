@@ -25,6 +25,10 @@ runJourney('T2 open and submit last week weekly report', async ({ world, browser
   assert.match(await page.textContent('#hd-auto-group-label'), /Hounde IT Agents/, 'helpdesk section scoped to the site group');
 
   await page.click('#btn-submit');
+  // VISUAL POLISH 3: the "IT assets section empty — submit anyway?" question is the shared in-page dialog now (it was a
+  // browser confirm); when it applies it is answered with its confirm button.
+  const anyway = await page.waitForSelector('.rd-back .rd-ok', { timeout: 5000 }).catch(() => null);
+  if (anyway) await anyway.click();
   await page.waitForFunction(() => /Submitted/.test(document.getElementById('report-status-label').textContent), null, { timeout: 20000 });
   assert.strictEqual(await page.isVisible('#btn-submit'), false, 'submit button gone once submitted');
 

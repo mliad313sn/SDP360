@@ -483,3 +483,101 @@
 :where(.edv-house) .btn.primary:hover { background:var(--gray-800); border-color:var(--gray-800); }
 :where(.edv-house) .btn.danger { color:var(--rag-red); }
 :where(.edv-house) .btn.danger:hover { background:var(--color-danger-bg); border-color:var(--rag-red); }
+
+/* ── Executive KPI — ONE tile for the executive pages (VISUAL POLISH 3, UX committee executive F5 / F15 / F23) ──
+   Modelled on the IT Review band: a ruled, neutral cell; a small caps label; a large tabular value; the status as a
+   dot or a pill — never a coloured border, stripe, gradient or lift. `.exec-kpi` is the component; under
+   <body class="exec-house"> the existing tiles of the Scorecard (.kpi-tile), Exec View (.kpi-card), Site Overview
+   (.sa-tile) and the dashboard engine on Executive Home (.edv-widget / .edv-kpi-card) take the SAME rules, so the
+   four pages read as one product without rewriting their markup. Values, formulas and what is shown are untouched. */
+.exec-kpi, body.exec-house .kpi-tile, body.exec-house .kpi-card, body.exec-house .sa-tile, body.exec-house .edv-kpi-card, body.exec-house .edv-widget {
+  background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-sm); box-shadow: none;
+  animation: none; opacity: 1; transform: none; transition: none; }
+body.exec-house .kpi-tile:hover, body.exec-house .kpi-card:hover, body.exec-house .sa-tile:hover { box-shadow: none; transform: none; }
+body.exec-house .kpi-tile::before { display: none; }
+body.exec-house .edv-widget.rag-green, body.exec-house .edv-widget.rag-amber, body.exec-house .edv-widget.rag-red, body.exec-house .edv-widget.rag-na,
+body.exec-house .edv-kpi-card.rag-green, body.exec-house .edv-kpi-card.rag-amber, body.exec-house .edv-kpi-card.rag-red { border-top: 1px solid var(--color-border); }
+.exec-kpi__label, body.exec-house .kpi-tile-label, body.exec-house .kpi-label, body.exec-house .sa-tile .lbl, body.exec-house .edv-kpi-label, body.exec-house .edv-widget > h3 {
+  font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--gray-600); line-height: 1.3; }
+.exec-kpi__value, body.exec-house .kpi-tile-value, body.exec-house .kpi-value, body.exec-house .sa-tile .val, body.exec-house .edv-kpi-value {
+  font-family: var(--font-sans); font-size: 32px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; color: var(--color-text-strong); }
+body.exec-house .edv-widget.edv-quiet .edv-kpi-value, body.exec-house .edv-kpi-card.edv-quiet .edv-kpi-value { color: var(--rag-na); font-weight: 600; }
+.exec-kpi__meta, body.exec-house .kpi-tile-meta, body.exec-house .kpi-foot { font-size: 12px; color: var(--gray-600); flex-wrap: wrap; }
+body.exec-house .kpi-trend, body.exec-house .kpi-prev, body.exec-house .kpi-delta, body.exec-house .edv-stale-badge, body.exec-house .rag-chip { white-space: nowrap; }
+/* stale = a solid rule and a "Stale" pill (a dashed border read as "draft / broken") */
+.edv-widget.edv-stale { border-top: 3px solid var(--rag-na); }
+body.exec-house .edv-widget.edv-stale { border-top: 1px solid var(--color-border); }
+/* an empty panel shrinks to its message (executive F16); the message itself stays — it says what is not measured */
+.edv-widget.is-empty { min-height: 0; grid-row-end: span 1 !important; }
+.edv-widget.is-empty canvas { display: none; }
+.edv-nodata { display: flex; align-items: center; gap: 8px; padding: 10px 0; font-size: 13px; color: var(--gray-600); }
+.edv-nodata::before { content: ''; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--rag-na); }
+/* print: one header line, landscape, no chrome (executive F7) */
+@media print {
+  @page { size: A4 landscape; margin: 12mm; }
+  body.exec-house::before { content: attr(data-print-title); display: block; font: 700 14pt var(--font-sans); padding-bottom: 6pt; margin-bottom: 8pt; border-bottom: 1px solid var(--gray-400); }
+  body.exec-house .mt-tabs, body.exec-house .exec-tabs, body.exec-house [data-print="hide"], body.exec-house .footer, body.exec-house .api-bar, body.exec-house .filter-card, body.exec-house .tab-bar, body.exec-house .sa-tabs, body.exec-house .sa-lang-toggle { display: none !important; }
+  body.exec-house .kpi-tile, body.exec-house .kpi-card, body.exec-house .sa-tile, body.exec-house .edv-widget, body.exec-house .chart-card, body.exec-house .sa-panel { break-inside: avoid; }
+  body.exec-house { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+
+body.exec-house .edv-widget:has(> .edv-widget-text:only-child) { border: 0; background: transparent; padding: 4px 0 0; min-height: 0; }
+body.exec-house .edv-widget-text p { font-size: 14px; color: var(--color-text-strong); }
+
+/* ── One button for the older pages (VISUAL POLISH 3, visual F2 / F16) ───────────────────────────────────────────
+   assets, inspections, inspection, reports, trackers, dashboards, the composer, login, the Scorecard and the deck
+   builder each defined their own .btn. Their definitions are gone: <body class="edv-ui"> maps the class names those
+   pages already use onto the shared .edv-btn variants, so there is ONE set of button rules and no markup churn.
+     .btn                         → .edv-btn (secondary)        .btn-sm                → .edv-btn--sm
+     .btn-primary / .btn.primary  → .edv-btn--primary           .btn-danger / .danger  → .edv-btn--danger-quiet
+     .btn-secondary / .btn-light  → .edv-btn--secondary         .btn-ghost             → secondary on a light page,
+     .btn-success                 → .edv-btn--primary                                    outline on a dark bar
+   :where() keeps the specificity of the page rules these replace (a page rule about a place still wins).
+   Colour rule (F16): one primary per view; green is a status, never a button; red is for destructive actions. */
+.edv-btn--outline { background: transparent; color: inherit; border-color: color-mix(in srgb, currentColor 35%, transparent); }
+.edv-btn--outline:hover { background: color-mix(in srgb, currentColor 12%, transparent); border-color: color-mix(in srgb, currentColor 55%, transparent); }
+.edv-btn--danger-quiet { background: var(--color-surface); color: var(--rag-red); border-color: color-mix(in srgb, var(--rag-red) 45%, transparent); }
+.edv-btn--danger-quiet:hover { background: var(--color-danger-bg); border-color: var(--rag-red); }
+.edv-btn--block { width: 100%; min-height: 44px; font-weight: 700; }
+:where(.edv-ui) .btn { display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:var(--control-h-md); padding:0 14px;
+  border:1px solid var(--color-border-strong); border-radius:var(--radius-md); background:var(--color-surface); color:var(--color-text-strong);
+  font:600 var(--text-base)/1 var(--font-sans); text-decoration:none; white-space:nowrap; cursor:pointer; transition:var(--edv-motion); }
+:where(.edv-ui) .btn:hover { background:var(--gray-50); border-color:var(--gray-400); }
+:where(.edv-ui) .btn:disabled, :where(.edv-ui) .btn[aria-disabled="true"] { opacity:.5; cursor:not-allowed; }
+:where(.edv-ui) .btn .icon { margin:0; width:16px; height:16px; top:0; }
+:where(.edv-ui) .btn-primary, :where(.edv-ui) .btn.primary, :where(.edv-ui) .btn-success, :where(.edv-ui) .btn-orange, :where(.edv-ui) .btn-gold {
+  background:var(--color-primary-fill); border-color:var(--color-primary-fill); color:var(--color-text-on-dark); -webkit-text-fill-color:var(--color-text-on-dark); }
+:where(.edv-ui) .btn-primary:hover, :where(.edv-ui) .btn.primary:hover, :where(.edv-ui) .btn-success:hover, :where(.edv-ui) .btn-orange:hover, :where(.edv-ui) .btn-gold:hover {
+  background:var(--color-primary-fill-hover); border-color:var(--color-primary-fill-hover); }
+:where(.edv-ui) .btn-secondary, :where(.edv-ui) .btn-light, :where(.edv-ui) .btn-ghost { background:var(--color-surface); color:var(--color-text-strong); -webkit-text-fill-color:var(--color-text-strong); }
+:where(.edv-ui) .btn-danger, :where(.edv-ui) .btn.danger { background:var(--color-surface); color:var(--rag-red); -webkit-text-fill-color:var(--rag-red); border-color:color-mix(in srgb, var(--rag-red) 45%, transparent); }
+:where(.edv-ui) .btn-danger:hover, :where(.edv-ui) .btn.danger:hover { background:var(--color-danger-bg); border-color:var(--rag-red); }
+:where(.edv-ui) .btn-sm { min-height:var(--control-h-sm); padding:0 10px; font-size:var(--text-md); }
+:where(.edv-ui) .btn-block { width:100%; min-height:44px; font-weight:700; }
+/* on a dark bar (Scorecard page bar, deck builder, inspection header) the plain and ghost buttons are outlines in the
+   bar's own text colour */
+:where(.edv-ui-dark) .btn, :where(.edv-ui) :where(.edv-on-dark) .btn-ghost, :where(.edv-ui) :where(.edv-on-dark) .btn:not(.btn-primary):not(.btn-orange):not(.btn-gold) {
+  display:inline-flex; align-items:center; gap:6px; min-height:var(--control-h-sm); padding:0 12px; border-radius:var(--radius-md); cursor:pointer; white-space:nowrap;
+  font:600 var(--text-md)/1 var(--font-sans); background:transparent; color:inherit; -webkit-text-fill-color:currentColor; border:1px solid color-mix(in srgb, currentColor 35%, transparent); }
+:where(.edv-ui-dark) .btn:hover { background:color-mix(in srgb, currentColor 12%, transparent); }
+:where(.edv-ui-dark) .btn:disabled { opacity:.5; cursor:not-allowed; }
+:where(.edv-ui-dark) .btn-primary, :where(.edv-ui-dark) .btn-gold, :where(.edv-ui-dark) .btn-orange, :where(.edv-ui-dark) .btn-green {
+  background:var(--color-primary-fill); border-color:var(--color-primary-fill); color:var(--color-text-on-dark); -webkit-text-fill-color:var(--color-text-on-dark); }
+:where(.edv-ui-dark) .btn-primary:hover, :where(.edv-ui-dark) .btn-gold:hover, :where(.edv-ui-dark) .btn-orange:hover, :where(.edv-ui-dark) .btn-green:hover { background:var(--color-primary-fill-hover); border-color:var(--color-primary-fill-hover); }
+
+/* ── One table, one tab bar, one badge for the older pages (visual F10 / F21, admin P2-11) ────────────────────────
+   Same idea: the data tables of the main pages (table.list, .user-table, .action-table, .data-table, .mi-table)
+   take the .edv-table look — light header, 44 px rows, ruled, tabular numbers — under <body class="edv-ui">. */
+:where(.edv-ui) table.list, :where(.edv-ui) table.user-table, :where(.edv-ui) table.data-table, :where(.edv-ui) table.mi-table { width:100%; border-collapse:separate; border-spacing:0; font-size:var(--text-md); color:var(--color-text-strong); font-variant-numeric:tabular-nums; }
+:where(.edv-ui) table.list th, :where(.edv-ui) table.user-table th, :where(.edv-ui) table.data-table th, :where(.edv-ui) table.mi-table th {
+  height:36px; padding:0 12px; background:var(--gray-50); color:var(--gray-600); font-size:var(--text-sm); font-weight:600; letter-spacing:.04em; text-transform:uppercase; text-align:left; border-bottom:1px solid var(--color-border-strong); white-space:nowrap; }
+:where(.edv-ui) table.list td, :where(.edv-ui) table.user-table td, :where(.edv-ui) table.data-table td, :where(.edv-ui) table.mi-table td { padding:8px 12px; border-bottom:1px solid var(--color-border); vertical-align:middle; }
+:where(.edv-ui) table.list tbody tr:hover td, :where(.edv-ui) table.user-table tbody tr:hover td, :where(.edv-ui) table.data-table tbody tr:hover td, :where(.edv-ui) table.mi-table tbody tr:hover td { background:var(--gray-25); }
+:where(.edv-ui) .status-active, :where(.edv-ui) .status-inactive { display:inline-flex; align-items:center; gap:6px; height:20px; padding:0 8px; border-radius:var(--radius-pill); font-size:var(--text-sm); font-weight:600; }
+:where(.edv-ui) .status-active { background:var(--color-success-bg); color:var(--color-success-text); }
+:where(.edv-ui) .status-inactive { background:var(--gray-100); color:var(--gray-600); }
+:where(.edv-ui) .status-active::before, :where(.edv-ui) .status-inactive::before { content:''; width:6px; height:6px; border-radius:50%; background:currentColor; }
+/* the `hidden` attribute wins over the button's own display (a class rule would otherwise un-hide a hidden button) */
+.edv-btn[hidden], :where(.edv-ui) .btn[hidden], :where(.edv-ui-dark) .btn[hidden], :where(.edv-house) .btn[hidden] { display: none; }
+/* on a phone a long button label wraps instead of widening the page (the older pages' buttons always could) */
+@media (max-width: 640px) { :where(.edv-ui) .btn, :where(.edv-ui-dark) .btn { white-space: normal; max-width: 100%; padding-block: 8px; line-height: 1.2; text-align: center; } }

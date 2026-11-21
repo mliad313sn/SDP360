@@ -55,7 +55,7 @@
     'Sign with finger or mouse / Signer au doigt ou à la souris': 'Signer au doigt ou à la souris',
     'Site Acknowledgement / Validation Site': 'Validation site', 'Distribution / Diffusion': 'Diffusion',
     'Submit Inspection ·': '', 'Soumettre': 'Soumettre',
-    'Auto-save has been syncing your work the whole time. Tap': 'L’enregistrement automatique synchronise votre travail en continu. Touchez',
+    'Your work is saved on this device as you type; it is sent to the server by': 'Votre saisie est enregistrée sur cet appareil au fil de la frappe ; elle est envoyée au serveur par', 'and by Submit. Tap': 'et par Soumettre. Touchez',
     'when this inspection is complete and ready for review — the record is then marked': 'quand l’inspection est terminée et prête à être revue — elle est alors marquée',
     'submitted': 'soumise', ', locked from further edits by editors, and visible to reviewers on the dashboard.': ', verrouillée pour les éditeurs et visible des relecteurs sur le tableau de bord.',
     '✓ Submit Inspection · Soumettre': '✓ Soumettre l’inspection', '↻ Re-open for edits': '↻ Rouvrir pour modification',
@@ -65,7 +65,7 @@
     'Endeavour Mining · IT Operations · Site Inspection Form v1.0': 'Endeavour Mining · Opérations IT · Formulaire d’inspection de site v1.0',
     'Share inspection report · Partager le rapport': 'Partager le rapport d’inspection', 'WhatsApp': 'WhatsApp', 'Share': 'Partager', 'PDF': 'PDF',
     'Report': 'Rapport', 'Backup': 'Sauvegarde', '(JSON)': '(JSON)', 'Switch inspection': 'Changer d’inspection', 'New inspection': 'Nouvelle inspection',
-    'Dictation language / Langue de dictée': 'Langue de dictée', 'Rename current': 'Renommer l’actuelle', 'Delete current': 'Supprimer l’actuelle',
+    'Dictation language / Langue de dictée': 'Langue de dictée', 'Rename current': 'Renommer l’actuelle', 'Delete current': 'Supprimer l’actuelle', 'More actions': 'Autres actions', 'Rename': 'Renommer', 'Delete': 'Supprimer',
     'Push the latest changes to the server. Keystrokes only save to this device — click Save now (or Submit) to sync to the dashboard. Useful right before you go offline.':
       'Envoyer les dernières modifications au serveur. La saisie n’est enregistrée que sur cet appareil — cliquez sur Enregistrer maintenant (ou Soumettre) pour synchroniser. Utile juste avant de passer hors ligne.',
     'e.g. Building B-2, Rack R-04': 'ex. Bâtiment B-2, baie R-04', 'Tap to dictate / Appuyer pour dicter': 'Appuyer pour dicter',
@@ -94,8 +94,9 @@
     '{n} inspection(s) were changed by someone else since they were opened here and were not sent. Open each one and click Save now to reload the latest version and reapply your changes.':
       '{n} inspection(s) ont été modifiée(s) par quelqu’un d’autre depuis leur ouverture ici et n’ont pas été envoyée(s). Ouvrez chacune et cliquez sur Enregistrer maintenant pour recharger la dernière version et réappliquer vos modifications.',
     'Someone else saved this inspection after you opened it. Your changes were NOT sent.': 'Quelqu’un d’autre a enregistré cette inspection après son ouverture ici. Vos modifications n’ont PAS été envoyées.',
-    'OK = load the latest version and reapply your changes (you check them, then click Save now). Cancel = keep editing your copy (use Export JSON to keep it).':
-      'OK = charger la dernière version et réappliquer vos modifications (vous les vérifiez, puis cliquez sur Enregistrer maintenant). Annuler = continuer sur votre copie (utilisez Export JSON pour la garder).',
+    'Load the latest version and reapply your changes (you check them, then click Save now), or cancel to keep editing your copy (use Export JSON to keep it).':
+      'Charger la dernière version et réappliquer vos modifications (vous les vérifiez, puis cliquez sur Enregistrer maintenant), ou annuler pour continuer sur votre copie (utilisez Export JSON pour la garder).',
+    'Load the latest version': 'Charger la dernière version',
     'The latest version could not be loaded — your copy is kept on this device. Try again.': 'La dernière version n’a pas pu être chargée — votre copie est conservée sur cet appareil. Réessayez.',
     'Latest version loaded and your changes reapplied. Check them, then click Save now.': 'Dernière version chargée et vos modifications réappliquées. Vérifiez-les, puis cliquez sur Enregistrer maintenant.',
     '⚠ Not saved: changed by someone else since you opened it — reload and reapply, then Save now': '⚠ Non enregistrée : modifiée par quelqu’un d’autre depuis son ouverture — rechargez et réappliquez, puis Enregistrer maintenant',

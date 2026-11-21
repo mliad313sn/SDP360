@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="brand/components.css">
 <link rel="stylesheet" href="_shell.css">
 <script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/reasonDialog.js"></script>
 <script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
 <script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
 <link rel="stylesheet" href="module-tabs.css">
@@ -261,9 +262,18 @@
     return head + opts.map(s => `<option value="${esc(s)}"${s === it.status ? ' selected' : ''}>${esc(stLabel(s))}</option>`).join('') + '</select>';
   }
 
+  // site coordinator P2-16: the column answers "how late is it?" (days past the due date, red), not "how old is it?"
+  // — an action due in February read "0 d". The age since opening stays in the tooltip. The server's own `overdue`
+  // flag decides WHETHER it is late; the day count is the calendar distance from the due date to the server's as-of.
+  function lateCell(it) {
+    const age = it.age_days == null ? '' : 'Opened ' + it.age_days + ' d ago';
+    if (!it.overdue || !it.due_date) return `<span title="${esc(age)}">—</span>`;
+    const asOf = Date.parse(String((state.data && state.data.as_of) || new Date().toISOString()).slice(0, 10)), due = Date.parse(String(it.due_date).slice(0, 10));
+    const d = Number.isFinite(asOf) && Number.isFinite(due) ? Math.max(1, Math.round((asOf - due) / 864e5)) : null;
+    return `<span class="sa-date overdue" title="${esc(age)}">${d == null ? '—' : d + ' d'}</span>`;
+  }
   function rowHtml(it, g) {
     const overdue = it.overdue;
-    const age = it.age_days == null ? '—' : (it.age_days + 'd');
     let closeCell = '';
     if (it.close && it.close.kind === 'link') {
       closeCell = `<a class="sa-open" href="${esc(it.close.url)}">↗ open</a>`;
@@ -277,7 +287,7 @@
       <span class="sa-row__title"><strong>${esc(it.title)}</strong><small>${esc(it.origin_label || '')}</small>${it.project ? `<a class="sa-badge sa-badge--pmo" ${it.project.url ? `href="${esc(it.project.url)}" target="_blank" rel="noopener"` : ''} title="Meridian project — click to open">▸ Projet: ${esc(it.project.name || it.project.id)}</a>` : ''}${it.commitment ? `<a class="sa-badge sa-badge--cmt${it.commitment.awaiting_verification ? ' sa-badge--await' : ''}" href="commitments.html?id=${esc(it.commitment.id)}" title="Linked commitment — click to open">${it.commitment.awaiting_verification ? '⏳ awaiting verification' : '● ' + esc(String(it.commitment.status).replace(/_/g, ' '))}</a>` : ''}</span>
       <span>${esc(it.owner || '—')}</span>
       <span class="sa-date ${overdue ? 'overdue' : ''}">${fmtDate(it.due_date)}${overdue ? '<span class="sa-overdue-tag">late</span>' : ''}</span>
-      <span>${esc(age)}</span>
+      ${lateCell(it)}
       <span>${statusCell(it, g)}</span>
       <span>${closeCell}</span>
     </div>`;
@@ -294,7 +304,7 @@
         <span class="sa-group__count">${items.length} open</span>${oldest}
       </div>`;
     if (!items.length) return `<div class="sa-group">${head}<div class="sa-empty">No open actions${state.q || state.overdue ? ' match the filter' : ''}.</div></div>`;
-    const table = `<div class="sa-head"><span>Action</span><span>Owner</span><span>Due</span><span>Age</span><span>Status</span><span></span></div>`
+    const table = `<div class="sa-head"><span>Action</span><span>Owner</span><span>Due</span><span>Late</span><span>Status</span><span></span></div>`
       + items.map(it => rowHtml(it, g)).join('');
     return `<div class="sa-group">${head}${table}</div>`;
   }
@@ -324,7 +334,7 @@
       <span class="sa-row__title">${sev}<strong>${esc(it.title)}</strong>${tags}<small>${esc(it.origin_label || '')}</small></span>
       <span>${esc(it.owner || '—')}</span>
       <span class="sa-date ${it.overdue ? 'overdue' : ''}">${fmtDate(it.due_date)}${it.overdue ? '<span class="sa-overdue-tag">late</span>' : ''}</span>
-      <span>${it.age_days == null ? '—' : esc(it.age_days + 'd')}</span>
+      ${lateCell(it)}
       <span>${issueStatusCell(it)}</span>
       <span>${act} ${pv}</span>
     </div>`;
@@ -343,7 +353,7 @@
         ${without ? `<span class="sa-badge sa-badge--old">${without} without action</span>` : ''}
       </div>`;
     if (!items.length) return `<div class="sa-group">${head}<div class="sa-empty">No open issues${state.q || state.overdue || state.noAction ? ' match the filter' : ''}.</div></div>`;
-    return `<div class="sa-group">${head}<div class="sa-head"><span>Issue</span><span>Champion</span><span>Due</span><span>Age</span><span>Status</span><span>Actions</span></div>`
+    return `<div class="sa-group">${head}<div class="sa-head"><span>Issue</span><span>Champion</span><span>Due</span><span>Late</span><span>Status</span><span>Actions</span></div>`
       + items.map(issueRowHtml).join('') + '</div>';
   }
 
@@ -398,7 +408,7 @@
     if (others.length) return;
     const issue = ((g.issues && g.issues.items) || []).find(i => i.issue_id === me.linked_issue_id);
     if (!issue) return;
-    if (!window.confirm('That was the last open action of this issue.\n\nAlso mark the issue "' + issue.title + '" as resolved?')) return;
+    if (!(window.ReasonDialog && await window.ReasonDialog.confirm({ title: 'Also mark the issue as resolved?', target: issue.title, message: 'That was the last open action of this issue.', okLabel: 'Mark as resolved' }))) return;
     try {
       const r = await fetch('/api/meetings/issues/' + encodeURIComponent(issue.issue_id) + '/update', {
         method: 'POST', credentials: 'same-origin',

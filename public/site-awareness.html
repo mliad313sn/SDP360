@@ -9,11 +9,14 @@
 <link rel="stylesheet" href="brand/icons.css">
 <link rel="stylesheet" href="brand/components.css">
 <link rel="stylesheet" href="_shell.css">
+<link rel="stylesheet" href="module-tabs.css">
 <script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
 <script nonce="%%CSP_NONCE%%" src="auth.js" data-require="site-business|group-business|executive" data-redirect="login.html"></script>
 <script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<script nonce="%%CSP_NONCE%%" src="module-tabs.js"></script>
 <script src="vendor/chart.js/4.4.1/chart.umd.js" defer></script>
 <script src="lib/chartTheme.js" defer></script>
+<script src="lib/chartNoData.js" defer></script>
 
 <link rel="stylesheet" href="fonts.css">
 <style nonce="%%CSP_NONCE%%">
@@ -138,8 +141,10 @@ W.defaults=O.defaults;window.Chart=W;});
 
 <script nonce="%%CSP_NONCE%%" src="lib/codeLabels.js"></script>
 </head>
-<body>
+<body class="exec-house" data-print-title="SDP360 — Site overview">
 <div id="__shell" data-section="site-awareness" data-current="site-awareness"></div>
+<!-- executive seat: the executive pages share one tab strip (shown to executive roles only) -->
+<div id="__moduletabs" class="exec-tabs" data-module="executive" data-current="site-overview"></div>
 <main id="main" class="edv-main">
 
 <div class="sa-wrap">
@@ -1143,7 +1148,10 @@ W.defaults=O.defaults;window.Chart=W;});
     renderTabs();
     // Land on the hash tab if it's available, else helpdesk.
     const want = location.hash.slice(1);
-    showTab((want && tabsAvail[want] !== false && TABS.some(t => t.id === want)) ? want : 'helpdesk');
+    // executive F21: a group user with no site of their own opens on the Group view (when the server offers it)
+    let noOwnSite = false; try { noOwnSite = !(window.__authUser && window.__authUser.site_id); } catch (_) { noOwnSite = false; }
+    const first = (noOwnSite && tabsAvail.fleet === true && TABS.some(t => t.id === 'fleet')) ? 'fleet' : 'helpdesk';
+    showTab((want && tabsAvail[want] !== false && TABS.some(t => t.id === want)) ? want : first);
   }
 
   // ── Language toggle ────────────────────────────────────────────────

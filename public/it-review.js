@@ -207,7 +207,7 @@
         if (!r.ok) throw new Error('HTTP ' + r.status);
         return r.json();
       })
-      .then(function (vals) { mount.innerHTML = namespaceVars(renderTemplate(tpl, vals)); })
+      .then(function (vals) { mount.innerHTML = namespaceVars(renderTemplate(tpl, vals)); nameSiteLinks(mount, vals); })
       .catch(function (e) {
         // Never a blank page.
         mount.innerHTML = '<div style="padding:24px;font:14px system-ui;color:#b42318">'
@@ -215,7 +215,21 @@
       });
   }
 
+  // Executive F11 — the site filter shows site NAMES (the code stays as the tooltip and as the link value). Display
+  // only: the names are the ones the model itself returns in its leaderboard rows; the model is not touched.
+  function nameSiteLinks(root, vals) {
+    var names = {};
+    ((vals && vals.leaderboard) || []).forEach(function (r) { if (r && r.code && r.name) names[r.code] = r.name; });
+    var links = root && root.querySelectorAll ? root.querySelectorAll('a[data-q="site"]') : [];
+    Array.prototype.forEach.call(links, function (a) {
+      var code = a.getAttribute('data-v');
+      if (code === 'ALL') { a.textContent = 'All sites'; return; }
+      if (names[code]) { a.textContent = names[code]; a.setAttribute('title', code); }
+    });
+  }
+
   var api = {
+    nameSiteLinks: nameSiteLinks,
     renderTemplate: renderTemplate,
     namespaceVars: namespaceVars,
     _resolve: _resolve,

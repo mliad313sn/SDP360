@@ -13,6 +13,7 @@
 <script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
 <script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/pageStates.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/reasonDialog.js"></script>
 <link rel="stylesheet" href="module-tabs.css">
 <script nonce="%%CSP_NONCE%%" src="module-tabs.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/pageHead.js"></script>
@@ -33,20 +34,6 @@
   .insp-head h1     { margin: 0; font-size: 22px; font-weight: 700; color: var(--edv-slate, #3A4A60); }
   .insp-head .sub   { font-size: 13px; color: var(--color-text-muted, #6b7785); }
   .insp-head .spacer { flex: 1; }
-  .btn {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 8px 14px;
-    border: 1px solid transparent;
-    border-radius: var(--radius-md, 6px);
-    background: var(--color-primary-fill, #C2410C); color: #fff;
-    font-family: inherit; font-size: 13px; font-weight: 600;
-    cursor: pointer; text-decoration: none;
-    transition: background var(--motion-fast, 120ms);
-  }
-  .btn:hover        { background: var(--color-primary-fill-hover, #9A3412); }
-  .btn-ghost        { background: #fff; color: var(--color-text-secondary, #3a4452); border-color: var(--color-border, #dfe3e8); }
-  .btn-ghost:hover  { background: var(--color-surface-muted, #f4f6f7); color: var(--color-text-primary, #1F2A33); }
-  .btn .icon        { width: 16px; height: 16px; }
 
   /* Filter bar */
   .filter-bar {
@@ -322,7 +309,7 @@
   .kpi-tile { border-radius: var(--radius-lg); box-shadow: var(--shadow-card); border-color: var(--color-border); }
 </style>
 </head>
-<body>
+<body class="edv-ui">
 
 <div id="__shell" data-section="operations" data-current="inspections"></div>
 <main id="main" class="edv-main">
@@ -358,7 +345,7 @@
     <button class="btn btn-ghost" id="excelBtn" title="Download EVERY inspection, finding and corrective action as an Excel workbook (all sites, ignores filters). Admin only." style="display:none">
       <span class="icon icon-download"></span> Excel (full data)
     </button>
-    <button class="btn" id="exportBtn" title="Download a roll-up PPTX of the current filter (executive only)" style="display:none">
+    <button class="btn btn-primary" id="exportBtn" title="Download a roll-up PPTX of the current filter (executive only)" style="display:none">
       <span class="icon icon-download"></span> Export
     </button>
   </div>
@@ -454,7 +441,7 @@
       <div style="font-size:32px;margin-bottom:8px"><i class="icon icon-clipboard-list" aria-hidden="true"></i></div>
       <div>No inspections match these filters.</div>
       <div style="margin-top:12px">
-        <a class="btn" href="inspection.html"><span class="icon icon-plus"></span> Start the first one</a>
+        <a class="btn btn-primary" href="inspection.html"><span class="icon icon-plus"></span> Start the first one</a>
       </div>
     </div>
   </div>
@@ -640,8 +627,8 @@
     if (!modal || !title || !body || !ok) {
       // Defensive fallback — keep the action available even if the
       // markup somehow got lost.
-      const m = uiT('Delete this inspection? This cannot be undone.') + '\n' + btn.dataset.id;
-      if (window.confirm(m)) performDelete(btn);
+      // (kept available through the shared dialog, never the browser's; no dialog library → nothing is deleted)
+      if (window.ReasonDialog) window.ReasonDialog.confirm({ title: uiT('Delete this inspection? This cannot be undone.'), target: btn.dataset.id, danger: true, okLabel: uiT('Delete') }).then((yes) => { if (yes) performDelete(btn); });
       return;
     }
     const id     = btn.dataset.id;

@@ -9,18 +9,18 @@
   if (lang === 'fr') { document.body.classList.add('lang-fr'); document.documentElement.lang = 'fr'; }   // F-UX-01: French body, French voice
   const MONTHS = { en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], fr: ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'] };
   const L = {
-    en: { nm: '— not measured', actions: 'Open actions', open: 'open', open1: 'open', overdue: 'overdue', oldest: 'oldest', days: 'days', day1: 'day', none: 'nothing open',
-      report: 'Weekly report', unsigned: 'PVs to sign', allSigned: 'all signed', insp: 'Last inspection', never: 'none recorded', ago: 'days ago', today: 'today',
+    en: { nm: '— not measured', actions: 'Open actions', open: 'open', open1: 'open', overdue: 'overdue', oldest: 'oldest opened', days: 'days ago', day1: 'day ago', oldestToday: 'oldest opened today', none: 'nothing open',
+      report: 'Weekly report', unsigned: 'Unsigned PVs of the site', allSigned: 'all signed', insp: 'Last inspection', never: 'none recorded', ago: 'days ago', today: 'today',
       tracker: 'Activity tracker', empty: 'of {t} activities have nothing entered for {m}', full: 'all {t} activities filled for {m}', noAct: 'no activity due in {m}',
       loading: 'Loading…', more: '+ {n} more site(s) not shown', open_pv: 'Open',
-      aw: 'Awaiting me', awEv: 'evidence', awNone: 'nothing is waiting for you', awLate: 'late', awSrc: { commitments: 'Commitments to verify', handoffs: 'Handoffs to accept', benefits: 'Benefits to verify', decisions: 'My decisions due within 7 days', pvs: 'PVs to sign' },
+      aw: 'Awaiting me', awEv: 'evidence', awNone: 'nothing is waiting for you', awLate: 'late', awSrc: { commitments: 'Commitments to verify', handoffs: 'Handoffs to accept', benefits: 'Benefits to verify', decisions: 'My decisions due within 7 days', pvs: 'PVs waiting for my signature' },
       benefits: 'Benefit reviews due', mine: 'Benefits I own — review due', noBenefit: 'none due', missing: 'value missing', awaiting: 'awaiting verification',
       labels: { 'Not started': 'Not started', 'In progress': 'In progress', 'Complete but not submitted': 'Complete but not submitted', 'Submitted': 'Submitted' } },
-    fr: { nm: '— non mesuré', actions: 'Actions ouvertes', open: 'ouvertes', open1: 'ouverte', overdue: 'en retard', oldest: 'la plus ancienne', days: 'jours', day1: 'jour', none: 'rien d\'ouvert',
-      report: 'Rapport hebdomadaire', unsigned: 'PV à signer', allSigned: 'tous signés', insp: 'Dernière inspection', never: 'aucune enregistrée', ago: 'jours', today: 'aujourd\'hui',
+    fr: { nm: '— non mesuré', actions: 'Actions ouvertes', open: 'ouvertes', open1: 'ouverte', overdue: 'en retard', oldest: 'la plus ancienne ouverte il y a', days: 'jours', day1: 'jour', oldestToday: 'la plus ancienne ouverte aujourd\'hui', none: 'rien d\'ouvert',
+      report: 'Rapport hebdomadaire', unsigned: 'PV du site non signés', allSigned: 'tous signés', insp: 'Dernière inspection', never: 'aucune enregistrée', ago: 'jours', today: 'aujourd\'hui',
       tracker: 'Suivi d\'activité', empty: 'activités sur {t} sans saisie pour {m}', full: 'les {t} activités sont saisies pour {m}', noAct: 'aucune activité prévue en {m}',
       loading: 'Chargement…', more: '+ {n} autre(s) site(s) non affiché(s)', open_pv: 'Ouvrir',
-      aw: 'En attente de moi', awEv: 'preuve', awNone: 'rien ne vous attend', awLate: 'en retard', awSrc: { commitments: 'Engagements à vérifier', handoffs: 'Passations à accepter', benefits: 'Bénéfices à vérifier', decisions: 'Mes décisions dues sous 7 jours', pvs: 'PV à signer' },
+      aw: 'En attente de moi', awEv: 'preuve', awNone: 'rien ne vous attend', awLate: 'en retard', awSrc: { commitments: 'Engagements à vérifier', handoffs: 'Passations à accepter', benefits: 'Bénéfices à vérifier', decisions: 'Mes décisions dues sous 7 jours', pvs: 'PV en attente de ma signature' },
       benefits: 'Revues de bénéfices dues', mine: 'Mes bénéfices à revoir', noBenefit: 'aucune', missing: 'valeur manquante', awaiting: 'en attente de vérification',
       labels: { 'Not started': 'Pas commencé', 'In progress': 'En cours', 'Complete but not submitted': 'Complet mais non soumis', 'Submitted': 'Soumis' } },
   };
@@ -56,7 +56,7 @@
     const code = encodeURIComponent(s.code || '');
     const a = s.actions;
     const actions = !a ? nm : (a.open === 0 ? esc(T.none)
-      : `${a.open} ${esc(one(a.open) ? T.open1 : T.open)}${a.overdue ? ` · <span class="hm-late">${a.overdue} ${esc(T.overdue)}</span>` : ''}${a.oldest_days != null ? ` · ${esc(T.oldest)} ${a.oldest_days} ${esc(one(a.oldest_days) ? T.day1 : T.days)}` : ''}`);
+      : `${a.open} ${esc(one(a.open) ? T.open1 : T.open)}${a.overdue ? ` · <span class="hm-late">${a.overdue} ${esc(T.overdue)}</span>` : ''}${a.oldest_days == null ? '' : a.oldest_days === 0 ? ` · ${esc(T.oldestToday)}` : ` · ${esc(T.oldest)} ${a.oldest_days} ${esc(one(a.oldest_days) ? T.day1 : T.days)}`}`);
     const w = s.weekly_report;
     // Adoption Lot A (item 3): "W45 (08–14 nov.)" — the same week, labelled with its dates, as the report picker.
     const wl = w && w.year && w.week && window.ReportingWeek ? window.ReportingWeek.label(w.year, w.week, lang === 'fr' ? 'fr' : 'en') + ' ' + w.year : (w && w.week_label) || '';
@@ -84,16 +84,29 @@
       </ul></section>`;
   }
 
+  // field F25 — for a field technician the field app is THE task: it comes first and is the one primary button of the
+  // list. Display only (the link was already in the list; the menu and the server decide who may open it).
+  function fieldFirst(items) {
+    let tech = false;
+    try { tech = !!(window.__authUser && (window.__authUser.roles || []).includes('field-tech')); } catch (_) { tech = false; }
+    if (!tech) return items;
+    const i = items.findIndex((e) => /^field\//.test(String(e.href)));
+    if (i < 0) return items;
+    const out = items.slice(); const f = out.splice(i, 1)[0];
+    out.unshift(Object.assign({}, f, { primary: true }));
+    return out;
+  }
+  const cls = (e) => (e.primary ? ' class="edv-btn edv-btn--primary hm-primary"' : '');
   function shortcuts() {
     if (profile && Array.isArray(profile.visible)) {
-      const items = profile.visible.filter((d) => d.href !== 'home.html' && /^[a-z/-]+\.html(?:[?#][A-Za-z0-9_=&#-]*)?$/i.test(String(d.href)));
-      $('hmShortcuts').innerHTML = items.map((d) => `<li><a href="${esc(d.href)}">${esc(d.label)}</a></li>`).join('');
+      const items = fieldFirst(profile.visible.filter((d) => d.href !== 'home.html' && /^[a-z/-]+\.html(?:[?#][A-Za-z0-9_=&#-]*)?$/i.test(String(d.href))));
+      $('hmShortcuts').innerHTML = items.map((d) => `<li><a href="${esc(d.href)}"${cls(d)}>${esc(d.label)}</a></li>`).join('');
       return;
     }
     let ws = null;
     try { ws = window.__shell && window.__shell.workspaceFor ? window.__shell.workspaceFor() : null; } catch (_) { ws = null; }
-    const items = ((ws && ws.items) || []).filter((e) => e.href !== 'home.html');
-    $('hmShortcuts').innerHTML = items.map((e) => `<li><a href="${esc(e.href)}"${e.target ? ` target="${esc(e.target)}" rel="noopener"` : ''}>${esc(e.label)}</a></li>`).join('');
+    const items = fieldFirst(((ws && ws.items) || []).filter((e) => e.href !== 'home.html'));
+    $('hmShortcuts').innerHTML = items.map((e) => `<li><a href="${esc(e.href)}"${cls(e)}${e.target ? ` target="${esc(e.target)}" rel="noopener"` : ''}>${esc(e.label)}</a></li>`).join('');
   }
 
   // E-U03 — shared page head. Freshness = the time the server computed this inbox (generated_at); a failed

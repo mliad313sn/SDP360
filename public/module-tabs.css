@@ -38,3 +38,6 @@
 .mt-tab--active .mt-tab__count{background:var(--color-primary-bg,#FEEEE3);color:var(--color-primary-fill,#C2410C)}
 /* executive door: the strip sits under the shell, aligned with the page container */
 .exec-tabs .mt-tabs { max-width: var(--layout-max, 1360px); margin: 0 auto; padding: 8px var(--layout-gutter, 32px) 0; background: transparent; }
+/* ia-value F18: a strip mounted directly under the header (not inside a padded container) starts where the breadcrumb
+   text starts (8 px + the tab's own 14 px = 22 px), instead of at the window edge */
+main > #__moduletabs:not(.exec-tabs) .mt-tabs, body > #__moduletabs:not(.exec-tabs) .mt-tabs { padding-left: 8px; }

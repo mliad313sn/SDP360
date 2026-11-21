@@ -20,7 +20,7 @@ const WORK = { ok: true, as_of: '2026-11-12', truncated: 0, sites: [
   { site_id: 7, code: 'HGO', name: 'Hounde', actions: null, weekly_report: null, unsigned_pvs: null, last_inspection: null, tracker_empty: null, benefit_reviews: null },
   { site_id: 8, code: 'MGO', name: 'Mana', actions: null, weekly_report: null, unsigned_pvs: null, last_inspection: null, tracker_empty: null, benefit_reviews: null }] };
 
-async function run({ policy = {}, profile } = {}) {
+async function run({ policy = {}, profile, authUser, shellItems } = {}) {
   const els = {}; const get = (id) => (els[id] = els[id] || el(id));
   const classes = new Set();
   const calls = [];
@@ -32,7 +32,8 @@ async function run({ policy = {}, profile } = {}) {
   };
   const document = { documentElement: { lang: 'en' }, body: { classList: { add: (c) => classes.add(c), remove() {}, toggle() {}, contains: (c) => classes.has(c) } },
     getElementById: get, querySelector: () => null, querySelectorAll: () => [], createElement: () => el('x'), activeElement: null };
-  const window = { __uiPolicy: policy, __shell: { shellLang: () => 'en', workspaceFor: () => ({ items: [{ href: 'site-actions.html', label: 'Site actions' }] }) } };
+  const window = { __uiPolicy: policy, __shell: { shellLang: () => 'en', workspaceFor: () => ({ items: shellItems || [{ href: 'site-actions.html', label: 'Site actions' }] }) } };
+  if (authUser) window.__authUser = authUser;
   const ctx = vm.createContext({ window, document, fetch, console, setTimeout, self: window, Promise });
   for (const s of [SB, ST, HQ]) vm.runInContext(s, ctx);
   // the browser half of workspaceProfiles.js (load()) — same code the page loads
@@ -75,4 +76,18 @@ test('workspace profile switch on but the API answers 404 (route not mounted): H
   const { els } = await run({ policy: { workspace_profiles: '1' } });
   assert.match(els.hmShortcuts.innerHTML, /site-actions\.html/);
   assert.ok(els.hmSites.innerHTML.indexOf('Hounde') < els.hmSites.innerHTML.indexOf('Mana'));
+});
+
+// VISUAL POLISH 3 (field F25): for a field technician the field app is the first shortcut and the one primary button;
+// nobody else sees the order or the style change.
+test('field technician: the field app comes first as the primary button; other roles keep the list as is', async () => {
+  const shellItems = [{ href: 'inspections.html', label: 'Inspections' }, { href: 'field/index.html', label: 'Field app' }, { href: 'site-actions.html', label: 'Site actions' }];
+  const tech = await run({ shellItems, authUser: { roles: ['field-tech'] } });
+  const h = tech.els.hmShortcuts.innerHTML;
+  assert.ok(h.indexOf('field/index.html') < h.indexOf('inspections.html'), 'field app first');
+  assert.match(h, /<a href="field\/index\.html" class="edv-btn edv-btn--primary hm-primary">Field app<\/a>/);
+  assert.equal((h.match(/edv-btn--primary/g) || []).length, 1, 'one primary action');
+  const ed = await run({ shellItems, authUser: { roles: ['editor'] } });
+  assert.ok(ed.els.hmShortcuts.innerHTML.indexOf('inspections.html') < ed.els.hmShortcuts.innerHTML.indexOf('field/index.html'));
+  assert.doesNotMatch(ed.els.hmShortcuts.innerHTML, /edv-btn--primary/);
 });

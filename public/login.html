@@ -126,22 +126,8 @@
   }
   input:focus{border-color:var(--edv-orange, #EF631A);box-shadow:0 0 0 3px rgba(239,99,26,.15)}
 
-  .btn{
-    width:100%;padding:13px;
-    background:var(--color-primary-fill, #C2410C);
-    color:#fff;border:none;
-    border-radius:var(--radius-md, 6px);
-    font-family:inherit;font-size:14px;font-weight:700;
-    cursor:pointer;
-    transition:background var(--motion-base, 180ms), transform var(--motion-fast, 120ms), box-shadow var(--motion-base, 180ms);
-    margin-top:12px;
-    letter-spacing:.2px;
-    box-shadow:0 4px 12px rgba(239,99,26,.25);
-  }
-  .btn:hover{background:var(--color-primary-fill-hover, #9A3412);transform:translateY(-1px);box-shadow:0 6px 16px rgba(239,99,26,.32)}
-  .btn:active{transform:translateY(0)}
-  .btn:disabled{background:#9ca3af;cursor:not-allowed;transform:none;box-shadow:none}
   /* Arrow appears on hover — small detail that signals interactivity */
+  #btnLogin{margin-top:12px}
   .btn #btnText::after{content:''; display:inline-block; width:0; transition:width var(--motion-base, 180ms);}
   .btn:hover:not(:disabled) #btnText::after{content:'  →'; width:auto;}
 
@@ -167,7 +153,7 @@
   .login-lang button[aria-pressed="true"]{color:var(--color-text-strong);text-decoration:none;font-weight:600}
 </style>
 </head>
-<body>
+<body class="edv-ui">
 <main id="main" class="login-stage">
   <div class="login-mascot" aria-hidden="true">
     <!-- Goldy "Welcome / Safety" pose — drop the PNG in public/brand/goldy/.
@@ -181,7 +167,7 @@
     <div class="logo-badge" role="img" aria-label="Endeavour Mining"></div>
     <h1>Endeavour Mining</h1>
     <span class="wordmark">IT Operations Dashboard</span>
-    <p data-en="Welcome back. Sign in to continue." data-fr="Bon retour. Connectez-vous pour continuer.">Welcome back. Sign in to continue.</p>
+    <p data-en="Sign in to continue." data-fr="Connectez-vous pour continuer.">Sign in to continue.</p>
   </div>
 
   <div class="error" id="err"></div>
@@ -207,7 +193,7 @@
       <label for="password" data-en="Password" data-fr="Mot de passe">Password</label>
       <input type="password" id="password" placeholder="Enter your password" data-en-ph="Enter your password" data-fr-ph="Saisissez votre mot de passe" autocomplete="current-password" required>
     </div>
-    <button type="submit" class="btn" id="btnLogin">
+    <button type="submit" class="btn btn-primary btn-block" id="btnLogin">
       <span id="btnText" data-en="Sign In" data-fr="Se connecter">Sign In</span>
       <div class="spinner" id="spinner"></div>
     </button>
@@ -219,6 +205,7 @@
 </main>
 
 <script nonce="%%CSP_NONCE%%" src="lib/loginLang.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/reasonDialog.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/businessRoles.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/landing.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/workspaceProfiles.js"></script>
@@ -277,12 +264,12 @@
       let data = await res.json();
       // A6 — break-glass time-box: the server asks for a reason (400 REASON_REQUIRED) before a break-glass sign-in
       if (res.status === 400 && data.code === 'REASON_REQUIRED') {
-        const reason = window.prompt('Break-glass sign-in — why do you need it? (at least 10 characters, kept in the security log)');
+        const reason = window.ReasonDialog ? await window.ReasonDialog.ask({ title: 'Break-glass sign-in', label: 'Why do you need it? (at least 10 characters, kept in the security log)', min: 10 }) : null;
         if (!reason) throw new Error(data.error);
         res = await post({ reason });
         data = await res.json();
       }
-      if (!res.ok) throw new Error(data.error || 'Invalid credentials');
+      if (!res.ok) throw new Error(data.error === 'Invalid credentials' || !data.error ? (document.documentElement.lang === 'fr' ? 'Nom d’utilisateur ou mot de passe incorrect.' : 'The username or the password is not correct.') : data.error);
 
       // Store the profile only — the session cookie was set by the server (E5)
       localStorage.setItem('report_user', JSON.stringify(data.user));

@@ -10,6 +10,7 @@
     // UX committee (visual polish): one whole hero sentence
     'Every open action and problem of one site — from meetings, business incubation sessions, inspections and the latest weekly report — in one place, to close here or where it lives.':
       'Toutes les actions et tous les problèmes encore ouverts d’un site — réunions, sessions d’incubation métier, inspections et dernier rapport hebdomadaire — au même endroit, à clôturer ici ou à leur source.',
+    'Late': 'Retard',
     'Every still-open action — and every still-open problem raised in a meeting — for one site, gathered from where they live — Meetings, Business Incubation sessions, Inspections and the weekly Report follow-ups — so you can see it all in one place and close it (or jump to where it is closed). Report follow-ups show the latest weekly report.': 'Toutes les actions encore ouvertes — et tous les <strong>problèmes</strong> encore ouverts soulevés en réunion — d’un site, rassemblés depuis leur source : <strong>Réunions</strong>, sessions d’<strong>incubation métier</strong>, <strong>Inspections</strong> et <strong>suivis du rapport</strong> hebdomadaire — pour tout voir au même endroit et les clôturer (ou aller là où ils se clôturent). Les suivis du rapport proviennent du dernier rapport hebdomadaire.',
     'Insights · Actions': 'Analyses · Actions',
     'Site Actions Register': 'Registre des actions du site',

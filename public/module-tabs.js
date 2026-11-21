@@ -40,6 +40,9 @@
       { id:'exec-home', label:'Overview',            icon:'gauge',          href:'dashboards.html?key=exec-home', roles:['executive', 'scorecard-viewer'] },
       { id:'it-review', label:'IT Review',           icon:'bar-chart-3',    href:'it-review.html',                roles:['executive', 'scorecard-viewer'] },
       { id:'scorecard', label:'Scorecard (detail)',  icon:'clipboard-list', href:'executive.html',                roles:['executive', 'scorecard-viewer'] },
+      // VISUAL POLISH 3 (executive F5 / ia-value F3): the two other executive pages are sections of the same door
+      { id:'site-overview', label:'Site overview',   icon:'building',       href:'site-awareness.html',           roles:['executive', 'scorecard-viewer'] },
+      { id:'exec-view', label:'Public summary',      icon:'eye',            href:'exec-view.html',                roles:['executive', 'scorecard-viewer'] },
     ],
   };
 

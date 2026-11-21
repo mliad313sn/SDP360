@@ -47,7 +47,11 @@ test('computed colours identical: every --ir-* resolves to the value its old nam
     assert.equal(now.resolve(now.defs[k]), val, `${k} keeps ${old}'s value`);
   }
   assert.equal(Object.keys(now.defs).length, Object.keys(SNAP.palette).length);
-  assert.deepEqual(now.rules, SNAP.resolved_rules, 'every var()-based declaration resolves to the same value');
+  // VISUAL POLISH 3: the page's own .btn rules were removed (no element of the page used them — the shared button
+  // layer is the one definition now). The snapshot is compared without them; every rule that remains is unchanged.
+  const kept = SNAP.resolved_rules.filter((r) => !/^\.btn\b/.test(r));
+  assert.ok(kept.length < SNAP.resolved_rules.length && !/class="[^"]*\bbtn\b/.test(read('public/it-review.html')), 'the removed rules were unused');
+  assert.deepEqual(now.rules, kept, 'every var()-based declaration resolves to the same value');
   assert.ok(now.rules.every((r) => !/var\(--/.test(r)), 'no declaration left pointing at an undefined variable');
 });
 

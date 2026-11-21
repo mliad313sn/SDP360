@@ -92,7 +92,7 @@ const ALLOW = {
     '"Ouvrir avec"': ALREADY_FR, 'Chrome': 'product name', 'Ou copiez ce fichier sur un serveur web interne (HTTPS)': ALREADY_FR,
     'Houndé (HGO) — Burkina Faso': 'proper names', 'Mana (MGO) — Burkina Faso': 'proper names', "Ity (SMI) — Côte d'Ivoire": 'proper names',
     "Lafigué (SML) — Côte d'Ivoire": 'proper names', 'Kalana (KGO) — Mali': 'proper names',
-    "L'auto-sauvegarde envoie déjà chaque modification. Le bouton ci-dessous marque l'inspection comme terminée et prête à être revue.": ALREADY_FR,
+    "Votre saisie est enregistrée sur cet appareil ; « Enregistrer maintenant » ou « Soumettre » l'envoie au serveur. Le bouton ci-dessous marque l'inspection comme terminée et prête à être revue.": ALREADY_FR,
   },
   'activity-tracker.html': {},
   'reports.html': fr(['Annuler la reconduction', 'Importer la sélection', '⚠ Action similaire déjà ouverte',

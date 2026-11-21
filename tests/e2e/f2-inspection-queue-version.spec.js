@@ -18,6 +18,9 @@ runJourney('F2 inspection save stored by the offline queue, then Save now again'
   const page = await ctx.newPage();
   const dialogs = [];
   page.on('dialog', async (d) => { dialogs.push(d.message().slice(0, 120)); await d.dismiss(); });
+  // VISUAL POLISH 3: the conflict question is the shared in-page dialog (lib/reasonDialog.js), no longer a browser
+  // dialog — "no conflict dialog" therefore also means no .rd-back element on the page.
+  const pageDialogs = () => page.evaluate(() => [...document.querySelectorAll('.rd-back h2')].map((h) => h.textContent.slice(0, 120)));
   const saves = [];
   let abortNext = 0, delayMs = 0;
   await page.route('**/api/inspection/save', async (route) => {
@@ -44,7 +47,7 @@ runJourney('F2 inspection save stored by the offline queue, then Save now again'
   const ok2 = await page.evaluate(() => { state.meta.f_obs = 'edit 2'; window.saveCurrent(); return window.forceSyncNow(); });
   assert.strictEqual(ok2, true);
   assert.strictEqual(saves[saves.length - 1], 200);
-  assert.deepStrictEqual(dialogs, [], 'no conflict dialog');
+  assert.deepStrictEqual(dialogs.concat(await pageDialogs()), [], 'no conflict dialog');
 
   // (c) offline: Save now and its drain both fail (queued); two drains then start together — one stores, no 409
   abortNext = 2;
@@ -69,6 +72,6 @@ runJourney('F2 inspection save stored by the offline queue, then Save now again'
   const ok5 = await page.evaluate(() => { state.meta.f_obs = 'edit 6'; window.saveCurrent(); return window.forceSyncNow(); });
   assert.strictEqual(ok5, true, 'Save now after the boot drain is accepted: ' + JSON.stringify(saves));
   assert.ok(!saves.includes(409), JSON.stringify(saves));
-  assert.deepStrictEqual(dialogs, []);
+  assert.deepStrictEqual(dialogs.concat(await pageDialogs()), []);
   await ctx.close();
 });

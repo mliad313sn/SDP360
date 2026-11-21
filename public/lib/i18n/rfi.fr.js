@@ -6,6 +6,7 @@
 (function (root) {
   'use strict';
   const STATIC = {
+    '1 – low': '1 – faible', '2 – medium': '2 – moyen', '3 – high': '3 – élevé', '✓ saved': '✓ enregistré',
     'Convert': 'Convertir',
     'to a project (committee)': 'en projet (comité)',
     'Objective': 'Objectif',

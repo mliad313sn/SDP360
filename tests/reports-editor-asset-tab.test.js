@@ -38,11 +38,17 @@ test('_afterSectionSaved counts the weekly strip only and needs 5 for ready', as
   const api = async (m, p, b) => { status = b.status; };
   const currentReport = { id: 1, status: 'in_progress' };
   const updateStatusBar = () => {};
-  const fn = new Function('document', 'api', 'currentReport', 'updateStatusBar', `${code}; return _afterSectionSaved;`)(document, api, currentReport, updateStatusBar);
+  // VISUAL POLISH 3: a tab is painted by its completeness rule (_paintSectionTab), no longer ticked blindly after a
+  // save; tab 4 keeps its own rule and is not touched here at all.
+  const painted = [];
+  const _paintSectionTab = (n) => painted.push(n);
+  const fn = new Function('document', 'api', 'currentReport', 'updateStatusBar', '_paintSectionTab', `${code}; return _afterSectionSaved;`)(document, api, currentReport, updateStatusBar, _paintSectionTab);
   await fn(4);
   assert.deepStrictEqual(calls, ['#section-tabs .section-tab.done']);
   assert.strictEqual(status, 'ready');
-  assert.ok(!tabs['stab-4'].cls.has('done'), 'tab 4 is not ticked by _afterSectionSaved');
+  assert.deepStrictEqual(painted, [], 'tab 4 is not ticked by _afterSectionSaved');
+  await fn(2);
+  assert.deepStrictEqual(painted, [2], 'the other tabs go through their completeness rule');
 });
 
 test('showSection iterates 5 sections; autosave wires section-4', () => {
@@ -52,8 +58,10 @@ test('showSection iterates 5 sections; autosave wires section-4', () => {
 
 test('submitReport warns (but allows) when the applicable tab has an empty note', () => {
   const code = fnSource('submitReport');
-  assert.ok(code.includes("n'est pas renseignée"));
-  assert.ok(code.includes('confirm('));
+  // VISUAL POLISH 3: the question is asked through the shared dialog (askConfirm → ReasonDialog.confirm) with an
+  // English source text; its French is in lib/i18n/reports.fr.js
+  assert.ok(code.includes('The IT assets section is not filled in'));
+  assert.ok(code.includes('askConfirm('));
 });
 
 // rev 5 (2026-09-18, user decision): the tab shows the four counters + the two
@@ -81,7 +89,7 @@ test('tab 5 carries no « Facultatif » hint; notes not required; confirm kept',
   assert.ok(!/une note vide appara/.test(pane), 'no FR hint text');
   assert.ok(!/Optional[^<]*non renseign/i.test(pane), 'no EN twin');
   assert.ok(!/<textarea[^>]*required/.test(pane), 'notes stay optional');
-  assert.ok(fnSource('submitReport').includes('confirm('));
+  assert.ok(fnSource('submitReport').includes('askConfirm('));
 });
 
 test('the inline scripts of reports.html still parse', () => {

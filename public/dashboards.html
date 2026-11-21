@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="module-tabs.css">
 <script src="vendor/chart.js/4.4.1/chart.umd.js" defer></script>
 <script src="lib/chartTheme.js" defer></script>
+<script src="lib/reasonDialog.js"></script>
 <script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
 <script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
 <script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
@@ -24,8 +25,7 @@
   .head h1 { margin:0; font-size:22px; font-weight:700; color:var(--edv-slate,#3A4A60); }
   .head .sub { font-size:13px; color:var(--color-text-muted,#6b7785); }
   .controls { margin-left:auto; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-  select, input[type=month], input[type=week], .btn { padding:7px 12px; border:1px solid #cfd6e0; border-radius:8px; background:#fff; font-size:13px; color:#1F2A33; }
-  .btn { cursor:pointer; } .btn.primary { background:var(--edv-slate,#3A4A60); color:#fff; border-color:var(--edv-slate,#3A4A60); }
+  select, input[type=month], input[type=week] { padding:7px 12px; border:1px solid #cfd6e0; border-radius:8px; background:#fff; font-size:13px; color:#1F2A33; }
   label.ctl { font-size:12px; color:#6b7785; display:flex; flex-direction:column; gap:3px; }
   .list { display:grid; grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr)); gap:14px; }
   .card { background:#fff; border:1px solid #e4e8ee; border-radius:12px; padding:14px 16px; display:block; color:inherit; text-decoration:none; }
@@ -55,7 +55,7 @@
   #controls #apply:hover { background: var(--color-primary-fill-hover); }
 </style>
 </head>
-<body>
+<body class="edv-ui">
 <a class="edv-skip" href="#main">Skip to content</a>
 <div id="__shell" data-section="operations" data-current="dashboards"></div>
 <div id="__moduletabs" class="exec-tabs" data-module="executive" data-current="exec-home" data-when-key="exec-home"></div>
@@ -64,7 +64,7 @@
     <div><h1 id="title">Dashboards</h1><div class="sub" id="subtitle">Published dashboards — every figure comes from the KPI dictionary and is dated.</div></div>
     <div class="controls" id="controls" hidden>
       <label class="ctl">Site <select id="site" aria-label="Site"></select></label>
-      <label class="ctl" id="winWrap">Period <input id="window" type="text" list="windowList" aria-label="Period (YYYY-MM or YYYY-Www)" placeholder="latest" size="10"><datalist id="windowList"></datalist></label>
+      <label class="ctl" id="winWrap">Period <select id="window" aria-label="Period"><option value="">Latest complete period</option></select></label>
       <button class="btn" id="apply" type="button">Apply</button>
       <button class="btn" id="edit" type="button" hidden>Edit in composer</button>
       <a class="btn" id="csv" href="#" download>Download figures (CSV)</a>
@@ -89,6 +89,8 @@
   var H = function () { return {}; };
   var params = new URLSearchParams(location.search);
   var key = params.get('key');
+  // the executive dashboards take the shared executive tile (brand/components.css, body.exec-house) and a print title
+  if (/^exec-/.test(String(key || ''))) { document.body.classList.add('exec-house'); document.body.setAttribute('data-print-title', 'SDP360 — Executive Home'); }
   var charts = [], bodies = {};
   var annotations = null;   // E-V08 — { can_write, annotations:[…] } when the switch is on, else null
   try { $('annShow').checked = localStorage.getItem('dash_show_notes') !== '0'; } catch (_) { /* per-viewer convenience only */ }
@@ -202,9 +204,14 @@
   });
   $('dash').addEventListener('click', function (ev) {
     var b = ev.target && ev.target.closest ? ev.target.closest('[data-ann-del]') : null; if (!b) return;
-    if (!window.confirm('Delete this note?')) return;
-    api('/api/dashboards/annotations/' + encodeURIComponent(b.getAttribute('data-ann-del')), { method: 'DELETE', headers: H() })
-      .then(function () { loadData(); }).catch(function (e) { status('Note not deleted: ' + e.message); });
+    // the shared dialog names the note (its text on the page); no dialog library → nothing is deleted
+    var holder = b.closest('li, tr, p, div'), named = holder ? holder.textContent.replace(/\s+/g, ' ').trim().slice(0, 140) : '';
+    var D = window.ReasonDialog; if (!D) return;
+    D.confirm({ title: 'Delete this note?', target: named, okLabel: 'Delete', danger: true }).then(function (yes) {
+      if (!yes) return;
+      return api('/api/dashboards/annotations/' + encodeURIComponent(b.getAttribute('data-ann-del')), { method: 'DELETE', headers: H() })
+        .then(function () { loadData(); }).catch(function (e) { status('Note not deleted: ' + e.message); });
+    });
   });
 
   function renderWidgets(def, data) {
@@ -238,8 +245,8 @@
         // design review B4 / R6: no empty axis; % axes run 0–100; short week labels, the year said once
         var pts = d.points || [];
         if (!pts.some(function (p) { return p.value != null; })) {
-          el.className += ' edv-quiet';
-          el.innerHTML = title + '<div class="edv-kpi-sub">Not measured over this period (' + pts.length + ' ' + (/W\d/.test(pts[0] && pts[0].label || '') ? 'weeks' : 'months') + ').</div>';
+          el.className += ' edv-quiet is-empty';   // executive F16: an empty panel shrinks to its message
+          el.innerHTML = title + '<div class="edv-kpi-sub edv-nodata">Not measured over this period (' + pts.length + ' ' + (/W\d/.test(pts[0] && pts[0].label || '') ? 'weeks' : 'months') + ').</div>';
         } else {
           var years = {}; pts.forEach(function (p) { years[String(p.label).slice(0, 4)] = 1; });
           var vals = pts.filter(function (p) { return p.value != null; }); var last = vals[vals.length - 1];
@@ -296,6 +303,7 @@
       } else if (d.mode === 'tracker') {
         el.innerHTML = title + R.trackerHtml(d);
       } else if (d.mode === 'actions') {
+        if (!d.items.length) el.className += ' is-empty';
         el.innerHTML = title + (d.items.length ? '<table class="edv-actions-table"><thead><tr><th>Source</th><th>Action</th><th>Owner</th><th>Due</th></tr></thead><tbody>' +
           d.items.map(function (it) { return '<tr><td>' + R.escapeHtml(it.source) + '</td><td>' + R.escapeHtml(it.title || it.task || '') + '</td><td>' + R.escapeHtml(it.owner || '—') + '</td><td class="' + (it.overdue ? 'edv-overdue' : '') + '">' + R.escapeHtml(it.due_date || '—') + '</td></tr>'; }).join('') + '</tbody></table>'
           : '<div class="edv-kpi-sub">' + (d.note || 'No open action.') + '</div>') + '<div class="edv-asof">' + (d.totals ? d.totals.open + ' open in total' : '') + '</div>';
@@ -348,7 +356,9 @@
   });
 
   // design review R9: the period box suggests the last 13 weeks and 12 months
-  try { R.windowSeries('week', 13).concat(R.windowSeries('month', 12)).reverse().forEach(function (v) { var o = document.createElement('option'); o.value = v; $('windowList').appendChild(o); }); } catch (_) {}
+  try { R.windowSeries('week', 13).concat(R.windowSeries('month', 12)).reverse().forEach(function (v) { var o = document.createElement('option'); o.value = v; o.textContent = v; $('window').appendChild(o); }); } catch (_) {}
+  // executive F3: the period is a list (same values the free-text field suggested); a ?window= in the address still selects
+  try { var w0 = params.get('window'); if (w0) { if (![].some.call($('window').options, function (o) { return o.value === w0; })) { var ow = document.createElement('option'); ow.value = w0; ow.textContent = w0; $('window').appendChild(ow); } $('window').value = w0; } } catch (_) {}
   $('apply').addEventListener('click', loadData);
   $('site').addEventListener('change', loadData);
   if (key) renderView(); else { $('dash').hidden = true; renderList(); }

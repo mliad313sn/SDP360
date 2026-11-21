@@ -9,6 +9,10 @@
 (function (root) {
   'use strict';
   const STATIC = {
+    // VISUAL POLISH 3 — admin: users facets, secret state, four-eyes badge, phone section fold
+    'Section:': 'Section :', 'All roles': 'Tous les rôles', 'All sites': 'Tous les sites', 'No site': 'Sans site', 'Any status': 'Tout statut', 'Sign-in': 'Connexion', 'Password': 'Mot de passe', 'Microsoft SSO': 'SSO Microsoft', 'Set': 'Défini', 'Not set': 'Non défini', 'Needs a second approver': 'Nécessite un second approbateur', 'Save change': 'Enregistrer la modification', 'Filter by role': 'Filtre par rôle', 'Filter by site': 'Filtre par site', 'Filter by status': 'Filtre par statut', 'Disabled': 'Désactivé',
+    // VISUAL POLISH 3 — report editor action row, save signal, landing lead card
+    'Weekly report due': 'Rapport hebdomadaire dû', 'Status:': 'Statut :', 'Save now': 'Enregistrer maintenant', 'Import': 'Importer', 'Open actions from a previous week': 'Actions ouvertes d’une semaine précédente', 'From Meetings / Inspections': 'Depuis Réunions / Inspections', 'From a CSV file': 'Depuis un fichier CSV', 'Download the CSV template': 'Télécharger le modèle CSV', 'CSV allowed values': 'Valeurs autorisées du CSV', 'More actions': 'Autres actions', 'Merge duplicates': 'Fusionner des doublons', 'Group duplicate actions of the site (all weeks)': 'Regrouper des actions en double du site (toutes semaines)', 'Continue': 'Continuer',
     // VISUAL POLISH 2 — admin rail and group tabs written in English (were French-only labels)
     'Integrations': 'Intégrations',
     'API integration': 'Intégration API',
@@ -115,8 +119,38 @@
     '(closed tickets only)': '(tickets clos uniquement)', '(responded tickets only)': '(tickets avec réponse uniquement)',
   };
   const RUNTIME_KEYS = {
+    // VISUAL POLISH 3 — texts of the shared confirmation dialog (lib/reasonDialog.js) opened by this page
+    'Replace the KPI rows with the standard defaults?': 'Remplacer les lignes KPI par les valeurs standard ?',
+    'Replace': 'Remplacer',
+    'Copy the KPI rows from the previous week?': 'Copier les lignes KPI de la semaine précédente ?',
+    'Copy': 'Copier',
+    'Submit with the IT assets section empty?': 'Soumettre avec la section Parc informatique vide ?',
+    'The IT assets section is not filled in — it will read "not provided" in the report.': 'La section Parc informatique n’est pas renseignée — elle apparaîtra comme « non renseigné » dans le rapport.',
+    'Submit anyway': 'Soumettre quand même',
+    'Revert this report to Draft?': 'Remettre ce rapport en brouillon ?',
+    'Editors will be able to make changes again.': 'Les éditeurs pourront de nouveau le modifier.',
+    'Revert to Draft': 'Remettre en brouillon',
+    'Delete this report?': 'Supprimer ce rapport ?',
+    'Disable this site?': 'Désactiver ce site ?',
+    'It will be hidden from new dropdowns. Existing reports for this site stay accessible.': 'Il sera masqué des nouvelles listes déroulantes. Les rapports existants de ce site restent accessibles.',
+    'Disable': 'Désactiver',
+    'Force this user to sign out?': 'Forcer la déconnexion de cet utilisateur ?',
+    'Force sign-out': 'Forcer la déconnexion',
+    'Remove this mapping?': 'Supprimer cette correspondance ?',
+    'Remove': 'Supprimer',
+    'Disable this department?': 'Désactiver ce département ?',
+    'It will be hidden from new dropdowns. Existing action items keep the name.': 'Il sera masqué des nouvelles listes déroulantes. Les actions existantes gardent le nom.',
+    'Record your review of this contract?': 'Enregistrer votre revue de ce contrat ?',
+    'I have reviewed it': 'Je l’ai relu',
+    'Send this digest now?': 'Envoyer ce récapitulatif maintenant ?',
+    'It goes to the configured recipients.': 'Il part aux destinataires configurés.',
+    'Send the scoreboard now?': 'Envoyer le tableau de scores maintenant ?',
+    'Send the weekly report now?': 'Envoyer le rapport hebdomadaire maintenant ?',
+    'Send the asset reminders now?': 'Envoyer les rappels parc maintenant ?',
+    'They go to the confirmed contacts.': 'Ils partent aux contacts confirmés.',
+    'Send now': 'Envoyer maintenant',
     // report cards and status label
-    '✅ Submitted': '✅ Soumis', '✔ Ready': '✔ Prêt', '⏳ In Progress': '⏳ En cours', '✏ Draft': '✏ Brouillon', '✔ Ready to Submit': '✔ Prêt à soumettre',
+    'In progress': 'En cours', 'Complete but not submitted': 'Complet mais non soumis', 'Submitted': 'Soumis', 'Not started': 'Pas commencé', 'Saving…': 'Enregistrement…', 'Changes are saved automatically': 'Les modifications sont enregistrées automatiquement', 'Not saved — retry': 'Non enregistré — réessayer',
     'No reports yet. Create the first one above.': 'Aucun rapport pour l’instant. Créez le premier ci-dessus.', 'No reports found for this month': 'Aucun rapport pour ce mois',
     // action rows (option text only — the option values stay the codes)
     '— Select —': '— Choisir —', '🔴 High': '🔴 Haute', '🟡 Medium': '🟡 Moyenne', '🟢 Low': '🟢 Basse', 'Open@status': 'Ouverte', 'On Hold': 'En attente',

@@ -133,3 +133,105 @@ screenshots, not re-tested one by one. Nothing here is user research or field ac
 
 `docs/ux/polish-shots/` — before (commit `5588a2ba`) and after, desktop 1440 px and phone 390 px, and the contact
 sheet `before-after.png`. Screenshots are for a person to look at; nothing is compared automatically.
+
+Refreshed after polish 3 (same file names in `after/`, contact sheet rebuilt: 16 before/after pairs + 8 pages that had
+no "before"): `exec-view-html-1440`, `it-review-html-390`, `policy-center-html-1440`, `portfolio-register-html-390`,
+`reports-html-1440`, `reports-editor-1440`, `rfi-html-1440`, `site-awareness-html-1440`. They were taken through the e2e
+harness on synthetic data, with the pilot switches on (`ppm_portfolio_dashboard_v2_enabled`, `policy_center_enabled`)
+so the pages behind them render; the images are downscaled (720 px desktop, 300 px phone).
+
+## Visual polish 3 — log (branch `feat/visual-polish-3`, based on trunk `b09825fb`)
+
+Scope: every row above marked "not done" or "partial". One line per finished item, committed as it lands. Helper scripts
+used while working (not committed): `/tmp/claude-0/polish3/ut.sh <test files>` and `/tmp/claude-0/polish3/shoot.sh`
+(screenshots through the e2e harness).
+
+| Item | State |
+|---|---|
+| Field F25 | done-3 — for a field technician the field app is the first shortcut on Home and the one primary button (`lib/home-page.js` `fieldFirst`); other roles unchanged |
+| Field F11 (sort) | done-3 — open actions sorted by due date, most overdue first, undated last (stable). The browser test now sends an undated and a later action first and asserts the order; its two original rows keep their place (same due date) |
+| Field F13 ("⋯" menu) | done-3 — Rename and Delete of `inspection.html` sit behind one "More actions" menu |
+| Inspection Type blank after reload | fixed — the default option is stored when the type was never changed (`_defaultType`, called after the form is filled and after the lookups replace the options) |
+| Native `confirm()` / `prompt()` (admin P1-2, visual F12) | done-3 — deck builder, inspection, inspections, PV editor, meetings import, meetings setup, reports (16 confirmations + the revert reason) and the Backups card ask through `ReasonDialog.confirm` / `ask` / `form`: the dialog names its target (report, site, user, preset, file…), follows the page language, starts on Cancel for a destructive action, and Enter on Cancel no longer confirms. If the dialog library did not load the answer is "no". e2e T2 and F2 follow the in-page dialog (they used to accept / count browser dialogs) |
+| Deck builder size budget | the page styles moved to `public/executive-report.css` (loaded where the `<style>` block was): the page is 444 KB, 29 KB under its 473 591-byte budget |
+| Visual F15 (helpdesk filter wall) | done-3 — first row: period mode, Site, Group, Report week; Category, Priority, Status, Type, Impact, Mode and Trend fold behind "More filters" (count badge, state remembered); an active secondary filter shows as a removable chip that calls the control's own handler. CSV and Risk Register exports are one "Export" menu. Filtering itself is untouched |
+| Coordinator P2-9 (save signal) | done-3 — report editor: one signal next to the title, "Saving…" → "Saved at HH:MM" (stays) → "Not saved — retry" (a button). No success toast on top of it; an autosave failure is no longer silent. The five section "Save …" buttons are secondary "Save now" |
+| Coordinator P2-10 (green tabs) | done-3 — one completeness rule per tab (`_sectionComplete`), applied on open and after every save; a tick (✓) with the colour; "n / 5 sections complete" beside the status. An action list saved empty on purpose counts as complete (so the automatic "ready" status behaves as before) |
+| Coordinator P2-11 (action row) | done-3 — one primary "+ Add Action", one "Import" menu (previous week, Meetings / Inspections, CSV file, template, allowed values), "Merge duplicates" under "more". Same buttons, ids and handlers |
+| Coordinator P2-17 (reports landing) | done-3 — lead card "Weekly report due: W45 (dates) · site · status" with the page's one primary button "Continue W45" / "Start W45" / "Open W45" (it uses the picker's own open/create path). The picker stays below for another week. One status vocabulary on list, editor and lead card = the words Home shows (`reportStatusLabel` = server `weeklyLabel`, tested for parity) |
+| Coordinator P2-14 (home contradictions) | done-3 — the site card says "Unsigned PVs of the site", the awaiting-me block "PVs waiting for my signature" (they count different things); "oldest 0 days" → "oldest opened today / N days ago" (it is the age since opening, not days late) |
+| Admin P2-5 (users table) | done-3 — search (done-1) + Role / Site / Status filter lists (client-side, `lib/tableFilter.js` facets), a "Sign-in" column (Microsoft SSO / Password — the `has_entra` flag the API already returns), status as a badge, a pill for Super admin. **Last sign-in: not shown** — `GET /api/reports/users` does not return it and a date is never invented (it would need an API change) |
+| Admin P2-6 (sites table) | done-3 within the existing route — the row's Save appears (as the primary) only once its Zoho group was edited and the row is marked; same `PUT /api/reports/sites/:id`. A drawer / multi-row save was not built (no route for a batch save) |
+| Admin P2-7 (four-eyes visible) | done-3 — each admin field whose key is a four-eyes rule carries "Needs a second approver" (or "Change pending — second approver (pc-N)") linking to the Policy Center, read from `/api/policy-center/catalogue`; no request and no badge while the center is off. Display only |
+| Admin P2-4 (secret state) | done-3 — "Set" / "Not set" badge beside SMTP password, SSO client secret, Meridian keys, Meraki and OpManager keys, Teams-SLA and Analytics secrets. `GET/PUT /api/reports/config` adds `secrets_set` (a boolean per secret key, computed before blanking; no part of a value) |
+| Admin P2-9 (policy list) | done-3 — category chips with counts; one collapsible block per category (closed on arrival, opened by a search / filter), heading shows rules · deviating · awaiting approval; label + control wrap together |
+| Admin P2-10 (phone) | done-3 — under 880 px the section list folds into "Section: <name>" above the panel; UAT S7 opens the fold before walking the panels |
+| Admin P3-5 (API key) | done-3 — `ReasonDialog.reveal`: read-only field, Copy, "I have stored it" unlocks Close; the key is no longer written in the status line and is removed from the DOM on close |
+| Executive F5 / F15 (one KPI tile) | done-3 — `.exec-kpi` in `brand/components.css`, modelled on the IT Review band (ruled neutral cell, caps label, 32 px tabular value, status as dot / pill, no coloured stripe, gradient or lift). Under `<body class="exec-house">` the Scorecard, Exec View, Site overview and Executive Home tiles take the same rules — one definition, no markup rewrite, no value touched |
+| Executive: four homes, one door | done-3 — the Executive tab strip (one flat menu entry, done-1) now lists all five pages: Overview · IT Review · Scorecard · Site overview · Public summary, and is mounted on Site overview too (executive roles only). The menu switch `ui_exec_nav` is unchanged (a product-owner setting) |
+| Executive F7 (print) | done-3 on top of done-1 — shared print block: A4 landscape, a printed title line (`data-print-title`), tab strips / filters / fixed footer hidden, tiles not split across pages. Printed-by / time is not printed (CSS cannot know it; the browser header carries date and URL) |
+| Executive F2 (21 % vs 54 %) | already done-1 — both tiles say what they measure ("fleet score (selected period)" / "Fleet score · last month with data"); no formula changed |
+| Executive F3 | done-3: Period is a list (same values the free-text field suggested); "Objective lights" is a heading, not a box. **Not done — data rule:** default Site = "Group": the server never mixes sites into a single tile (design review B3), so there is no group value to select |
+| Executive F4 / F24 | done-3 — Scorecard bar: Export and Share visible, author tools under "More"; the six "Click Analyze & Fill" placeholders read "No commentary yet." with one hint line |
+| Executive F11 / F22 | done-3 — IT Review site filter shows site names (from the model's own rows; code as tooltip); KPI band 4 columns on a tablet, 2 on a phone. The model is untouched (fidelity tests green) |
+| Executive F16 / F17 / F23 | done-3 — empty panels shrink to their message; unmeasured sites are named on one line (from two up) instead of a wall of grey cells — still listed, still counted; a stale tile has a solid rule and its "Stale" pill |
+| Executive F18 (charts) | done-3 — `lib/chartNoData.js` (Scorecard, Site overview, System Logs): "No data for this period" instead of an empty 0–1.0 axis, "Not enough data for a trend — N of 3 periods" instead of a lone dot |
+| Executive F20 / F21 | done-3 — Exec View pillar bars carry their band (colour + word, thresholds from `lib/kpiRag.js`); Site overview opens on the Group view for a group user with no site |
+| Executive F25 / F6 | PMO pages (portfolio) — handled by the PMO UX merge |
+| Visual F2 / F16 / F21 / admin P2-11 (shared components) | done-3 — no page-local `.btn` definition is left on assets, Scorecard, deck builder, inspection, inspections, IT Review (its rules were unused), login, reports, trackers, dashboards and the composer. `<body class="edv-ui">` (or `edv-ui-dark` on a dark bar) maps the class names those pages already use onto the shared `.edv-btn` variants in `brand/components.css` — one set of button rules, no markup churn in 600 KB pages. Same layer: one table look (`table.list`, `.user-table`, `.data-table`, `.mi-table` → `.edv-table` rules) and one status badge (`.status-active` / `.status-inactive`). Green buttons are gone (Submit Report, deck builder) — green is a status. **Not converted:** the in-page tab bars of assets / tracker / admin keep their markup (they are JS-driven panes; the look is aligned through tokens, the component is not swapped) |
+| Raw codes (visual F22) | done-3 — `SDPLabels` gains five interface vocabularies (import source, deleted-record module, completion state, site status, weekly report status) and is used where a code was still printed: assets import messages, Deleted records card, report KPI chips, Exec View site chips and incident status. A probe of the rendered text of assets, Scorecard, helpdesk, reports (+ admin), analytics and Exec View finds no snake_case token left (seed data) |
+| ia-value F7 (header layers) | done-1 (compact context strip) + done-3 — the Meetings quick-jump cards that repeated the module tabs are gone ("Since last meeting" stays as one page action) |
+| ia-value F8 (names, eyebrows) | eyebrows: done-1 (none left — only the comment that says so). done-3 — Meetings is "Meetings & Decisions" in the menu, the h1 and now the page title |
+| ia-value F5 / admin P1-3 (admin inside "Site Reports") | done-3 for the page bar: on `#admin` it reads "Admin settings" and the Weekly / Monthly tabs are hidden. The header breadcrumb follows the address only with `ui_nav_active_from_url = 1` — an existing product switch, left as set |
+| ia-value F11 / F12, login landing | already done-1 — the field app does not write the shared language; the role chip shows the profile word; login and the brand link share `lib/landing.js` (`ui_role_landing` switch) |
+| ia-value F18 / F19 / F20 | done-3 — module tabs start under the breadcrumb text; Workspace settings uses token-styled controls and a link-styled "Return to Home"; the empty trackers list says what to do next. Drag handles instead of Up / Down were not built (the buttons are the keyboard-accessible control) |
+| ia-value F13 (Ctrl+K recents / actions) | not done — a new feature (recent pages need storage; actions need a registry), outside a polish pass |
+
+### PMO leftovers taken over after the PMO UX merge (trunk `3f029f9c` merged into this branch)
+
+| Item | State |
+|---|---|
+| PMO F21 (cockpit) | done-3 — when nothing is overdue the eight tiles fold into one line; "no due date (unknown)" and "oldest delay —" stay in it |
+| PMO F22 (RFI register) | done-3 — Impact / Effort / Data risk are labelled 1–3 lists (still sent as numbers), a "✓ saved" tick on the row just stored, the score in a neutral badge (no colour: no threshold is defined for it) |
+| PMO F17 (headers) | done-3 — the cockpit's own EN/FR toggle is gone (it already read the shared preference; the header switch is the only one). "My workspace" is an account-menu item and the role chip shows the profile word — both already in the trunk; header controls measured at one height |
+| Ledger action labels | done-3 — 41 action codes that were shown through `humanise()` (readable, English only) have EN + FR labels in `lib/ppmLabels.js` and both page dictionaries; a test scans every `ppmEvent({action})` on the server and fails on a code without a French label |
+| Milestone dates, register numbers | done-3 — the milestone date in the portfolio list goes through the page formatter; register FTE, budget and counts through `SDPFormat.number` (one line per currency, never a sum; unknown stays "—") |
+| Mobile check (register / decisions / capacity) | done-3 — captured at 390 px with their switches on: the register's analysis cards widened the page (592 px) → cards scroll inside themselves, grid `minmax(min(380px,100%),1fr)`; `project.html` overview list (415 px) fixed the same way; decisions and capacity had no overflow |
+| "(help §25)" | none left on portfolio / project (only the mapping note inside the manual) |
+
+### Other findings closed on this branch
+
+| Item | State |
+|---|---|
+| a11y-fr F23 | done-3 — the French checklist lines keep the thresholds (« 18–24 °C », « 40–60 % »), in both copies (seed JSON + the page's inline list) |
+| a11y-fr F24 | done-3 — one true sentence about saving on the inspection form (kept on the device as you type; Save now / Submit send it), EN and FR |
+| a11y-fr F25 | done-3 — a page's own skip link takes the shell's wording and language |
+| a11y-fr F1 | human decision, untouched — the default of `ui_i18n_pages` |
+| Visual F23 / admin P3-2 (US date inputs) | not fixable in the page — a native date input follows the browser's locale, not the document's; replacing it with a custom picker would lose the native keyboard and screen-reader behaviour |
+| Admin P2-3 | done-3 — a checkbox and its label stay on one line across the admin form grid |
+| Admin P3-2 | done-3 — the unfinished "Events & reconciliation (v2)" tab is no longer shown; Prev/Next were already disabled at the bounds |
+| Admin P3-1 | done-3 — through `lib/chartNoData.js` on System Logs (short trends and empty charts say so) |
+| Coordinator P2-16 | done-3 — Site Actions: the "Age" column is "Late" (days past the due date, red; the age since opening in the tooltip) |
+| Coordinator P3-18 | done-3 — login says "Sign in to continue." (not "Welcome back"); a wrong password reads as a sentence, in the page language |
+| Coordinator P1-7 / visual F18 (French literals in the report editor: "5. Parc informatique", "— inconnu") | not done — tab 5 was authored in French on a user decision (2026-09-18) and is pinned as such by `tests/reports-editor-asset-tab.test.js`; translating it is a content decision that goes with `ui_i18n_pages` |
+| Coordinator P2-15 (PV editor as compact expandable rows), P3-21 (bottom tab bar on a phone), ia-value F10 (drawer menu) | not done — each replaces a working layout with a new interaction model; they need a design decision and field testing, not a polish pass. Nothing blocks them |
+| Visual F9 / F17 / F19 / F20 (type scale, page widths, elevation, radii) | partial — the tokens exist and every component added here uses them; the older pages keep their own values where no shared component replaced them |
+| Admin P3-6 (manual out of date), P3-7 (dormant connectors folded) | not done here — the manual was rewritten on 2026-11-21 (trunk); folding Meridian away is a product choice |
+
+## Checks run on this branch (polish 3)
+
+- Unit suite, 6 alphabetical chunks: one full pass before the last four commits (6 212 tests; red only: the IT Review
+  palette test and KPI citations — both fixed —, three gate-dossier freshness checks, the README size block and the
+  tracked-files secret scan). A second full pass was started on the final code and was cut off by a container restart:
+  chunks 1 to 3 finished (2 962 tests, red only the three dossier freshness checks, regenerated since); chunks 4 to 6
+  were NOT rerun as a whole. The tests that had been red there were rerun alone and pass (`readme-truth`,
+  `gate-dossiers`, `secret-scan` — the scanner read the admin "secret set / not set" key→id map as assigned secrets;
+  the map is now a list of pairs), together with `visual-polish-3`, `ui-design-ratchet`, `a11y-legacy-ratchet`,
+  `i18n-coverage`, `csp-inline`.
+- e2e: all 44 specs one by one before the last three code commits: 41 pass, 3 fail (`p09-profile-tasks-a`,
+  `uat-s8-site-business`, `v1-viewport-layout`). After the fixes those three and `uat-s7-super-admin` pass on the final
+  code. The other 40 were NOT rerun after the last shared-CSS change (hidden attribute, phone wrap of `.btn`).
+- The 6 `*-browser.test.js` files ran inside the unit chunks (first full pass).
+- `npx eslint .` exit 0 (before the pairs change in `reports.html`, not rerun after it); inventories (+ strict),
+  evidence manifest, chart inventory, CSP journey report, persona matrix, page inventory regenerated; gate dossiers
+  regenerated last and `--check` is fresh.

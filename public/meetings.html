@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Meetings &amp; Council Escalations — Endeavour Mining IT</title>
+<title>Meetings &amp; Decisions — Endeavour Mining IT</title>
 
 <link rel="stylesheet" href="_tokens.css">
 <link rel="stylesheet" href="brand/icons.css">
@@ -380,6 +380,7 @@
     </div>
     <div class="md-hero__actions">
       <a class="btn-primary" href="meeting.html" id="mdNewBtn"><i class="icon icon-plus"></i>New meeting</a>
+      <a class="btn-ghost" href="meetings-progress.html" id="mdProgressBtn"><i class="icon icon-refresh-cw"></i>Since last meeting</a>
       <a class="btn-ghost" href="meetings-import.html" id="mdImportBtn"><i class="icon icon-upload"></i>Bulk import</a>
       <button class="btn-ghost" type="button" id="mdExportBtn" style="display:none" title="Download all meetings data (Meetings · Issues · Actions · Projects) as Excel"><i class="icon icon-download"></i>Export Excel</button>
       <button class="btn-ghost" type="button" id="mdRefreshBtn"><i class="icon icon-refresh-cw"></i>Refresh</button>
@@ -393,36 +394,8 @@
   <section class="md-kpis" id="mdKpis"></section>
 
   <!-- Quick-jump strip — four companion views -->
-  <section class="md-jumps">
-    <a class="md-jump" href="meetings-progress.html">
-      <div class="md-jump__icon"><i class="icon icon-refresh-cw"></i></div>
-      <div>
-        <div class="md-jump__title">Since last meeting</div>
-        <div class="md-jump__sub">Pre-brief for the IT coordinator — what changed, what's new, what closed</div>
-      </div>
-    </a>
-    <a class="md-jump" href="meetings-issues.html">
-      <div class="md-jump__icon"><i class="icon icon-clipboard-list"></i></div>
-      <div>
-        <div class="md-jump__title">Issues Log</div>
-        <div class="md-jump__sub">Every issue across all meetings, with all filters</div>
-      </div>
-    </a>
-    <a class="md-jump" href="meetings-council.html">
-      <div class="md-jump__icon"><i class="icon icon-shield"></i></div>
-      <div>
-        <div class="md-jump__title">Council Escalations</div>
-        <div class="md-jump__sub">Issues marked escalate=Y, grouped by Council theme</div>
-      </div>
-    </a>
-    <a class="md-jump" href="meetings-compliance.html">
-      <div class="md-jump__icon"><i class="icon icon-check"></i></div>
-      <div>
-        <div class="md-jump__title">5 Engagements monitor</div>
-        <div class="md-jump__sub">Site IT discipline scoreboard for the current month</div>
-      </div>
-    </a>
-  </section>
+  <!-- ia-value F7: the quick-jump cards repeated the module tabs above (Issues · Council · Compliance); "Since last
+       meeting" keeps one link in the page actions -->
 
   <!-- Filters -->
   <section class="md-filters">
