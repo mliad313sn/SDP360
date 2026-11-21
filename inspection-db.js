@@ -962,7 +962,7 @@ async function _saveInspectionPg(state, userSiteCode, createdBy, { allowRefs = n
 // phone action update touches insp_actions only, so it never makes the form stale.
 const _VERSION_SQL = `to_char(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
 async function _versionPg(H, id, lock) {
-  const r = await H.prepare(`SELECT ${_VERSION_SQL} AS v FROM insp_inspections WHERE id = ?${lock ? ' FOR UPDATE' : ''}`).get(id);
+  const r = await H.prepare(`SELECT ${_VERSION_SQL} AS v FROM insp_inspections WHERE id = ? AND deleted_at IS NULL${lock ? ' FOR UPDATE' : ''}`).get(id);
   return r ? r.v : null;
 }
 function inspectionChangedError(current) {
