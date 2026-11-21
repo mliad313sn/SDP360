@@ -15,7 +15,7 @@
   "jobs": 33,
   "jobs_without_test_reference": 0,
   "migrations": 117,
-  "test_files": 935
+  "test_files": 937
  },
  "pages": [
   {
@@ -10186,7 +10186,7 @@
    "method": "GET",
    "path": "/api/policy-center/export",
    "file": "routes/policyCenter.js",
-   "line": 236,
+   "line": 244,
    "tests": [
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
@@ -10197,7 +10197,7 @@
    "method": "POST",
    "path": "/api/policy-center/import",
    "file": "routes/policyCenter.js",
-   "line": 287,
+   "line": 295,
    "tests": [
     "tests/p11-r7-security.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
@@ -10208,9 +10208,10 @@
    "method": "POST",
    "path": "/api/policy-center/operator-tokens",
    "file": "routes/policyCenter.js",
-   "line": 215,
+   "line": 223,
    "tests": [
-    "tests/activate-switches-r6-impersonation.smoke.test.js"
+    "tests/activate-switches-r6-impersonation.smoke.test.js",
+    "tests/p11-r8-policy-center.smoke.test.js"
    ]
   },
   {
@@ -10218,10 +10219,11 @@
    "method": "POST",
    "path": "/api/policy-center/requests/:id/approve",
    "file": "routes/policyCenter.js",
-   "line": 208,
+   "line": 216,
    "tests": [
     "tests/activate-switches-r6-impersonation.smoke.test.js",
     "tests/p11-r5-security.smoke.test.js",
+    "tests/p11-r8-policy-center.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
    ]
@@ -10231,10 +10233,11 @@
    "method": "POST",
    "path": "/api/policy-center/requests/:id/cancel",
    "file": "routes/policyCenter.js",
-   "line": 210,
+   "line": 218,
    "tests": [
     "tests/activate-switches-r6-impersonation.smoke.test.js",
     "tests/p11-r5-security.smoke.test.js",
+    "tests/p11-r8-policy-center.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
    ]
@@ -10244,10 +10247,11 @@
    "method": "POST",
    "path": "/api/policy-center/requests/:id/reject",
    "file": "routes/policyCenter.js",
-   "line": 209,
+   "line": 217,
    "tests": [
     "tests/activate-switches-r6-impersonation.smoke.test.js",
     "tests/p11-r5-security.smoke.test.js",
+    "tests/p11-r8-policy-center.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
    ]
@@ -10261,6 +10265,7 @@
    "tests": [
     "tests/activate-switches-r6-impersonation.smoke.test.js",
     "tests/p11-r5-security.smoke.test.js",
+    "tests/p11-r8-policy-center.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
    ]
@@ -10274,6 +10279,7 @@
    "tests": [
     "tests/p11-r5-security.smoke.test.js",
     "tests/p11-r7-security.smoke.test.js",
+    "tests/p11-r8-policy-center.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
    ]
@@ -10287,6 +10293,7 @@
    "tests": [
     "tests/p11-r5-security.smoke.test.js",
     "tests/p11-r7-security.smoke.test.js",
+    "tests/p11-r8-policy-center.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
    ]

@@ -55,6 +55,14 @@ same `SDP_CONFIG_KEY`, or the encrypted configuration secrets read back empty. A
 on a server with **another** key the anchors read `unverifiable (key rotated)` — never "forged" — and the next nightly
 run logs `audit_chain_key_rotated` and re-anchors under the new key; with **no** key they read `unverifiable`, never ok.
 The drill's reference counts come from the dump's own snapshot (`<dump>.counts.json`), not from the live database.
+Since P11 round 8 (O-13) the counts file records the dump's sha256 and size and is copied off-site with the dump; a
+counts file that does not belong to the dump is ignored (the report says so) and the drill uses **live counts,
+labelled** — which is also what happens for an off-site copy brought back without its counts file.
+The re-anchor after a restore on another key happens only if the previous key id is known to this deployment (recorded
+by the nightly job in `audit_chain_meta`, restored with the dump) and no ledger is shorter than the last position the
+job logged; otherwise the job reports `unknown key id` / `broken` (P11 round 8 R8-A2 — see `docs/ops/EXPLOITATION.md`).
+A database hardened before migration 137 must have `tools/pg/harden-audit-grants.sql` re-run (it adds the anchor
+`kid` column) before relying on that resume (O-12).
 
 ### Full-service drill (files + keys + timing)
 

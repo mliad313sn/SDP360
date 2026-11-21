@@ -38,6 +38,13 @@
 //    or a nightly event) → unverifiable, never "advisory ok"; an empty anchor table is labelled 'none', not 'signed'.
 //  The owner of an UNHARDENED database can still disable triggers and rewrite these facts: full protection needs
 //  tools/pg/harden-audit-grants.sql (DBA / CAB step) and SDP_LEDGER_SCHEMA. That is stated, not claimed fixed.
+//
+// P11 round 8 (R8-A2 / O-11 / R8-4 / O-12, ADR docs/ai-decisions/ADR-P11-R8-anchor-rotation-resume.md):
+//  - the nightly job resumes after a rotation only when every pending foreign kid is a KNOWN prior key (recorded in
+//    audit_chain_meta 'kid:<kid>' when the job signed with it) — an unknown kid is "unverifiable", never resumed;
+//  - with no anchor verified under the current key, the highest anchored position logged by the job in system_log
+//    still constrains the ledger (a truncated ledger is "broken", never re-baselined);
+//  - a database hardened before migration 137 (no kid column) names the remedy (re-run the hardening script).
 const crypto = require('crypto');
 const TABLES = Object.freeze(['governance_policy_history', 'handoff_events', 'commitment_events', 'closure_verifications', 'minutes_history', 'governance_role_events', 'ppm_events', 'report_publications', 'weekly_report_submissions', 'access_request_events', 'finance_certification_events', 'wan_sla_claim_events']);
 const ANCHOR_TABLE = 'audit_chain_anchors';
@@ -190,7 +197,12 @@ async function anchorsExpected(db, schema) {
  *  longer leaves a chain check that compares nothing and passes. Best-effort: an unreadable source counts as "unknown",
  *  never as "anchored". */
 async function anchorHistory(db, schema) {
-  const out = { written: false, tables: new Set(), signed: false };
+  // P11 r8 (R8-A2 / O-11 / R8-4, ADR docs/ai-decisions/ADR-P11-R8-anchor-rotation-resume.md): also collect
+  //  - hwm: per ledger, the highest position the nightly job logged as anchored ok (rows, last id, head) — an unsigned
+  //    copy of the anchor stream that survives a deletion of the anchor rows;
+  //  - knownKids: the key identifiers this deployment's job has signed with (audit_chain_meta 'kid:<kid>', written by
+  //    recordAnchors; a DBA may record a documented prior key the same way). A kid outside this set is "unknown".
+  const out = { written: false, tables: new Set(), signed: false, hwm: new Map(), knownKids: new Set() };
   try {
     const r = await db.prepare(`SELECT pg_sequence_last_value(pg_get_serial_sequence(?, 'id')::regclass) AS v`).get(qual(schema, ANCHOR_TABLE));
     out.written = r && r.v != null;
@@ -201,10 +213,21 @@ async function anchorHistory(db, schema) {
       let d = null; try { d = typeof row.details === 'string' ? JSON.parse(row.details) : row.details; } catch (_) { d = null; }
       if (d && (Number(d.signed_written) > 0 || (d.anchor_integrity === 'signed' && Number(d.anchored) > 0))) out.signed = true;
       if (!d || !(Number(d.anchored) > 0) || !Array.isArray(d.tables)) continue;
-      for (const x of d.tables) if (x && x.ok === true && x.rows != null) out.tables.add(x.table);
+      const sameSchema = d.schema == null || d.schema === schema;
+      for (const x of d.tables) {
+        if (!(x && x.ok === true && x.rows != null)) continue;
+        out.tables.add(x.table);
+        if (!sameSchema) continue;
+        const cur = out.hwm.get(x.table);
+        if (!cur || Number(x.rows) > Number(cur.row_count)) out.hwm.set(x.table, { row_count: Number(x.rows), last_id: x.last_id == null ? null : Number(x.last_id), head: x.head == null ? null : String(x.head) });
+      }
     }
   } catch (_) { /* no system_log: unknown */ }
   if ((await metaValue(db, schema, 'signed_anchors')) != null) out.signed = true;
+  try {
+    const reg = await db.prepare('SELECT to_regclass(?) AS r').get(qual(schema, META_TABLE));
+    if (reg && reg.r) for (const r of await db.prepare(`SELECT k FROM ${qual(schema, META_TABLE)} WHERE k LIKE 'kid:%'`).all()) out.knownKids.add(String(r.k).slice(4));
+  } catch (_) { /* no meta table: no kid is known */ }
   try { if (await db.prepare(`SELECT 1 AS ok FROM ${qual(schema, ANCHOR_TABLE)} WHERE kid IS NOT NULL LIMIT 1`).get()) out.signed = true; } catch (_) { /* no kid column */ }
   return out;
 }
@@ -231,7 +254,7 @@ async function verify(db, opts = {}) {
     try { hasAnchors = !!(await db.prepare('SELECT to_regclass(?) AS r').get(qual(schema, ANCHOR_TABLE))).r; } catch (_) { hasAnchors = false; }
   }
   const out = [];
-  const history = hasAnchors ? await anchorHistory(db, schema) : { written: false, tables: new Set(), signed: false };
+  const history = hasAnchors ? await anchorHistory(db, schema) : { written: false, tables: new Set(), signed: false, hwm: new Map(), knownKids: new Set() };
   let anchorRows = null;
   if (hasAnchors) { try { anchorRows = Number((await db.prepare(`SELECT COUNT(*) AS n FROM ${qual(schema, ANCHOR_TABLE)}`).get()).n); } catch (_) { anchorRows = null; } }
   // R6-A2: anchors expected but the anchor table is not in the ledger schema → unverifiable, never ok
@@ -274,13 +297,23 @@ async function verify(db, opts = {}) {
       if (!brk && !anchor && !(c.constraints || []).length && rows.length && (history.tables.has(t) || (history.written && anchorRows === 0))) {
         brk = 'anchor history missing — anchors were written before and none is left for this ledger (anchor table emptied?)';
       }
+      // P11 r8 R8-A2 — with no anchor verified under the current key (anchors deleted, or a rotation pending), the
+      // highest position the nightly job logged as anchored still constrains the chain: a truncated ledger can never
+      // be re-baselined by a "rotation" resume.
+      const hw = history.hwm.get(t);
+      if (!brk && hw && (!anchor || c.keyRotated)) { const b = anchorBreak(rows, hw); if (b) brk = `${b} (highest position the nightly job logged as anchored in system_log)`; }
+      // P11 r8 R8-A2 / O-11 — a pending anchor under a key id this deployment never signed with is not a rotation
+      const unknownKids = c.keyRotated && kidColumn ? (c.foreignKids || []).filter((k) => !history.knownKids.has(k)) : [];
+      if (unknownKids.length && c.unverifiable) {
+        c = { ...c, unverifiable: `unknown key id: anchor row(s) signed under kid ${unknownKids.join(', ')}, which this deployment's nightly job never signed with (audit_chain_meta has no 'kid:${unknownKids[0]}') — unverifiable, the job does NOT resume; investigate (possible forged anchor). Only after confirming a documented key rotation may a DBA record it: INSERT INTO audit_chain_meta (k, v) VALUES ('kid:${unknownKids[0]}', '<who, date, reason>')` };
+      }
       const last = rows.length ? rows[rows.length - 1] : null;
       const broken = !!bad || !!brk;
       out.push({ table: t, rows: rows.length, ok: broken ? false : (c.unverifiable ? null : true), first_broken_id: bad ? Number(bad.id) : null,
         head: last ? last.row_hash : null, last_id: last ? Number(last.id) : null,
         anchor: anchor ? { last_id: anchor.last_id == null ? null : Number(anchor.last_id), row_count: Number(anchor.row_count) } : null,
         ...(brk ? { anchor_error: brk } : {}),
-        ...(!broken && c.unverifiable ? { error: c.unverifiable, ...(c.keyRotated ? { key_rotated: true, foreign_kids: c.foreignKids } : {}) } : {}) });
+        ...(!broken && c.unverifiable ? { error: c.unverifiable, ...(c.keyRotated ? { key_rotated: true, foreign_kids: c.foreignKids, ...(unknownKids.length ? { unknown_kids: unknownKids } : {}) } : {}) } : {}) });
     } catch (e) { out.push({ table: t, rows: null, ok: null, error: 'not verifiable (table or migration 034 missing)' }); }
   }
   const broken = out.some((x) => x.ok === false);
@@ -292,10 +325,14 @@ async function verify(db, opts = {}) {
         : (integrity.has('signed') && integrity.size === 1 ? 'signed' : [...integrity].filter((x) => x !== 'signed' && x !== 'none').join('; ') || (integrity.has('signed') ? 'signed' : 'none'));
   // P11 r7 O-8 — the ONLY reason for "unverifiable" is a key rotation: the nightly job may resume the chain
   const rotatedOnly = status === 'unverifiable' && !expected && !schemaProblem && !sigGone && !!key && sigColumn && kidColumn
-    && out.every((x) => x.ok === true || x.key_rotated === true) && out.some((x) => x.key_rotated === true);
+    && out.every((x) => x.ok === true || (x.key_rotated === true && !(x.unknown_kids || []).length)) && out.some((x) => x.key_rotated === true);
+  // P11 r8 O-12 — a database hardened before migration 137 has no kid column: a rotation can never resume until the DBA
+  // re-runs the hardening script (which adds it)
+  const noKidRemedy = hasAnchors && !!key && sigColumn && !kidColumn && out.some((x) => x.key_rotated === true);
   const anchorErrors = [];
   if (expected) anchorErrors.push(`anchors expected (migration 131 recorded or an anchor table exists) but ${schema}.${ANCHOR_TABLE} cannot be resolved — unverifiable`);
   if (schemaProblem) anchorErrors.push(`ledger schema not trustworthy — ${schemaProblem}`);
+  if (noKidRemedy) anchorErrors.push(`${schema}.${ANCHOR_TABLE} has no kid column (database hardened before migration 137): anchors signed under another key cannot be classified and the nightly job cannot resume — re-run tools/pg/harden-audit-grants.sql as the DBA (it adds the kid column), then the next nightly run resumes`);
   if (sigGone) anchorErrors.push(`${schema}.${ANCHOR_TABLE} has no sig column although signed anchors were written — signatures removed (unverifiable)`);
   return { ok: status === 'ok', status, schema, anchors: hasAnchors, anchor_integrity: anchorIntegrity,
     ...(anchorErrors.length ? { anchor_error: anchorErrors.join('; ') } : {}),
@@ -334,6 +371,9 @@ async function recordAnchors(db, result, opts = {}) {
   // P11 r7 R7-A2(b) — remember that signed anchors exist (a later missing sig column then reads "unverifiable")
   if (n && key && sigColumn) {
     try { await db.prepare(`INSERT INTO ${qual(result.schema, META_TABLE)} (k, v) VALUES ('signed_anchors', ?) ON CONFLICT (k) DO NOTHING`).run(new Date().toISOString()); } catch (_) { /* no meta table (migration 137 not applied): the kid / nightly events still say it */ }
+    // P11 r8 R8-A2 / O-11 — kid history: this deployment's job signed with this key id (only the job, which holds the
+    // key, writes it; a later anchor under a kid absent from this list is "unknown", never a resumable rotation)
+    if (kidColumn) { try { await db.prepare(`INSERT INTO ${qual(result.schema, META_TABLE)} (k, v) VALUES (?, ?) ON CONFLICT (k) DO NOTHING`).run('kid:' + kid, 'signed by the nightly job ' + new Date().toISOString()); } catch (_) { /* no meta table */ } }
   }
   return n;
 }
@@ -355,7 +395,7 @@ async function nightly(rdb) {
   const anchored = r.ok ? await recordAnchors(db, r) : 0;
   const signedWritten = anchored && anchorKey() && (await hasSigColumn(db, r.schema)) ? anchored : 0;
   await rdb.logEvent({ category: 'governance', action: r.ok ? 'audit_chain_anchor' : (r.status === 'unverifiable' ? 'audit_chain_unverifiable' : 'audit_chain_broken'), target: 'audit',
-    details: { schema: r.schema, anchored, signed_written: signedWritten, status: r.status, anchor_integrity: r.anchor_integrity, ...(rotated ? { key_rotated: rotated } : {}), ...(r.anchor_error ? { anchor_error: r.anchor_error } : {}), tables: r.tables.map((x) => ({ table: x.table, rows: x.rows, ok: x.ok, head: x.head, last_id: x.last_id == null ? null : x.last_id, first_broken_id: x.first_broken_id, ...(x.anchor_error ? { anchor_error: x.anchor_error } : {}), ...(x.error && x.ok !== true ? { error: x.error } : {}), ...(x.shadowed ? { shadowed: true } : {}) })) }, risk: r.ok ? 0 : 1 });
+    details: { schema: r.schema, anchored, signed_written: signedWritten, ...(signedWritten ? { kid: anchorKid(anchorKey()) } : {}), status: r.status, anchor_integrity: r.anchor_integrity, ...(rotated ? { key_rotated: rotated } : {}), ...(r.anchor_error ? { anchor_error: r.anchor_error } : {}), tables: r.tables.map((x) => ({ table: x.table, rows: x.rows, ok: x.ok, head: x.head, last_id: x.last_id == null ? null : x.last_id, first_broken_id: x.first_broken_id, ...(x.anchor_error ? { anchor_error: x.anchor_error } : {}), ...(x.error && x.ok !== true ? { error: x.error } : {}), ...(x.shadowed ? { shadowed: true } : {}) })) }, risk: r.ok ? 0 : 1 });
   if (!r.ok) {
     const bad = r.tables.filter((x) => x.ok !== true).map((x) => `${x.table}#${x.first_broken_id != null ? x.first_broken_id : (x.anchor_error || x.error || '?')}`);
     if (r.anchor_error) bad.unshift(r.anchor_error);

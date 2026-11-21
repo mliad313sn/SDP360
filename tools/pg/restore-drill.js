@@ -256,7 +256,12 @@ async function run(o = {}) {
   // <dump>.counts.json): the server keeps writing while the drill runs (it runs in-process, off the event loop since
   // fix 27), so counts read now would differ from a healthy dump. Only a dump with no sidecar (taken before this fix,
   // or when the snapshot could not be opened) falls back to live counts — and the report says so.
-  const dumpCounts = backup.readDumpCounts(dumpFile);
+  // P11 r8 O-13 — a counts file is used only when it belongs to this dump (name, sha256, size); otherwise it is ignored
+  // and the report says so (live counts, labelled).
+  const dc = await backup.dumpCountsFor(dumpFile);
+  const dumpCounts = dc.counts;
+  if (dc.problem) notes.push(`The counts file next to this dump was IGNORED: ${dc.problem}.`);
+  if (dc.unbound) notes.push('The counts file next to this dump predates the sha256 binding (fix 36): only its dump name was checked.');
   const live = new Client({ connectionString: liveUrl });
   await live.connect();
   let liveCounts;
@@ -268,7 +273,7 @@ async function run(o = {}) {
       notes.push(`Reference counts were taken in the dump's own snapshot (${dumpCounts.taken_at || 'time not recorded'}): rows the server wrote during the drill do not count as a mismatch.`);
     } else {
       liveCounts = await countTables(live, drill.MAIN_TABLES);
-      notes.push('No dump-time counts are recorded for this dump: the reference counts were read from the live database AFTER the dump — on a busy server, rows written meanwhile can show as a mismatch.');
+      notes.push(`${dc.problem ? 'No usable' : 'No'} dump-time counts are recorded for this dump: the reference counts were read from the LIVE database AFTER the dump (live counts) — on a busy server, rows written meanwhile can show as a mismatch.`);
     }
     // F-ARCH-05 — the monthly job stays database-only unless the switch is on (default '0').
     if (full === undefined) full = (await readConfigValue(live, 'restore_drill_full')) === '1';
