@@ -10,7 +10,7 @@
 | Decision cell in RELEASE-GATES.md | empty — this gate is **NO-GO** until the approver fills it. This dossier fills nothing. |
 | What this gate blocks | blocks the two-site pilot on the TEST instance |
 | Decide after | [G01](G01-security-access-policy.md) Security: access policy and authorization matrix · [G02](G02-threat-model-findings.md) Security: threat model and findings · [G05](G05-backup-restore-rpo-rto.md) Backup and restore (RPO/RTO) · [G12](G12-data-owner-fixtures-history.md) Data owner: anonymised data and 2026 history |
-| Target SHA | `4320dbd6` |
+| Target SHA | `d88fefec` |
 | Generated | 2026-11-21 |
 
 ## 1. Question to decide
@@ -25,7 +25,7 @@ Which two sites run the pilot, with which named users, and what result of the fi
 | `docs/ops/pilot/FIELD-DEVICE-UAT.md` | Field device acceptance protocol | `manual` | 123bbb9e, 2026-11-06 | `a8a6d3349b817775` |
 | `docs/ops/pilot/PILOT-MEASUREMENT.md` | What the pilot measures and how | `node tools/pilot/pilot-metrics.js` | 0cedb940, 2026-11-12 | `4379002a25bde6c2` |
 | `docs/ops/pilot/TEST-INSTANCE.md` | TEST instance description | `manual` | 247500f0, 2026-11-04 | `753ce5e6e2924cbb` |
-| `tests/field-no-silent-loss.test.js` | Offline field capture never silently loses a record | `node --test --test-force-exit tests/field-no-silent-loss.test.js` | 0a82ade6, 2026-10-29 | `31b1b20e38f09e10` |
+| `tests/field-no-silent-loss.test.js` | Offline field capture never silently loses a record | `node --test --test-force-exit tests/field-no-silent-loss.test.js` | fcc4d77c, 2026-11-21 | `c58f6dd857fae252` |
 | `tests/pilot-metrics.test.js` | Pilot measurement tool | `node --test --test-force-exit tests/pilot-metrics.test.js` | 1cdc2a73, 2026-11-19 | `166b16e4a1e036a9` |
 | `docs/sdp360/completion/UAT-PANEL-2026-10-29.md` | AI review panel (not real users) | `manual` | 210f11b3, 2026-10-29 | `d02e3bbebc87851b` |
 
