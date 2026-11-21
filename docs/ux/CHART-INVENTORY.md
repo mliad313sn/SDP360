@@ -84,7 +84,7 @@ Files scanned: **161** · inline <style> blocks: **60** · hex literals: **5197*
 | `public/lib/admin-home.js` | 3604 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/allocationContract.js` | 8932 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/analyticsLogic.js` | 13538 | 0 | 0 | 0 | — | 0 | 0 | yes | — | — | — |
-| `public/lib/assetHygieneVisuals.js` | 7003 | 0 | 0 | 0 | — | 0 | 0 | — | yes | — | — |
+| `public/lib/assetHygieneVisuals.js` | 7011 | 0 | 0 | 0 | — | 0 | 0 | — | yes | — | — |
 | `public/lib/businessRoles.js` | 933 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/chartContract.js` | 3054 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/chartTheme.js` | 18068 | 0 | 14 | 0 | — | 0 | 0 | — | yes | — | hex literals → _tokens.css variables |
@@ -167,7 +167,7 @@ Files scanned: **161** · inline <style> blocks: **60** · hex literals: **5197*
 | `public/lib/trustLabel.js` | 10620 | 0 | 1 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/lib/urlFilters.js` | 4748 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/value-scoreboard-page.js` | 6212 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/lib/wanClaimsPane.js` | 11959 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/wanClaimsPane.js` | 11967 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/wanLineMatch.js` | 1934 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/wanTimeline.js` | 7263 | 0 | 0 | 0 | — | 0 | 0 | — | yes | — | — |
 | `public/lib/workspaceProfiles.js` | 16370 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
