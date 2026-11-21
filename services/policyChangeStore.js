@@ -6,7 +6,9 @@
 const { typed } = require('./httpError');
 const { skeletonKey } = require('./commitmentLifecycle');   // refusal side: look-alikes fold (P11 N-R4-3)
 
-const STATUSES = ['pending', 'approved', 'rejected', 'cancelled', 'expired', 'stale'];
+// 'failed' (P11 r8 N-R8-1): approved by a second super_admin, but the apply step refused (e.g. the value no longer passes
+// today's validation) — nothing was applied; decision_reason carries the cause.
+const STATUSES = ['pending', 'approved', 'rejected', 'cancelled', 'expired', 'stale', 'failed'];
 
 function makePolicyChangeStore(handle, { now = () => new Date().toISOString(), days = 7 } = {}) {
   const Q = (sql) => handle().prepare(sql);
@@ -59,7 +61,17 @@ function makePolicyChangeStore(handle, { now = () => new Date().toISOString(), d
       .run(status, Number(actor.id), String(actor.username || ''), now(), why.slice(0, 1000) || null, Number(id));
     if (!claimed || !claimed.lastID) throw typed('CONFLICT', 'request was decided by someone else', 409);
     if (status === 'stale') throw typed('CONFLICT', 'the value changed since this request was made — it was marked stale; request again', 409);
-    if (status === 'approved' && apply) await apply(req);
+    if (status === 'approved' && apply) {
+      try { await apply(req); } catch (e) {
+        // P11 r8 N-R8-1 — never leave an "approved" request whose change was not applied: mark it failed with the cause
+        // (the key is then free for a corrected request); the caller journals the failure and returns the error.
+        const cause = `apply failed: ${String((e && e.message) || e).slice(0, 300)}`;
+        await Q("UPDATE policy_change_requests SET status='failed', decision_reason=? WHERE id=? AND status='approved'")
+          .run(((why ? why + ' | ' : '') + cause).slice(0, 1000), Number(id));
+        e.policyRequest = await get(id);
+        throw e;
+      }
+    }
     return get(id);
   }
   return { list, get, pendingFor, create, decide, samePerson, STATUSES };

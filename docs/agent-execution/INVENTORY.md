@@ -19,8 +19,8 @@
 | routes in server js | 160 |
 | jobs | 33 |
 | jobs without test reference | 0 |
-| migrations | 117 |
-| test files | 935 |
+| migrations | 118 |
+| test files | 937 |
 
 ## Pages
 

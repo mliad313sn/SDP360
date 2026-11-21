@@ -19,13 +19,14 @@ const isDay = (v) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && !
 /** Normalise a RAID body (row + details). Throws INVALID. */
 function normalise(body) {
   const b = body || {};
-  const kind = String(b.kind || 'risk');
+  // P11 r8 R8-4 — case / spaces normalised like the generic writer (governanceStore): ' Open ' → open, 'Risk' → risk
+  const kind = String(b.kind || 'risk').trim().toLowerCase();
   if (!KINDS.includes(kind)) throw bad('kind must be ' + KINDS.join(' | '), 'BAD_KIND');
   const title = String(b.title || '').trim();
   if (title.length < 3) throw bad('a title of 3+ characters is required', 'BAD_TITLE');
   const score = (k) => { if (b[k] == null || b[k] === '') return null; const n = Number(b[k]); if (!Number.isInteger(n) || n < 1 || n > 3) throw bad(`${k} must be 1..3`, 'BAD_SCORE'); return n; };
   const probability = score('probability'), impact = score('impact');
-  const status = String(b.status || 'open');
+  const status = String(b.status || 'open').trim().toLowerCase();
   if (!['open', 'closed'].includes(status)) throw bad('status must be open | closed', 'BAD_STATUS');
   const response = b.response == null || b.response === '' ? null : String(b.response);
   if (response != null && !RESPONSES.includes(response)) throw bad('response must be ' + RESPONSES.join(' | '), 'BAD_RESPONSE');
@@ -69,7 +70,7 @@ function view(row, details, { today, money }) {
 function exposureTotals(items) {
   const by = new Map();
   for (const it of items) {
-    if (it.status !== 'open' || it.money_hidden) continue;
+    if (!require('./riskExposure').isOpen(it) || it.money_hidden) continue;   // P11 r8 R8-3 — shared case-insensitive rule
     if (it.impact_currency == null) continue;
     const c = by.get(it.impact_currency) || { currency: it.impact_currency, exposure_amount: 0, entries: 0, unknown: 0 };
     c.entries += 1;
