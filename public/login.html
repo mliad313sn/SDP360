@@ -161,10 +161,14 @@
     text-transform:uppercase;
   }
   .footer strong{color:var(--edv-slate, #3A4A60); font-weight:700}
+  /* a11y-fr F11 — the first screen offers French too (writes the shared sdp_lang preference) */
+  .login-lang{margin:14px 0 0;text-align:center;font-size:12px;color:var(--color-text-muted)}
+  .login-lang button{background:none;border:0;padding:4px 6px;font:inherit;color:var(--color-link);cursor:pointer;text-decoration:underline;text-underline-offset:.2em}
+  .login-lang button[aria-pressed="true"]{color:var(--color-text-strong);text-decoration:none;font-weight:600}
 </style>
 </head>
 <body>
-<div class="login-stage">
+<main id="main" class="login-stage">
   <div class="login-mascot" aria-hidden="true">
     <!-- Goldy "Welcome / Safety" pose — drop the PNG in public/brand/goldy/.
          The <img> hides itself if the file is missing so the layout still
@@ -177,7 +181,7 @@
     <div class="logo-badge" role="img" aria-label="Endeavour Mining"></div>
     <h1>Endeavour Mining</h1>
     <span class="wordmark">IT Operations Dashboard</span>
-    <p>Welcome back. Sign in to continue.</p>
+    <p data-en="Welcome back. Sign in to continue." data-fr="Bon retour. Connectez-vous pour continuer.">Welcome back. Sign in to continue.</p>
   </div>
 
   <div class="error" id="err"></div>
@@ -187,32 +191,34 @@
     <button type="button" id="btnMs"
       style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;background:#fff;color:#1b1b1b;border:1px solid #d0d3d8;border-radius:10px;padding:13px 16px;font-size:15px;font-weight:600;cursor:pointer;transition:box-shadow .15s,border-color .15s">
       <svg width="18" height="18" viewBox="0 0 21 21" aria-hidden="true"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>
-      Sign in with Microsoft
+      <span data-en="Sign in with Microsoft" data-fr="Se connecter avec Microsoft">Sign in with Microsoft</span>
     </button>
     <p id="ssoHint" style="text-align:center;font-size:12px;color:var(--color-text-muted,#7B7B7B);margin:12px 0 0">
-      Use your Endeavour Microsoft account.
+      <span data-en="Use your Endeavour Microsoft account." data-fr="Utilisez votre compte Microsoft Endeavour.">Use your Endeavour Microsoft account.</span>
     </p>
   </div>
 
   <form id="loginForm">
     <div class="form-group">
-      <label>Username</label>
-      <input type="text" id="username" placeholder="Enter your username" autocomplete="username" required>
+      <label for="username" data-en="Username" data-fr="Nom d’utilisateur">Username</label>
+      <input type="text" id="username" placeholder="Enter your username" data-en-ph="Enter your username" data-fr-ph="Saisissez votre nom d’utilisateur" autocomplete="username" required>
     </div>
     <div class="form-group">
-      <label>Password</label>
-      <input type="password" id="password" placeholder="Enter your password" autocomplete="current-password" required>
+      <label for="password" data-en="Password" data-fr="Mot de passe">Password</label>
+      <input type="password" id="password" placeholder="Enter your password" data-en-ph="Enter your password" data-fr-ph="Saisissez votre mot de passe" autocomplete="current-password" required>
     </div>
     <button type="submit" class="btn" id="btnLogin">
-      <span id="btnText">Sign In</span>
+      <span id="btnText" data-en="Sign In" data-fr="Se connecter">Sign In</span>
       <div class="spinner" id="spinner"></div>
     </button>
   </form>
 
-  <div class="footer"><strong>Endeavour Mining</strong> &nbsp;·&nbsp; IT Department &nbsp;·&nbsp; Confidential</div>
+  <div class="footer"><strong>Endeavour Mining</strong> &nbsp;·&nbsp; <span data-en="IT Department" data-fr="Département IT">IT Department</span> &nbsp;·&nbsp; <span data-en="Confidential" data-fr="Confidentiel">Confidential</span></div>
+  <p class="login-lang" role="group" aria-label="Language / Langue"><button type="button" data-lang="en" aria-pressed="true">English</button> · <button type="button" data-lang="fr" aria-pressed="false" lang="fr">Français</button></p>
 </div>
-</div>
+</main>
 
+<script nonce="%%CSP_NONCE%%" src="lib/loginLang.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/businessRoles.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/landing.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/workspaceProfiles.js"></script>
@@ -232,8 +238,19 @@
   const existing = localStorage.getItem('report_user');
   const nextParam = new URLSearchParams(location.search).get('next');
   if (existing && !nextParam) {
-    // Already logged in, browsed directly to login.html — send to index
-    location.replace('index.html');
+    // Already logged in, browsed directly to login.html — send to the SAME landing a fresh sign-in gets
+    // (ia-value F1: lib/landing.js, report_config ui_role_landing from the cached policy; '0' keeps today's mapping).
+    var dest = 'index.html';
+    try {
+      var u = JSON.parse(existing) || {};
+      var rs = Array.isArray(u.roles) && u.roles.length ? u.roles : (u.role ? [u.role] : []);
+      var H = ['super_admin', 'executive', 'admin', 'editor', 'viewer'];
+      var has = function (r) { if (rs.indexOf(r) >= 0) return true; var i = H.indexOf(r); return i >= 0 && rs.some(function (x) { var k = H.indexOf(x); return k >= 0 && k <= i; }); };
+      var pol = {}; try { pol = JSON.parse(localStorage.getItem('sdp_ui_policy') || '{}') || {}; } catch (_) { pol = {}; }
+      var biz = rs.length > 0 && rs.every(function (r) { return r === 'site-business' || r === 'group-business'; });
+      if (window.Landing && window.Landing.landingFor) dest = window.Landing.landingFor({ has: has, isBusinessOnly: biz, roleLanding: pol.role_landing === '1' ? '1' : '0', profileLanding: pol.role_landing_profiles === '1' ? '1' : '0', roles: rs, profiles: window.WorkspaceProfiles || null }) || 'index.html';
+    } catch (_) { dest = 'index.html'; }
+    location.replace(dest);
   }
 
   document.getElementById('loginForm').addEventListener('submit', async (e) => {

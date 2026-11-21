@@ -44,7 +44,7 @@
   }
   .mi-eyebrow {
     font-size: 11px; font-weight: 700; text-transform: uppercase;
-    letter-spacing: 1.4px; color: var(--edv-orange, #EF631A); margin-bottom: 8px;
+    letter-spacing: 1.4px; color: var(--color-primary-fill, #C2410C); margin-bottom: 8px;
   }
   .mi-hero h1 { margin: 0 0 6px; font-size: 24px; font-weight: 800; color: var(--edv-slate, #3A4A60); }
   .mi-hero p  { margin: 0; font-size: 13px; color: var(--color-text, #524F4E); max-width: 72ch; line-height: 1.55; }
@@ -159,7 +159,7 @@ border-color: var(--edv-orange, #EF631A);
   .mi-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; cursor: pointer;
     border-radius: 8px; padding: 8px 13px; border: 1px solid var(--color-border, #E2E5EA); background: var(--color-card,#fff); color: var(--edv-slate,#3A4A60); }
   .mi-btn:hover { border-color: var(--edv-blue, #145FAE); }
-  .mi-btn--pptx { background: linear-gradient(180deg,#EF631A,#D90038); color:#fff; border-color: transparent; box-shadow: 0 2px 6px rgba(217,0,56,.22); }
+  .mi-btn--pptx { background: var(--color-primary-fill); color:#fff; border-color: var(--color-primary-fill); }
   .mi-btn--pptx:hover { filter: brightness(1.05); }
   .mi-btn[disabled] { opacity: .55; cursor: default; }
 
@@ -201,11 +201,20 @@ border-color: var(--edv-orange, #EF631A);
     color: #1F2937; background: #FFFFFF; box-shadow: 0 1px 2px rgba(0,0,0,0.08);
     border-bottom: 2px solid var(--edv-orange, #E87722); padding-bottom: 6px;
   }
+
+  /* VISUAL POLISH 2026-11 — UX committee (visual F3/F4/F8): no gradient strip, no decorative KPI colour; the hero stacks on a phone. */
+  .mi-hero::before { display: none; }
+  .mi-hero { border-radius: var(--radius-lg); box-shadow: var(--shadow-card); border-color: var(--color-border); }
+  .mi-hero h1 { font-weight: 700; color: var(--color-heading); letter-spacing: var(--tracking-tight); }
+  @media (max-width: 760px) { .mi-hero { grid-template-columns: minmax(0, 1fr); } .mi-hero__actions { justify-content: flex-start; } }
+  .mi-kpi::before { display: none; }
+  .mi-kpi { border-radius: var(--radius-lg); box-shadow: var(--shadow-card); }
 </style>
 </head>
 <body>
 
 <div id="__shell" data-section="operations" data-current="meetings"></div>
+<main id="main" class="edv-main">
 
 <div class="mi-wrap">
 
@@ -220,7 +229,7 @@ border-color: var(--edv-orange, #EF631A);
         <i class="icon icon-download"></i> Export PPTX
       </button>
     </div>
-    <div class="mi-eyebrow">Insights · Actions Register</div>
+    <!-- ia-value F8: the stale "Insights ·" eyebrow is gone; the breadcrumb names the section -->
     <h1>IT commitments across all meetings</h1>
     <p>Every action (IT commitment) raised in any Department Meeting, in one place — so nothing slips through.
        <strong>Filter</strong> by site, department, status or owner, and <strong>close an action right here</strong>
@@ -259,11 +268,11 @@ border-color: var(--edv-orange, #EF631A);
   </section>
 
   <section class="mi-filters">
-    <select class="mi-select" id="miSite"><option value="">All sites</option></select>
-    <select class="mi-select" id="miDept"><option value="">All departments</option></select>
-    <select class="mi-select" id="miStatus"><option value="">All statuses</option></select>
+    <select aria-label="Site" class="mi-select" id="miSite"><option value="">All sites</option></select>
+    <select aria-label="Department" class="mi-select" id="miDept"><option value="">All departments</option></select>
+    <select aria-label="Status" class="mi-select" id="miStatus"><option value="">All statuses</option></select>
     <label class="mi-chk"><input type="checkbox" id="miOverdue"> Overdue only</label>
-    <input class="mi-search" type="search" id="miQ" placeholder="Search description / owner…">
+    <input aria-label="Search" class="mi-search" type="search" id="miQ" placeholder="Search description / owner…">
   </section>
 
   <section class="mi-table-card">
@@ -481,7 +490,7 @@ border-color: var(--edv-orange, #EF631A);
     const opts = window.StatusTransfer   // A-05: an unknown stored code stays selected ("(legacy)")
       ? window.StatusTransfer.optionsHtml(state.lookups.statuses || [], r.status, esc)
       : (state.lookups.statuses || []).map(s => `<option value="${esc(s.code)}"${s.code === r.status ? ' selected' : ''}>${esc(s.name_en)}</option>`).join('');
-    return `<select class="mi-status-sel" data-act="${esc(r.id)}" style="color:${esc(st.color)}">${opts}</select>`;
+    return `<select aria-label="Status" class="mi-status-sel" data-act="${esc(r.id)}" style="color:${esc(st.color)}">${opts}</select>`;
   }
 
   function renderTable() {
@@ -798,5 +807,6 @@ border-color: var(--edv-orange, #EF631A);
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/common.fr.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/meetings-actions.fr.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/boot.js" data-dict="I18N_FR_MEETINGS_ACTIONS"></script>
+</main>
 </body>
 </html>

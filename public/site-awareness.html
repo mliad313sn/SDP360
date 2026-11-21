@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -99,7 +99,15 @@ table.sa-fleet-tbl tbody tr:hover td{background:#F5F8FB}
 #sa-chg-body .sa-chart-wrap--donut{height:230px}
 @media(max-width:1080px){#sa-hd-chart-panel,#pane-helpdesk>div:nth-child(4),#pane-helpdesk>div:nth-child(5),#pane-helpdesk>div:nth-child(6),#sa-insp-chart-panel,#sa-insp-body>div:nth-child(3),#sa-mtg-chart-panel,#sa-mtg-body>div:nth-child(4),#sa-act-chart-panel,#sa-act-body>div:nth-child(3),#sa-trk-pillars-panel,#sa-trk-trend-panel{grid-column:1/-1}#sa-chg-body{grid-template-columns:1fr}#sa-chg-body .sa-tiles{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}}
 @media(max-width:720px){.sa-wrap{padding:18px 16px 40px}.sa-head h1{font-size:18px}.sa-controls{margin-left:0;width:100%}.sa-chart-wrap{height:240px}}
-.sa-list .cat{color:#3A4A60}</style>
+.sa-list .cat{color:#3A4A60}
+  /* VISUAL POLISH 2026-11 — UX committee executive: print the figures, not the controls. */
+  @media print {
+    #__shell, nav.shell-breadcrumb, button, select, input, .no-print, [role="toolbar"] { display: none !important; }
+    body { background: white !important; }
+    section, .card, .panel, .edv-widget, .kpi, .tile { break-inside: avoid; box-shadow: none !important; }
+    a { color: inherit; text-decoration: none; }
+  }
+</style>
 <script nonce="%%CSP_NONCE%%" id="design-chart-theme">
 /* DESIGN — theme Chart.js applique via les options Chart uniquement ; le script applicatif reste intact. */
 (function(){var MAP={"#2A5490":"#3A4A60","#27AE60":"#2E9E63","#E74C3C":"#D6493C","#E8A100":"#E3A008","#E87722":"#E87722","#9aa4b2":"#B7C0CC","#DC2626":"#D6493C","#fff":"#FFFFFF"},FONT="Libre Franklin",MUT='#5C6B80',GRID='#E9EDF2';
@@ -131,6 +139,7 @@ W.defaults=O.defaults;window.Chart=W;});
 </head>
 <body>
 <div id="__shell" data-section="site-awareness" data-current="site-awareness"></div>
+<main id="main" class="edv-main">
 
 <div class="sa-wrap">
   <div class="sa-head">
@@ -139,10 +148,6 @@ W.defaults=O.defaults;window.Chart=W;});
     <div class="sa-controls">
       <label for="sa-site">Site</label>
       <select id="sa-site"><option>…</option></select>
-    </div>
-    <div class="sa-lang-toggle" id="saLangToggle">
-      <button type="button" data-lang="en">EN</button>
-      <button type="button" data-lang="fr">FR</button>
     </div>
   </div>
   <div class="sa-sub">
@@ -1146,7 +1151,7 @@ W.defaults=O.defaults;window.Chart=W;});
     document.querySelectorAll('#saLangToggle button').forEach(b => {
       b.classList.toggle('active', b.dataset.lang === lang);
     });
-    try { localStorage.setItem(LANG_KEY, lang); localStorage.setItem('sdp_lang', lang); } catch (_) {}
+    // UX committee executive F1: this page never WRITES the language — the shell's FR/EN button is the only switch.
     // Re-render JS-built surfaces in the new language, WITHOUT re-fetching.
     renderTabs();
     if (current === 'fleet' && window._saLastFleet) renderFleet(window._saLastFleet);
@@ -1157,16 +1162,17 @@ W.defaults=O.defaults;window.Chart=W;});
     if (current === 'tracker' && window._saLastTracker) renderTracker(window._saLastTracker);
   }
   // Boot from localStorage if set, else default FR.
+  // UX committee executive F1: same rule as the shell (_shell.js shellLang): the shared preference, else the UI
+  // policy default, else the browser language, else English. It used to default to French AND persist it app-wide.
   (function _initLang() {
-    let stored = 'fr';
-    try { stored = localStorage.getItem('sdp_lang') || localStorage.getItem(LANG_KEY) || 'fr'; } catch (_) {}
-    setLang(stored === 'en' ? 'en' : 'fr');
+    let lang = '';
+    try { const s = localStorage.getItem('sdp_lang'); if (s === 'fr' || s === 'en') lang = s; } catch (_) {}
+    if (!lang) { try { const d = window.__uiPolicy && window.__uiPolicy.lang_default; if (d === 'fr' || d === 'en') lang = d; } catch (_) {} }
+    if (!lang) { try { lang = /^fr/i.test(navigator.language || '') ? 'fr' : 'en'; } catch (_) { lang = 'en'; } }
+    setLang(lang);
   })();
 
   document.addEventListener('DOMContentLoaded', function () {
-    document.querySelectorAll('#saLangToggle button').forEach(b => {
-      b.addEventListener('click', () => setLang(b.dataset.lang));
-    });
     $('sa-tabs').addEventListener('click', function (e) {
       const b = e.target.closest('[data-tab]'); if (b && !b.disabled) showTab(b.dataset.tab);
     });
@@ -1189,5 +1195,6 @@ W.defaults=O.defaults;window.Chart=W;});
   });
 })();
 </script>
+</main>
 </body>
 </html>

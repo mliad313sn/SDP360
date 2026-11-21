@@ -316,11 +316,16 @@
   }
   .del-modal-actions .btn-danger:hover { background: #b91c1c; }
   .del-modal-actions .btn-danger:disabled { opacity: 0.6; cursor: wait; }
+
+  /* VISUAL POLISH 2026-11 — UX committee (visual F4): one neutral KPI card — the cycling left border encoded nothing. */
+  .kpi-tile::before { display: none; }
+  .kpi-tile { border-radius: var(--radius-lg); box-shadow: var(--shadow-card); border-color: var(--color-border); }
 </style>
 </head>
 <body>
 
 <div id="__shell" data-section="operations" data-current="inspections"></div>
+<main id="main" class="edv-main">
 
 <div id="__moduletabs" data-module="inspections" data-current="list"></div>
 
@@ -910,5 +915,6 @@
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/common.fr.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/inspections.fr.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/boot.js" data-dict="I18N_FR_INSPECTIONS"></script>
+</main>
 </body>
 </html>

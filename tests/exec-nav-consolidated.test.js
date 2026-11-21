@@ -42,7 +42,8 @@ test('consolidated: the Executive menu shows only Executive Home and IT Review, 
       const { shell, mount, classes } = load(roles, { exec_nav: 'consolidated', nav_profile });
       assert.deepStrictEqual(execMenu(shell), ['exec-home', 'it-review'], `${roles} / ${nav_profile}`);
       const nav = (mount.innerHTML.match(/<nav class="shell-nav">([\s\S]*?)<\/nav>/) || [])[1] || '';
-      assert.ok(/href="it-review.html"/.test(nav) && !/href="executive.html"/.test(nav), 'the Scorecard is not rendered in the menu');
+      // since the 2026-11 IA the Executive section is ONE link (Executive Home); IT Review and the Scorecard are tabs
+      assert.ok(/href="dashboards.html\?key=exec-home"/.test(nav) && !/href="executive.html"/.test(nav), 'the Scorecard is not rendered in the menu');
       assert.ok(classes.has('shell-exec-consolidated'), 'body class lets Home show its Scorecard link');
     }
   }

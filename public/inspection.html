@@ -75,7 +75,7 @@ header.app-header {
 header.app-header .brand        { display: none; }
 header.app-header .btn-ghost    { color: var(--color-text-secondary, #3a4452); border-color: var(--color-border, #dfe3e8); }
 header.app-header .btn-ghost:hover { background: #fff; color: var(--color-text-primary, #1F2A33); }
-header.app-header .btn-primary  { background: var(--edv-orange, #EF631A); }
+header.app-header .btn-primary  { background: var(--color-primary-fill); align-self: center; }   /* a11y-fr F7: white text needs the AA burnt orange */
 header.app-header .btn-primary:hover { background: var(--color-primary-fill-hover, #9A3412); }
 header.app-header .saved-bar select {
   background: #fff;
@@ -1013,6 +1013,7 @@ body.submission-locked .submit-row::before{
 
 <!-- Unified Endeavour navigation shell -->
 <div id="__shell" data-section="operations" data-current="inspections"></div>
+<main id="main" class="edv-main">
 
 <div id="__moduletabs" data-module="inspections" data-current="new"></div>
 
@@ -1026,13 +1027,13 @@ body.submission-locked .submit-row::before{
   </div>
   <div class="header-actions">
     <div class="saved-bar">
-      <select id="savedSelect" onchange="switchInspection(this.value)" title="Switch inspection"></select>
+      <select id="savedSelect" onchange="switchInspection(this.value)" title="Switch inspection" aria-label="Switch inspection"></select>
       <button class="btn btn-ghost" onclick="newInspection()" title="New inspection">+ New</button>
-      <button class="btn btn-ghost" id="langToggleBtn" onclick="toggleDictLang()" title="Dictation language / Langue de dictée" style="font-size:14px;min-width:62px">🇬🇧 EN</button>
-      <button class="btn btn-ghost" onclick="renameInspection()" title="Rename current">✎</button>
-      <button class="btn btn-ghost" onclick="deleteInspection()" title="Delete current">🗑</button>
+      <button class="btn btn-ghost" id="langToggleBtn" onclick="toggleDictLang()" title="Dictation language / Langue de dictée" style="font-size:13px;min-width:62px"><i class="icon icon-mic"></i>EN</button>
+      <button class="btn btn-ghost" onclick="renameInspection()" title="Rename current" aria-label="Rename current"><i class="icon icon-edit"></i></button>
+      <button class="btn btn-ghost" onclick="deleteInspection()" title="Delete current" aria-label="Delete current"><i class="icon icon-trash"></i></button>
     </div>
-    <button class="btn btn-primary" onclick="openShareMenu()">📤 Share</button>
+    <button class="btn btn-primary" onclick="openShareMenu()"><i class="icon icon-upload"></i>Share</button>
   </div>
 </header>
 
@@ -2213,13 +2214,14 @@ function showToast(msg, type='warn', durationMs=4000){
 /* ============================================================
    DICTATION LANGUAGE TOGGLE
    ============================================================ */
-let dictLang = localStorage.getItem('em_dict_lang') || 'en-US';
+// a11y-fr: the dictation model defaults to the UI language (sdp_lang) until the inspector picks one
+let dictLang = localStorage.getItem('em_dict_lang') || (localStorage.getItem('sdp_lang') === 'fr' ? 'fr-FR' : 'en-US');
 
 function toggleDictLang(){
   dictLang = dictLang === 'fr-FR' ? 'en-US' : 'fr-FR';
   localStorage.setItem('em_dict_lang', dictLang);
   const btn = document.getElementById('langToggleBtn');
-  if (btn) btn.textContent = dictLang === 'fr-FR' ? '🇫🇷 FR' : '🇬🇧 EN';
+  if (btn) btn.innerHTML = (window.EDV_ICONS ? window.EDV_ICONS.html('mic') : '') + ' ' + (dictLang === 'fr-FR' ? 'FR' : 'EN');
   if (_rec){ _stopDictation(); }
   showToast(dictLang === 'fr-FR'
     ? '🇫🇷 Langue : Français'
@@ -3283,6 +3285,37 @@ function validateForSubmit(){
   return { errors, warnings, ok: errors.length === 0 };
 }
 
+// UX committee (a11y-fr F5): the submit check speaks the page language and every blocking item offers "Fix" — it
+// closes the dialog, scrolls to the field and focuses it.
+const V_FIELD = { 'Date is missing': 'f_date', 'Site is not selected': 'f_site', 'Area / Zone is not selected': 'f_area', 'Lead Inspector name is missing': 'f_inspector' };
+const V_FR = {
+  'Date is missing': 'La date manque', 'Site is not selected': 'Le site n’est pas choisi', 'Area / Zone is not selected': 'La zone n’est pas choisie',
+  'Lead Inspector name is missing': 'Le nom de l’inspecteur principal manque', 'Inspector signature is missing': 'La signature de l’inspecteur manque',
+  'Cannot submit yet': 'Envoi impossible pour l’instant', 'Ready to submit?': 'Prêt à envoyer ?',
+  'These required fields must be completed before submission:': 'Complétez ces champs obligatoires avant l’envoi :', 'Also worth fixing:': 'À corriger aussi :',
+  'Soft warnings — you can submit anyway, but worth reviewing:': 'Avertissements — vous pouvez envoyer, mais vérifiez :', '✓ All checks passed.': '✓ Tous les contrôles sont passés.',
+  'Fix': 'Corriger',
+};
+const _vFr = () => /^fr/i.test((document.documentElement && document.documentElement.lang) || '') || (function () { try { return localStorage.getItem('sdp_lang') === 'fr'; } catch (_) { return false; } })();
+function vT(t) {
+  if (!_vFr()) return t;
+  if (V_FR[t]) return V_FR[t];
+  return String(t)
+    .replace(/: set an Owner and a Target Date$/, ' : indiquez un responsable et une date cible').replace(/: set an Owner$/, ' : indiquez un responsable')
+    .replace(/: set a Target Date$/, ' : indiquez une date cible').replace(/^Action #(\d+)/, 'Action n° $1')
+    .replace(/ flagged (\w+) but no corrective action linked$/, ' signalé $1 sans action corrective liée');
+}
+function _vItem(e) {
+  const f = V_FIELD[e];
+  return '<li>' + escapeHtml(vT(e)) + (f ? ' <button type="button" class="btn btn-light v-fix" data-fix="' + f + '">' + escapeHtml(vT('Fix')) + '</button>' : '') + '</li>';
+}
+function _wireFix(body) {
+  body.querySelectorAll('.v-fix').forEach((b) => b.addEventListener('click', () => {
+    closeSubmitModal();
+    const el = document.getElementById(b.getAttribute('data-fix'));
+    if (el) { try { el.scrollIntoView({ block: 'center' }); } catch (_) {} el.focus(); }
+  }));
+}
 function submitInspection(){
   if (state.status === 'submitted' || state.status === 'closed'){
     showToast('Already submitted. Use Re-open if you need to edit it.', 'warn', 4000);
@@ -3295,21 +3328,21 @@ function submitInspection(){
 
   let html = '';
   if (v.errors.length){
-    title.textContent = 'Cannot submit yet';
-    html += '<p class="v-error">These required fields must be completed before submission:</p>';
-    html += '<ul class="v-error">' + v.errors.map(e => '<li>' + escapeHtml(e) + '</li>').join('') + '</ul>';
+    title.textContent = vT('Cannot submit yet');
+    html += '<p class="v-error">' + escapeHtml(vT('These required fields must be completed before submission:')) + '</p>';
+    html += '<ul class="v-error">' + v.errors.map(_vItem).join('') + '</ul>';
     if (v.warnings.length){
-      html += '<p style="margin-top:10px"><strong>Also worth fixing:</strong></p>';
-      html += '<ul class="v-warn">' + v.warnings.map(w => '<li>' + escapeHtml(w) + '</li>').join('') + '</ul>';
+      html += '<p style="margin-top:10px"><strong>' + escapeHtml(vT('Also worth fixing:')) + '</strong></p>';
+      html += '<ul class="v-warn">' + v.warnings.map(w => '<li>' + escapeHtml(vT(w)) + '</li>').join('') + '</ul>';
     }
     confirmBtn.style.display = 'none';
   } else {
-    title.textContent = 'Ready to submit?';
+    title.textContent = vT('Ready to submit?');
     if (v.warnings.length){
-      html += '<p>Soft warnings — you can submit anyway, but worth reviewing:</p>';
-      html += '<ul class="v-warn">' + v.warnings.map(w => '<li>' + escapeHtml(w) + '</li>').join('') + '</ul>';
+      html += '<p>' + escapeHtml(vT('Soft warnings — you can submit anyway, but worth reviewing:')) + '</p>';
+      html += '<ul class="v-warn">' + v.warnings.map(w => '<li>' + escapeHtml(vT(w)) + '</li>').join('') + '</ul>';
     } else {
-      html += '<p class="v-ok">✓ All checks passed.</p>';
+      html += '<p class="v-ok">' + escapeHtml(vT('✓ All checks passed.')) + '</p>';
     }
     html += '<p style="margin-top:14px;color:var(--ink-3);font-size:12px">Submitting will:</p>';
     html += '<ul style="color:var(--ink-3);font-size:12px">';
@@ -3320,6 +3353,7 @@ function submitInspection(){
     confirmBtn.style.display = '';
   }
   body.innerHTML = html;
+  _wireFix(body);
   document.getElementById('submitModal').classList.add('show');
 }
 
@@ -3705,7 +3739,7 @@ async function init(){
 
   // Restore dictation language button label
   const langBtn = document.getElementById('langToggleBtn');
-  if (langBtn) langBtn.textContent = dictLang === 'fr-FR' ? '🇫🇷 FR' : '🇬🇧 EN';
+  if (langBtn) langBtn.innerHTML = (window.EDV_ICONS ? window.EDV_ICONS.html('mic') : '') + ' ' + (dictLang === 'fr-FR' ? 'FR' : 'EN');
 
   // Show warning banner when opened as a local file (camera + mic won't work)
   if (!_isHttps()){
@@ -4804,5 +4838,6 @@ document.addEventListener('DOMContentLoaded', init);
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/common.fr.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/inspection.fr.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/boot.js" data-dict="I18N_FR_INSPECTION"></script>
+</main>
 </body>
 </html>

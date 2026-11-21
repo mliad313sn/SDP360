@@ -52,6 +52,8 @@ const PRIMARY = {
   'it-review.html': 'GET /api/reports/review-data',
   'executive.html': 'GET /api/survey/summary',
   'system-logs.html': 'GET /api/reports/system-log',
+  // VISUAL POLISH 2026-11 — Admin home (super_admin) reads the recipients directory among other super_admin APIs
+  'admin-home.html': 'GET /api/reports/recipients',
   'help.html': null,
   // P11 r4 F-13 — the Policy Center entry (switch policy_center_page) is walked like every other policy-gated entry
   'policy-center.html': 'GET /api/policy-center/catalogue',
@@ -129,7 +131,7 @@ test('the Activity Tracker entry carries the same roles as its data route', () =
   const row = matrix.routes.find((r) => r.method === 'GET' && r.path === '/api/tracker/load');
   assert.ok(row, 'route in the matrix');
   const roles = (row.roles || row.guard_roles || []).slice().sort();
-  const nav = SRC.match(/id: 'tracker', group: 'Plan & track'[^\n]*roles: \[([^\]]+)\]/);
+  const nav = SRC.match(/id: 'tracker',[^\n]*roles: \[([^\]]+)\]/);   // the entry lives under Plan since the 2026-11 IA
   assert.ok(nav, 'tracker nav entry found');
   const navRoles = nav[1].split(',').map((s) => s.trim().replace(/'/g, '')).sort();
   if (roles.length) assert.deepStrictEqual(navRoles, roles);

@@ -175,11 +175,11 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 @keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
 
 /* ── Modal ───────────────────────────────────────────────────── */
-.modal-overlay{display:none;position:fixed;inset:0;background:rgba(28,58,94,0.45);z-index:500;align-items:center;justify-content:center}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(28,58,94,0.45);z-index:500;align-items:center;justify-content:center;overflow-y:auto;padding:16px;box-sizing:border-box}
 .modal-overlay.open{display:flex}
-.modal{background:#fff;border-radius:12px;padding:28px 28px 22px;width:480px;max-width:96vw;box-shadow:0 8px 40px rgba(0,0,0,0.2)}
+.modal{background:#fff;border-radius:12px;padding:28px 28px 22px;width:480px;max-width:96vw;box-shadow:0 8px 40px rgba(0,0,0,0.2);max-height:calc(100vh - 32px);overflow-y:auto;box-sizing:border-box}
 .modal h2{font-size:1.1rem;font-weight:800;color:var(--dark-blue);margin-bottom:20px}
-.modal-footer{display:flex;justify-content:flex-end;gap:10px;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
+.modal-footer{display:flex;justify-content:flex-end;gap:10px;margin-top:20px;padding-top:16px;border-top:1px solid var(--border);position:sticky;bottom:-22px;background:#fff;padding-bottom:4px}
 /* Role picker (user modal) — hierarchical pills + grouped feature-role cards */
 .role-hpill{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font-size:12.5px;font-weight:600;color:#334155;border:1px solid #CBD5E1;border-radius:999px;padding:4px 12px 4px 8px;background:#fff;cursor:pointer}
 .role-hpill input{margin:0;accent-color:var(--edv-orange,#E87722);width:14px;height:14px;padding:0;border:none;flex:none}
@@ -343,6 +343,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 <link rel="stylesheet" href="_tokens.css">
 <link rel="stylesheet" href="_shell.css">
 <link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
 <script nonce="%%CSP_NONCE%%" src="brand/icons.js" defer></script>
 <script src="_shell.js" defer></script>
 </head>
@@ -356,6 +357,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 <div id="app">
   <!-- ═ Unified shell (rendered by _shell.js, refreshed by initApp() after login) ═ -->
   <div id="__shell" data-section="reports" data-current="site-reports" data-version="v1.10.8"></div>
+<main id="main" class="edv-main">
 
   <!-- ═ Page-bar: tab strip for Weekly / Monthly / Admin (sub-pages of Reports) ═ -->
   <div class="shell-page-bar">
@@ -365,7 +367,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
     <span class="shell-page-bar-spacer"></span>
     <nav class="shell-tabs">
       <button onclick="showPage('reports')" id="nav-reports" class="active"><i class="icon icon-file-text"></i>Weekly</button>
-      <button onclick="showPage('monthly')" id="nav-monthly">📅 Monthly</button>
+      <button onclick="showPage('monthly')" id="nav-monthly"><i class="icon icon-calendar"></i>Monthly</button>
       <!-- Admin tab moved to the unified shell's top nav (Admin link) — clicking
            it loads reports.html#admin and the hash router below opens the admin
            page automatically. Removed from this page-bar to avoid duplication. -->
@@ -373,7 +375,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
            code that queries it (.classList.add('active'), .style.display) keeps
            working without needing a defensive null-guard rewrite. -->
       <span id="nav-admin" style="display:none"></span>
-      <button id="btn-change-pwd" onclick="openChangePassword()" title="Change your password" style="margin-left:8px">🔑 Change Password</button>
+      <button id="btn-change-pwd" onclick="openChangePassword()" title="Change your password" style="margin-left:8px"><i class="icon icon-shield"></i>Change Password</button>
     </nav>
     <span id="user-name" style="display:none"></span>
     <span id="user-role-badge" style="display:none"></span>
@@ -382,7 +384,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
   <!-- ── CHANGE PASSWORD MODAL ──────────────────────────────────── -->
   <div id="chpwd-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:none;align-items:center;justify-content:center">
     <div style="background:#fff;border-radius:10px;padding:32px 36px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,.3)">
-      <h3 style="font-size:16px;font-weight:700;color:#0d2b4e;margin-bottom:6px">🔑 Change Password</h3>
+      <h3 style="font-size:16px;font-weight:700;color:#0d2b4e;margin-bottom:6px">Change Password</h3>
       <p style="font-size:12px;color:#9ca3af;margin-bottom:20px">Enter your current password and choose a new one.</p>
       <div id="chpwd-error" style="display:none;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:8px 12px;font-size:12px;color:#dc2626;margin-bottom:14px"></div>
       <div id="chpwd-success" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:8px 12px;font-size:12px;color:#16a34a;margin-bottom:14px"></div>
@@ -447,7 +449,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px" id="pptx-cards">
         <!-- ── Monthly Site Report ── -->
         <div class="card" style="margin-bottom:0;border-top:3px solid var(--orange)">
-          <h3 style="display:flex;align-items:center;gap:8px;margin-bottom:6px">📅 Monthly Site Report</h3>
+          <h3 style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><i class="icon icon-calendar"></i>Monthly Report</h3>
           <p style="font-size:0.82rem;color:#6b7a99;margin-bottom:14px">7-slide PPTX for one site. Edit lights / actions / objectives in the <strong>Monthly</strong> tab first, then export.</p>
           <div class="form-row cols-3" style="gap:10px;align-items:flex-end;margin-bottom:14px">
             <div class="form-group" style="margin-bottom:0">
@@ -514,9 +516,9 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <span style="font-size:0.82rem;color:#6b7a99;margin-left:4px">Click any card to reopen its editor</span>
       </div>
       <div id="rl-filters" style="display:none;margin:0 0 10px 34px;gap:8px;align-items:center;flex-wrap:wrap;font-size:0.82rem">
-        <select id="rl-site" onchange="loadReportList(0)" title="Filter the list by site"><option value="">All my sites</option></select>
-        <input id="rl-year" aria-label="Year" type="number" min="2024" max="2035" placeholder="Year" style="width:80px" onchange="loadReportList(0)">
-        <input id="rl-week" aria-label="Week" type="number" min="1" max="53" placeholder="Week" style="width:70px" onchange="loadReportList(0)">
+        <select id="rl-site" class="edv-select" aria-label="Site" onchange="loadReportList(0)" title="Filter the list by site"><option value="">All my sites</option></select>
+        <input id="rl-year" class="edv-input" aria-label="Year" type="number" min="2024" max="2035" placeholder="Year" style="width:96px" onchange="loadReportList(0)">
+        <input id="rl-week" class="edv-input" aria-label="Week" type="number" min="1" max="53" placeholder="Week" style="width:84px" onchange="loadReportList(0)">
       </div>
       <div class="report-list" id="report-list-grid" style="margin-left:34px"></div>
       <div id="rl-pager" style="display:none;margin:10px 0 0 34px;gap:10px;align-items:center;font-size:0.82rem">
@@ -1184,6 +1186,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <button class="btn btn-secondary btn-sm" style="margin-left:auto" onclick="openEmailMapModal()" title="Bulk-set corporate emails for Microsoft SSO (auto-suggested from each name).">✉ Map SSO emails</button>
         <button class="btn btn-primary btn-sm" onclick="openUserModal()">+ New User</button>
       </h3>
+      <div style="display:flex;gap:8px;align-items:center;margin:0 0 10px"><input type="search" class="edv-input" data-table-filter="#user-table" aria-controls="user-filter-count" aria-label="Search users" placeholder="Search users (name, site, role…)" style="max-width:320px;width:100%"><span id="user-filter-count" class="muted" aria-live="polite" style="font-size:12px;color:var(--gray-500)"></span></div>
       <table class="user-table" id="user-table">
         <thead>
           <tr>
@@ -2432,7 +2435,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
     </div>
     <div class="form-row cols-2">
       <div class="form-group">
-        <label for="modal-site">Site (leave blank for admin access)</label>
+        <label for="modal-site">Site <span style="font-weight:400;color:var(--gray-500)">— no site = no site-scoped write access; the admin tier comes from the role</span></label>
         <select id="modal-site">
           <option value="">— All Sites (Admin) —</option>
         </select>
@@ -2874,7 +2877,7 @@ function populateSiteSelects() {
 
   const defaultOpt = '<option value="">— Select Group —</option>';
   selSite.innerHTML     = defaultOpt;
-  modalSite.innerHTML   = '<option value="">— All Groups (Admin) —</option>';
+  modalSite.innerHTML   = '<option value="">— No site —</option>';
   monthlySite.innerHTML = defaultOpt;
 
   allSites.forEach(s => {
@@ -3080,11 +3083,14 @@ function _assetReviewDone(ar) {
   return !!ar && (ar.applicable === false ||
     (String(ar.handled_note || '').trim() !== '' && String(ar.plan_note || '').trim() !== ''));
 }
+// a tab turns green only when its content is complete: every infra KPI row carries a typed value (an empty row is
+// "— Not measured", not done)
+function _infraComplete(rows) { return Array.isArray(rows) && rows.length > 0 && rows.every((k) => String((k && k.status_value) || '').trim() !== ''); }
 function _markSectionTabsFromData() {
   const r = currentReport || {};
   for (let i = 0; i < 5; i++) { const t = document.getElementById('stab-' + i); if (t) t.classList.remove('done'); }
   const mark = (i, on) => { const t = document.getElementById('stab-' + i); if (t && on) t.classList.add('done'); };
-  mark(0, (r.infra_kpis || []).length > 0);
+  mark(0, _infraComplete(r.infra_kpis));   // site coordinator P2: green only when every KPI row has a value
   mark(1, !!(r.helpdesk && (r.helpdesk.fetched_at || r.helpdesk.updated_at)));
   mark(2, (r.lights || []).length > 0);
   mark(3, (r.action_items || []).length > 0);
@@ -3348,13 +3354,13 @@ function renderInfra() {
 
 function defaultInfraRows() {
   return [
-    { service:'WAN1',   kpi:'Uptime',       target:'98%',  status_value:'', status_color:'green', trend:'stable' },
-    { service:'WAN2',   kpi:'Uptime',       target:'98%',  status_value:'', status_color:'green', trend:'stable' },
-    { service:'LAN',    kpi:'Uptime',       target:'99%',  status_value:'', status_color:'green', trend:'stable' },
-    { service:'WLAN',   kpi:'Uptime',       target:'99%',  status_value:'', status_color:'green', trend:'stable' },
-    { service:'Servers',kpi:'Availability', target:'99%',  status_value:'', status_color:'green', trend:'stable' },
-    { service:'Backup', kpi:'Success Rate', target:'100%', status_value:'', status_color:'green', trend:'stable' },
-    { service:'Radio',  kpi:'Uptime',       target:'98%',  status_value:'', status_color:'green', trend:'stable' },
+    { service:'WAN1',   kpi:'Uptime',       target:'98%',  status_value:'', status_color:'none', trend:'stable' },
+    { service:'WAN2',   kpi:'Uptime',       target:'98%',  status_value:'', status_color:'none', trend:'stable' },
+    { service:'LAN',    kpi:'Uptime',       target:'99%',  status_value:'', status_color:'none', trend:'stable' },
+    { service:'WLAN',   kpi:'Uptime',       target:'99%',  status_value:'', status_color:'none', trend:'stable' },
+    { service:'Servers',kpi:'Availability', target:'99%',  status_value:'', status_color:'none', trend:'stable' },
+    { service:'Backup', kpi:'Success Rate', target:'100%', status_value:'', status_color:'none', trend:'stable' },
+    { service:'Radio',  kpi:'Uptime',       target:'98%',  status_value:'', status_color:'none', trend:'stable' },
   ];
 }
 
@@ -3367,7 +3373,7 @@ function resetInfraDefaults() {
 }
 
 function addInfraRow(k, prevValue) {
-  k = k || { service:'', kpi:'', target:'', status_value:'', status_color:'green', trend:'stable' };
+  k = k || { service:'', kpi:'', target:'', status_value:'', status_color:'none', trend:'stable' };
   const tbody = document.getElementById('infra-body');
   const tr = document.createElement('tr');
   // prevValue: numeric string from previous week's same row (used for auto-trend)
@@ -3383,7 +3389,7 @@ function addInfraRow(k, prevValue) {
         <option value="green"  ${k.status_color==='green' ?'selected':''}>🟢 Green</option>
         <option value="orange" ${k.status_color==='orange'?'selected':''}>🟡 Amber</option>
         <option value="red"    ${k.status_color==='red'   ?'selected':''}>🔴 Red</option>
-        <option value="none"   ${k.status_color==='none'  ?'selected':''}>— N/A</option>
+        <option value="none"   ${k.status_color==='none'  ?'selected':''}>— Not measured</option>
       </select>
     </td>
     <td>
@@ -3421,6 +3427,9 @@ function autoInfraStatusTrend(input) {
   const tgt = parseFloat(rawTgt);
 
   // ── Auto-Status ──────────────────────────────────────────────
+  // UX committee (site coordinator P1-1): no value typed = no verdict. An empty cell reads "— Not measured",
+  // never green; the colour appears only once a value exists.
+  if (!rawVal && statusSelect) { statusSelect.value = 'none'; updateStatusDot(statusSelect); }
   if (!isNaN(val) && !isNaN(tgt) && tgt > 0 && statusSelect) {
     if (val >= tgt)          statusSelect.value = 'green';
     else if (val >= tgt * 0.90) statusSelect.value = 'orange';
@@ -5160,7 +5169,7 @@ async function saveSection(n) {
       const kpis = collectInfra();
       await api('PUT', `/api/reports/${id}/infra`, kpis);
       currentReport.infra_kpis = kpis;
-      document.getElementById('stab-0').classList.add('done');
+      document.getElementById('stab-0').classList.toggle('done', _infraComplete(kpis));
     } else if (n === 1) {
       const hd = collectHelpdesk();
       await api('PUT', `/api/reports/${id}/helpdesk`, hd);
@@ -6517,7 +6526,7 @@ async function loadAdminPage() {
       return `<tr>
         <td><strong>${esc(u.username)}</strong></td>
         <td>${esc(u.full_name)}</td>
-        <td>${siteName ? esc(siteName) : '<span style="color:#bbb">All Groups</span>'}${_extraSitesBadge(u)}</td>
+        <td>${siteName ? esc(siteName) : '<span style="color:var(--gray-500)">No site</span>'}${_extraSitesBadge(u)}</td>
         <td style="line-height:1.8">${chips}</td>
         <td><span class="${u.active ? 'status-active' : 'status-inactive'}">${u.active ? 'Active' : 'Disabled'}</span></td>
         <td>
@@ -7174,7 +7183,14 @@ async function saveUser() {
 }
 
 async function deleteUser(id) {
-  if (!confirm('Delete this user? This cannot be undone.')) return;
+  // UX committee admin P1-2 — name the account, offer deactivation first, and make the delete typed.
+  const btn = document.querySelector('#user-table-body [onclick*="deleteUser(' + Number(id) + ')"]');
+  const uname = btn && btn.closest('tr') ? (btn.closest('tr').cells[0] || {}).textContent.trim() : ('#' + id);
+  const ok = window.ReasonDialog
+    ? await window.ReasonDialog.confirm({ title: 'Delete user', target: uname, message: 'This permanently removes the account. It cannot be undone.',
+        hint: 'To keep the history, prefer Edit → Status: inactive (deactivate).', typeToConfirm: uname, okLabel: 'Delete user', danger: true })
+    : confirm('Delete user "' + uname + '"? This cannot be undone.');
+  if (!ok) return;
   try {
     await api('DELETE', `/api/reports/users/${id}`);
     toast('User deleted', 'info');
@@ -8919,5 +8935,9 @@ window.addEventListener('hashchange', _routeFromHash);
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/common.fr.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/reports.fr.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/boot.js" data-dict="I18N_FR_REPORTS"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/modalA11y.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/tableFilter.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/reasonDialog.js"></script>
+</main>
 </body>
 </html>

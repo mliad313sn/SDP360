@@ -25,7 +25,7 @@ Journeys: 47 — strict 0, enforceable 11, blocked 36, unknown 0.
 | Site editor | Find the site's overdue actions, close one with a justification | `/site-actions.html` | blocked | `/site-actions.html` |
 | Site editor | See all of my open work in one queue on Home (switches `ui_home_queue` / `ui_nav_*` on in a throwaway database), 320 px and French, never an | `/home.html` | enforceable | — |
 | Site editor | Cannot read another site's report or portfolio project (deny) | `/reports.html`, `/portfolio.html` | blocked | `/reports.html`, `/portfolio.html` |
-| Site editor | Switch the interface to French and open the manual | `/site-actions.html`, `/help.html` | blocked | `/site-actions.html` |
+| Site editor | Switch the interface to French and open the manual | `/site-actions.html`, `/help.html` | blocked | `/site-actions.html`, `/help.html` |
 | Site editor | Reach Portfolio using only the keyboard | `/login.html`, `/portfolio.html` | blocked | `/portfolio.html` |
 | Field technician | Record a quick inspection with a photo offline, then sync | `/field/index.html`, `/inspection.html` | blocked | `/inspection.html` |
 | Site editor | Save an inspection after a failed save was queued and later sent, with no false "someone else saved" conflict, including after a reload (P11 | `/inspection.html` | blocked | `/inspection.html` |
@@ -80,7 +80,7 @@ Journeys: 47 — strict 0, enforceable 11, blocked 36, unknown 0.
 | `/dashboards.html` | 1 | 0 | blocked | — |
 | `/executive.html` | 1 | 65 | blocked | — |
 | `/field/index.html` | 0 | 0 | enforceable | — |
-| `/help.html` | 0 | 0 | strict | — |
+| `/help.html` | 1 | 0 | blocked | — |
 | `/home.html` | 0 | 0 | enforceable | — |
 | `/index.html` | 1 | 51 | blocked | — |
 | `/infra-health.html` | 2 | 0 | blocked | — |
@@ -106,12 +106,13 @@ by the nonce-only policy just like handlers in the markup. **Nonce** = rendered 
 tags receive the request nonce. **candidate** = nothing a static scan can see would be blocked; it is a proposal for
 `report_config.csp_strict_pages` after a report-only run, not an approval.
 
-Pages: 67 — strict 7, candidate 54, blocked 6.
+Pages: 69 — strict 7, candidate 56, blocked 6.
 
 | Page | Inline scripts | Markup handlers | Script-built handlers | Nonce | Readiness |
 |---|---|---|---|---|---|
 | `/access.html` | 0 | 0 | 0 | yes | candidate |
 | `/activity-tracker.html` | 0 | 0 | 0 | yes | candidate |
+| `/admin-home.html` | 0 | 0 | 0 | yes | strict |
 | `/analytics.html` | 1 | 16 | 0 | yes | blocked |
 | `/assets-finance.html` | 1 | 0 | 0 | yes | candidate |
 | `/assets-hygiene.html` | 1 | 0 | 0 | yes | candidate |
@@ -129,7 +130,7 @@ Pages: 67 — strict 7, candidate 54, blocked 6.
 | `/field/index.html` | 0 | 0 | 0 | no | candidate |
 | `/finance.html` | 0 | 0 | 0 | yes | candidate |
 | `/handoffs.html` | 1 | 0 | 0 | yes | candidate |
-| `/help.html` | 0 | 0 | 0 | yes | strict |
+| `/help.html` | 1 | 0 | 0 | yes | candidate |
 | `/home.html` | 0 | 0 | 0 | yes | candidate |
 | `/index.html` | 1 | 51 | 5 | yes | blocked |
 | `/infra-health.html` | 2 | 0 | 0 | yes | candidate |
@@ -154,6 +155,7 @@ Pages: 67 — strict 7, candidate 54, blocked 6.
 | `/meetings-unsigned.html` | 2 | 0 | 0 | yes | candidate |
 | `/meetings.html` | 2 | 0 | 0 | yes | candidate |
 | `/no-access.html` | 0 | 0 | 0 | yes | candidate |
+| `/not-available.html` | 0 | 0 | 0 | no | candidate |
 | `/notifications.html` | 1 | 0 | 0 | yes | candidate |
 | `/obligations.html` | 0 | 0 | 0 | yes | candidate |
 | `/policies.html` | 1 | 0 | 0 | yes | candidate |
@@ -181,7 +183,7 @@ Pages: 67 — strict 7, candidate 54, blocked 6.
 Candidate list (PROPOSED value for `csp_strict_pages`, not applied — default stays empty):
 
 ```
-/access.html,/activity-tracker.html,/assets-finance.html,/assets-hygiene.html,/assets.html,/cockpit.html,/commitments.html,/connector-health.html,/coverage.html,/dashboard-composer.html,/dashboards.html,/data-quality.html,/field/index.html,/finance.html,/handoffs.html,/home.html,/infra-health.html,/inspection-actions.html,/inspections.html,/integrations.html,/it-review.html,/itsm-integrations-plan.html,/itsm-roadmap.html,/kpi-builder.html,/meeting.html,/meetings-actions.html,/meetings-compliance.html,/meetings-council.html,/meetings-import.html,/meetings-insights.html,/meetings-issues.html,/meetings-progress.html,/meetings-setup.html,/meetings-unsigned.html,/meetings.html,/no-access.html,/notifications.html,/obligations.html,/policies.html,/portfolio.html,/project.html,/report-studio.html,/rfi.html,/site-actions.html,/site-awareness.html,/site-report.html,/system-logs.html,/tracker-builder.html,/trackers.html,/value-scoreboard.html,/wan-health.html,/wan-sla.html,/wan.html,/workspace-settings.html
+/access.html,/activity-tracker.html,/assets-finance.html,/assets-hygiene.html,/assets.html,/cockpit.html,/commitments.html,/connector-health.html,/coverage.html,/dashboard-composer.html,/dashboards.html,/data-quality.html,/field/index.html,/finance.html,/handoffs.html,/help.html,/home.html,/infra-health.html,/inspection-actions.html,/inspections.html,/integrations.html,/it-review.html,/itsm-integrations-plan.html,/itsm-roadmap.html,/kpi-builder.html,/meeting.html,/meetings-actions.html,/meetings-compliance.html,/meetings-council.html,/meetings-import.html,/meetings-insights.html,/meetings-issues.html,/meetings-progress.html,/meetings-setup.html,/meetings-unsigned.html,/meetings.html,/no-access.html,/not-available.html,/notifications.html,/obligations.html,/policies.html,/portfolio.html,/project.html,/report-studio.html,/rfi.html,/site-actions.html,/site-awareness.html,/site-report.html,/system-logs.html,/tracker-builder.html,/trackers.html,/value-scoreboard.html,/wan-health.html,/wan-sla.html,/wan.html,/workspace-settings.html
 ```
 
 ## Order of work (proposal)

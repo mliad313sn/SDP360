@@ -52,7 +52,7 @@ body {
   position: sticky;
   top: 0;
   z-index: 1000;
-  box-shadow: 0 2px 12px rgba(0,0,0,.25);
+  box-shadow: 0 1px 0 rgba(0,0,0,.18), 0 4px 14px -6px rgba(16,24,40,.35);
   font-family: var(--font-sans, 'Libre Franklin', system-ui, -apple-system, 'Segoe UI', sans-serif);
 }
 
@@ -288,7 +288,7 @@ body {
   gap: 10px;
   font-size: 11.5px;
   border-bottom: 1px solid rgba(255,255,255,.07);
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans, 'Libre Franklin', system-ui, sans-serif);
   flex-wrap: wrap;
 }
 .shell-page-bar .shell-breadcrumb {
@@ -415,12 +415,12 @@ body.shell-exec-consolidated .shell-exec-consolidated-only { display: inline-blo
 .shell-dd-group + .shell-dd-group { border-top: 1px solid rgba(255,255,255,.12); margin-top: 4px; padding-top: 4px; }
 .shell-dd-heading { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--shell-text-mute); padding: 6px 10px 2px; }
 .shell-dropdown a:focus-visible, .shell-nav-caret:focus-visible, .shell-search-btn:focus-visible { outline: 2px solid var(--shell-orange-light) !important; outline-offset: 2px !important; }
-nav.shell-breadcrumb { background: #F4F6F9; border-bottom: 1px solid #E2E7EE; font-size: 12.5px; }
-nav.shell-breadcrumb ol { list-style: none; margin: 0; padding: 6px 20px; display: flex; flex-wrap: wrap; gap: 4px; }
-nav.shell-breadcrumb li + li::before { content: '›'; color: #6B7785; margin-right: 4px; }
-nav.shell-breadcrumb a { color: #2A5490; text-decoration: none; }
-nav.shell-breadcrumb a:hover { text-decoration: underline; }
-nav.shell-breadcrumb [aria-current="page"] { color: #3A4A60; font-weight: 600; }
+nav.shell-breadcrumb { background: var(--color-surface, #fff); border-bottom: 1px solid var(--gray-200, #E2E7EE); font-size: 12.5px; }
+nav.shell-breadcrumb ol { list-style: none; margin: 0; padding: 8px 22px; display: flex; flex-wrap: wrap; gap: 4px; }
+nav.shell-breadcrumb li + li::before { content: '/'; color: var(--gray-400, #9AA5B4); margin: 0 6px 0 2px; }
+nav.shell-breadcrumb a { color: var(--gray-500, #5F6B7A); text-decoration: none; }
+nav.shell-breadcrumb a:hover { color: var(--color-link, #145FAE); text-decoration: underline; }
+nav.shell-breadcrumb [aria-current="page"] { color: var(--color-heading, #1F2D3D); font-weight: 600; }
 .shell-search-btn { display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,.08); color: var(--shell-text-strong); border: 1px solid rgba(255,255,255,.18); border-radius: 6px; padding: 5px 9px; font: inherit; font-size: 12.5px; cursor: pointer; }
 .shell-search-btn svg { width: 15px; height: 15px; }
 .shell-search-btn kbd { font: 11px/1 inherit; border: 1px solid rgba(255,255,255,.3); border-radius: 3px; padding: 1px 4px; color: var(--shell-text-mute); }
@@ -462,3 +462,62 @@ nav.shell-breadcrumb [aria-current="page"] { color: #3A4A60; font-weight: 600; }
 /* R2-QUEUE — "My workspace" link (shown only while workspace_profiles_enabled = '1') */
 .shell-ws-link { color: var(--color-header-text, inherit); border: 1px solid rgba(255,255,255,.25); border-radius: 6px; font: 600 12px/1 inherit; padding: 7px 8px; text-decoration: none; min-height: 28px; display: inline-flex; align-items: center; }
 .shell-ws-link:hover { background: rgba(255,255,255,.18); }
+
+/* ═══════════════════════════════════════════════════════════════════
+   VISUAL POLISH 2026-11 — header refinements (docs/ux/VISUAL-POLISH-2026-11.md)
+   Same structure, same breakpoints: a calmer bar, a clear "you are here" mark, softer menus.
+   ═══════════════════════════════════════════════════════════════════ */
+.shell-header { background: linear-gradient(180deg, #3D4E65 0%, var(--shell-navy-2) 100%); }
+.shell-nav-item, .shell-nav-item-link { border-radius: 8px; transition: background var(--motion-fast, 120ms), color var(--motion-fast, 120ms), box-shadow var(--motion-fast, 120ms); }
+/* active section: tinted pill + an orange base line (colour is never the only cue: the label stays visible) */
+.shell-nav > .shell-nav-item.is-active,
+.shell-nav > .shell-nav-item-link.is-active { background: rgba(255,255,255,.12); box-shadow: inset 0 -2px 0 var(--shell-orange); }
+.shell-dropdown { border-radius: 10px; border-color: rgba(255,255,255,.12); box-shadow: 0 18px 40px -12px rgba(0,0,0,.55), 0 4px 10px -4px rgba(0,0,0,.35); padding: 6px; }
+.shell-dropdown a { border-radius: 6px; }
+.shell-dropdown a.is-active { background: rgba(239,99,26,.18); box-shadow: inset 2px 0 0 var(--shell-orange); }
+.shell-user-pill, .shell-search-btn, .shell-lang-btn, .shell-ws-link { border-radius: 8px; border-color: rgba(255,255,255,.16); }
+.shell-user-pill { border-radius: 999px; }
+.shell-search-btn:hover { background: rgba(255,255,255,.14); }
+.shell-search { border-radius: 12px; border-color: var(--gray-200, #E3E8EF); box-shadow: var(--shadow-pop, 0 14px 34px rgba(0,0,0,.22)); }
+.shell-search input { border-color: var(--gray-300, #CDD5DF); border-radius: 8px; min-height: 40px; }
+.shell-search-list a:hover { background: var(--color-surface-hover, #F1F5F9); }
+/* UX committee F6 — labels next to the icons at 1440 px: the menu gains the width it needs from the chrome
+   (no version string, a one-line brand, Find as an icon) rather than dropping its words. The fit guard still
+   falls back to icons when a long role menu really does not fit. */
+.shell-nav-item, .shell-nav-item-link { padding: 7px 10px; }
+.shell-brand-text small { display: none; }
+@media (max-width: 1680px) {
+  .shell-version, .shell-search-label, .shell-search-btn kbd { display: none; }
+}
+/* UX committee a11y F10 — a page-level `button { color… }` reset (reports.html) must not reach the dark header. */
+#__shell button, #__shell .shell-search-btn, #__shell .shell-lang-btn { color: var(--shell-text-strong, #fff); -webkit-text-fill-color: currentColor; }
+/* UX committee executive — print: a page prints its content, never the navigation chrome. */
+@media print {
+  .shell-header, nav.shell-breadcrumb, .shell-page-bar, .shell-skip, .shell-search, .mt-tabs { display: none !important; }
+  body { background: #fff !important; }
+}
+/* ia-value F5/F6 — account menu, notification bell and contextual help in the header. */
+.shell-account { position: relative; }
+.shell-user-pill { font-family: inherit; color: var(--shell-text-strong); }
+.shell-user-role { text-transform: none; letter-spacing: 0; font-size: 10.5px; font-weight: 600; }
+.shell-account-menu { position: absolute; right: 0; top: calc(100% + 8px); min-width: 220px; background: var(--color-surface, #fff); color: var(--gray-800, #1F2937);
+  border: 1px solid var(--gray-200, #E3E8EF); border-radius: 10px; box-shadow: var(--shadow-pop, 0 14px 34px rgba(0,0,0,.22)); padding: 6px; z-index: 1100; }
+.shell-account-menu[hidden] { display: none; }
+.shell-account-head { margin: 0 0 4px; padding: 8px 10px; border-bottom: 1px solid var(--gray-100, #EEF1F5); display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+.shell-account-head span { font-size: 12px; color: var(--gray-500, #5F6B7A); }
+.shell-account-menu a, .shell-account-menu button { display: block; width: 100%; box-sizing: border-box; text-align: left; padding: 8px 10px; border: 0; border-radius: 6px;
+  background: none; font: 500 13px/1.3 var(--font-sans, sans-serif); color: var(--gray-700, #344051) !important; -webkit-text-fill-color: currentColor; text-decoration: none; cursor: pointer; }
+.shell-account-menu a:hover, .shell-account-menu button:hover { background: var(--gray-50, #F5F7FA); }
+.shell-account-menu .shell-signout { border-top: 1px solid var(--gray-100, #EEF1F5); border-radius: 0 0 6px 6px; margin-top: 4px; color: var(--rag-red, #B91C1C) !important; }
+.shell-icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 8px; color: var(--shell-text-strong);
+  border: 1px solid rgba(255,255,255,.16); background: rgba(255,255,255,.08); text-decoration: none; }
+.shell-icon-btn:hover { background: rgba(255,255,255,.18); }
+.shell-icon-btn svg { width: 17px; height: 17px; }
+/* ia-value F2 — the "still loading" notice (lib/pageStates.js) used unstyled native buttons */
+.ps-slow { margin-top: 10px; font-size: 13px; color: var(--gray-600, #4A5565); }
+.ps-slow button { min-height: 32px; padding: 0 12px; margin: 4px 4px 0 0; border: 1px solid var(--color-border-strong, #C5C6C4); border-radius: 6px;
+  background: var(--color-surface, #fff); color: var(--color-text-strong, #2A2A2A); font: 500 13px/1 var(--font-sans, sans-serif); cursor: pointer; }
+.ps-slow button:hover { background: var(--gray-50, #F5F7FA); }
+/* visual F6 — the caret is the chevron SVG (14 px, .7) instead of a "▾" text glyph; a11y-fr F16 — a long trail wraps */
+.shell-nav-caret svg { width: 14px; height: 14px; display: block; }
+nav.shell-breadcrumb li { min-width: 0; overflow-wrap: anywhere; }

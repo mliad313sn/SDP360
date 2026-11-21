@@ -284,11 +284,20 @@
     }
     @page { margin: 14mm 12mm; size: A4 portrait; }
   }
+
+  /* VISUAL POLISH 2026-11 — UX committee (visual F3/F4/F8): no gradient strip, no decorative KPI colour; the hero stacks on a phone. */
+  .mp-hero::before { display: none; }
+  .mp-hero { border-radius: var(--radius-lg); box-shadow: var(--shadow-card); border-color: var(--color-border); }
+  .mp-hero h1 { font-weight: 700; color: var(--color-heading); letter-spacing: var(--tracking-tight); }
+  @media (max-width: 760px) { .mp-hero { grid-template-columns: minmax(0, 1fr); } .mp-hero__actions { justify-content: flex-start; } }
+  .mp-kpi::before { display: none; }
+  .mp-kpi { border-radius: var(--radius-lg); box-shadow: var(--shadow-card); }
 </style>
 </head>
 <body>
 
 <div id="__shell" data-section="operations" data-current="meetings"></div>
+<main id="main" class="edv-main">
 
 <div class="mp-wrap">
 
@@ -298,7 +307,7 @@
   <div id="__moduletabs" data-module="meetings" data-current=""></div>
 
   <section class="mp-hero">
-    <div class="mp-eyebrow">Insights · Meetings · Pre-brief</div>
+    <!-- ia-value F8: the stale "Insights ·" eyebrow is gone; the breadcrumb names the section -->
     <h1>Since last meeting — department progress</h1>
     <p>Pick a site + department to see what's standing, what closed since the last PV, what came up new, and the
        audit trail of every status change. Use this to walk into the next meeting with the full picture.</p>
@@ -702,5 +711,6 @@
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/common.fr.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/meetings-progress.fr.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/boot.js" data-dict="I18N_FR_MEETINGS_PROGRESS"></script>
+</main>
 </body>
 </html>

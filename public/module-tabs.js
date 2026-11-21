@@ -35,6 +35,12 @@
       { id:'meetings',   label:'Meetings Actions',   icon:'users',           href:'meetings-actions.html' },
       { id:'inspection', label:'Inspection Actions', icon:'clipboard-check', href:'inspection-actions.html' },
     ],
+    // ia-value F3 / executive F3 — ONE executive door (the menu's single "Executive" link): its three views are tabs.
+    executive: [
+      { id:'exec-home', label:'Overview',            icon:'gauge',          href:'dashboards.html?key=exec-home', roles:['executive', 'scorecard-viewer'] },
+      { id:'it-review', label:'IT Review',           icon:'bar-chart-3',    href:'it-review.html',                roles:['executive', 'scorecard-viewer'] },
+      { id:'scorecard', label:'Scorecard (detail)',  icon:'clipboard-list', href:'executive.html',                roles:['executive', 'scorecard-viewer'] },
+    ],
   };
 
   function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
@@ -43,6 +49,9 @@
     if (!mount) return;
     const mod = mount.dataset.module || '';
     const cur = mount.dataset.current || '';
+    // a strip that belongs to ONE dashboard (data-when-key="exec-home") stays empty on every other dashboard
+    const whenKey = mount.dataset.whenKey || '';
+    if (whenKey) { let k = ''; try { k = new URLSearchParams(location.search).get('key') || ''; } catch (_) { k = ''; } if (k !== whenKey) { mount.innerHTML = ''; return; } }
     const tabs = (MODULES[mod] || []).filter(gated);
     if (!tabs.length) { mount.innerHTML = ''; return; }
     const items = tabs.map(t => {

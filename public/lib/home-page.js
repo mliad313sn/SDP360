@@ -142,7 +142,11 @@
       head(j);
       const groupShown = await lotB(j);
       const msg = [];
-      if (j.message && !groupShown) msg.push(lang === 'fr' ? "Vous n'êtes rattaché à aucun site — utilisez le registre des actions du site." : j.message);
+      // UX committee executive F8: a group-level account (executive, scorecard viewer, admin tier) is not a
+      // mis-configured coordinator — say "group view", with the group pages, instead of "not attached to a site".
+      const groupRole = (() => { try { return ['executive', 'scorecard-viewer', 'admin'].some((r) => window.__userHasRole && window.__userHasRole(r)); } catch (_) { return false; } })();
+      if (j.message && !groupShown && groupRole) msg.push(lang === 'fr' ? 'Vue groupe — votre compte n’est rattaché à aucun site. Les chiffres du groupe sont dans l’Accueil direction et le registre des actions du site.' : 'Group view — your account is not tied to one site. Group figures live in Executive Home and the Site Actions hub.');
+      else if (j.message && !groupShown) msg.push(lang === 'fr' ? "Vous n'êtes rattaché à aucun site — utilisez le registre des actions du site." : j.message);
       if (j.truncated) msg.push(fill(T.more, { n: j.truncated }));
       $('hmMsg').textContent = msg.join(' ');
       window.__markFirstUsable && window.__markFirstUsable('home');   // F-UX-05

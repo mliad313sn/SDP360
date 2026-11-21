@@ -14,7 +14,7 @@ const EXEC_HOME = {
   filters: [{ key: 'site', type: 'site' }, { key: 'window', type: 'window' }],
   widgets: [
     { id: 'intro', type: 'text', layout: L(0, 0, 12, 1), markdown: '**Objective lights** — one figure per objective, fleet-wide, dated. Red = act this week.' },
-    { id: 'k-tracker', type: 'kpi', metric: 'tracker.fleet_score_pct', title: 'Strategic roadmap', rag: 'tracker-executive', layout: L(0, 1, 3, 2) },
+    { id: 'k-tracker', type: 'kpi', metric: 'tracker.fleet_score_pct', title: 'Strategic roadmap · fleet score (selected period)', rag: 'tracker-executive', layout: L(0, 1, 3, 2) },
     { id: 'k-sla', type: 'kpi', metric: 'helpdesk.resolution_sla_pct', title: 'Resolution SLA', rag: 'sla-percent', layout: L(3, 1, 3, 2), compare: 'fleet' },
     { id: 'k-insp', type: 'kpi', metric: 'inspection.conformity_pct', title: 'Inspection conformity', rag: 'sla-percent', layout: L(6, 1, 3, 2), compare: 'fleet' },
     { id: 'k-meet', type: 'kpi', metric: 'meetings.engagement_score', title: '5 Engagements', rag: 'sla-percent', layout: L(9, 1, 3, 2), compare: 'fleet' },
@@ -85,7 +85,7 @@ const GOVERNANCE = {
   filters: [{ key: 'site', type: 'site' }, { key: 'window', type: 'window' }],
   widgets: [
     { id: 'intro', type: 'text', layout: L(0, 0, 12, 1), markdown: '**Committee view** — strategic roadmap, programme discipline and the decisions still open. Figures are dated; "—" = not measured.' },
-    { id: 'roadmap', type: 'kpi', metric: 'tracker.fleet_score_pct', title: 'Strategic roadmap (fleet)', rag: 'tracker-executive', layout: L(0, 1, 3, 2) },
+    { id: 'roadmap', type: 'kpi', metric: 'tracker.fleet_score_pct', title: 'Strategic roadmap · fleet score (selected period)', rag: 'tracker-executive', layout: L(0, 1, 3, 2) },
     { id: 'attain', type: 'kpi', metric: 'tracker.fleet_attainment_pct', title: 'Roadmap attainment', rag: 'tracker-executive', layout: L(3, 1, 3, 2) },
     { id: 'prog', type: 'kpi', metric: 'programme.site_score', title: 'Programme score (site)', rag: 'site-score', layout: L(6, 1, 3, 2), compare: 'fleet' },
     { id: 'eng', type: 'kpi', metric: 'meetings.engagement_score', title: '5 Engagements', rag: 'sla-percent', layout: L(9, 1, 3, 2), compare: 'fleet' },

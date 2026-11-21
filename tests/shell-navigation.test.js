@@ -35,20 +35,31 @@ test('every href in the navigation points at a page that exists', () => {
   for (const sec of shell.NAV) for (const it of [sec, ...(sec.children || [])]) if (it.href) assert.ok(fs.existsSync(path.join(ROOT, 'public', it.href.split(/[?#]/)[0])), it.href);
 });
 
-test('Operations is grouped by task; every child names a group; first group keeps the first landing page', () => {
-  const { shell } = load(['admin']);
-  const ops = shell.NAV.find((s) => s.id === 'operations');
-  assert.ok(ops.children.every((c) => c.group), 'every Operations entry is in a group');
-  assert.deepStrictEqual(j(shell.groupChildren(ops.children).map((g) => g.name)), ['Governance', 'Plan & track', 'Report & share', 'Configure']);
-  assert.strictEqual(shell.landingFor('operations'), 'inspections.html');
+// VISUAL POLISH 2026-11 (UX committee ia-value F4): the 17-entry "Operations" list became Work · Plan · Insights ·
+// Admin. Work, Insights and Admin are grouped by task; the first group keeps the first landing page.
+test('Work / Insights / Admin are grouped by task; every child names a group; first group keeps the landing page', () => {
+  const { shell } = load(['super_admin']);
+  const grouped = { work: ['Site work', 'Field'], insights: ['Service desk', 'Dashboards', 'Reports'], admin: ['Overview', 'Policies', 'Integrations & data', 'Audit'] };
+  for (const [id, names] of Object.entries(grouped)) {
+    const sec = shell.NAV.find((s) => s.id === id);
+    assert.ok(sec.children.every((c) => c.group), 'every ' + id + ' entry is in a group');
+    assert.deepStrictEqual(j(shell.groupChildren(sec.children).map((g) => g.name)), names, id);
+  }
+  assert.strictEqual(shell.landingFor('work'), 'site-actions.html');
+  assert.strictEqual(shell.landingFor('insights'), 'index.html');
+  assert.strictEqual(shell.landingFor('admin'), 'admin-home.html');
+  assert.strictEqual(load(['admin']).shell.landingFor('admin'), 'policies.html', 'a plain admin lands on the first entry its role opens');
+  assert.ok(!shell.NAV.some((s) => s.id === 'operations'), 'no catch-all Operations section left');
+  const field = shell.NAV.find((s) => s.id === 'work').children.find((c) => c.id === 'field');
+  assert.strictEqual(field.group, 'Field', 'the field app is daily work, never "Configure"');
 });
 
-test('A-21 lean profile: Operations still grouped by task in canonical order, first group keeps the landing page, hrefs exist', () => {
+test('A-21 lean profile: Work still grouped in canonical order, first group keeps the landing page, hrefs exist', () => {
   const { shell } = load(['admin'], { policy: { nav_profile: 'lean' } });
-  const ops = shell.NAV.find((s) => s.id === 'operations');
-  const vis = j(shell.menuModel()).find((s) => s.id === 'operations').children;
-  assert.deepStrictEqual(j(shell.groupChildren(ops.children.filter((c) => vis.some((v) => v.id === c.id))).map((g) => g.name)), ['Governance', 'Plan & track', 'Report & share', 'Configure']);
-  assert.strictEqual(shell.landingFor('operations'), 'inspections.html');
+  const work = shell.NAV.find((s) => s.id === 'work');
+  const vis = j(shell.menuModel()).find((s) => s.id === 'work').children;
+  assert.deepStrictEqual(j(shell.groupChildren(work.children.filter((c) => vis.some((v) => v.id === c.id))).map((g) => g.name)), ['Site work']);
+  assert.strictEqual(shell.landingFor('work'), 'site-actions.html');
   for (const sec of j(shell.menuModel())) for (const c of sec.children) {
     const it = shell.NAV.find((s) => s.id === sec.id).children.find((x) => x.id === c.id);
     assert.ok(fs.existsSync(path.join(ROOT, 'public', it.href.split(/[?#]/)[0])), it.href);
@@ -57,7 +68,7 @@ test('A-21 lean profile: Operations still grouped by task in canonical order, fi
 
 test('rendered menu: group headings, carets expose aria-expanded, current page marked', () => {
   const { mount } = load(['admin']);
-  assert.match(mount.innerHTML, /class="shell-dd-heading" aria-hidden="true">Governance</);
+  assert.match(mount.innerHTML, /class="shell-dd-heading" aria-hidden="true">Service desk</);
   assert.match(mount.innerHTML, /class="shell-nav-caret" role="button" tabindex="0" aria-expanded="false"/);
   assert.match(mount.innerHTML, /href="portfolio.html" aria-current="page"/);
   assert.match(mount.innerHTML, /<nav class="shell-breadcrumb" aria-label="Breadcrumb">/);
@@ -69,7 +80,7 @@ test('quick find only offers pages the user may open', () => {
   assert.deepStrictEqual(j(viewer.searchEntries('integr')), [], 'Integrations is admin-only');
   assert.strictEqual(admin.searchEntries('integr')[0].href, 'integrations.html');
   assert.ok(admin.searchEntries('INSPECTIONS').some((e) => e.href === 'inspections.html'), 'case-insensitive');
-  assert.ok(admin.searchEntries('governance').length >= 3, 'matches the group name too');
+  assert.ok(admin.searchEntries('site work').length >= 3, 'matches the group name too');
   assert.deepStrictEqual(j(viewer.searchEntries('system logs')), []);
 });
 
@@ -89,9 +100,10 @@ test('workspaces follow the role and list only reachable pages', () => {
 
 test('breadcrumb: section › group › page as plain text (the section has no overview page); none off-menu', () => {
   const { shell } = load(['admin']);
-  assert.ok(shell.breadcrumbFor({ section: 'operations', current: 'portfolio' }).every((c) => !c.href));
-  assert.deepStrictEqual(j(shell.breadcrumbFor({ section: 'operations', current: 'portfolio' }).map((c) => c.label)), ['Operations', 'Plan & track', 'Portfolio']);
-  assert.strictEqual(shell.breadcrumbFor({ section: 'operations', current: 'nope' }), null);
+  assert.ok(shell.breadcrumbFor({ section: 'work', current: 'inspections' }).every((c) => !c.href));
+  assert.deepStrictEqual(j(shell.breadcrumbFor({ section: 'work', current: 'inspections' }).map((c) => c.label)), ['Work', 'Site work', 'Inspections']);
+  assert.deepStrictEqual(j(shell.breadcrumbFor({ section: 'plan', current: 'portfolio' }).map((c) => c.label)), ['Plan', 'Portfolio']);
+  assert.strictEqual(shell.breadcrumbFor({ section: 'work', current: 'nope' }), null);
   assert.strictEqual(shell.breadcrumbFor({ section: '', current: '' }), null);
 });
 
@@ -120,23 +132,25 @@ test('finder announces the result count and remembers who opened it', () => {
 
 test('the header follows the shared language: French labels, English search terms still work', () => {
   const fr = load(['admin'], { lang: 'fr' });
-  assert.match(fr.mount.innerHTML, /<span class="shell-nav-label">Opérations</);
-  assert.match(fr.mount.innerHTML, /class="shell-dd-heading" aria-hidden="true">Gouvernance</);
+  assert.match(fr.mount.innerHTML, /<span class="shell-nav-label">Travail</);
+  assert.match(fr.mount.innerHTML, /class="shell-dd-heading" aria-hidden="true">Travail du site</);
   assert.match(fr.mount.innerHTML, /<nav class="shell-breadcrumb" aria-label="Fil d'Ariane">/);
   assert.match(fr.mount.innerHTML, /class="shell-lang-btn"[^>]*>EN</);
   assert.ok(fr.shell.searchEntries('portefeuille').some((e) => e.href === 'portfolio.html'), 'French term');
   assert.ok(fr.shell.searchEntries('portfolio').some((e) => e.href === 'portfolio.html'), 'English term still found');
   // no saved choice → the browser language; a saved choice wins over the browser
-  assert.match(load(['admin'], { navLang: 'fr-FR' }).mount.innerHTML, /shell-nav-label">Opérations</);
+  assert.match(load(['admin'], { navLang: 'fr-FR' }).mount.innerHTML, /shell-nav-label">Travail</);
   const en = load(['admin'], { lang: 'en', navLang: 'fr-FR' });
-  assert.match(en.mount.innerHTML, /shell-nav-label">Operations</);
+  assert.match(en.mount.innerHTML, /shell-nav-label">Work</);
   assert.match(en.mount.innerHTML, /class="shell-lang-btn"[^>]*>FR</);
 });
 
 test('the light breadcrumb style applies to the <nav> trail only, never to a page title bar', () => {
   const css = fs.readFileSync(path.join(ROOT, 'public', '_shell.css'), 'utf8');
   assert.doesNotMatch(css, /^\.shell-breadcrumb\s*\{[^}]*background:\s*#F4F6F9/m, 'unscoped rule would paint the Helpdesk title bar white');
-  assert.match(css, /nav\.shell-breadcrumb \{ background: #F4F6F9/);
+  // VISUAL POLISH 2026-11: the trail is a white strip on the token surface (was #F4F6F9) — still scoped to <nav>
+  assert.match(css, /nav\.shell-breadcrumb \{ background: var\(--color-surface, #fff\)/);
+  assert.doesNotMatch(css, /^\.shell-breadcrumb\s*\{[^}]*background:\s*var\(--color-surface/m);
 });
 
 // A-09a — <html lang> mirrors the language only on a page whose body is translated.
@@ -170,7 +184,7 @@ test('Home is first for an editor and absent for a business-only user', () => {
   const ed = load(['editor']);
   assert.match(ed.mount.innerHTML, /href="home.html"/);
   const navHtml = ed.mount.innerHTML;
-  assert.ok(navHtml.indexOf('shell-nav-label">Home<') > 0 && navHtml.indexOf('shell-nav-label">Home<') < navHtml.indexOf('shell-nav-label">Helpdesk<'), 'Home before Helpdesk');
+  assert.ok(navHtml.indexOf('shell-nav-label">Home<') > 0 && navHtml.indexOf('shell-nav-label">Home<') < navHtml.indexOf('shell-nav-label">Work<'), 'Home before Work');
   assert.strictEqual(ed.shell.NAV[0].id, 'home');
   assert.ok(!ed.shell.NAV[0].roles.includes('any'), 'explicit roles, never any');
   assert.strictEqual(ed.shell.workspaceFor().items[0].href, 'home.html');
@@ -207,11 +221,16 @@ test('F-UX-02: flat link and single-child collapse carry aria-current (they only
   // a business-only account sees one flat entry: Site Overview
   const biz = load(['site-business'], { businessOnly: true, section: 'site-awareness', current: 'site-awareness' }).mount.innerHTML;
   assert.match(navOf(biz), /href="site-awareness.html" aria-current="page"/);
-  // a viewer's Helpdesk collapses to its single visible child
-  const hd = j(load(['viewer']).shell.menuModel()).find((s) => s.id === 'helpdesk');
-  assert.strictEqual(hd.children.length, 1, 'a viewer sees one Helpdesk entry (collapsed to a flat link)');
-  const v = load(['viewer'], { section: 'helpdesk', current: hd.children[0].id });
+  // a committee member's Admin section collapses to its single visible child (Governance policies)
+  const ad = j(load(['committee-member']).shell.menuModel()).find((s) => s.id === 'admin');
+  assert.strictEqual(ad.children.length, 1, 'one Admin entry (collapsed to a flat link)');
+  const v = load(['committee-member'], { section: 'admin', current: ad.children[0].id });
   assert.match(navOf(v.mount.innerHTML), /aria-current="page" class="shell-nav-item-link is-active"/);
+  // the Executive section is ONE door (flat link to Executive Home), current on every executive page
+  for (const cur of ['exec-home', 'it-review', 'scorecard']) {
+    const ex = load(['executive'], { section: 'executive', current: cur }).mount.innerHTML;
+    assert.match(navOf(ex), /<a href="dashboards.html\?key=exec-home" aria-current="page" class="shell-nav-item-link is-active"/, cur);
+  }
 });
 
 test('F-UX-02: no current page announced when the page names none, or names an entry that is not on the menu', () => {
