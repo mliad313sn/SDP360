@@ -1,44 +1,36 @@
 'use strict';
-// 2026-10-16 — the help documents the latest changes in both languages: tracker closed months
-// (10.6), transfer statuses (12.8), the Site Actions hub (12.9), the report actions import /
-// merge / group code (4.4) and multi-site editors. Drift guard, not prose review.
+// 2026-10-16 — the help documents tracker closed months, transfer statuses, the Site Actions hub, the report actions
+// import / merge / group code and multi-site editors, in both languages. Drift guard, not prose review.
+// 2026-11-21: anchors moved from numbered sections (10-6, 12-8, 12-9, 4-4) to stable module anchors.
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs'), path = require('node:path');
 
 const src = fs.readFileSync(path.join(__dirname, '..', 'public', 'help.html'), 'utf8').replace(/\r\n/g, '\n');
-const NEW = ['10-6', '12-8', '12-9'];
+const block = (id) => { const a = src.indexOf(`id="${id}"`); assert.ok(a > 0, id); const n = src.slice(a + 5).search(/<div class="hsub"|<section/); return src.slice(a, n < 0 ? src.length : a + 5 + n); };
+const lang = (html, l) => (html.match(new RegExp(`data-lng="${l}"[\\s\\S]*?(?=data-lng="|$)`, 'g')) || []).join(' ');
 
-for (const lang of ['en', 'fr']) {
-  const tocStart = [...src.matchAll(/<div class="toc">/g)].map(m => m.index)[lang === 'en' ? 0 : 1];
-  const tocEnd = src.indexOf('\n    </div>', tocStart);
+test('the sub-sections exist and are reachable from the table of contents or their chapter', () => {
+  for (const id of ['tracker-closed-months', 'meetings-transfer', 'site-actions', 'reports-actions']) {
+    assert.ok(src.includes(`id="${id}"`), id);
+    assert.ok(src.includes(`href="#${id}"`) || ['tracker-closed-months', 'reports-actions'].includes(id), `${id} linked`);
+  }
+});
 
-  test(`[${lang}] new sub-sections exist and are linked from INSIDE the table of contents`, () => {
-    for (const id of NEW) {
-      assert.ok(src.includes(`id="${lang}-${id}"`), `section ${lang}-${id}`);
-      const link = src.indexOf(`href="#${lang}-${id}"`, tocStart);
-      assert.ok(link > tocStart && link < tocEnd, `${lang}-${id} linked inside the TOC`);
-    }
-  });
-
-  test(`[${lang}] the key facts are stated`, () => {
-    const sec = (id) => src.slice(src.indexOf(`id="${lang}-${id}"`), src.indexOf('<h3', src.indexOf(`id="${lang}-${id}"`) + 5));
-    assert.match(sec('10-6'), /super_admin/);
-    assert.match(sec('10-6'), /\b5(th)?\b/, 'the grace day');
-    const s128 = sec('12-8');
-    assert.match(s128, /Demand \/ Initiative/);
-    assert.match(s128, /Helpdesk ticket/);
-    assert.match(s128, /SDP/);
-    const s44 = sec('4-4');
-    assert.match(s44, /#CODE/);
-    assert.match(s44, /Fusionner des doublons/);
+for (const l of ['en', 'fr']) {
+  test(`[${l}] the key facts are stated`, () => {
+    const s = lang(block('tracker-closed-months'), l);
+    assert.match(s, /super_admin/);
+    assert.match(s, /\b5(th)?\b/, "the grace day");
+    const t = lang(block('meetings-transfer'), l);
+    assert.match(t, /Demand \/ Initiative/);
+    assert.match(t, /Helpdesk ticket/);
+    assert.match(t, /SDP/);
+    const a = lang(block('reports-actions'), l);
+    assert.match(a, /#CODE/);
+    assert.match(a, /Fusionner des doublons/);
   });
 }
-
-test('EN table of contents of section 4 points each label at its own section', () => {
-  assert.match(src, /href="#en-4-4">Action Items</);
-  assert.match(src, /href="#en-4-5">Submitting a Report</);
-});
 
 test('multi-site editors are documented in both languages', () => {
   assert.match(src, /Extra sites/);

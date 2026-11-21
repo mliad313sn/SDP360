@@ -142,11 +142,13 @@ test('portfolio.html: risk matrix, pressure view, keyboard row links and a swatc
   assert.match(pf, /PpmVisuals\.navIndex\(ev\.key, cur, links\.length\)/);
 });
 
-test('help §25 documents the matrix, the pressure view and the Gantt keyboard in EN and FR', () => {
+// 2026-11-21: §25 split into the stable anchors #portfolio (matrix, pressure) and #project (Gantt keyboard).
+test('help documents the matrix, the pressure view and the Gantt keyboard in EN and FR', () => {
   const h = read('public/help.html');
-  for (const [id, words] of [['en-25', ['Risk matrix', 'Resource pressure', 'arrow keys']], ['fr-25', ['Matrice des risques', 'Charge des ressources', 'flèches']]]) {
-    const start = h.indexOf(`<div class="section" id="${id}">`); const end = h.indexOf('<div class="section"', start + 10);
-    const s = h.slice(start, end);
-    for (const w of words) assert.ok(s.includes(w), `${id}: ${w}`);
+  const sec = (id) => { const a = h.indexOf(`<section class="hsec" id="${id}">`); assert.ok(a > 0, id); return h.slice(a, h.indexOf('</section>', a)); };
+  const both = sec('portfolio') + sec('project');
+  for (const [lng, words] of [['en', ['Risk matrix', 'Resource pressure', 'arrow keys']], ['fr', ['Matrice des risques', 'Charge des ressources', 'flèches']]]) {
+    const parts = both.split(`<div data-lng="${lng}"`).slice(1).join(' ');
+    for (const w of words) assert.ok(parts.includes(w), `${lng}: ${w}`);
   }
 });

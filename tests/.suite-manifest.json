@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 6092,
+ "total": 6105,
  "files": {
   "a11y-legacy-ratchet.test.js": 3,
   "a11y-static.test.js": 21,
@@ -284,9 +284,10 @@
   "health-deps.test.js": 4,
   "health-version-provenance.test.js": 10,
   "health-version.smoke.test.js": 3,
-  "help-assets-section.test.js": 9,
-  "help-recent-updates.test.js": 6,
-  "help-teams-sla-section.test.js": 7,
+  "help-anchors.test.js": 23,
+  "help-assets-section.test.js": 5,
+  "help-recent-updates.test.js": 4,
+  "help-teams-sla-section.test.js": 3,
   "helpdesk-pareto-ranking.test.js": 5,
   "home-page-blocks.test.js": 6,
   "home-queue-extra-route.smoke.test.js": 4,

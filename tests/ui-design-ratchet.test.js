@@ -23,7 +23,7 @@ const BUDGETS = {
   "public/executive-report.html": {hex: 294, dualAxis: 8, doughnut: 4},
   "public/executive.html": {hex: 1080, dualAxis: 11, doughnut: 3},
   "public/handoffs.html": {hex: 21},
-  "public/help.html": {hex: 85},
+  "public/help.html": {hex: 0},   // 2026-11-21 manual rewrite: every colour from _tokens.css (lib/help.css)
   "public/home.html": {hex: 12},
   "public/index.html": {hex: 114},
   "public/infra-health.html": {hex: 88, doughnut: 2},

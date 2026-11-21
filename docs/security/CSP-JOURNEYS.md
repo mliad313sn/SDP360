@@ -25,7 +25,7 @@ Journeys: 47 — strict 0, enforceable 11, blocked 36, unknown 0.
 | Site editor | Find the site's overdue actions, close one with a justification | `/site-actions.html` | blocked | `/site-actions.html` |
 | Site editor | See all of my open work in one queue on Home (switches `ui_home_queue` / `ui_nav_*` on in a throwaway database), 320 px and French, never an | `/home.html` | enforceable | — |
 | Site editor | Cannot read another site's report or portfolio project (deny) | `/reports.html`, `/portfolio.html` | blocked | `/reports.html`, `/portfolio.html` |
-| Site editor | Switch the interface to French and open the manual | `/site-actions.html`, `/help.html` | blocked | `/site-actions.html`, `/help.html` |
+| Site editor | Switch the interface to French and open the manual | `/site-actions.html`, `/help.html` | blocked | `/site-actions.html` |
 | Site editor | Reach Portfolio using only the keyboard | `/login.html`, `/portfolio.html` | blocked | `/portfolio.html` |
 | Field technician | Record a quick inspection with a photo offline, then sync | `/field/index.html`, `/inspection.html` | blocked | `/inspection.html` |
 | Site editor | Save an inspection after a failed save was queued and later sent, with no false "someone else saved" conflict, including after a reload (P11 | `/inspection.html` | blocked | `/inspection.html` |
@@ -80,7 +80,7 @@ Journeys: 47 — strict 0, enforceable 11, blocked 36, unknown 0.
 | `/dashboards.html` | 1 | 0 | blocked | — |
 | `/executive.html` | 1 | 65 | blocked | — |
 | `/field/index.html` | 0 | 0 | enforceable | — |
-| `/help.html` | 1 | 0 | blocked | — |
+| `/help.html` | 0 | 0 | enforceable | — |
 | `/home.html` | 0 | 0 | enforceable | — |
 | `/index.html` | 1 | 51 | blocked | — |
 | `/infra-health.html` | 2 | 0 | blocked | — |
@@ -129,7 +129,7 @@ Pages: 67 — strict 6, candidate 55, blocked 6.
 | `/field/index.html` | 0 | 0 | 0 | no | candidate |
 | `/finance.html` | 0 | 0 | 0 | yes | candidate |
 | `/handoffs.html` | 1 | 0 | 0 | yes | candidate |
-| `/help.html` | 1 | 0 | 0 | yes | candidate |
+| `/help.html` | 0 | 0 | 0 | yes | candidate |
 | `/home.html` | 0 | 0 | 0 | yes | candidate |
 | `/index.html` | 1 | 51 | 5 | yes | blocked |
 | `/infra-health.html` | 2 | 0 | 0 | yes | candidate |

@@ -26,7 +26,7 @@ label / aria-label / title · images without `alt` · positive `tabindex` · inl
 | executive-report.html | · | · | · | 1 | 10 | · | · | 58 | 1 | 70 |
 | executive.html | · | · | · | 1 | 10 | · | · | 75 | 1 | 87 |
 | handoffs.html | · | · | · | · | · | · | · | · | · | 0 |
-| help.html | · | · | · | 1 | · | · | · | 2 | 1 | 4 |
+| help.html | · | · | · | · | · | · | · | · | · | 0 |
 | home.html | · | · | · | · | · | · | · | · | · | 0 |
 | index.html | · | · | · | 1 | 7 | · | · | 56 | 1 | 65 |
 | infra-health.html | · | · | · | 1 | · | · | · | · | 1 | 2 |
@@ -67,4 +67,4 @@ label / aria-label / title · images without `alt` · positive `tabindex` · inl
 | trackers.html | · | · | · | · | · | · | · | · | · | 0 |
 | wan.html | · | · | · | 1 | 7 | · | · | · | · | 8 |
 | field/index.html | · | · | · | · | · | · | · | · | · | 0 |
-| **all (57 pages)** | 0 | 2 | 8 | 34 | 542 | 2 | 0 | 531 | 33 | 1152 |
+| **all (57 pages)** | 0 | 2 | 8 | 33 | 542 | 2 | 0 | 529 | 32 | 1148 |
