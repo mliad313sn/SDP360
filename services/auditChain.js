@@ -402,7 +402,7 @@ async function verify(db, opts = {}) {
   return { ok: status === 'ok', status, schema, anchors: hasAnchors, anchor_integrity: anchorIntegrity,
     ...(anchorErrors.length ? { anchor_error: anchorErrors.join('; ') } : {}),
     known_kids: [...history.knownKids],
-    evidence_ignored: { kid_rows: history.ignoredKidRows || 0, log_events: history.ignoredEvents || 0 },
+    evidence_ignored: { kid_rows: history.ignoredKidRows, log_events: history.ignoredEvents },
     ...(rotatedOnly ? { key_rotated: true, key_rotation: { from_kids: [...new Set(out.flatMap((x) => x.foreign_kids || []))], to_kid: anchorKid(key) } } : {}),
     tables: out, checked_at: new Date().toISOString() };
 }

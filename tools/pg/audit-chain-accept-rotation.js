@@ -31,7 +31,7 @@ async function acceptRotation(db, { kid, env = process.env, confirm = false, who
 }
 
 async function main(argv = process.argv.slice(2)) {
-  require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
+  require('dotenv').config({ quiet: true, path: path.join(__dirname, '..', '..', '.env') });
   const arg = (n) => { const a = argv.find((x) => x.startsWith(`--${n}=`)); return a ? a.slice(n.length + 3) : ''; };
   const url = process.env.PG_URL || process.env.DATABASE_URL;
   if (!url) { console.error('PG_URL is not set'); return 2; }
