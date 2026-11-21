@@ -104,6 +104,8 @@
     'No technician data for this week': 'Aucune donnée technicien pour cette semaine', 'No previous weeks available.': 'Aucune semaine précédente disponible.',
     'No open actions.': 'Aucune action ouverte.', 'No audit entries yet': 'Aucune entrée d’historique pour l’instant', 'No KPI data in last weekly report': 'Aucun KPI dans le dernier rapport hebdomadaire',
     '⏳ Syncing…': '⏳ Synchronisation…',
+    // infra KPI status with no value typed (never a verdict)
+    '— Not measured': '— Non mesuré',
   };
   root.I18N_FR_REPORTS = Object.assign({}, STATIC, RUNTIME_KEYS);
   root.I18N_FR_REPORTS_RUNTIME = Object.keys(RUNTIME_KEYS);

@@ -5,12 +5,14 @@
   'use strict';
   const STATIC = {
     'Insights · Department Meetings & Council Escalations': 'Insights · Réunions de département et escalades au Council',
+    'One place for department meetings, IT survey concerns and Mine IT Council decisions; issues that meet an escalation criterion flow to the Council view.':
+      'Un seul endroit pour les réunions de département, les préoccupations de l’enquête IT et les décisions du Mine IT Council ; les problèmes qui remplissent un critère d’escalade remontent dans la vue Council.',
     'Meetings & Decisions': 'Réunions et décisions', 'Single source of truth for the four-level engagement:': 'Source unique pour l’engagement à quatre niveaux :',
     'Department Meetings': 'Réunions de département', '(monthly per site IT),': '(mensuelles, par l’IT du site),', 'IT Survey': 'Enquête IT',
     'concerns, and': 'préoccupations, et', 'Mine IT Council': 'Mine IT Council',
     'decisions. Issues captured here flow through to the Council view when they cross any of the six escalation criteria. The 5 Engagements monitor tracks site IT discipline.':
       'décisions. Les problèmes saisis ici remontent dans la vue Council dès qu’ils remplissent l’un des six critères d’escalade. Le suivi des 5 Engagements mesure la discipline de l’IT du site.',
-    '+ New meeting': '+ Nouvelle réunion', '↑ Bulk import': '↑ Import en masse', '⬇ Export Excel': '⬇ Export Excel', '↻ Refresh': '↻ Actualiser',
+    'New meeting': 'Nouvelle réunion', 'Bulk import': 'Import en masse', 'Export Excel': 'Export Excel', 'Refresh': 'Actualiser',
     'Since last meeting': 'Depuis la dernière réunion', "Pre-brief for the IT coordinator — what changed, what's new, what closed": 'Pré-brief du coordinateur IT — ce qui a changé, ce qui est nouveau, ce qui est clos',
     'Issues Log': 'Journal des problèmes', 'Every issue across all meetings, with all filters': 'Tous les problèmes de toutes les réunions, avec tous les filtres',
     'Council Escalations': 'Escalades au Council', 'Issues marked escalate=Y, grouped by Council theme': 'Problèmes marqués « escalader = O », regroupés par thème Council',

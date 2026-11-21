@@ -185,6 +185,12 @@
     background: rgba(232,119,34,0.14);
     color: var(--edv-orange, #E87722);
   }
+
+  /* VISUAL POLISH 2026-11 — UX committee (visual F3/F4/F8): no gradient strip, no decorative KPI colour; the hero stacks on a phone. */
+  .me-hero::before { display: none; }
+  .me-hero { border-radius: var(--radius-lg); box-shadow: var(--shadow-card); border-color: var(--color-border); }
+  .me-hero h1 { font-weight: 700; color: var(--color-heading); letter-spacing: var(--tracking-tight); }
+  @media (max-width: 760px) { .me-hero { grid-template-columns: minmax(0, 1fr); } .me-hero__actions { justify-content: flex-start; } }
 </style>
 </head>
 <body>

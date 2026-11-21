@@ -316,6 +316,10 @@
   }
   .del-modal-actions .btn-danger:hover { background: #b91c1c; }
   .del-modal-actions .btn-danger:disabled { opacity: 0.6; cursor: wait; }
+
+  /* VISUAL POLISH 2026-11 — UX committee (visual F4): one neutral KPI card — the cycling left border encoded nothing. */
+  .kpi-tile::before { display: none; }
+  .kpi-tile { border-radius: var(--radius-lg); box-shadow: var(--shadow-card); border-color: var(--color-border); }
 </style>
 </head>
 <body>

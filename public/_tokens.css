@@ -25,6 +25,10 @@
        readable contrast against white text.
    ═══════════════════════════════════════════════════════════════════════ */
 
+/* VISUAL POLISH 2026-11 (UX committee F1) — every page that loads the tokens gets the self-hosted brand face
+   (Libre Franklin, same origin). 58 pages used to fall back to system-ui because only ~35 linked fonts.css. */
+@import url('fonts.css');
+
 :root {
   /* ── EDV PRIMARY PALETTE (slide 9) ───────────────────────────── */
   --edv-orange:        #EF631A;   /* PRIMARY brand color — CTAs, accents, brand mark */
@@ -203,6 +207,62 @@
   --shadow-lg: 0 8px 24px rgba(28,45,63,.14);
   --shadow-xl: 0 16px 40px rgba(28,45,63,.20);
 
+  /* ── VISUAL POLISH 2026-11 — refined scales (docs/ux/VISUAL-POLISH-2026-11.md) ──────
+     A cool neutral ramp, a type scale, control sizes and a softer elevation set. Pages and the
+     shared components reference these instead of literals; every text shade below is ≥ 4.5:1 on
+     white (tests/token-contrast.test.js). */
+  --gray-25:   #FAFBFC;
+  --gray-50:   #F5F7FA;
+  --gray-100:  #EEF1F5;
+  --gray-200:  #E3E8EF;
+  --gray-300:  #CDD5DF;
+  --gray-400:  #9AA5B4;   /* borders / disabled marks only — not for text */
+  --gray-500:  #5F6B7A;   /* secondary text  5.4:1 on white */
+  --gray-600:  #4A5565;   /* body text       7.5:1 on white */
+  --gray-700:  #344051;
+  --gray-800:  #1F2937;
+  --gray-900:  #111827;
+
+  --color-surface:        #FFFFFF;
+  --color-surface-subtle: var(--gray-50);
+  --color-surface-hover:  #F1F5F9;
+  --color-border-subtle:  var(--gray-100);
+  --color-link:           #145FAE;   /* = --edv-blue, 6.4:1 on white */
+  --color-link-hover:     #0B4A8C;
+  --color-heading:        #1F2D3D;   /* titles: slate-ink, 13.9:1 on white */
+
+  /* type scale — the ONLY sizes new code uses (committee §2b) */
+  --text-xs:   11px;   /* table headers, eyebrows (uppercase, 600, .04em) */
+  --text-sm:   12px;   /* meta, captions, badges */
+  --text-md:   13px;   /* dense tables, secondary body */
+  --text-base: 14px;   /* body, inputs, buttons */
+  --text-lg:   16px;   /* card titles (600) */
+  --text-xl:   20px;   /* section titles (600) */
+  --text-2xl:  24px;   /* page title (700, -0.01em) */
+  --text-kpi:  28px;   /* KPI value (700, tabular-nums, line-height 1.1) */
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --tracking-tight: -0.01em;
+  --tracking-caps:  0.04em;
+
+  /* controls: sm 32 · md 36 · lg 44 (lg = field / mobile, also the touch target). Radii stay the
+     existing 4 / 6 / 10 / 14 scale (--radius-sm/md/lg/xl). */
+  --control-h-sm: 32px;
+  --control-h:    36px;
+  --control-h-md: 36px;
+  --control-h-lg: 44px;
+  /* layout */
+  --layout-max:    1360px;
+  --layout-gutter: 32px;
+  --section-gap:   24px;
+  --card-pad:      20px;
+  --card-pad-dense: 16px;
+
+  --shadow-xs:   0 1px 1px rgba(16,24,40,.04);
+  --shadow-card: 0 1px 2px rgba(28,45,63,.06);
+  --shadow-pop:  0 16px 36px -10px rgba(16,24,40,.22), 0 6px 12px -6px rgba(16,24,40,.10);
+  --ring-soft:   0 0 0 3px rgba(20,95,174,.20);
+
   /* ── MOTION ─────────────────────────────────────────────────── */
   --motion-fast:   120ms;
   --motion-base:   180ms;
@@ -223,3 +283,27 @@
 @media (forced-colors: active) {
   :focus-visible { outline-color: Highlight !important; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   VISUAL POLISH 2026-11 — base layer
+   Zero specificity (:where) on purpose: any page rule wins, so this only replaces BROWSER
+   defaults (purple/underlined links, system checkboxes, rough text rendering) on every page
+   that loads the tokens. It never changes a value, a layout box or a behaviour.
+   ═══════════════════════════════════════════════════════════════════════ */
+:where(html) { -webkit-text-size-adjust: 100%; scrollbar-color: var(--gray-300) transparent; }
+:where(body) { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
+:where(h1, h2, h3) { letter-spacing: var(--tracking-tight); }
+:where(a:not([class])), :where(a:not([class]):visited) {
+  color: var(--color-link);
+  text-decoration-color: rgba(20,95,174,.35);
+  text-decoration-thickness: 1px;
+  text-underline-offset: .2em;
+}
+:where(a:not([class]):hover) { color: var(--color-link-hover); text-decoration-color: currentColor; }
+:where(td a:not([class]), th a:not([class])) { font-weight: 600; text-decoration: none; }
+:where(td a:not([class]):hover, th a:not([class]):hover) { text-decoration: underline; }
+:where(button, input, select, textarea) { font-family: inherit; }
+:where(input[type="checkbox"], input[type="radio"], input[type="range"], progress) { accent-color: var(--color-secondary); }
+:where(table) { font-variant-numeric: tabular-nums; }
+:where(summary) { cursor: pointer; }
+::selection { background: rgba(239,99,26,.20); }

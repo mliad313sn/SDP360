@@ -7,8 +7,8 @@
   root.I18N_FR_INDEX = {
     'Loading dashboard data…': 'Chargement des données du tableau de bord…', '⟳ Retry': '⟳ Réessayer',
     'Helpdesk · IT Operations Center': 'Helpdesk · Centre des opérations IT', 'Connecting…': 'Connexion…',
-    '⟳ Refresh': '⟳ Actualiser', 'Force Sync': 'Forcer la synchronisation', '📥 Export Risk Register': '📥 Exporter le registre des risques',
-    '👤 Unassigned (—)': '👤 Non assignés (—)', '👤 Unassigned Open Tickets': '👤 Tickets ouverts non assignés',
+    '⟳ Refresh': '⟳ Actualiser', 'Force Sync': 'Forcer la synchronisation', 'Export Risk Register': 'Exporter le registre des risques',
+    'Unassigned (—)': 'Non assignés (—)', '👤 Unassigned Open Tickets': '👤 Tickets ouverts non assignés',
     'Tickets not yet assigned to a technician · sorted oldest first': 'Tickets pas encore assignés à un technicien · les plus anciens d’abord',
     'Download CSV': 'Télécharger le CSV', 'Weekly': 'Hebdomadaire', 'Monthly': 'Mensuel', 'Quarterly': 'Trimestriel', 'Yearly': 'Annuel',
     'All Sites': 'Tous les sites', 'Group': 'Groupe', 'Operations': 'Opérations', 'Applications': 'Applications',

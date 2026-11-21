@@ -136,7 +136,9 @@ test('the header follows the shared language: French labels, English search term
 test('the light breadcrumb style applies to the <nav> trail only, never to a page title bar', () => {
   const css = fs.readFileSync(path.join(ROOT, 'public', '_shell.css'), 'utf8');
   assert.doesNotMatch(css, /^\.shell-breadcrumb\s*\{[^}]*background:\s*#F4F6F9/m, 'unscoped rule would paint the Helpdesk title bar white');
-  assert.match(css, /nav\.shell-breadcrumb \{ background: #F4F6F9/);
+  // VISUAL POLISH 2026-11: the trail is a white strip on the token surface (was #F4F6F9) — still scoped to <nav>
+  assert.match(css, /nav\.shell-breadcrumb \{ background: var\(--color-surface, #fff\)/);
+  assert.doesNotMatch(css, /^\.shell-breadcrumb\s*\{[^}]*background:\s*var\(--color-surface/m);
 });
 
 // A-09a — <html lang> mirrors the language only on a page whose body is translated.

@@ -24,8 +24,8 @@ a{color:var(--blue);text-decoration:none}
 #statusText{font-size:11px;color:rgba(255,255,255,.85)}
 .btn-refresh{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.4);border-radius:4px;color:#fff;padding:5px 12px;cursor:pointer;font-size:12px}
 .btn-refresh:hover{background:rgba(255,255,255,.25)}
-.btn-export{background:rgba(34,197,94,.25);border:1px solid rgba(34,197,94,.7);border-radius:4px;color:#fff;padding:5px 12px;cursor:pointer;font-size:12px;font-weight:600;letter-spacing:.3px}
-.btn-export:hover{background:rgba(34,197,94,.45)}
+.btn-export{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.4);border-radius:4px;color:#fff;padding:5px 12px;cursor:pointer;font-size:12px;font-weight:600;letter-spacing:.3px}
+.btn-export:hover{background:rgba(255,255,255,.24)}
 .btn-export:disabled{opacity:.5;cursor:not-allowed}
 .btn-unassigned{border-radius:4px;color:#fff;padding:5px 12px;cursor:pointer;font-size:12px;font-weight:600;letter-spacing:.3px;border:1px solid rgba(220,38,38,.7);background:rgba(220,38,38,.2)}
 .btn-unassigned:hover{background:rgba(220,38,38,.38)}
@@ -159,6 +159,12 @@ select.flt:focus{outline:2px solid var(--orange);border-color:transparent}
 .grp-btn-cancel{background:#F3F4F6;border:1px solid var(--border);color:var(--slate)}
 .grp-btn-save{background:var(--color-primary-fill, #C2410C);border:none;color:#fff}
 .grp-btn-save:hover{background:#D5541A}
+
+/* VISUAL POLISH 2026-11 — UX committee (visual F4/F8/F16): neutral KPI cards (the per-tile colours were decoration, not verdicts), no
+   multicolour strip, no green "success" colour on export buttons. */
+.kpi-card-accent{display:none}
+.kpi-card .kpi-val{color:var(--color-heading)!important}
+.accent-strip{height:0;background:none}
 </style>
 <script src="auth.js" data-require="any"></script>
 <script src="lib/siteAliases.js"></script>
@@ -199,8 +205,8 @@ select.flt:focus{outline:2px solid var(--orange);border-color:transparent}
   <button class="btn-refresh" id="btnForceSync" onclick="forceSync()" title="Clear server cache and fetch fresh data from Zoho" style="display:none;font-size:11.5px;padding:5px 10px"><i class="icon icon-zap"></i>Force Sync</button>
   <button class="btn-export" id="btnExport" onclick="exportCSV()" title="Export current period ticket data to CSV" style="font-size:11.5px;padding:5px 10px"><i class="icon icon-download"></i>Export CSV</button>
   <!-- Risk Register Occurrence export (purely additive, 2026-05-28). Reads from local SQLite (request_records), classifies incidents into 5 risk domains, outputs the monthly Occurrence sheet. Monthly-only — disabled when view mode is weekly. -->
-  <button class="btn-export" id="btnRiskRegister" onclick="exportRiskRegister()" title="Export Risk Register Occurrence sheet for the selected month (Excel)" style="font-size:11.5px;padding:5px 10px">📥 Export Risk Register</button>
-  <button class="btn-unassigned none" id="btnUnassigned" onclick="openUnassignedModal()" title="View open tickets not yet assigned to a technician — respects current Site &amp; Group filters" style="font-size:11.5px;padding:5px 10px">👤 Unassigned (—)</button>
+  <button class="btn-export" id="btnRiskRegister" onclick="exportRiskRegister()" title="Export Risk Register Occurrence sheet for the selected month (Excel)" style="font-size:11.5px;padding:5px 10px"><i class="icon icon-download"></i>Export Risk Register</button>
+  <button class="btn-unassigned none" id="btnUnassigned" onclick="openUnassignedModal()" title="View open tickets not yet assigned to a technician — respects current Site &amp; Group filters" style="font-size:11.5px;padding:5px 10px"><i class="icon icon-user"></i>Unassigned (—)</button>
 </div>
 <div class="accent-strip"></div>
 
@@ -942,7 +948,7 @@ function exportRiskRegister(){
 
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Exporting…'; }
   const restoreBtn = () => {
-    if (btn) { btn.disabled = false; btn.textContent = '📥 Export Risk Register'; }
+    if (btn) { btn.disabled = false; btn.innerHTML = (window.EDV_ICONS ? window.EDV_ICONS.html('download') : '') + ' Export Risk Register'; }
   };
 
   // The global /api/ middleware (server.js:946) gates every API call on
@@ -1036,7 +1042,7 @@ function updateUnassignedBadge(){
   const btn=document.getElementById('btnUnassigned');
   if(!btn)return;
   const n=_getUnassignedRows().length;
-  btn.textContent='👤 Unassigned ('+n+')';
+  btn.innerHTML=(window.EDV_ICONS?window.EDV_ICONS.html('user'):'')+' Unassigned ('+n+')';
   if(n>0){btn.classList.remove('none');}else{btn.classList.add('none');}
 }
 // Generalized drill-in modal opener. Used by:

@@ -24,7 +24,7 @@
   .sa-hero { background: var(--color-card, #fff); border: 1px solid var(--color-border, #E2E5EA); border-radius: 14px;
     box-shadow: 0 1px 2px rgba(58,74,96,.04); padding: 22px 26px; margin-bottom: 18px; position: relative; overflow: hidden; }
   .sa-hero::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 6px; background: linear-gradient(180deg, #EF631A, #D90038); }
-  .sa-eyebrow { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.4px; color: var(--edv-orange, #EF631A); margin-bottom: 8px; }
+  .sa-eyebrow { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.4px; color: var(--color-primary-fill, #C2410C); margin-bottom: 8px; }
   .sa-hero h1 { margin: 0 0 6px; font-size: 24px; font-weight: 800; color: var(--edv-slate, #3A4A60); }
   .sa-hero p  { margin: 0; font-size: 13px; color: var(--color-text, #524F4E); max-width: 78ch; line-height: 1.55; }
 
@@ -103,6 +103,12 @@
     .sa-head { background: rgba(255,255,255,.03); }
     .sa-row { border-bottom-color: rgba(255,255,255,.06); }
   }
+
+  /* VISUAL POLISH 2026-11 — UX committee (visual F3/F4/F8): no gradient strip, no decorative KPI colour; the hero stacks on a phone. */
+  .sa-hero::before { display: none; }
+  .sa-hero { border-radius: var(--radius-lg); box-shadow: var(--shadow-card); border-color: var(--color-border); }
+  .sa-hero h1 { font-weight: 700; color: var(--color-heading); letter-spacing: var(--tracking-tight); }
+  @media (max-width: 760px) { .sa-hero { grid-template-columns: minmax(0, 1fr); } .sa-hero__actions { justify-content: flex-start; } }
 </style>
 </head>
 <body>
@@ -114,9 +120,7 @@
   <div class="sa-hero">
     <div class="sa-eyebrow">Insights · Actions</div>
     <h1>Site Actions Register</h1>
-    <p>Every still-open action — and every still-open <strong>problem</strong> raised in a meeting — for one site, gathered from where they live — <strong>Meetings</strong>,
-      <strong>Business Incubation</strong> sessions, <strong>Inspections</strong> and the weekly <strong>Report follow-ups</strong> — so you can see it all in one
-      place and close it (or jump to where it is closed). Report follow-ups show the latest weekly report.</p>
+    <p>Every open action and problem of one site — from meetings, business incubation sessions, inspections and the latest weekly report — in one place, to close here or where it lives.</p>
     <!-- A-21 — pages the lean menu leaves out; shown only when report_config ui_nav_profile='lean' -->
     <p class="shell-lean-only">Also: <a href="handoffs.html">Handoffs</a> · <a href="notifications.html">Notifications</a> · <a href="obligations.html">Site obligations</a></p>
   </div>

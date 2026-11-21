@@ -3348,13 +3348,13 @@ function renderInfra() {
 
 function defaultInfraRows() {
   return [
-    { service:'WAN1',   kpi:'Uptime',       target:'98%',  status_value:'', status_color:'green', trend:'stable' },
-    { service:'WAN2',   kpi:'Uptime',       target:'98%',  status_value:'', status_color:'green', trend:'stable' },
-    { service:'LAN',    kpi:'Uptime',       target:'99%',  status_value:'', status_color:'green', trend:'stable' },
-    { service:'WLAN',   kpi:'Uptime',       target:'99%',  status_value:'', status_color:'green', trend:'stable' },
-    { service:'Servers',kpi:'Availability', target:'99%',  status_value:'', status_color:'green', trend:'stable' },
-    { service:'Backup', kpi:'Success Rate', target:'100%', status_value:'', status_color:'green', trend:'stable' },
-    { service:'Radio',  kpi:'Uptime',       target:'98%',  status_value:'', status_color:'green', trend:'stable' },
+    { service:'WAN1',   kpi:'Uptime',       target:'98%',  status_value:'', status_color:'none', trend:'stable' },
+    { service:'WAN2',   kpi:'Uptime',       target:'98%',  status_value:'', status_color:'none', trend:'stable' },
+    { service:'LAN',    kpi:'Uptime',       target:'99%',  status_value:'', status_color:'none', trend:'stable' },
+    { service:'WLAN',   kpi:'Uptime',       target:'99%',  status_value:'', status_color:'none', trend:'stable' },
+    { service:'Servers',kpi:'Availability', target:'99%',  status_value:'', status_color:'none', trend:'stable' },
+    { service:'Backup', kpi:'Success Rate', target:'100%', status_value:'', status_color:'none', trend:'stable' },
+    { service:'Radio',  kpi:'Uptime',       target:'98%',  status_value:'', status_color:'none', trend:'stable' },
   ];
 }
 
@@ -3367,7 +3367,7 @@ function resetInfraDefaults() {
 }
 
 function addInfraRow(k, prevValue) {
-  k = k || { service:'', kpi:'', target:'', status_value:'', status_color:'green', trend:'stable' };
+  k = k || { service:'', kpi:'', target:'', status_value:'', status_color:'none', trend:'stable' };
   const tbody = document.getElementById('infra-body');
   const tr = document.createElement('tr');
   // prevValue: numeric string from previous week's same row (used for auto-trend)
@@ -3383,7 +3383,7 @@ function addInfraRow(k, prevValue) {
         <option value="green"  ${k.status_color==='green' ?'selected':''}>🟢 Green</option>
         <option value="orange" ${k.status_color==='orange'?'selected':''}>🟡 Amber</option>
         <option value="red"    ${k.status_color==='red'   ?'selected':''}>🔴 Red</option>
-        <option value="none"   ${k.status_color==='none'  ?'selected':''}>— N/A</option>
+        <option value="none"   ${k.status_color==='none'  ?'selected':''}>— Not measured</option>
       </select>
     </td>
     <td>
@@ -3421,6 +3421,9 @@ function autoInfraStatusTrend(input) {
   const tgt = parseFloat(rawTgt);
 
   // ── Auto-Status ──────────────────────────────────────────────
+  // UX committee (site coordinator P1-1): no value typed = no verdict. An empty cell reads "— Not measured",
+  // never green; the colour appears only once a value exists.
+  if (!rawVal && statusSelect) { statusSelect.value = 'none'; updateStatusDot(statusSelect); }
   if (!isNaN(val) && !isNaN(tgt) && tgt > 0 && statusSelect) {
     if (val >= tgt)          statusSelect.value = 'green';
     else if (val >= tgt * 0.90) statusSelect.value = 'orange';

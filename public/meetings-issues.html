@@ -39,7 +39,7 @@
   }
   .mi-eyebrow {
     font-size: 11px; font-weight: 700; text-transform: uppercase;
-    letter-spacing: 1.4px; color: var(--edv-orange, #EF631A); margin-bottom: 8px;
+    letter-spacing: 1.4px; color: var(--color-primary-fill, #C2410C); margin-bottom: 8px;
   }
   .mi-hero h1 { margin: 0 0 6px; font-size: 24px; font-weight: 800; color: var(--edv-slate, #3A4A60); }
   .mi-hero p  { margin: 0; font-size: 13px; color: var(--color-text, #524F4E); max-width: 70ch; line-height: 1.55; }
@@ -211,6 +211,14 @@ border-color: var(--edv-orange, #EF631A);
     background: rgba(232,119,34,0.14);
     color: var(--edv-orange, #E87722);
   }
+
+  /* VISUAL POLISH 2026-11 — UX committee (visual F3/F4/F8): no gradient strip, no decorative KPI colour; the hero stacks on a phone. */
+  .mi-hero::before { display: none; }
+  .mi-hero { border-radius: var(--radius-lg); box-shadow: var(--shadow-card); border-color: var(--color-border); }
+  .mi-hero h1 { font-weight: 700; color: var(--color-heading); letter-spacing: var(--tracking-tight); }
+  @media (max-width: 760px) { .mi-hero { grid-template-columns: minmax(0, 1fr); } .mi-hero__actions { justify-content: flex-start; } }
+  .mi-kpi::before { display: none; }
+  .mi-kpi { border-radius: var(--radius-lg); box-shadow: var(--shadow-card); }
 </style>
 </head>
 <body>

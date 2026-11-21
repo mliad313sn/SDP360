@@ -9,6 +9,8 @@
     'Insights · Actions': 'Analyses · Actions',
     'Site Actions Register': 'Registre des actions du site',
     'Also:': 'Aussi :', 'Handoffs': 'Demandes inter-services', 'Notifications': 'Notifications', 'Site obligations': 'Obligations du site',
+    'Every open action and problem of one site — from meetings, business incubation sessions, inspections and the latest weekly report — in one place, to close here or where it lives.':
+      'Toutes les actions et tous les problèmes encore ouverts d’un site — réunions, sessions d’incubation métier, inspections et dernier rapport hebdomadaire — au même endroit, à clôturer ici ou à leur source.',
     'Every still-open action — and every still-open': 'Toutes les actions encore ouvertes — et tous les',
     'problem': 'problèmes',
     'raised in a meeting — for one site, gathered from where they live —': 'encore ouverts soulevés en réunion — pour un site, rassemblés depuis leur source —',

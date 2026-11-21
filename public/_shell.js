@@ -587,7 +587,7 @@
         : visKids.map(link).join('');
 
       return `<div class="shell-nav-item${activeC}"${titleA}>
-        <a href="${escapeHtml(href)}"${target} style="display:contents;color:inherit;text-decoration:none">
+        <a href="${escapeHtml(href)}"${target} aria-label="${escapeHtml(item.label)}" style="display:contents;color:inherit;text-decoration:none">
           <span class="shell-nav-icon">${item.icon || ''}</span>
           <span class="shell-nav-label">${escapeHtml(item.label)}</span>
         </a><span class="shell-nav-caret" role="button" tabindex="0" aria-expanded="false" aria-label="Toggle ${escapeHtml(item.label)} menu" title="Click to pin menu open">▾</span>

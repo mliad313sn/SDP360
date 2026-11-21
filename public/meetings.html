@@ -48,7 +48,7 @@
   .md-eyebrow {
     font-size: 11px; font-weight: 700;
     text-transform: uppercase; letter-spacing: 1.4px;
-    color: var(--edv-orange, #EF631A); margin-bottom: 8px;
+    color: var(--color-primary-fill, #C2410C); margin-bottom: 8px;
   }
   .md-hero h1 {
     margin: 0 0 6px;
@@ -347,6 +347,14 @@
     font-weight: 600; color: #111827;
     padding: 0 4px;
   }
+
+  /* VISUAL POLISH 2026-11 — UX committee (visual F3/F4/F8): no gradient strip, no decorative KPI colour; the hero stacks on a phone. */
+  .md-hero::before { display: none; }
+  .md-hero { border-radius: var(--radius-lg); box-shadow: var(--shadow-card); border-color: var(--color-border); }
+  .md-hero h1 { font-weight: 700; color: var(--color-heading); letter-spacing: var(--tracking-tight); }
+  @media (max-width: 760px) { .md-hero { grid-template-columns: minmax(0, 1fr); } .md-hero__actions { justify-content: flex-start; } }
+  .md-kpi::before { display: none; }
+  .md-kpi { border-radius: var(--radius-lg); box-shadow: var(--shadow-card); }
 </style>
 </head>
 <body>
@@ -366,17 +374,14 @@
       <div class="md-eyebrow">Insights · Department Meetings &amp; Council Escalations</div>
       <h1>Meetings &amp; Decisions</h1>
       <p class="lede">
-        Single source of truth for the four-level engagement: <strong>Department Meetings</strong>
-        (monthly per site IT), <strong>IT Survey</strong> concerns, and <strong>Mine IT Council</strong>
-        decisions. Issues captured here flow through to the Council view when they cross any of the six
-        escalation criteria. The 5 Engagements monitor tracks site IT discipline.
+        One place for department meetings, IT survey concerns and Mine IT Council decisions; issues that meet an escalation criterion flow to the Council view.
       </p>
     </div>
     <div class="md-hero__actions">
-      <a class="btn-primary" href="meeting.html" id="mdNewBtn">+ New meeting</a>
-      <a class="btn-ghost" href="meetings-import.html" id="mdImportBtn">↑ Bulk import</a>
-      <button class="btn-ghost" type="button" id="mdExportBtn" style="display:none" title="Download all meetings data (Meetings · Issues · Actions · Projects) as Excel">⬇ Export Excel</button>
-      <button class="btn-ghost" type="button" id="mdRefreshBtn">↻ Refresh</button>
+      <a class="btn-primary" href="meeting.html" id="mdNewBtn"><i class="icon icon-plus"></i>New meeting</a>
+      <a class="btn-ghost" href="meetings-import.html" id="mdImportBtn"><i class="icon icon-upload"></i>Bulk import</a>
+      <button class="btn-ghost" type="button" id="mdExportBtn" style="display:none" title="Download all meetings data (Meetings · Issues · Actions · Projects) as Excel"><i class="icon icon-download"></i>Export Excel</button>
+      <button class="btn-ghost" type="button" id="mdRefreshBtn"><i class="icon icon-refresh-cw"></i>Refresh</button>
     </div>
   </section>
 
@@ -389,28 +394,28 @@
   <!-- Quick-jump strip — four companion views -->
   <section class="md-jumps">
     <a class="md-jump" href="meetings-progress.html">
-      <div class="md-jump__icon">⟳</div>
+      <div class="md-jump__icon"><i class="icon icon-refresh-cw"></i></div>
       <div>
         <div class="md-jump__title">Since last meeting</div>
         <div class="md-jump__sub">Pre-brief for the IT coordinator — what changed, what's new, what closed</div>
       </div>
     </a>
     <a class="md-jump" href="meetings-issues.html">
-      <div class="md-jump__icon">📋</div>
+      <div class="md-jump__icon"><i class="icon icon-clipboard-list"></i></div>
       <div>
         <div class="md-jump__title">Issues Log</div>
         <div class="md-jump__sub">Every issue across all meetings, with all filters</div>
       </div>
     </a>
     <a class="md-jump" href="meetings-council.html">
-      <div class="md-jump__icon">⚖</div>
+      <div class="md-jump__icon"><i class="icon icon-shield"></i></div>
       <div>
         <div class="md-jump__title">Council Escalations</div>
         <div class="md-jump__sub">Issues marked escalate=Y, grouped by Council theme</div>
       </div>
     </a>
     <a class="md-jump" href="meetings-compliance.html">
-      <div class="md-jump__icon">✅</div>
+      <div class="md-jump__icon"><i class="icon icon-check"></i></div>
       <div>
         <div class="md-jump__title">5 Engagements monitor</div>
         <div class="md-jump__sub">Site IT discipline scoreboard for the current month</div>
