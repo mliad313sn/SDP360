@@ -27,7 +27,7 @@
   select, input[type=month], input[type=week], .btn { padding:7px 12px; border:1px solid #cfd6e0; border-radius:8px; background:#fff; font-size:13px; color:#1F2A33; }
   .btn { cursor:pointer; } .btn.primary { background:var(--edv-slate,#3A4A60); color:#fff; border-color:var(--edv-slate,#3A4A60); }
   label.ctl { font-size:12px; color:#6b7785; display:flex; flex-direction:column; gap:3px; }
-  .list { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:14px; }
+  .list { display:grid; grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr)); gap:14px; }
   .card { background:#fff; border:1px solid #e4e8ee; border-radius:12px; padding:14px 16px; display:block; color:inherit; text-decoration:none; }
   .card:hover, .card:focus { border-color:#3A4A60;}
   .card h3 { margin:0 0 6px; font-size:15px; color:#3A4A60; } .card .meta { font-size:12px; color:#6b7785; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
@@ -128,7 +128,7 @@
     api('/api/dashboards/' + encodeURIComponent(key)).then(function (j) {
       meta = j.dashboard; def = j.published || j.dashboard.definition;
       $('title').textContent = meta.title;
-      $('subtitle').textContent = (meta.audience + ' dashboard' + (meta.version ? ' · version ' + meta.version : ' · draft, not published')) + ' — figures from the KPI dictionary (help §20).';
+      $('subtitle').textContent = (meta.audience + ' dashboard' + (meta.version ? ' · version ' + meta.version : ' · draft, not published')) + ' — figures from the KPI dictionary.';
       $('edit').hidden = !j.publisher;
       $('edit').addEventListener('click', function () { location.href = 'dashboard-composer.html?key=' + encodeURIComponent(key); });
       document.title = meta.title + ' — Endeavour Mining IT';

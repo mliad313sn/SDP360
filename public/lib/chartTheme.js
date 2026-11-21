@@ -235,7 +235,7 @@
   }
 
   var TABLE_CSS =
-    '.edv-chart-table{margin-top:8px;font-size:12px}' +
+    '.edv-chart-table{margin-top:8px;font-size:12px;max-width:100%;overflow-x:auto}' +
     '.edv-chart-table summary{cursor:pointer;font-weight:600}' +
     '.edv-chart-table table{width:100%;border-collapse:collapse;margin-top:6px}' +
     '.edv-chart-table caption{text-align:left;padding-bottom:4px}' +

@@ -6,7 +6,7 @@
 (function (root) {
   'use strict';
   const STATIC = {
-    'Trackers': 'Trackers', 'Generic activity trackers — every score comes from the engine (help §24).': 'Trackers d’activité génériques — chaque score vient du moteur (aide §24).',
+    'Trackers': 'Trackers', 'Generic activity trackers — every score comes from the engine.': 'Trackers d’activité génériques — chaque score vient du moteur.',
     'Unit': 'Unité', 'Period reached': 'Période atteinte', 'Save entries': 'Enregistrer les saisies', 'Import xlsx': 'Importer un xlsx',
     'Excel': 'Excel', 'PPTX': 'PPTX', 'Open in builder': 'Ouvrir dans le constructeur', 'All trackers': 'Tous les trackers',
     'Scores': 'Scores', 'Entries —': 'Saisies —',

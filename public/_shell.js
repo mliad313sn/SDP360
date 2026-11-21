@@ -654,7 +654,11 @@
   // ia-value F6 — the "?" opens the chapter of the page you are on (anchors kept by the help manual).
   const HELP_ANCHORS = { home: 'home', 'site-reports': 'reports', 'site-actions': 'site-actions', inspections: 'inspections', meetings: 'meetings',
     portfolio: 'portfolio', project: 'project', 'admin-settings': 'admin', 'admin-home': 'admin', 'system-logs': 'admin', 'policy-center': 'policy-center',
-    field: 'field', 'exec-home': 'executive', 'it-review': 'executive', scorecard: 'executive' };
+    field: 'field', 'exec-home': 'executive', 'it-review': 'executive', scorecard: 'executive',
+    // VISUAL POLISH 2 — the pages that used to say "(help §NN)" in their subtitle: the "?" opens that chapter instead
+    rfi: 'portfolio-rfi', trackers: 'tracker', tracker: 'tracker', dashboards: 'dashboards', cockpit: 'cockpit', 'report-studio': 'report-studio',
+    integrations: 'admin', dashboard: 'helpdesk', wan: 'wan', assets: 'assets', handoffs: 'handoffs', policies: 'policies', commitments: 'commitments',
+    'kpi-dictionary': 'kpi', 'kpi-builder': 'kpi', notifications: 'navigation', access: 'my-access' };
   let _helpCtx = '';
   function helpHref() {
     let id = _helpCtx;

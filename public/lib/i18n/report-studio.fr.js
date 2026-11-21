@@ -5,8 +5,8 @@
   'use strict';
   const STATIC = {
     'Report studio': 'Studio de rapports',
-    "Templates per audience built on a published dashboard → generated packs (figures = the dashboard's, zero manual entry) → deterministic analysis + AI commentary verified against the canonical figures → human review → publication. Outputs HTML · PDF · CSV · XLSX · PPTX (help §26).":
-      'Modèles par public construits sur un tableau de bord publié → dossiers générés (chiffres = ceux du tableau de bord, aucune saisie manuelle) → analyse déterministe + commentaire IA vérifié contre les chiffres de référence → relecture humaine → publication. Sorties HTML · PDF · CSV · XLSX · PPTX (aide §26).',
+    "Templates per audience built on a published dashboard → generated packs (figures = the dashboard's, zero manual entry) → deterministic analysis + AI commentary verified against the canonical figures → human review → publication. Outputs HTML · PDF · CSV · XLSX · PPTX.":
+      'Modèles par public construits sur un tableau de bord publié → dossiers générés (chiffres = ceux du tableau de bord, aucune saisie manuelle) → analyse déterministe + commentaire IA vérifié contre les chiffres de référence → relecture humaine → publication. Sorties HTML · PDF · CSV · XLSX · PPTX.',
     'Templates': 'Modèles', 'New / edit template': 'Nouveau / modifier un modèle', 'Key': 'Clé', 'Audience': 'Public', 'Dashboard': 'Tableau de bord',
     'Language': 'Langue', 'English': 'Anglais', 'Français': 'Français', 'Cadence': 'Fréquence', 'AI commentary': 'Commentaire IA',
     'on (when a provider is configured)': 'activé (si un fournisseur est configuré)', 'off — deterministic only': 'désactivé — déterministe uniquement',

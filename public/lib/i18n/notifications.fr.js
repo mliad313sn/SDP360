@@ -5,8 +5,8 @@
   'use strict';
   const STATIC = {
     'Notifications': 'Notifications',
-    'Alerts, report packs and governance events addressed to you. Comment from here; subscribe to templates, dashboards or alert rules; choose a daily or weekly digest (help §26).':
-      'Alertes, dossiers de rapports et événements de gouvernance qui vous sont adressés. Commentez ici ; abonnez-vous à des modèles, tableaux de bord ou règles d’alerte ; choisissez un récapitulatif quotidien ou hebdomadaire (aide §26).',
+    'Alerts, report packs and governance events addressed to you. Comment from here; subscribe to templates, dashboards or alert rules; choose a daily or weekly digest.':
+      'Alertes, dossiers de rapports et événements de gouvernance qui vous sont adressés. Commentez ici ; abonnez-vous à des modèles, tableaux de bord ou règles d’alerte ; choisissez un récapitulatif quotidien ou hebdomadaire.',
     '0 unread': '0 non lue', 'Mark all read': 'Tout marquer comme lu', 'Show': 'Afficher', 'unread': 'non lues', 'all': 'toutes',
     'My subscriptions': 'Mes abonnements', 'Kind': 'Type', 'Target key': 'Clé de la cible', 'Channel': 'Canal', 'Digest': 'Récapitulatif',
     'Subscribe': 'S’abonner', 'Alert rules': 'Règles d’alerte',

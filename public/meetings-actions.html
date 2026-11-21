@@ -209,6 +209,32 @@ border-color: var(--edv-orange, #EF631A);
   @media (max-width: 760px) { .mi-hero { grid-template-columns: minmax(0, 1fr); } .mi-hero__actions { justify-content: flex-start; } }
   .mi-kpi::before { display: none; }
   .mi-kpi { border-radius: var(--radius-lg); box-shadow: var(--shadow-card); }
+  /* VISUAL POLISH 2 (field seat F3) — below 720 px each action is a CARD (the 8-column grid printed columns on top of
+     each other on a phone) and the list comes before the charts: closing an action is the job on a phone. */
+  @media (max-width: 720px) {
+    .mi-wrap { display: flex; flex-direction: column; }
+    .mi-wrap > .mi-charts { order: 9; }
+    .mi-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .mi-charts { grid-template-columns: minmax(0, 1fr); }
+    .mi-chart-card--4, .mi-chart-card--6, .mi-chart-card--8 { grid-column: auto; }
+    .mi-filters > * { flex: 1 1 100%; min-height: 44px; }
+    .mi-table-head { display: none; }
+    .mi-row { grid-template-columns: auto auto minmax(0, 1fr) auto; gap: 6px 10px; padding: 14px; font-size: 13px; align-items: center;
+      grid-template-areas: "site ord . due" "title title title title" "ref ref owner owner" "status status status open"; }
+    .mi-row > * { min-width: 0; }
+    .mi-row > :nth-child(1) { grid-area: site; }
+    .mi-row > :nth-child(2) { grid-area: ref; }
+    .mi-row > :nth-child(3) { grid-area: ord; }
+    .mi-row > :nth-child(4) { grid-area: title; }
+    .mi-row > :nth-child(5) { grid-area: owner; }
+    .mi-row > :nth-child(6) { grid-area: due; }
+    .mi-row > :nth-child(7) { grid-area: status; }
+    .mi-row > :nth-child(8) { grid-area: open; }
+    .mi-row > :nth-child(5), .mi-row > :nth-child(6) { text-align: right; }
+    .mi-row__title strong { font-size: 15px; }
+    .mi-row .mi-status-sel { width: 100%; min-height: 44px; font-size: 14px; }
+    .mi-row__open { min-height: 44px; display: inline-flex; align-items: center; font-size: 13px; }
+  }
 </style>
 </head>
 <body>

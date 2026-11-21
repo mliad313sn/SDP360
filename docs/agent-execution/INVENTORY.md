@@ -20,7 +20,7 @@
 | jobs | 33 |
 | jobs without test reference | 0 |
 | migrations | 119 |
-| test files | 953 |
+| test files | 954 |
 
 ## Pages
 
@@ -47,10 +47,10 @@
 | PG-handoffs | public/handoffs.html | any | yes | 1 | 10 |
 | PG-help | public/help.html | any | yes | 0 | 13 |
 | PG-home | public/home.html | any | yes | 0 | 20 |
-| PG-index | public/index.html | any | yes | 1 | 44 |
+| PG-index | public/index.html | any | yes | 1 | 45 |
 | PG-infra-health | public/infra-health.html | any | yes | 2 | 7 |
-| PG-inspection-actions | public/inspection-actions.html | any | no | 1 | 7 |
-| PG-inspection | public/inspection.html | any | no | 2 | 12 |
+| PG-inspection-actions | public/inspection-actions.html | any | no | 1 | 8 |
+| PG-inspection | public/inspection.html | any | no | 2 | 13 |
 | PG-inspections | public/inspections.html | any | yes | 1 | 11 |
 | PG-integrations | public/integrations.html | admin | yes | 1 | 5 |
 | PG-it-review | public/it-review.html | executive / scorecard-viewer | yes | 2 | 8 |
@@ -59,7 +59,7 @@
 | PG-kpi-builder | public/kpi-builder.html | any | yes | 0 | 5 |
 | PG-login | public/login.html | public | no | 1 | 14 |
 | PG-meeting | public/meeting.html | any | no | 1 | 14 |
-| PG-meetings-actions | public/meetings-actions.html | any | no | 2 | 10 |
+| PG-meetings-actions | public/meetings-actions.html | any | no | 2 | 11 |
 | PG-meetings-compliance | public/meetings-compliance.html | any | no | 2 | 4 |
 | PG-meetings-council | public/meetings-council.html | any | no | 2 | 3 |
 | PG-meetings-import | public/meetings-import.html | editor | no | 2 | 4 |

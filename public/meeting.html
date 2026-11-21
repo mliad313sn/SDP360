@@ -449,8 +449,8 @@
     <span class="pv-status-pill" id="pvStatusPill" style="display:none">draft</span>
     <div class="pv-actions">
       <a class="btn-ghost" id="pvProgressLink" href="meetings-progress.html" style="display:none">⟳ Since last meeting</a>
-      <button class="btn-ghost"   type="button" id="pvExportBtn"      title="Print or save as PDF (Ctrl+P)">📤 PDF</button>
-      <button class="btn-ghost"   type="button" id="pvExportPptxBtn" title="Download server-generated PPTX deck" style="display:none">📤 PPTX</button>
+      <button class="btn-ghost"   type="button" id="pvExportBtn"      title="Print or save as PDF (Ctrl+P)"><i class="icon icon-upload" aria-hidden="true"></i> PDF</button>
+      <button class="btn-ghost"   type="button" id="pvExportPptxBtn" title="Download server-generated PPTX deck" style="display:none"><i class="icon icon-upload" aria-hidden="true"></i> PPTX</button>
       <button class="btn-ghost"   type="button" id="pvSubmitBtn">Submit</button>
       <button class="btn-ghost"   type="button" id="pvSignBtn">Mark signed</button>
       <button class="btn-primary" type="button" id="pvSaveBtn">Save</button>
@@ -1604,7 +1604,7 @@
       state.locked = (state.header.status === 'closed');
       if (state.locked) {
         document.getElementById('pvBanner').innerHTML =
-          '<div class="pv-locked">🔒 This meeting is <strong>closed</strong>. To edit it, set its status back with the status dropdown (editors of this site and administrators).</div>';
+          '<div class="pv-locked"><i class="icon icon-lock" aria-hidden="true"></i> This meeting is <strong>closed</strong>. To edit it, set its status back with the status dropdown (editors of this site and administrators).</div>';
       }
     } else {
       // New meeting → seed empty header from URL

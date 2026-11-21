@@ -69,7 +69,7 @@
     var head = '<tr><th scope="col">' + esc(L('Site')) + '</th><th scope="col" class="num">' + esc(L('Assets')) + '</th>' +
       MEASURES.map(function (m) { return '<th scope="col">' + esc(L(m.label)) + '</th>'; }).join('') + '</tr>';
     var body = rows.map(function (r) {
-      return '<tr><th scope="row">' + esc(r.label) + '</th><td class="num">' + esc(r.total.toLocaleString('en')) + '</td>' +
+      return '<tr><th scope="row">' + esc(r.label) + '</th><td class="num">' + esc(r.total.toLocaleString(typeof SDPLocale === 'function' ? SDPLocale() : undefined)) + '</td>' +
         r.measures.map(function (m) {
           var aria = m.pct == null ? L('{label}: not measured', { label: L(m.label) }) : L('{label}: {pct} present', { label: L(m.label), pct: fmtPct(m.pct) });
           var bar = m.pct == null ? '' :

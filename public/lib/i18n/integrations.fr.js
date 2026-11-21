@@ -5,8 +5,8 @@
   'use strict';
   const STATIC = {
     'Integrations & alert rules': 'Intégrations et règles d’alerte',
-    'Admin. Alert rules (metric, scope, condition, anti-noise, channels, recipients) · API consumers (per-key quota and log) · OData feed for Power BI · connectors (scheduled Excel, webhook, SharePoint list) · share links (help §26).':
-      'Administration. Règles d’alerte (indicateur, périmètre, condition, anti-bruit, canaux, destinataires) · consommateurs de l’API (quota et journal par clé) · flux OData pour Power BI · connecteurs (Excel planifié, webhook, liste SharePoint) · liens de partage (aide §26).',
+    'Admin. Alert rules (metric, scope, condition, anti-noise, channels, recipients) · API consumers (per-key quota and log) · OData feed for Power BI · connectors (scheduled Excel, webhook, SharePoint list) · share links.':
+      'Administration. Règles d’alerte (indicateur, périmètre, condition, anti-bruit, canaux, destinataires) · consommateurs de l’API (quota et journal par clé) · flux OData pour Power BI · connecteurs (Excel planifié, webhook, liste SharePoint) · liens de partage.',
     'Alert rules': 'Règles d’alerte', 'Dry run (nothing sent)': 'Simulation (rien n’est envoyé)', 'Evaluate now': 'Évaluer maintenant',
     'Target: ≥ 10 rules live, false positives < 5 % (mark them in the firings table).': 'Cible : ≥ 10 règles actives, faux positifs < 5 % (à signaler dans le tableau des déclenchements).',
     'New / edit rule': 'Nouvelle / modifier une règle', 'Key': 'Clé', 'Metric': 'Indicateur', 'Scope': 'Périmètre', 'Site id (optional)': 'Id du site (facultatif)',

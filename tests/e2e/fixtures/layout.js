@@ -14,7 +14,20 @@ function measure() {
   const hdr = sh ? [...sh.querySelectorAll('*')].find(visible) : null;
   // no shared shell (field PWA): the first visible block of the body that is not the skip link
   let c = sh ? sh.nextElementSibling : document.body.firstElementChild;
-  while (c && (/^(SCRIPT|STYLE|TEMPLATE|LINK|NOSCRIPT)$/.test(c.tagName) || !visible(c) || getComputedStyle(c).position === 'fixed' || (!sh && /(^|\s)edv-skip(\s|$)/.test(c.className || '')))) c = c.nextElementSibling;
+  // VISUAL POLISH 2026-11 — a legacy page body is wrapped in <main class="edv-main"> for the landmark; that wrapper is
+  // display:contents (no box of its own, so the page layout is untouched). The "first content block" is then its first
+  // visible child, exactly what a sighted user sees under the header: step INTO a display:contents element, never past it.
+  // a heading kept for assistive technology only (.edv-sr-only: 1 × 1 px, clipped) is not a content block a sighted user sees
+  const srOnly = (e) => { const r = e.getBoundingClientRect(); return r.width <= 1 && r.height <= 1; };
+  const skip = (e) => /^(SCRIPT|STYLE|TEMPLATE|LINK|NOSCRIPT)$/.test(e.tagName) || !visible(e) || srOnly(e) || getComputedStyle(e).position === 'fixed' || (!sh && /(^|\s)edv-skip(\s|$)/.test(e.className || ''));
+  const firstBlock = (e) => {
+    for (; e; e = e.nextElementSibling) {
+      if (getComputedStyle(e).display === 'contents') { const inner = firstBlock(e.firstElementChild); if (inner) return inner; continue; }
+      if (!skip(e)) return e;
+    }
+    return null;
+  };
+  c = firstBlock(c);
   const clipped = (e) => { for (let p = e.parentElement; p && p !== document.body; p = p.parentElement) { const ox = getComputedStyle(p).overflowX; if (ox === 'auto' || ox === 'scroll' || ox === 'hidden' || ox === 'clip') return true; } return false; };
   const escaping = [...document.querySelectorAll('body *')].filter((e) => visible(e) && getComputedStyle(e).position !== 'fixed' && e.getBoundingClientRect().right > vw + 1 && !clipped(e))
     .slice(0, 5).map((e) => e.tagName.toLowerCase() + (e.id ? '#' + e.id : '') + (typeof e.className === 'string' && e.className ? '.' + e.className.split(/\s+/)[0] : '') + '→' + Math.round(e.getBoundingClientRect().right));

@@ -17,12 +17,15 @@ runJourney('T7 switch to French and open the manual', async ({ app, world, brows
   assert.strictEqual(await page.getAttribute('html', 'lang'), 'fr', '<html lang> follows a translated body');
   assert.match(await page.textContent('.shell-lang-btn'), /EN/, 'the toggle now offers English');
 
-  const help = page.locator('a[href="help.html"]').first();
-  assert.match(await help.textContent(), /Aide/, 'shell link translated');
+  // VISUAL POLISH 2026-11 (ia-value F6): the shell "?" is the help entry — it opens the chapter of the page you are on
+  // (help.html#site-actions here), so the link is matched by its class, not by a bare href.
+  const help = page.locator('a.shell-help').first();
+  assert.match(await help.getAttribute('aria-label'), /Aide/, 'shell help link translated');
+  assert.match(await help.getAttribute('href'), /^help\.html#site-actions$/, 'contextual help: the chapter of this page');
   // the manual opens in a new tab (target=_blank)
   const [manual] = await Promise.all([ctx.waitForEvent('page'), help.click()]);
   await manual.waitForLoadState('load');
-  assert.match(manual.url(), /\/help\.html$/);
+  assert.match(manual.url(), /\/help\.html#site-actions$/);
   // 2026-11-21: one bilingual document (stable anchors) instead of two language sections — body.lang-fr shows French
   await manual.waitForSelector('body.lang-fr');
   assert.strictEqual(await manual.isVisible('#getting-started h2 [data-lng="en"]'), false, 'English text hidden');

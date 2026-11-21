@@ -19,9 +19,7 @@
   .wrap { max-width:1360px; margin:0 auto; padding:24px; }
   h1 { margin:0 0 4px; font-size:22px; color:var(--edv-slate); } .sub { font-size:13px; color:var(--gray-500); margin-bottom:14px; }
   .bar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:10px 0; }
-  .btn, select, input, textarea { padding:8px 12px; border:1px solid var(--gray-300); border-radius:var(--radius-md); background:var(--color-surface); font-size:13px; line-height:1.3; color:var(--gray-800); font-family:inherit; transition:border-color var(--motion-fast), box-shadow var(--motion-fast), background var(--motion-fast); }
-  select:focus, input:focus, textarea:focus { border-color:var(--focus-ring); box-shadow:var(--ring-soft); }
-  .btn { cursor:pointer; } .btn.primary { background:var(--edv-slate); color:#fff; border-color:var(--edv-slate); } .btn.danger { color:var(--rag-red); }
+  /* buttons and form controls: the shared house rules (brand/components.css, body.edv-house) */
   .panel { background:var(--color-surface); border:1px solid var(--gray-200); border-radius:var(--radius-lg); box-shadow:var(--shadow-card); padding:16px 18px; margin-bottom:16px; }
   .panel h2 { margin:0 0 10px; font-size:15px; color:var(--edv-slate); }
   .row { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; } label { font-size:12px; color:var(--gray-500); display:flex; flex-direction:column; gap:3px; }
@@ -33,12 +31,12 @@
   .scroll { overflow:auto; } .muted { color:var(--gray-500); font-size:12px; } .sr-only { position:absolute; left:-9999px; }
 </style>
 </head>
-<body>
+<body class="edv-house">
 <a class="edv-skip" href="#main">Skip to content</a>
 <div id="__shell" data-section="operations" data-current="trackers"></div>
 <main id="main" class="wrap">
   <h1>Tracker Builder</h1>
-  <div class="sub">Define period, units, groups, items, KPI types, weights and targets — no formula: the engine scores every tracker the same way (help §24).</div>
+  <div class="sub">Define period, units, groups, items, KPI types, weights and targets — no formula: the engine scores every tracker the same way.</div>
   <div class="bar">
     <label class="sr-only" for="pick">Tracker</label><select id="pick" aria-label="Tracker"></select>
     <button class="btn" id="new" type="button">New</button>

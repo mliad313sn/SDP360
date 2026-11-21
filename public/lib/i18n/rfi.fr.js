@@ -14,8 +14,8 @@
     'Create the project': 'Créer le projet',
     'The request problem becomes the first charter text; an accepted request moves to scheduled.': 'Le problème de la demande devient le premier texte de la charte ; une demande acceptée passe à planifiée.',
     'Requests for improvement (RFI)': 'Demandes d’amélioration (RFI)',
-    'Anyone may submit an idea (tracker, widget, metric, integration, UX, data quality). The committee triages and scores it: score = impact × 3 − effort − data risk (help §25).':
-      'Chacun peut proposer une idée (tracker, widget, indicateur, intégration, ergonomie, qualité des données). Le comité la trie et la note : score = impact × 3 − effort − risque données (aide §25).',
+    'Anyone may submit an idea (tracker, widget, metric, integration, UX, data quality). The committee triages and scores it: score = impact × 3 − effort − data risk.':
+      'Chacun peut proposer une idée (tracker, widget, indicateur, intégration, ergonomie, qualité des données). Le comité la trie et la note : score = impact × 3 − effort − risque données.',
     'Submit a request': 'Soumettre une demande', 'Kind': 'Nature', 'Problem (what hurts today)': 'Problème (ce qui gêne aujourd’hui)',
     'Proposal (optional)': 'Proposition (facultatif)', 'all': 'toutes', 'Register (sorted by score)': 'Registre (trié par score)',
   };

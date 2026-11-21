@@ -977,6 +977,34 @@ body.submission-locked .submit-row::before{
 @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
 
 /* ---------- Print ---------- */
+/* VISUAL POLISH 2 (field seat F13/F14/F15) — the form on a phone: the first field is reachable without scrolling past
+   tools, touch targets are 44 px, the 17 categories are one swipeable chip row that stays in view. */
+@media (max-width:720px){
+  .app-header .brand{display:none}
+  .app-header{padding:8px 12px}
+  .header-actions{width:100%;gap:6px;flex-wrap:nowrap}
+  .saved-bar{flex:1;min-width:0;display:flex;gap:6px;flex-wrap:nowrap}
+  .saved-bar #savedSelect{flex:1;min-width:0;min-height:44px}
+  .saved-bar .btn,.header-actions > .btn{min-height:44px;min-width:44px;padding:8px 10px}
+  .toolbar{position:sticky;top:0;z-index:5;display:flex;flex-direction:row;flex-wrap:wrap;align-items:center;gap:4px 10px;padding:6px 12px;margin-bottom:10px}
+  /* print options are a desktop affair: hidden on a phone (they stay in the DOM and on wider screens) */
+  .toolbar > label,.toolbar > span[style],.toolbar > .save-status ~ strong{display:none !important}
+  .toolbar .save-status{margin-left:0}
+  .toolbar .save-now-link{min-height:44px;padding:0 10px;font-size:14px}
+  .section-body input[type="text"],.section-body input[type="date"],.section-body input[type="time"],.section-body input[type="number"],.section-body select,.section-body textarea{min-height:48px;font-size:16px}
+  .filter-bar .chip,.cat-domains button{min-height:44px}
+  #searchBox{min-height:44px;font-size:16px}
+  .mic-btn,.input-with-mic .mic-btn-input{width:44px;height:44px}
+  .cat-tabs{display:flex;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity;position:sticky;top:52px;z-index:4;background:var(--color-surface);gap:4px;padding:4px 8px}
+  .cat-tabs .cat-tab{flex:0 0 auto;scroll-snap-align:start;white-space:nowrap;min-height:44px;border:1px solid var(--color-border);border-radius:999px;padding:8px 14px}
+  .cat-tabs .cat-tab.active{border-color:var(--color-primary-fill)}
+  .status-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+  .status-btn{min-height:48px}
+  .sig-controls button,.sig-controls .btn{min-height:44px}
+}
+@media (pointer:coarse){
+  input[type="checkbox"],input[type="radio"]{width:22px;height:22px}
+}
 @media print{
   body{background:#fff;font-size:11px}
   .app-header{position:static;padding:10px 0;background:#fff;color:#000;border-bottom:2px solid #000}
@@ -1008,6 +1036,8 @@ body.submission-locked .submit-row::before{
   body.print-compact .photo-thumb{width:70px;height:70px}
 }
 </style>
+<script nonce="%%CSP_NONCE%%" src="lib/format.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/codeLabels.js"></script>
 </head>
 <body>
 
@@ -1054,7 +1084,7 @@ body.submission-locked .submit-row::before{
   </div>
 
   <div class="install-banner" id="installBanner">
-    <div class="ico">📲</div>
+    <div class="ico"><i class="icon icon-download" aria-hidden="true"></i></div>
     <div class="txt" id="installText">
       <strong>Install IT Inspect on this phone</strong>
       <span id="installHint">Add to home screen to use as an app · Ajouter à l'écran d'accueil</span>
@@ -1184,7 +1214,7 @@ body.submission-locked .submit-row::before{
           <label for="f_loc">Specific Location <span class="fr">/ Localisation précise</span></label>
           <div class="input-with-mic">
             <input type="text" id="f_loc" placeholder="e.g. Building B-2, Rack R-04" />
-            <button class="mic-btn mic-btn-input" type="button" title="Tap to dictate / Appuyer pour dicter" onclick="toggleDictationField('f_loc', this)">🎤</button>
+            <button class="mic-btn mic-btn-input" type="button" title="Tap to dictate / Appuyer pour dicter" onclick="toggleDictationField('f_loc', this)"><i class="icon icon-mic" aria-hidden="true"></i></button>
           </div>
         </div>
       </div>
@@ -1241,7 +1271,7 @@ body.submission-locked .submit-row::before{
       <div class="field field-with-mic" style="margin-top:14px">
         <label for="f_scope">Scope &amp; Objectives <span class="fr">/ Périmètre &amp; objectifs</span></label>
         <textarea id="f_scope" placeholder="Briefly describe what is being inspected and why / Décrire brièvement le périmètre et les motifs"></textarea>
-        <button class="mic-btn" type="button" title="Tap to dictate / Appuyer pour dicter" onclick="toggleDictationField('f_scope',this)">🎤</button>
+        <button class="mic-btn" type="button" title="Tap to dictate / Appuyer pour dicter" onclick="toggleDictationField('f_scope',this)"><i class="icon icon-mic" aria-hidden="true"></i></button>
       </div>
     </div>
   </section>
@@ -1318,13 +1348,13 @@ body.submission-locked .submit-row::before{
       <div class="field field-with-mic" style="margin-top:14px">
         <label for="f_obs">Key Observations <span class="fr">/ Observations clés</span></label>
         <textarea id="f_obs" rows="4" placeholder="Top findings, themes, root causes / Constats principaux, thèmes, causes"></textarea>
-        <button class="mic-btn" type="button" title="Tap to dictate / Appuyer pour dicter" onclick="toggleDictationField('f_obs',this)">🎤</button>
+        <button class="mic-btn" type="button" title="Tap to dictate / Appuyer pour dicter" onclick="toggleDictationField('f_obs',this)"><i class="icon icon-mic" aria-hidden="true"></i></button>
       </div>
 
       <div class="field field-with-mic" style="margin-top:14px">
         <label for="f_pos">Positive Findings <span class="fr">/ Points positifs</span></label>
         <textarea id="f_pos" rows="2" placeholder="What is working well / Ce qui fonctionne bien"></textarea>
-        <button class="mic-btn" type="button" title="Tap to dictate / Appuyer pour dicter" onclick="toggleDictationField('f_pos',this)">🎤</button>
+        <button class="mic-btn" type="button" title="Tap to dictate / Appuyer pour dicter" onclick="toggleDictationField('f_pos',this)"><i class="icon icon-mic" aria-hidden="true"></i></button>
       </div>
     </div>
   </section>
@@ -1455,19 +1485,19 @@ body.submission-locked .submit-row::before{
     <h3>Share inspection report · Partager le rapport</h3>
     <div class="share-grid">
       <button class="share-opt whatsapp" onclick="shareWhatsApp()">
-        <div class="ico">💬</div>
+        <div class="ico"><i class="icon icon-message-square" aria-hidden="true"></i></div>
         <div class="lbl">WhatsApp<br>Summary</div>
       </button>
       <button class="share-opt summary" onclick="shareSummary()">
-        <div class="ico">📋</div>
+        <div class="ico"><i class="icon icon-clipboard-list" aria-hidden="true"></i></div>
         <div class="lbl">Share<br>Summary</div>
       </button>
       <button class="share-opt pdf" onclick="sharePDF()">
-        <div class="ico">📄</div>
+        <div class="ico"><i class="icon icon-file-text" aria-hidden="true"></i></div>
         <div class="lbl">PDF<br>Report</div>
       </button>
       <button class="share-opt json" onclick="shareJSON()">
-        <div class="ico">💾</div>
+        <div class="ico"><i class="icon icon-save" aria-hidden="true"></i></div>
         <div class="lbl">Backup<br>(JSON)</div>
       </button>
     </div>
@@ -2041,7 +2071,7 @@ function renderChecklist(){
               <label>Observation / Notes</label>
               <div class="notes-wrap">
                 <textarea data-key="${key}" data-field="notes" placeholder="What was observed? Specific defect, location, asset tag, measured value... / Constat précis, localisation, n° asset, valeur mesurée..."></textarea>
-                <button class="mic-btn" type="button" data-key="${key}" title="Tap to dictate / Appuyer pour dicter" onclick="toggleDictation('${key}',this)">🎤</button>
+                <button class="mic-btn" type="button" data-key="${key}" title="Tap to dictate / Appuyer pour dicter" onclick="toggleDictation('${key}',this)"><i class="icon icon-mic" aria-hidden="true"></i></button>
               </div>
               <div class="voice-hint" id="vhint_${key}"></div>
             </div>
@@ -2049,11 +2079,11 @@ function renderChecklist(){
               <label style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--ink-2);margin-bottom:6px">Photos</label>
               <div class="photo-btns">
                 <button type="button" class="photo-btn" onclick="openCamera('${key}')">
-                  <div class="icon">📷</div>
+                  <div class="icon"><i class="icon icon-camera" aria-hidden="true"></i></div>
                   <div class="text">Camera<br>Appareil</div>
                 </button>
                 <button type="button" class="photo-btn" onclick="openGallery('${key}')">
-                  <div class="icon">🖼</div>
+                  <div class="icon"><i class="icon icon-image" aria-hidden="true"></i></div>
                   <div class="text">Gallery<br>Galerie</div>
                 </button>
               </div>
@@ -2176,7 +2206,7 @@ function _showVoiceNetBanner(){
     banner.id = 'voiceNetBanner';
     banner.className = 'voice-net-banner';
     banner.innerHTML =
-      '<div class="vnb-icon">🎤</div>' +
+      '<div class="vnb-icon"><i class="icon icon-mic" aria-hidden="true"></i></div>' +
       '<div class="vnb-text">' +
         '<strong>Dictée vocale indisponible sur ce réseau.</strong>' +
         '<span>Voice dictation is blocked — your network doesn\'t allow access to the cloud speech service. Type notes by keyboard.</span>' +
@@ -2240,7 +2270,7 @@ function _stopDictation(manual){
   if (_rec){ try{ _rec.stop(); }catch(e){} _rec = null; }
   if (_recBtn){
     _recBtn.classList.remove('recording', 'active');
-    _recBtn.textContent = '🎤';
+    _recBtn.innerHTML = window.EDV_ICONS ? window.EDV_ICONS.html('mic') : '🎤';
   }
   if (_recKey){
     const vh = document.getElementById('vhint_'+_recKey);
@@ -2700,7 +2730,7 @@ function renderPhotos(key){
   wrap.innerHTML = photos.map((p, i) => {
     const n = _normPhoto(p);
     const cap = escapeHtml(n.caption || '');
-    const gpsHint = n.gps ? `<span class="photo-gps" title="${n.gps.lat.toFixed(5)}, ${n.gps.lng.toFixed(5)}">📍</span>` : '';
+    const gpsHint = n.gps ? `<span class="photo-gps" title="${n.gps.lat.toFixed(5)}, ${n.gps.lng.toFixed(5)}"><i class="icon icon-map-pin" aria-hidden="true"></i></span>` : '';
     return `
       <div class="photo-card">
         <div class="photo-thumb">
@@ -3092,7 +3122,7 @@ async function _runAutosave(){
   // fallback for when it is not installed. Never "Saved" unless the write resolved ok.
   if (!status || status.textContent !== 'Saving...') return;
   if (r && r.ok) {
-    status.textContent = `✓ Saved locally ${new Date().toLocaleTimeString()}`;
+    status.textContent = `✓ Saved locally ${new Date().toLocaleTimeString(SDPLocale())}`;
     status.classList.add('saved');
   } else {
     status.textContent = '⚠ NOT saved on this device — click Save now or Export (JSON)';
@@ -3583,7 +3613,7 @@ function buildSummary(){
   if (m.f_pos) out += `👍 *Positive Findings:*\n${m.f_pos}\n\n`;
 
   out += `━━━━━━━━━━━━━━━━━━\n`;
-  out += `_Generated ${new Date().toLocaleString()}_\n`;
+  out += `_Generated ${new Date().toLocaleString(SDPLocale())}_\n`;
   out += `_Endeavour Mining · IT Operations_`;
 
   return out;
@@ -4837,6 +4867,7 @@ document.addEventListener('DOMContentLoaded', init);
 <script nonce="%%CSP_NONCE%%" src="lib/i18nText.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/common.fr.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/inspection.fr.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/oneLanguage.js" data-auto></script>
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/boot.js" data-dict="I18N_FR_INSPECTION"></script>
 </main>
 </body>

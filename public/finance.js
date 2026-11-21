@@ -21,7 +21,7 @@
   const msg = (t, ok) => { const m = $('fnMsg'); m.textContent = t || ''; m.className = 'fn-msg ' + (ok ? 'fn-ok' : 'fn-err'); };
   const td = (tr, v, cls) => { const c = document.createElement('td'); c.textContent = v == null || v === '' ? '—' : String(v); if (cls) c.className = cls; tr.appendChild(c); return c; };
   const btn = (label, fn) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.addEventListener('click', fn); return b; };
-  const fmt = (v) => (v == null ? '—' : Number(v).toLocaleString('fr-FR', { maximumFractionDigits: 2 }));
+  const fmt = (v) => (v == null ? '—' : Number(v).toLocaleString(typeof SDPLocale === 'function' ? SDPLocale() : undefined, { maximumFractionDigits: 2 }));
   const month = () => new Date().toISOString().slice(0, 7);
   const day = () => new Date().toISOString().slice(0, 10);
 

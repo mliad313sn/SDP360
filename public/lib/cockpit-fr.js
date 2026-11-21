@@ -1,7 +1,7 @@
 /* French texts of the Meeting Cockpit (field review 2026-10-28, P0-2). Keys are the exact English UI texts. */
 window.COCKPIT_FR = {
   'Meeting Cockpit': 'Cockpit des réunions',
-  'Cadences → generated agenda → full-screen session with timestamps, decisions (DEC-) and actions → automatic minutes (help §25).': 'Cadences → ordre du jour généré → séance plein écran avec horodatage, décisions (DEC-) et actions → compte rendu automatique (aide §25).',
+  'Cadences → generated agenda → full-screen session with timestamps, decisions (DEC-) and actions → automatic minutes.': 'Cadences → ordre du jour généré → séance plein écran avec horodatage, décisions (DEC-) et actions → compte rendu automatique.',
   'Cadences': 'Cadences', 'Sessions': 'Séances', 'Open decisions': 'Décisions ouvertes', 'Sessions held (30 d)': 'Séances tenues (30 j)', 'Planned': 'Planifiées', 'Overdue decisions': 'Décisions en retard', 'RFIs to triage': 'Demandes à trier',
   'New / edit cadence': 'Créer / modifier une cadence', 'Key': 'Clé', 'Name': 'Nom', 'Kind': 'Type', 'Site': 'Site', 'fleet / group': 'groupe', 'Weekday': 'Jour', 'Time': 'Heure', 'Duration (min)': 'Durée (min)',
   'Monday': 'Lundi', 'Tuesday': 'Mardi', 'Wednesday': 'Mercredi', 'Thursday': 'Jeudi', 'Friday': 'Vendredi', 'Saturday': 'Samedi', 'Sunday': 'Dimanche',

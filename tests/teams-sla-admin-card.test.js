@@ -18,10 +18,10 @@ test('the panel exists with its fields', () => {
 test('wired on the four admin surfaces', () => {
   assert.match(src, /'teams-sla':'ap-teams-sla'/, '_ADMIN_PANEL_IDS');
   assert.match(src, /'asset-reminders','teams-sla'[^\]]*\]\.includes\(sub\)/, 'deep-link allowlist');
-  // one rail entry « Intégration API » groups the two tabs (Alertes SLA, Analytics)
+  // one rail entry « API integration » groups the two tabs (SLA alerts, Analytics)
   assert.match(src, /data-group="api" id="admin-rail-grp-api" style="display:none"/, 'rail group hidden by default');
   assert.match(src, /'admin-rail-grp-api'/, 'rail shown for super_admin');
-  assert.match(src, /api:\s*\{ label: 'Intégration API'[^}]*members: \['teams-sla', 'analytics-api'\]/, 'PANEL_GROUPS.api');
+  assert.match(src, /api:\s*\{ label: 'API integration'[^}]*members: \['teams-sla', 'analytics-api'\]/, 'PANEL_GROUPS.api');   // English label since visual polish 2
   assert.ok(!src.includes('id="admin-rail-teams-sla"'), 'no stand-alone rail item any more');
   assert.match(src, /name === 'teams-sla'\) && currentUser\?\.role !== 'super_admin'|name === 'teams-sla' \|\|/, 'super_admin guard');
   assert.match(src, /if \(name === 'teams-sla' && typeof loadTeamsSlaCard === 'function'\) loadTeamsSlaCard\(\);/);

@@ -8,7 +8,7 @@ const path = require('node:path');
 
 const KNOWN = require('./e2e/fixtures/reflow-known.json').known;
 const SPEC = fs.readFileSync(path.join(__dirname, 'e2e', 'v1-viewport-layout.spec.js'), 'utf8');
-const CEILING = 6;   // lower this when an entry is fixed; never raise it
+const CEILING = 0;   // lower this when an entry is fixed; never raise it
 
 test('the allow-list never grows', () => {
   assert.ok(Object.keys(KNOWN).length <= CEILING, `reflow-known.json has ${Object.keys(KNOWN).length} entries, ceiling ${CEILING}`);

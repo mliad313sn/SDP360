@@ -367,6 +367,8 @@ window.addEventListener('beforeprint', function () {
   if (g) g.open = true;
 });
 </script>
+<script nonce="%%CSP_NONCE%%" src="lib/format.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/codeLabels.js"></script>
 </head>
 <body>
 
@@ -477,7 +479,7 @@ window.addEventListener('beforeprint', function () {
         </table>
       </div>
       <div class="empty" id="inv-emptyMsg" style="display:none">
-        <div style="font-size:32px;margin-bottom:8px">🖥️</div>
+        <div style="font-size:32px;margin-bottom:8px"><i class="icon icon-hard-drive" aria-hidden="true"></i></div>
         <div id="inv-emptyText">No assets match these filters.</div>
         <div class="sub" style="margin-top:8px">If this is unexpected, an asset sync may not have run yet.</div>
       </div>
@@ -610,7 +612,7 @@ window.addEventListener('beforeprint', function () {
         </table>
       </div>
       <div class="empty" id="hyg-emptyMsg">
-        <div style="font-size:32px;margin-bottom:8px">🛡️</div>
+        <div style="font-size:32px;margin-bottom:8px"><i class="icon icon-shield" aria-hidden="true"></i></div>
         <div id="hyg-emptyText">Click a worklist tile to see the affected assets.</div>
       </div>
       <div class="count-note" id="hyg-countNote" style="display:none"></div>
@@ -755,7 +757,7 @@ window.addEventListener('beforeprint', function () {
         </table>
       </div>
       <div class="empty" id="fin-licEmpty">
-        <div style="font-size:32px;margin-bottom:8px">🔑</div>
+        <div style="font-size:32px;margin-bottom:8px"><i class="icon icon-key" aria-hidden="true"></i></div>
         <div id="fin-licEmptyText">Click an expiry tile to see the affected licences.</div>
       </div>
       <div class="count-note" id="fin-licCountNote" style="display:none"></div>
@@ -955,7 +957,7 @@ window.addEventListener('beforeprint', function () {
         </table>
       </div>
       <div class="empty" id="hw-emptyMsg">
-        <div style="font-size:32px;margin-bottom:8px">🖥️</div>
+        <div style="font-size:32px;margin-bottom:8px"><i class="icon icon-hard-drive" aria-hidden="true"></i></div>
         <div id="hw-emptyText">Click a health tile to see the affected machines.</div>
       </div>
       <div class="count-note" id="hw-countNote" style="display:none"></div>
@@ -985,7 +987,7 @@ window.addEventListener('beforeprint', function () {
 
     <!-- Empty / collecting-data state -->
     <div class="empty" id="prog-empty" style="display:none">
-      <div style="font-size:32px;margin-bottom:8px">📈</div>
+      <div style="font-size:32px;margin-bottom:8px"><i class="icon icon-trending-up" aria-hidden="true"></i></div>
       <div>Effort trends build up as nightly snapshots accumulate — check back after a few days.
         Admins can capture a baseline now.</div>
     </div>
@@ -1085,7 +1087,7 @@ window.addEventListener('beforeprint', function () {
 
     <!-- Empty / insufficient-data state -->
     <div class="empty" id="invf-empty" style="display:none">
-      <div style="font-size:32px;margin-bottom:8px">📊</div>
+      <div style="font-size:32px;margin-bottom:8px"><i class="icon icon-bar-chart-3" aria-hidden="true"></i></div>
       <div>Not enough dated/costed records to forecast yet — fill acquisition date + cost
         on the Inventory / Hygiene tabs, then come back.</div>
     </div>
@@ -1159,7 +1161,7 @@ window.addEventListener('beforeprint', function () {
 
     <!-- État initial : aucune source importée -->
     <div class="empty" id="rec-empty" style="display:none">
-      <div style="font-size:32px;margin-bottom:8px">🔍</div>
+      <div style="font-size:32px;margin-bottom:8px"><i class="icon icon-search" aria-hidden="true"></i></div>
       <div>Aucune source externe importée. Téléchargez le collecteur ci-dessous,
         exécutez-le, puis déposez le CSV obtenu.</div>
     </div>
@@ -1480,7 +1482,7 @@ window.addEventListener('beforeprint', function () {
     ov.querySelector('#asset-drill-title').textContent = opts.title || 'Details';
     ov.querySelector('#asset-drill-sub').textContent =
       (opts.subtitle ? opts.subtitle + '  ·  ' : '') +
-      rows.length.toLocaleString() + ' row' + (rows.length === 1 ? '' : 's');
+      rows.length.toLocaleString(SDPLocale()) + ' row' + (rows.length === 1 ? '' : 's');
 
     const thead = '<thead><tr>' +
       columns.map(c => '<th' + (c.num ? ' class="num"' : '') + '>' + esc(c.label) + '</th>').join('') +
@@ -1551,7 +1553,7 @@ window.addEventListener('beforeprint', function () {
   function usd(v) {
     var n = Number(String(v == null ? '' : v).replace(/[$,\s]/g, ''));
     if (v == null || v === '' || !Number.isFinite(n)) return '—';
-    return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return '$' + n.toLocaleString(SDPLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
   async function loadSummary() {
@@ -1559,7 +1561,7 @@ window.addEventListener('beforeprint', function () {
       const r = await fetch(API + '/summary', { credentials: 'same-origin', headers: authHeaders() });
       if (!r.ok) return;
       const s = await r.json();
-      document.getElementById('inv-bandTotal').textContent = (s.total != null ? s.total : 0).toLocaleString();
+      document.getElementById('inv-bandTotal').textContent = (s.total != null ? s.total : 0).toLocaleString(SDPLocale());
       const by = s.by_state || {};
       const chips = Object.keys(by).sort((a, b) => by[b] - by[a]).map(st => {
         const label = st === '' ? '(no state)' : st;
@@ -1610,7 +1612,7 @@ window.addEventListener('beforeprint', function () {
       </tr>`;
     }).join('');
     note.style.display = 'block';
-    note.textContent = rows.length.toLocaleString() + ' asset' + (rows.length === 1 ? '' : 's') + ' shown.';
+    note.textContent = rows.length.toLocaleString(SDPLocale()) + ' asset' + (rows.length === 1 ? '' : 's') + ' shown.';
   }
 
   async function refresh(f) {
@@ -1735,11 +1737,11 @@ window.addEventListener('beforeprint', function () {
     const bc = document.getElementById('hyg-bandCompleteness');
     bc.textContent = comp == null ? '—' : comp + '%';
     bc.className = 'n ' + pctClass(comp);
-    document.getElementById('hyg-bandTotal').textContent = total.toLocaleString();
+    document.getElementById('hyg-bandTotal').textContent = total.toLocaleString(SDPLocale());
 
     ['discovered','never_scanned','ghost','no_owner','no_age','no_cost','no_asset_tag','lifecycle_exception'].forEach(k => {
       const el = document.getElementById('hyg-cnt-' + k);
-      if (el) el.textContent = (bk[k] != null ? Number(bk[k]) : 0).toLocaleString();
+      if (el) el.textContent = (bk[k] != null ? Number(bk[k]) : 0).toLocaleString(SDPLocale());
     });
 
     renderCharts(s);
@@ -1791,7 +1793,7 @@ window.addEventListener('beforeprint', function () {
       if (!r.ok) return;
       const s = await r.json();
       document.getElementById('hyg-bandFresh').textContent =
-        (Number(s.total) || 0).toLocaleString() + ' assets in the register.';
+        (Number(s.total) || 0).toLocaleString(SDPLocale()) + ' assets in the register.';
     } catch (e) { /* offline — leave blank */ }
   }
 
@@ -1960,7 +1962,7 @@ window.addEventListener('beforeprint', function () {
         </tr>`;
       }).join('');
       note.style.display = 'block';
-      note.textContent = rows.length.toLocaleString() + ' asset' + (rows.length === 1 ? '' : 's') + ' in this worklist.';
+      note.textContent = rows.length.toLocaleString(SDPLocale()) + ' asset' + (rows.length === 1 ? '' : 's') + ' in this worklist.';
     } catch (e) {
       console.warn('hygiene drill load failed:', e);
       table.style.display = 'none';
@@ -2038,7 +2040,7 @@ window.addEventListener('beforeprint', function () {
   function usd(v) {
     var n = Number(String(v == null ? '' : v).replace(/[$,\s]/g, ''));
     if (v == null || v === '' || !Number.isFinite(n)) return '—';
-    return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return '$' + n.toLocaleString(SDPLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
   function pctDep(v) {
     if (v == null || !Number.isFinite(Number(v))) return '—';
@@ -2142,12 +2144,12 @@ window.addEventListener('beforeprint', function () {
     } catch (e) { outl = null; }
     const parts = [];
     if (Number(ex.no_currency) > 0) {
-      parts.push('<strong>' + Number(ex.no_currency).toLocaleString() + '</strong> asset(s) whose site has no currency set — amounts left out of the totals (unknown, not converted).');
+      parts.push('<strong>' + Number(ex.no_currency).toLocaleString(SDPLocale()) + '</strong> asset(s) whose site has no currency set — amounts left out of the totals (unknown, not converted).');
     }
     const n = outl && Number(outl.count) > 0 ? Number(outl.count) : 0;
     if (n > 0) {
       const how = Number(ex.outlier) > 0 ? 'left out of the totals' : 'still included in the totals';
-      parts.push('<strong>' + n.toLocaleString() + '</strong> cost outlier(s) (&gt; ' + escapeHtml(String(outl.factor)) +
+      parts.push('<strong>' + n.toLocaleString(SDPLocale()) + '</strong> cost outlier(s) (&gt; ' + escapeHtml(String(outl.factor)) +
         '× the median of the same product type and currency), ' + how + ' — ' +
         '<a href="/api/assets/finance/outliers/export.xlsx' + escapeHtml(qs(f)) + '">download the worklist</a>.');
     }
@@ -2202,7 +2204,7 @@ window.addEventListener('beforeprint', function () {
     document.getElementById('fin-finBook').textContent     = usd(depFleet.computed_book_value_usd != null ? depFleet.computed_book_value_usd : fleet.book_value_usd);
     document.getElementById('fin-finPurchase').textContent = usd(fleet.purchase_cost_usd);
     document.getElementById('fin-finTco').textContent      = usd(fleet.tco_usd);
-    document.getElementById('fin-finAssets').textContent   = (Number(fleet.asset_count) || 0).toLocaleString();
+    document.getElementById('fin-finAssets').textContent   = (Number(fleet.asset_count) || 0).toLocaleString(SDPLocale());
 
     const rows = (s.by_site || []).slice();
     const body = document.getElementById('fin-finBody');
@@ -2219,23 +2221,23 @@ window.addEventListener('beforeprint', function () {
         const d = depBySite[siteKey(x.site)] || {};
         return `<tr>
         <td><strong>${escapeHtml(x.site || '(no site)')}</strong></td>
-        <td class="num">${(Number(x.asset_count) || 0).toLocaleString()}</td>
+        <td class="num">${(Number(x.asset_count) || 0).toLocaleString(SDPLocale())}</td>
         <td class="num">${usd(x.purchase_cost_usd)}</td>
         <td class="num">${usd(d.computed_book_value_usd)}</td>
         <td class="num">${usd(x.book_value_usd)}</td>
         <td class="num">${pctDep(d.pct_depreciated != null ? d.pct_depreciated : x.pct_depreciated)}</td>
         <td class="num">${usd(x.tco_usd)}</td>
-        <td class="num">${(Number(x.refresh_due) || 0).toLocaleString()}</td>
+        <td class="num">${(Number(x.refresh_due) || 0).toLocaleString(SDPLocale())}</td>
       </tr>`; }).join('');
       foot.innerHTML = `<tr>
         <td>Fleet</td>
-        <td class="num">${(Number(fleet.asset_count) || 0).toLocaleString()}</td>
+        <td class="num">${(Number(fleet.asset_count) || 0).toLocaleString(SDPLocale())}</td>
         <td class="num">${usd(fleet.purchase_cost_usd)}</td>
         <td class="num">${usd(depFleet.computed_book_value_usd)}</td>
         <td class="num">${usd(fleet.book_value_usd)}</td>
         <td class="num">${pctDep(depFleet.pct_depreciated != null ? depFleet.pct_depreciated : fleet.pct_depreciated)}</td>
         <td class="num">${usd(fleet.tco_usd)}</td>
-        <td class="num">${(Number(fleet.refresh_due) || 0).toLocaleString()}</td>
+        <td class="num">${(Number(fleet.refresh_due) || 0).toLocaleString(SDPLocale())}</td>
       </tr>`;
     }
 
@@ -2264,7 +2266,7 @@ window.addEventListener('beforeprint', function () {
             legend: { display: false },
             tooltip: { callbacks: { label: c => usd(c.parsed.y) } },
           },
-          scales: { y: { beginAtZero: true, ticks: { callback: v => '$' + Number(v).toLocaleString('en-US') } } },
+          scales: { y: { beginAtZero: true, ticks: { callback: v => '$' + Number(v).toLocaleString(SDPLocale()) } } },
         },
       });
     }
@@ -2299,7 +2301,7 @@ window.addEventListener('beforeprint', function () {
           legend: { display: false },
           tooltip: { callbacks: { label: c => usd(c.parsed.y) } },
         },
-        scales: { y: { beginAtZero: true, ticks: { callback: v => '$' + Number(v).toLocaleString('en-US') } } },
+        scales: { y: { beginAtZero: true, ticks: { callback: v => '$' + Number(v).toLocaleString(SDPLocale()) } } },
       },
     });
   }
@@ -2315,10 +2317,10 @@ window.addEventListener('beforeprint', function () {
 
     const fam = s.by_family || {};
     const exp = s.expiry || {};
-    document.getElementById('fin-cnt-expired').textContent     = (Number(exp.expired) || 0).toLocaleString();
-    document.getElementById('fin-cnt-expiring_90').textContent = (Number(exp.expiring_90) || 0).toLocaleString();
-    document.getElementById('fin-cnt-ok').textContent          = (Number(exp.ok) || 0).toLocaleString();
-    document.getElementById('fin-cnt-no_expiry').textContent   = (Number(exp.no_expiry) || 0).toLocaleString();
+    document.getElementById('fin-cnt-expired').textContent     = (Number(exp.expired) || 0).toLocaleString(SDPLocale());
+    document.getElementById('fin-cnt-expiring_90').textContent = (Number(exp.expiring_90) || 0).toLocaleString(SDPLocale());
+    document.getElementById('fin-cnt-ok').textContent          = (Number(exp.ok) || 0).toLocaleString(SDPLocale());
+    document.getElementById('fin-cnt-no_expiry').textContent   = (Number(exp.no_expiry) || 0).toLocaleString(SDPLocale());
 
     if (typeof Chart === 'undefined') { console.warn('Chart.js not loaded'); return; }
 
@@ -2406,7 +2408,7 @@ window.addEventListener('beforeprint', function () {
         <td class="num">${usd(x.cost)}</td>
       </tr>`).join('');
       note.style.display = 'block';
-      note.textContent = rows.length.toLocaleString() + ' licence' + (rows.length === 1 ? '' : 's') + ' in this bucket. Cost is USD-native (per-licence, not summed).';
+      note.textContent = rows.length.toLocaleString(SDPLocale()) + ' licence' + (rows.length === 1 ? '' : 's') + ' in this bucket. Cost is USD-native (per-licence, not summed).';
     } catch (e) {
       console.warn('licence drill failed:', e);
       table.style.display = 'none'; body.innerHTML = '';
@@ -2438,10 +2440,10 @@ window.addEventListener('beforeprint', function () {
     const bc = s.by_compliance || {};
     const total = Number(s.total) || 0;
     const managed = Number(s.managed) || 0;
-    document.getElementById('fin-cnt-under').textContent     = (Number(bc.under_licensed) || 0).toLocaleString();
-    document.getElementById('fin-cnt-over').textContent      = (Number(bc.over_licensed) || 0).toLocaleString();
-    document.getElementById('fin-cnt-compliant').textContent = (Number(bc.compliant) || 0).toLocaleString();
-    document.getElementById('fin-cnt-managed').textContent   = managed.toLocaleString() + ' / ' + total.toLocaleString();
+    document.getElementById('fin-cnt-under').textContent     = (Number(bc.under_licensed) || 0).toLocaleString(SDPLocale());
+    document.getElementById('fin-cnt-over').textContent      = (Number(bc.over_licensed) || 0).toLocaleString(SDPLocale());
+    document.getElementById('fin-cnt-compliant').textContent = (Number(bc.compliant) || 0).toLocaleString(SDPLocale());
+    document.getElementById('fin-cnt-managed').textContent   = managed.toLocaleString(SDPLocale()) + ' / ' + total.toLocaleString(SDPLocale());
 
     if (typeof Chart !== 'undefined') {
       // Compliance slices → software exceptions kinds ('Compliant' has no kind → skip).
@@ -2478,9 +2480,9 @@ window.addEventListener('beforeprint', function () {
       const u = Number(m.under) || 0, o = Number(m.over) || 0;
       return `<tr>
         <td><strong>${escapeHtml(m.manufacturer || '(unknown)')}</strong></td>
-        <td class="num">${(Number(m.managed) || 0).toLocaleString()}</td>
-        <td class="num ${u > 0 ? 'exp-bad' : ''}">${u.toLocaleString()}</td>
-        <td class="num ${o > 0 ? 'exp-warn' : ''}">${o.toLocaleString()}</td>
+        <td class="num">${(Number(m.managed) || 0).toLocaleString(SDPLocale())}</td>
+        <td class="num ${u > 0 ? 'exp-bad' : ''}">${u.toLocaleString(SDPLocale())}</td>
+        <td class="num ${o > 0 ? 'exp-warn' : ''}">${o.toLocaleString(SDPLocale())}</td>
       </tr>`;
     }).join('') : `<tr><td colspan="4" style="text-align:center;color:var(--color-text-muted,#6b7785)">No software titles.</td></tr>`;
   }
@@ -2526,7 +2528,7 @@ window.addEventListener('beforeprint', function () {
       </tr>`;
       }).join('');
       note.style.display = 'block';
-      note.textContent = rows.length.toLocaleString() + ' title' + (rows.length === 1 ? '' : 's') +
+      note.textContent = rows.length.toLocaleString(SDPLocale()) + ' title' + (rows.length === 1 ? '' : 's') +
         ' in this bucket. Counts are installations vs allowed — no cost shown.';
     } catch (e) {
       console.warn('software drill failed:', e);
@@ -2637,13 +2639,13 @@ window.addEventListener('beforeprint', function () {
     const bk = s.by_kind || {};
     const mon = s.monitors || {};
 
-    document.getElementById('hw-bandTotal').textContent = total.toLocaleString();
-    document.getElementById('hw-bandWithReal').textContent = (Number(mon.with_real) || 0).toLocaleString();
+    document.getElementById('hw-bandTotal').textContent = total.toLocaleString(SDPLocale());
+    document.getElementById('hw-bandWithReal').textContent = (Number(mon.with_real) || 0).toLocaleString(SDPLocale());
     document.getElementById('hw-bandAvgReal').textContent = (mon.avg_real != null ? mon.avg_real : 0);
 
     KINDS.forEach(k => {
       const el = document.getElementById('hw-cnt-' + k);
-      if (el) el.textContent = (bk[k] != null ? Number(bk[k]) : 0).toLocaleString();
+      if (el) el.textContent = (bk[k] != null ? Number(bk[k]) : 0).toLocaleString(SDPLocale());
     });
 
     renderChart(bk);
@@ -2656,7 +2658,7 @@ window.addEventListener('beforeprint', function () {
       if (!r.ok) return;
       const s = await r.json();
       document.getElementById('hw-bandFresh').textContent =
-        (Number(s.total) || 0).toLocaleString() + ' assets in the register.';
+        (Number(s.total) || 0).toLocaleString(SDPLocale()) + ' assets in the register.';
     } catch (e) { /* offline — leave blank */ }
   }
 
@@ -2770,7 +2772,7 @@ window.addEventListener('beforeprint', function () {
         </tr>`;
       }).join('');
       note.style.display = 'block';
-      note.textContent = rows.length.toLocaleString() + ' machine' + (rows.length === 1 ? '' : 's') + ' in this list.';
+      note.textContent = rows.length.toLocaleString(SDPLocale()) + ' machine' + (rows.length === 1 ? '' : 's') + ' in this list.';
     } catch (e) {
       console.warn('hardware drill load failed:', e);
       table.style.display = 'none';
@@ -3096,9 +3098,9 @@ window.addEventListener('beforeprint', function () {
   };
 
   // "1,234" USD, no fractional cents (budget figures) with a thousands separator.
-  const usd0 = v => (Number(v) || 0).toLocaleString('en-US', { maximumFractionDigits: 0 });
-  const num  = v => (Number(v) || 0).toLocaleString('en-US');
-  const usdAxis = v => '$' + Number(v).toLocaleString('en-US', { maximumFractionDigits: 0 });
+  const usd0 = v => (Number(v) || 0).toLocaleString(SDPLocale(), { maximumFractionDigits: 0 });
+  const num  = v => (Number(v) || 0).toLocaleString(SDPLocale());
+  const usdAxis = v => '$' + Number(v).toLocaleString(SDPLocale(), { maximumFractionDigits: 0 });
 
   function horizon() {
     const n = parseInt(document.getElementById('invf-horizon').value, 10);
@@ -3316,7 +3318,7 @@ window.addEventListener('beforeprint', function () {
     for (const [k, v] of Object.entries(params || {})) { if (v) sp.set(k, v); }
     return sp.toString() ? '?' + sp.toString() : '';
   }
-  const num = v => (Number(v) || 0).toLocaleString('fr-FR');
+  const num = v => (Number(v) || 0).toLocaleString(SDPLocale());
   // Date lisible + heure : deux connexions le même jour se distinguent, et
   // c'est cette valeur qu'on recoupe avec AD ou Entra quand on doute.
   const fmtDate = (iso) => {

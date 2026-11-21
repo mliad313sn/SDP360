@@ -5,6 +5,9 @@
 (function (root) {
   'use strict';
   const STATIC = {
+    // VISUAL POLISH 2 — the same labels without their emoji (icons are SVG now)
+    'PDF': 'PDF',
+    'PPTX': 'PPTX',
     'Insights · Meetings · Pre-brief': 'Analyses · Réunions · Pré-brief', 'Since last meeting — department progress': 'Depuis la dernière réunion — avancement du département',
     "Pick a site + department to see what's standing, what closed since the last PV, what came up new, and the audit trail of every status change. Use this to walk into the next meeting with the full picture.": 'Choisissez un site et un département pour voir ce qui reste ouvert, ce qui a été clôturé depuis le dernier PV, ce qui est nouveau, et l’historique de chaque changement de statut. Pour arriver à la prochaine réunion avec une vue complète.',
     'As of': 'Au', '▶ Load progress': '▶ Charger l’avancement', '📤 PDF': '📤 PDF', '📤 PPTX': '📤 PPTX',

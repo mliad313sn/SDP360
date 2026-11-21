@@ -20,9 +20,7 @@
   .wrap { max-width:1360px; margin:0 auto; padding:24px; }
   h1 { margin:0 0 4px; font-size:var(--text-2xl); line-height:var(--leading-tight); color:var(--color-heading); } h2 { margin:0 0 12px; font-size:var(--text-lg); color:var(--color-heading); } .sub { font-size:var(--text-md); line-height:var(--leading-normal); color:var(--gray-500); margin-bottom:16px; }
   .bar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:10px 0; }
-  .btn, select, input, textarea { padding:8px 12px; border:1px solid var(--gray-300); border-radius:var(--radius-md); background:var(--color-surface); font-size:13px; line-height:1.3; color:var(--gray-800); font-family:inherit; transition:border-color var(--motion-fast), box-shadow var(--motion-fast), background var(--motion-fast); }
-  select:focus, input:focus, textarea:focus { border-color:var(--focus-ring); box-shadow:var(--ring-soft); }
-  .btn { cursor:pointer; text-decoration:none; display:inline-block; font-weight:600; box-shadow:var(--shadow-xs); } .btn:hover { background:var(--gray-50); border-color:var(--gray-400); } .btn.primary { background:var(--edv-slate); color:var(--color-text-on-dark); border-color:var(--edv-slate); } .btn.primary:hover { background:var(--gray-800); border-color:var(--gray-800); } .btn.danger { color:var(--rag-red); } .btn.danger:hover { background:var(--color-danger-bg); border-color:var(--rag-red); }
+  /* buttons and form controls: the shared house rules (brand/components.css, body.edv-house) */
   .panel { background:var(--color-surface); border:1px solid var(--gray-200); border-radius:var(--radius-lg); box-shadow:var(--shadow-card); padding:16px 18px; margin-bottom:16px; }
   .grid2 { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:14px; }
   .row { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; } label { font-size:12px; color:var(--gray-500); display:flex; flex-direction:column; gap:3px; }
@@ -34,12 +32,12 @@
   .live { position:fixed; inset:0; background:var(--color-surface); z-index:50; overflow:auto; padding:24px; } .live .item { border:1px solid var(--gray-200); border-radius:12px; padding:12px 14px; margin-bottom:10px; } .live .item.active { border-color:var(--edv-slate); box-shadow:0 0 0 2px #3A4A6033; } .clock { font-variant-numeric:tabular-nums; font-size:18px; font-weight:700; color:var(--edv-slate); } .kpi { display:inline-block; min-width:140px; margin:4px 8px 4px 0; padding:6px 10px; border:1px solid var(--gray-200); border-radius:10px; }
 </style>
 </head>
-<body>
+<body class="edv-house">
 <a class="edv-skip" href="#main">Skip to content</a>
 <div id="__shell" data-section="operations" data-current="integrations"></div>
 <main id="main" class="wrap">
   <h1>Integrations &amp; alert rules</h1>
-  <div class="sub">Admin. Alert rules (metric, scope, condition, anti-noise, channels, recipients) · API consumers (per-key quota and log) · OData feed for Power BI · connectors (scheduled Excel, webhook, SharePoint list) · share links (help §26).</div>
+  <div class="sub">Admin. Alert rules (metric, scope, condition, anti-noise, channels, recipients) · API consumers (per-key quota and log) · OData feed for Power BI · connectors (scheduled Excel, webhook, SharePoint list) · share links.</div>
   <div id="msg" role="status" aria-live="polite"></div>
   <div class="tiles" id="tiles"></div>
   <div class="panel"><h2>Alert rules</h2><div class="bar"><button class="btn" id="ev-dry" type="button">Dry run (nothing sent)</button><button class="btn" id="ev-now" type="button">Evaluate now</button><span class="muted">Target: ≥ 10 rules live, false positives &lt; 5 % (mark them in the firings table).</span></div><div class="scroll" id="dry"></div><div class="scroll" id="rules"></div>
@@ -87,12 +85,13 @@
   document.addEventListener("change", function (ev) { var t = ev.target; if (t.dataset && t.dataset.fp) api("/api/engagement/firings/" + t.dataset.fp, { method: "PUT", body: JSON.stringify({ false_positive: t.checked }) }).then(load).catch(fail); });
   var csv = function (v) { return v.split(",").map(function (x) { return x.trim(); }).filter(Boolean); };
   $("a-save").addEventListener("click", function () { var thr = $("a-thr").value.trim(); api("/api/engagement/rules", { method: "PUT", body: JSON.stringify({ key: $("a-key").value.trim(), name: $("a-name").value.trim(), metric: $("a-metric").value, scope: $("a-scope").value, site_id: $("a-site").value || null, op: $("a-op").value, threshold: isNaN(Number(thr)) ? thr : Number(thr), streak: Number($("a-streak").value), cooldown_min: Number($("a-cool").value), channels: csv($("a-ch").value), recipients: { roles: csv($("a-roles").value), emails: csv($("a-mails").value) }, enabled: $("a-on").value === "1", severity: $("a-sev").value }) }).then(function () { msg("Rule saved."); return load(); }).catch(fail); });
-  $("a-del").addEventListener("click", function () { var k = $("a-key").value.trim(); if (!k || !window.confirm("Delete rule " + k + "?")) return; api("/api/engagement/rules/" + encodeURIComponent(k), { method: "DELETE" }).then(load).catch(fail); });
+  var ask2 = function (o) { var D = window.ReasonDialog; return D && D.confirm ? D.confirm(o) : Promise.resolve(window.confirm(o.title + (o.target ? " — " + o.target : "") + "?")); };
+  $("a-del").addEventListener("click", function () { var k = $("a-key").value.trim(); if (!k) return; ask2({ title: "Delete alert rule", target: k, message: "The rule stops being evaluated. Its past firings stay in the log.", okLabel: "Delete rule", danger: true }).then(function (ok) { if (ok) api("/api/engagement/rules/" + encodeURIComponent(k), { method: "DELETE" }).then(load).catch(fail); }); });
   $("ev-dry").addEventListener("click", function () { msg("Dry run…"); api("/api/engagement/rules/evaluate?dry=1", { method: "POST" }).then(function (j) {
     msg("Dry run: " + j.breaching + " rule×site breach(es) now, " + j.firings + " would be announced (the rest are in cool-down). Nothing was saved or sent.");
     $("dry").innerHTML = j.preview.length ? "<table><caption class=\"muted\">Dry run — who would be told</caption><thead><tr><th>Rule</th><th>Severity</th><th>Site</th><th>In-app</th><th>E-mail</th><th>Outbound</th><th>Problems</th></tr></thead><tbody>" + j.preview.map(function (p) { return "<tr><td>" + esc(p.name) + "</td><td>" + esc(p.severity) + (p.in_cooldown ? " · in cool-down" : "") + "</td><td>" + esc(p.site) + "</td><td>" + esc(p.inapp_recipients.join(", ") || "—") + "</td><td>" + esc(p.email_recipients.join(", ") || "—") + "</td><td>" + esc(p.external_blocked ? "blocked: " + p.external_blocked : (p.channels.filter(function (c) { return c !== "inapp"; }).join(", ") || "—")) + "</td><td>" + esc(p.problems.join("; ") || "—") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">Dry run: no rule would fire now.</p>";
   }).catch(fail); });
-  $("ev-now").addEventListener("click", function () { if (!window.confirm("Run the alert rules for real now? Firings are recorded and in-app notifications sent (outbound channels only if armed). Use Dry run to check first.")) return; msg("Evaluating…"); api("/api/engagement/rules/evaluate", { method: "POST" }).then(function (j) { msg("Evaluated " + j.rules + " rule(s) on " + j.readings + " reading(s): " + j.firings + " firing(s), " + j.notified + " notification(s)."); return load(); }).catch(fail); });
+  $("ev-now").addEventListener("click", function () { ask2({ title: "Run the alert rules now", message: "Firings are recorded and in-app notifications sent (outbound channels only if armed). Use Dry run to check first.", okLabel: "Run now" }).then(function (ok) { if (!ok) return; msg("Evaluating…"); api("/api/engagement/rules/evaluate", { method: "POST" }).then(function (j) { msg("Evaluated " + j.rules + " rule(s) on " + j.readings + " reading(s): " + j.firings + " firing(s), " + j.notified + " notification(s)."); return load(); }).catch(fail); }); });
   $("c-add").addEventListener("click", function () { api("/api/engagement/consumers", { method: "POST", body: JSON.stringify({ name: $("c-name").value.trim(), quota_per_day: Number($("c-quota").value) || 5000 }) }).then(function (j) { msg("Key for \"" + $("c-name").value + "\" (shown ONCE — copy it now): " + j.key); return load(); }).catch(fail); });
   load();
 })();

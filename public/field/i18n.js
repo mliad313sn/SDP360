@@ -96,6 +96,16 @@
     'The server refused this entry.': 'Le serveur a refusé cette saisie.',
     'This entry conflicts with a change made on the server — check it before sending again.': 'Cette saisie est en conflit avec une modification faite sur le serveur — vérifiez-la avant de la renvoyer.',
     'An inspection action can only be closed or cancelled from the field app.': 'Une action d’inspection ne peut être que clôturée ou annulée depuis l’application terrain.',
+    // VISUAL POLISH 2 (field seat) — plain labels, human dates, styled sheets
+    'waiting@status': 'en attente', 'just now': 'à l’instant', 'Keep': 'Garder', 'Language': 'Langue', 'Back to SDP360': 'Retour à SDP360',
+    'Take a photo': 'Prendre une photo', 'Gallery': 'Galerie', 'Photo': 'Photo', 'Remove photo': 'Retirer la photo',
+    'Each photo is compressed on the phone (300 KB at most).': 'Chaque photo est compressée sur le téléphone (300 Ko au plus).',
+    'Français': 'Français', 'English': 'English',
+    'Clear this inspection?': 'Effacer cette inspection ?', 'Syncing…': 'Synchronisation…',
+    'No tracker to fill for this site.': 'Aucun tracker à saisir pour ce site.', 'Entry': 'Saisie',
+    'Overdue': 'En retard', 'Trackers to fill': 'Trackers à remplir', 'Cancel this action': 'Annuler l’action',
+    'Inspection': 'Inspection', 'Meeting': 'Réunion', 'Action': 'Action', 'Ticket': 'Ticket',
+    'Overdue tickets': 'Tickets en retard', 'Overdue inspection actions': 'Actions d’inspection en retard', 'Overdue actions': 'Actions en retard',
     'Photo added': 'Photo ajoutée', 'ok': 'ok', 'minor': 'mineur', 'major': 'majeur', 'critical': 'critique', 'na': 'n/a',
   };
   window.FT = function (s) { return window.I18nText ? window.I18nText.t(s) : s; };

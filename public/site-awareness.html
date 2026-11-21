@@ -136,6 +136,7 @@ W.defaults=O.defaults;window.Chart=W;});
 })();
 </script>
 
+<script nonce="%%CSP_NONCE%%" src="lib/codeLabels.js"></script>
 </head>
 <body>
 <div id="__shell" data-section="site-awareness" data-current="site-awareness"></div>
@@ -502,6 +503,8 @@ W.defaults=O.defaults;window.Chart=W;});
   };
   function curLang() { return document.body.classList.contains('lang-fr') ? 'fr' : 'en'; }
   function T(k) { const row = I18N[k]; return row ? (row[curLang()] || row.fr || k) : k; }
+  // a code read from the API (inspection status, risk) is shown as words in the page language; unknown codes stay as is
+  function _lbl(kind, code) { const L = window.SDPLabels; const l = L && L.label ? L.label(kind, String(code), curLang()) : null; return l || String(code); }
   // P11 r8 F-31 — the helpdesk rule quotes the minimum the server's policy uses (helpdesk-fleet-sla min_closed);
   // unknown → a generic wording, never a made-up number
   function hdTip() {
@@ -838,8 +841,8 @@ W.defaults=O.defaults;window.Chart=W;});
     $('sa-insp-recent').innerHTML = recent.length ? recent.map(r => `<tr>
         <td>${fmtTs(r.date)}</td>
         <td>${esc(r.area) || '<span class="sa-muted">—</span>'}</td>
-        <td>${r.risk ? '<span class="sa-pill">' + esc(r.risk) + '</span>' : '<span class="sa-muted">—</span>'}</td>
-        <td>${esc(r.status) || '<span class="sa-muted">—</span>'}</td>
+        <td>${r.risk ? '<span class="sa-pill" title="' + esc(r.risk) + '">' + esc(_lbl('inspection_finding', r.risk)) + '</span>' : '<span class="sa-muted">—</span>'}</td>
+        <td>${r.status ? esc(_lbl('status', r.status)) : '<span class="sa-muted">—</span>'}</td>
       </tr>`).join('') : `<tr><td colspan="4" class="sa-muted">${esc(T('none'))}.</td></tr>`;
 
     const acts = data.open_actions || [];

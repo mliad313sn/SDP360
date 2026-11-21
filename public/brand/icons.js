@@ -109,6 +109,24 @@
     'clipboard-check': '<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="m9 14 2 2 4-4"/>',  // Inspections nav
     'camera':          '<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>',                       // Photo capture
     'mic':             '<rect x="9" y="2" width="6" height="11" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="19" x2="12" y2="22"/>',                                  // Voice dictation
+
+    // ── VISUAL POLISH 2 (2026-11) — the icons that replace the remaining emoji on executive / reports / inspection ──
+    'link':           '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+    'lock':           '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+    'mail':           '<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>',
+    'printer':        '<path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 9V3h12v6"/><rect x="6" y="14" width="12" height="8" rx="1"/>',
+    'image':          '<rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>',
+    'map-pin':        '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
+    'key':            '<circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/>',
+    'tag':            '<path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/><path d="M7 7h.01"/>',
+    'award':          '<circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/>',
+    'star':           '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
+    'eye':            '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
+    'git-merge':      '<circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M6 21V9a9 9 0 0 0 9 9"/>',
+    'wifi':           '<path d="M5 13a10 10 0 0 1 14 0"/><path d="M8.5 16.5a5 5 0 0 1 7 0"/><path d="M2 8.82a15 15 0 0 1 20 0"/><line x1="12" y1="20" x2="12.01" y2="20"/>',
+    'message-square': '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+    'ban':            '<circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/>',
+    'plug':           '<path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/>',
   };
 
   // ── PUBLIC API ──────────────────────────────────────────────────────
@@ -129,7 +147,7 @@
     const els = root.querySelectorAll('i.icon, span.icon, [data-icon]');
     els.forEach(el => {
       // Already hydrated — skip
-      if (el.firstElementChild && el.firstElementChild.tagName === 'svg'.toUpperCase()) return;
+      if (el.firstElementChild && String(el.firstElementChild.tagName).toLowerCase() === 'svg') return;
       // Determine name: prefer data-icon, then any `icon-NAME` class
       let name = el.getAttribute('data-icon');
       if (!name) {
@@ -138,7 +156,7 @@
       }
       if (!name) return;
       const svg = html(name);
-      if (svg) el.innerHTML = svg;
+      if (svg) { el.innerHTML = svg; if (!el.hasAttribute('aria-label') && !el.hasAttribute('aria-hidden')) el.setAttribute('aria-hidden', 'true'); }   // decorative unless it is named
     });
   }
 
@@ -157,5 +175,17 @@
     } else {
       hydrate();
     }
+    // VISUAL POLISH 2 — placeholders written later by page scripts (innerHTML, templates) are hydrated too, so a
+    // rendered row can say <i class="icon icon-NAME"> instead of an emoji. One pass per frame, added nodes only.
+    try {
+      let queued = null;
+      new MutationObserver((ms) => {
+        for (const m of ms) for (const n of m.addedNodes) {
+          if (n.nodeType !== 1 || n.tagName === 'svg') continue;
+          if ((n.matches && n.matches('i.icon, span.icon, [data-icon]')) || (n.querySelector && n.querySelector('i.icon, span.icon, [data-icon]'))) { (queued = queued || new Set()).add(n.parentNode || n); }
+        }
+        if (queued && !queued.t) { queued.t = setTimeout(() => { const q = queued; queued = null; q.forEach((el) => { try { hydrate(el); } catch (_) { /* detached */ } }); }, 0); }
+      }).observe(document.documentElement, { childList: true, subtree: true });
+    } catch (_) { /* no MutationObserver: static placeholders only */ }
   }
 })();

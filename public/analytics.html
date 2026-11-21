@@ -180,6 +180,8 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text-1);min-h
 <script src="auth.js" data-require="admin|scorecard-viewer"></script>
 <script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
 <script src="_shell.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/format.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/codeLabels.js"></script>
 </head>
 <body>
 
@@ -280,7 +282,7 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text-1);min-h
   <!-- ════════════════ SECTION 1: REQUESTS ════════════════ -->
   <div class="section">
     <div class="section-header">
-      <div class="section-icon orange">🎫</div>
+      <div class="section-icon orange"><i class="icon icon-file-text" aria-hidden="true"></i></div>
       <div>
         <div class="section-title">Helpdesk Requests</div>
         <div class="section-sub">All tickets — incidents and service requests</div>
@@ -323,7 +325,7 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text-1);min-h
   <!-- ════════════════ SECTION 2: CHANGE MANAGEMENT ════════════════ -->
   <div class="section">
     <div class="section-header">
-      <div class="section-icon blue">🔄</div>
+      <div class="section-icon blue"><i class="icon icon-refresh-cw" aria-hidden="true"></i></div>
       <div>
         <div class="section-title">Change Management</div>
         <div class="section-sub">Change requests — pipeline, success rate, risk</div>
@@ -364,7 +366,7 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text-1);min-h
   <!-- ════════════════ SECTION 3: CAB ════════════════ -->
   <div class="section">
     <div class="section-header">
-      <div class="section-icon purple">✅</div>
+      <div class="section-icon purple"><i class="icon icon-check" aria-hidden="true"></i></div>
       <div>
         <div class="section-title">CAB Approvals</div>
         <div class="section-sub">Change Advisory Board recommendations and compliance</div>
@@ -399,7 +401,7 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text-1);min-h
   <!-- ════════════════ SECTION 4: SURVEY / CSAT ════════════════ -->
   <div class="section">
     <div class="section-header">
-      <div class="section-icon teal">⭐</div>
+      <div class="section-icon teal"><i class="icon icon-star" aria-hidden="true"></i></div>
       <div>
         <div class="section-title">Service Satisfaction (CSAT)</div>
         <div class="section-sub">Post-resolution survey scores from ServiceDesk Plus</div>
@@ -982,7 +984,7 @@ const _loader = AL.createLoadCoordinator(async (gen, isCurrent) => {
     btn.classList.remove('spinning');
     btn.textContent = '↻ Refresh';
   }
-  if (isCurrent()) document.getElementById('lastRefreshed').textContent = 'Updated ' + new Date().toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' });
+  if (isCurrent()) document.getElementById('lastRefreshed').textContent = 'Updated ' + new Date().toLocaleTimeString(SDPLocale(), { hour: '2-digit', minute: '2-digit' });
 });
 function loadAll() { _urlfWrite(); return _loader.trigger(); }
 

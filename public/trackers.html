@@ -40,7 +40,7 @@
 <div id="__shell" data-section="operations" data-current="trackers"></div>
 <main id="main" class="wrap">
   <div class="head">
-    <div><h1 id="title">Trackers</h1><div class="sub" id="subtitle">Generic activity trackers — every score comes from the engine (help §24).</div></div>
+    <div><h1 id="title">Trackers</h1><div class="sub" id="subtitle">Generic activity trackers — every score comes from the engine.</div></div>
     <div class="controls" id="controls" hidden>
       <label class="sr-only" for="unit">Unit</label><select id="unit" aria-label="Unit"></select>
       <label class="sr-only" for="period">Period reached</label><select id="period" aria-label="Period reached"></select>
@@ -85,7 +85,7 @@
     api('/api/trackers/' + encodeURIComponent(key)).then(function (j) {
       meta = j.tracker; def = j.published || meta.definition; closed = j.closed || []; writable = j.writable;
       $('title').textContent = meta.name; document.title = meta.name + ' — Endeavour Mining IT';
-      $('subtitle').textContent = def.period.kind + ' tracker from ' + def.period.start + (meta.version ? ' · version ' + meta.version : ' · draft, not published') + ' — scored by the engine (help §24).';
+      $('subtitle').textContent = def.period.kind + ' tracker from ' + def.period.start + (meta.version ? ' · version ' + meta.version : ' · draft, not published') + ' — scored by the engine.';
       if (j.builder) { $('edit').hidden = false; $('edit').href = 'tracker-builder.html?key=' + encodeURIComponent(key); }
       var canWrite = writable === null || (writable && writable.length);
       $('save').hidden = !canWrite; $('importLbl').hidden = !canWrite;

@@ -127,5 +127,9 @@
     catch (_) { return (lang(o) === 'fr' ? Math.abs(x) < 2 : x === 1) ? one : many; }
   }
 
-  return { lang: lang, number: number, percent: percent, date: date, dateTime: dateTime, duration: duration, week: week, plural: plural, isoWeek: isoWeek, DASH: DASH };
+  // VISUAL POLISH 2 — the BCP-47 locale of the interface ('fr-FR' | 'en-GB'), for the pages that still call
+  // Date/Number.toLocale*String themselves: one locale per page instead of the browser's or a hard-coded one.
+  function locale(o) { return LOCALE[lang(o)]; }
+  try { var g = root || (typeof window !== 'undefined' ? window : null); if (g && typeof g.document !== 'undefined') g.SDPLocale = function () { return locale(); }; } catch (_) { /* no window */ }
+  return { lang: lang, locale: locale, number: number, percent: percent, date: date, dateTime: dateTime, duration: duration, week: week, plural: plural, isoWeek: isoWeek, DASH: DASH };
 });

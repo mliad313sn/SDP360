@@ -15,7 +15,7 @@
   "jobs": 33,
   "jobs_without_test_reference": 0,
   "migrations": 119,
-  "test_files": 953
+  "test_files": 954
  },
  "pages": [
   {
@@ -132,7 +132,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 60182,
+   "bytes": 60507,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/analytics-logic.test.js",
@@ -217,7 +217,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 10,
-   "bytes": 206657,
+   "bytes": 207511,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/adoption-lota-truth.test.js",
@@ -260,7 +260,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 42856,
+   "bytes": 42010,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/adoption-lota-nav-authz.test.js",
@@ -382,7 +382,7 @@
    "parent": "dashboards.html",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 27423,
+   "bytes": 27411,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -411,7 +411,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 31496,
+   "bytes": 31494,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/adoption-lota-nav-authz.test.js",
@@ -475,7 +475,7 @@
    "parent": null,
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 37024,
+   "bytes": 37069,
    "tests": [
     "tests/csp-headers.smoke.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
@@ -505,7 +505,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 472891,
+   "bytes": 473586,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/api-key-injection.smoke.test.js",
@@ -544,7 +544,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 602791,
+   "bytes": 606590,
    "tests": [
     "tests/a11y-legacy-ratchet.test.js",
     "tests/adoption-lota-nav-authz.test.js",
@@ -737,7 +737,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 133235,
+   "bytes": 133608,
    "tests": [
     "tests/a11y-legacy-ratchet.test.js",
     "tests/a11y-static.test.js",
@@ -775,6 +775,7 @@
     "tests/landing.test.js",
     "tests/login-next-redirect.test.js",
     "tests/page-states-adoption.test.js",
+    "tests/polish2-ux.test.js",
     "tests/report-figures-parity.test.js",
     "tests/reporting-week-dst.test.js",
     "tests/sdp-manager.smoke.test.js",
@@ -834,12 +835,13 @@
    "parent": "inspections.html",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 47425,
+   "bytes": 49083,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
     "tests/i18n-lota-runtime.test.js",
     "tests/inventory-reachability.test.js",
+    "tests/polish2-ux.test.js",
     "tests/rbac-ui-gates.test.js",
     "tests/review-dashboard.test.js",
     "tests/ui-design-ratchet.test.js"
@@ -866,7 +868,7 @@
    "parent": "inspections.html",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 231173,
+   "bytes": 234272,
    "tests": [
     "tests/adoption-lota-labels.test.js",
     "tests/csp-journey-report.test.js",
@@ -878,6 +880,7 @@
     "tests/p11-r7-field-fixes.test.js",
     "tests/p11-r8-field-fixes.test.js",
     "tests/p11-r9-field-fixes.test.js",
+    "tests/polish2-ux.test.js",
     "tests/rbac-ui-gates.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
@@ -903,7 +906,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 41602,
+   "bytes": 41657,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/adoption-lota-truth.test.js",
@@ -939,7 +942,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 20383,
+   "bytes": 19926,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/adoption-lota-nav-authz.test.js",
@@ -1001,7 +1004,7 @@
    "parent": "itsm-roadmap.html",
    "reachable": true,
    "inline_scripts": 0,
-   "bytes": 31308,
+   "bytes": 31366,
    "tests": [
     "tests/agent-inventory.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
@@ -1028,7 +1031,7 @@
    "parent": null,
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 51893,
+   "bytes": 51934,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/csv-safe.test.js",
@@ -1134,7 +1137,7 @@
    "parent": "meetings-actions.html",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 88539,
+   "bytes": 88678,
    "tests": [
     "tests/adoption-lota-labels.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
@@ -1170,7 +1173,7 @@
    "parent": "meetings.html",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 47216,
+   "bytes": 48869,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
@@ -1178,6 +1181,7 @@
     "tests/inventory-reachability.test.js",
     "tests/meeting-status-options.test.js",
     "tests/module-tabs.test.js",
+    "tests/polish2-ux.test.js",
     "tests/rbac-ui-gates.test.js",
     "tests/shell-nav-r4.test.js",
     "tests/status-transfer.smoke.test.js",
@@ -1260,7 +1264,7 @@
    "parent": "meetings.html",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 74041,
+   "bytes": 74233,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
@@ -1286,7 +1290,7 @@
    "parent": "meetings.html",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 44435,
+   "bytes": 44911,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
@@ -1347,7 +1351,7 @@
    "parent": "meeting.html",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 34292,
+   "bytes": 34386,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
@@ -1512,7 +1516,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 12678,
+   "bytes": 11832,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/adoption-lota-nav-authz.test.js",
@@ -1818,7 +1822,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 19599,
+   "bytes": 18753,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/adoption-lota-nav-authz.test.js",
@@ -1849,7 +1853,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 551273,
+   "bytes": 555451,
    "tests": [
     "tests/a11y-legacy-ratchet.test.js",
     "tests/admin-superadmin-gate.smoke.test.js",
@@ -1917,7 +1921,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 13620,
+   "bytes": 12774,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/adoption-lota-nav-authz.test.js",
@@ -1994,7 +1998,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 77073,
+   "bytes": 77498,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/adoption-lotb-landing.test.js",
@@ -2060,7 +2064,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 20421,
+   "bytes": 20524,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
@@ -2089,7 +2093,7 @@
    "parent": "trackers.html",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 25092,
+   "bytes": 24596,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/i18n-coverage.test.js",
@@ -2117,7 +2121,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 15561,
+   "bytes": 15537,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/adoption-lota-nav-authz.test.js",
@@ -2224,7 +2228,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 3,
-   "bytes": 55128,
+   "bytes": 55954,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/agent-inventory.test.js",
@@ -15974,6 +15978,7 @@
     "tests/first-usable.test.js",
     "tests/landing.test.js",
     "tests/login-next-redirect.test.js",
+    "tests/polish2-ux.test.js",
     "tests/reporting-week-dst.test.js",
     "tests/sdp-manager.smoke.test.js",
     "tests/trust-label.test.js",
@@ -15999,6 +16004,7 @@
    "file": "server.js",
    "line": 1385,
    "tests": [
+    "tests/polish2-ux.test.js",
     "tests/review-dashboard.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
@@ -16014,6 +16020,7 @@
     "tests/p11-r7-field-fixes.test.js",
     "tests/p11-r8-field-fixes.test.js",
     "tests/p11-r9-field-fixes.test.js",
+    "tests/polish2-ux.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
   },
@@ -16100,6 +16107,7 @@
    "line": 1460,
    "tests": [
     "tests/meeting-status-options.test.js",
+    "tests/polish2-ux.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
   },
