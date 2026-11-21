@@ -583,6 +583,14 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     // P11 r6 F-28 — the generic writer stores the RAID status vocabulary only (raid.js): open | closed, case-normalised.
     // Anything else (Closed, mitigated, free text) used to land as text the shared high-risk rule then read as open.
     if (kind === 'risk' && out.status != null) { out.status = String(out.status).trim().toLowerCase(); if (!RISK_STATUSES.includes(out.status)) throw Object.assign(new Error('risk status must be ' + RISK_STATUSES.join(' | ')), { code: 'INVALID', reason: 'BAD_STATUS' }); }
+    // P11 r9 R9-2 — the score scale is the RAID one (raid.js / riskExposure.level): integer 1..3, '' / null = unscored.
+    // 0, 5, -1, 2.5 or text used to be stored as-is (2.5 even reached the integer column and answered 500).
+    if (kind === 'risk') for (const k of ['probability', 'impact']) {
+      const raw = body[k];
+      if (raw === undefined || raw === null || raw === '') continue;
+      const v = Number(raw);
+      if (!Number.isInteger(v) || v < 1 || v > 3) throw Object.assign(new Error(`${k} must be a whole number 1..3 (empty = unscored)`), { code: 'INVALID', reason: 'BAD_SCORE' });
+    }
     if (kind === 'risk' && out.kind != null) out.kind = String(out.kind).trim().toLowerCase();
     if (kind === 'risk' && body.kind !== undefined && !RISK_KINDS.includes(out.kind)) throw Object.assign(new Error('kind must be ' + RISK_KINDS.join(' | ')), { code: 'INVALID' });
     if (kind === 'project' && out.spend_type && !SPEND_TYPES.includes(out.spend_type)) throw Object.assign(new Error('spend_type must be capex | opex | mixed'), { code: 'INVALID' });

@@ -131,6 +131,10 @@
     'amounts restricted': 'montants restreints', 'earned value off': 'valeur acquise désactivée',
     'Phases': 'Phases', 'Top risks and issues': 'Principaux risques et problèmes',
     'No open risk or issue.': 'Aucun risque ni problème ouvert.', 'No upcoming milestone.': 'Aucun jalon à venir.',
+    // P11 r9 R9-1/R9-3/R9-4 — RAID edit button and the "partial" markers of the summary cards (lib/ppmGovernanceW3.js)
+    'Edit': 'Modifier',
+    'partial — some open risks have no score': 'partiel — des risques ouverts n’ont pas de note',
+    'unscored — the high count is a lower bound': 'non notés — le nombre d’élevés est un minimum',
     'Every number comes from the schedule engine, earned value and the RAID register; “—” = not measured, never 0. Expert view keeps the tabs where you left them.':
       'Chaque chiffre vient du moteur de planning, de la valeur acquise et du registre RAID ; « — » = non mesuré, jamais 0. La vue experte garde les onglets là où vous les avez laissés.',
   };
