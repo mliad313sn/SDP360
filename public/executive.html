@@ -14,6 +14,7 @@
      "Uncaught ReferenceError: Chart is not defined" race seen post-2026-05-09. -->
 <script src="vendor/chart.js/4.4.1/chart.umd.js"></script>
 <script src="lib/chartTheme.js"></script>
+<script src="lib/chartNoData.js"></script>
 <style>
 /* ── EDV Design System adoption ────────────────────────────────────────
    Page-local aliases mapped onto the canonical _tokens.css palette.
@@ -1323,6 +1324,12 @@ button.btn-edit {
 button.btn-ghost:hover,
 button.btn-edit:hover { background: var(--color-bg) !important; }
 
+.pb-more{position:relative;display:inline-block}
+.pb-more>summary{list-style:none;display:inline-flex;align-items:center;gap:6px}
+.pb-more>summary::-webkit-details-marker{display:none}
+.pb-more__list{position:absolute;right:0;top:calc(100% + 6px);z-index:80;min-width:220px;padding:6px;display:flex;flex-direction:column;gap:2px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:8px;box-shadow:var(--shadow-md)}
+.shell-page-bar .pb-more__list button.btn,.shell-page-bar .pb-more__list button.btn-ghost{display:flex;align-items:center;justify-content:flex-start;gap:8px;min-height:36px;padding:0 10px !important;border:0 !important;border-radius:6px;background:transparent !important;color:var(--color-text-strong) !important;-webkit-text-fill-color:var(--color-text-strong);font-size:13px !important;font-weight:600;text-align:left;width:100%}
+.shell-page-bar .pb-more__list button.btn:hover{background:var(--gray-50) !important}
 /* Re-paint ghost buttons that land inside the navy .shell-page-bar — same
    pattern other navy-on-dark-bar surfaces use (_shell.css for the global
    nav already uses rgba-white for text + subtle white border). */
@@ -1446,6 +1453,7 @@ table tbody tr:hover td { background: var(--color-bg); }
 <link rel="stylesheet" href="_shell.css">
 <link rel="stylesheet" href="module-tabs.css">
 <link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
 <script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/pageStates.js"></script>
 <script src="_shell.js"></script>
@@ -1453,7 +1461,7 @@ table tbody tr:hover td { background: var(--color-bg); }
 <script nonce="%%CSP_NONCE%%" src="lib/format.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/codeLabels.js"></script>
 </head>
-<body>
+<body class="exec-house" data-print-title="SDP360 — Executive Scorecard">
 
 <!-- Loader -->
 <div class="loader" id="loader">
@@ -1549,6 +1557,11 @@ table tbody tr:hover td { background: var(--color-bg); }
   <!-- executive F4: the shell breadcrumb is the only trail (the inner "Performance ›" trail contradicted it) -->
   <span class="shell-page-bar-spacer"></span>
   <div class="live-chip" style="margin-right:6px"><div class="live-dot"></div> Live</div>
+  <!-- executive F4: Export and Share stay in view; the author tools (refresh, analyze, edit, copy, groups) sit behind
+       one "More" menu. Same buttons, ids and handlers — what each role may do is still decided by the server. -->
+  <details class="pb-more" id="pbMore">
+    <summary class="btn btn-ghost" style="font-size:11.5px;padding:5px 10px"><i class="icon icon-more-horizontal" aria-hidden="true"></i>More</summary>
+    <div class="pb-more__list">
   <button class="btn btn-ghost" onclick="loadLiveData()" title="Refresh live data" style="font-size:11.5px;padding:5px 10px"><i class="icon icon-refresh-cw"></i>Refresh</button>
   <!-- Cloud-AI Analyze paused while waiting for on-prem Mistral approval.
        Kept in the DOM (display:none) so re-enable is one attribute removal. -->
@@ -1557,6 +1570,8 @@ table tbody tr:hover td { background: var(--color-bg); }
   <button class="btn btn-ghost" id="editAllBtnTop" onclick="toggleAllCommentaryEdit()" title="Toggle edit mode on all commentary fields" style="font-size:11.5px;padding:5px 10px">✏ Edit</button>
   <button class="btn btn-ghost" id="copyReportBtnTop" onclick="copyCommentaryReport()" title="Copy all commentary fields as plain text for email or reports" style="font-size:11.5px;padding:5px 10px">⎘ Copy</button>
   <button class="btn btn-ghost" onclick="openGroupOverrideModal()" title="Customise group categories" id="btnGroupOverride" style="font-size:11.5px;padding:5px 10px"><i class="icon icon-sliders"></i>Groups</button>
+    </div>
+  </details>
   <button class="btn btn-ghost" onclick="exportReportSnapshot()" title="Export KPI data as JSON snapshot" style="background:#0f172a;color:#fff;border-color:#0f172a;font-size:11.5px;padding:5px 10px"><i class="icon icon-bar-chart-3" aria-hidden="true"></i> Export</button>
   <button class="btn btn-orange" onclick="document.getElementById('shareModal').classList.add('open')" style="font-size:11.5px;padding:5px 10px">⬆ Share</button>
 </div>
@@ -2078,7 +2093,7 @@ table tbody tr:hover td { background: var(--color-bg); }
       <div class="az-icon"><i class="icon icon-edit" aria-hidden="true"></i></div>
       <div>
         <div class="az-title">IT Manager Comments & Observations</div>
-        <div class="az-subtitle">Period: <span id="azPeriod">Current Period</span> — Review before sharing with management</div>
+        <div class="az-subtitle">Period: <span id="azPeriod">Current Period</span> — Review before sharing with management. <span class="az-hint">More ▸ Analyze fills these from the figures; Edit lets you write.</span></div>
       </div>
       <div class="az-actions">
         <button class="btn-edit" id="editComments" onclick="toggleEditZone('commentZoneFields','editComments')">✏ Edit</button>
@@ -2088,27 +2103,27 @@ table tbody tr:hover td { background: var(--color-bg); }
       <div class="az-grid" id="commentZoneFields">
         <div class="az-field">
           <div class="az-field-label">Key Observations</div>
-          <div class="az-field-content" id="f-obs" contenteditable="false">Click "Analyze &amp; Fill" to generate observations from live data.</div>
+          <div class="az-field-content" id="f-obs" contenteditable="false">No commentary yet.</div>
         </div>
         <div class="az-field">
           <div class="az-field-label">Main Risks & Concerns</div>
-          <div class="az-field-content" id="f-risks" contenteditable="false">Click "Analyze &amp; Fill" to generate risks &amp; concerns from live data.</div>
+          <div class="az-field-content" id="f-risks" contenteditable="false">No commentary yet.</div>
         </div>
         <div class="az-field">
           <div class="az-field-label">Actions Taken This Period</div>
-          <div class="az-field-content" id="f-actions" contenteditable="false">Click "Analyze &amp; Fill" to generate actions taken from live data.</div>
+          <div class="az-field-content" id="f-actions" contenteditable="false">No commentary yet.</div>
         </div>
         <div class="az-field">
           <div class="az-field-label">Change Management & CAB Pipeline</div>
-          <div class="az-field-content" id="f-change" contenteditable="false">Click "Analyze &amp; Fill" to generate change management summary from live CAB data.</div>
+          <div class="az-field-content" id="f-change" contenteditable="false">No commentary yet.</div>
         </div>
         <div class="az-field">
           <div class="az-field-label">Major Incidents Summary</div>
-          <div class="az-field-content" id="f-incidents" contenteditable="false">Click "Analyze &amp; Fill" to generate major incidents summary from live data.</div>
+          <div class="az-field-content" id="f-incidents" contenteditable="false">No commentary yet.</div>
         </div>
         <div class="az-field">
           <div class="az-field-label">Outlook & Next Steps</div>
-          <div class="az-field-content" id="f-outlook" contenteditable="false">Click "Analyze &amp; Fill" to generate outlook &amp; next steps from live data.</div>
+          <div class="az-field-content" id="f-outlook" contenteditable="false">No commentary yet.</div>
         </div>
       </div>
       <div class="az-meta-row">
@@ -4195,7 +4210,7 @@ window.toggleEditZone = function(zone) {
 
   // Known placeholder text prefixes — never save these as real content
   var PLACEHOLDERS = [
-    'Click "Analyze', "Click 'Analyze", 'Use the live data',
+    'Click "Analyze', "Click 'Analyze", 'Use the live data', 'No commentary yet',
     'Top performer recognition', 'Underperforming technicians',
     'Technicians showing avoidance', 'Outlook and next steps',
     'Change quality assessment', 'Recurring incident categories',

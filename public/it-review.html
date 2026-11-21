@@ -301,6 +301,12 @@ textarea.input { min-height: 90px; resize: vertical; }
       .brief-page { border: none !important; }
     }
 
+    /* ours (executive F22): the KPI band wraps instead of scrolling sideways — 4 columns on a tablet, 2 on a phone;
+       the site filter wraps too (it carries names now) */
+    @media (max-width: 1100px) { .ir-kpi-band { grid-template-columns: repeat(4, 1fr) !important; } }
+    @media (max-width: 600px) { .ir-kpi-band { grid-template-columns: repeat(2, 1fr) !important; } }
+    a[data-q="site"] { white-space: nowrap; }
+    div:has(> a[data-q="site"]) { flex-wrap: wrap; }
     /* --- ours: three small additions on top of his system --- */
     /* style-hover is his runtime's hover shorthand; all 3 uses are opacity:0.85. */
     [style-hover]:hover { opacity: 0.85; }
@@ -387,7 +393,7 @@ textarea.input { min-height: 90px; resize: vertical; }
     </div>
 
     <!-- 1. KPI BAND -->
-    <div style="display:grid; grid-template-columns:repeat(8,1fr); gap:2px; background:var(--ir-color-divider); border-bottom:2px solid var(--ir-color-divider)">
+    <div class="ir-kpi-band" style="display:grid; grid-template-columns:repeat(8,1fr); gap:2px; background:var(--ir-color-divider); border-bottom:2px solid var(--ir-color-divider)">
       <sc-for list="{{ kpis }}" as="k">
         <div style="background:var(--ir-color-bg); padding:16px 16px 14px">
           <div style="font-size:11px; font-weight:700; letter-spacing:0.08em; color:var(--ir-color-neutral-600); text-transform:uppercase">{{ k.label }}</div>

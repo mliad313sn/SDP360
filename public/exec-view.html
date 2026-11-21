@@ -7,6 +7,7 @@
 <!-- PUBLIC read-only status page. No auth.js, no _shell.js, no API key. -->
 <link rel="stylesheet" href="fonts.css">
 <link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/components.css">
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{
@@ -164,7 +165,11 @@
   .pillar-top{display:flex;justify-content:space-between;font-size:.84rem;font-weight:600;margin-bottom:4px}
   .pillar-pct{font-weight:800;color:var(--edv-slate,#3A4A60)}
   .bar-track{height:8px;background:var(--color-border,#E2E5EA);border-radius:6px;overflow:hidden}
-  .bar-fill{height:100%;border-radius:6px;background:var(--edv-blue,#145FAE)}
+  .bar-fill{height:100%;border-radius:6px;background:var(--rag-na)}
+  .bar-fill.band-green{background:var(--rag-green)} .bar-fill.band-amber{background:var(--rag-amber)} .bar-fill.band-red{background:var(--rag-red)}
+  .pillar-top span:first-child{min-width:0;overflow-wrap:anywhere}
+  .pillar-band{font-size:.72rem;font-weight:700;padding:1px 7px;border-radius:999px;white-space:nowrap}
+  .pillar-band.band-green{background:var(--color-success-bg);color:var(--color-success-text)} .pillar-band.band-amber{background:var(--color-warning-bg);color:var(--color-warning-text)} .pillar-band.band-red{background:var(--color-danger-bg);color:var(--rag-red)}
 
   /* ── Highlights / focus ─────────────────────────────────────── */
   .hl-list{list-style:none;display:flex;flex-direction:column;gap:8px}
@@ -215,7 +220,7 @@
   }
 </style>
 </head>
-<body>
+<body class="exec-house" data-print-title="SDP360 — IT status (Exec View)">
 
 <header class="ev-header">
   <div class="inner">
@@ -305,6 +310,7 @@
 </main>
 
 <script src="lib/trustLabel.js"></script>
+<script src="lib/kpiRag.js"></script>
 <script>
 (function () {
   'use strict';
@@ -604,10 +610,16 @@
     if (Array.isArray(sp.pillars)) {
       pillars = sp.pillars.map(function (p) {
         const pct = isNum(p.pct) ? Math.max(0, Math.min(100, p.pct)) : 0;
+        // executive F20 — each bar carries its band (the same 'tracker-executive' thresholds as the fleet score, from
+        // lib/kpiRag.js — no threshold is written here) as a colour AND a word; a pillar that is not measured has no
+        // bar and no band.
+        let band = null;
+        try { band = isNum(p.pct) && window.KpiRag ? String(window.KpiRag.rag(p.pct / 100, 'tracker-executive') || '').toLowerCase() : null; } catch (_) { band = null; }
+        const word = { green: 'On track', amber: 'At risk', red: 'Off track' }[band] || '';
         return '<div class="pillar">' +
           '<div class="pillar-top"><span>' + esc(p.name) + '</span>' +
-          '<span class="pillar-pct">' + (isNum(p.pct) ? p.pct + '%' : '—') + '</span></div>' +
-          '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%"></div></div>' +
+          '<span class="pillar-pct">' + (word ? '<span class="pillar-band band-' + band + '">' + word + '</span> ' : '') + (isNum(p.pct) ? p.pct + '%' : '—') + '</span></div>' +
+          '<div class="bar-track"><div class="bar-fill' + (word ? ' band-' + band : '') + '" style="width:' + pct + '%"></div></div>' +
           '</div>';
       }).join('');
     }

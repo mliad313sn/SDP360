@@ -65,7 +65,7 @@
     <div><h1 id="title">Dashboards</h1><div class="sub" id="subtitle">Published dashboards — every figure comes from the KPI dictionary and is dated.</div></div>
     <div class="controls" id="controls" hidden>
       <label class="ctl">Site <select id="site" aria-label="Site"></select></label>
-      <label class="ctl" id="winWrap">Period <input id="window" type="text" list="windowList" aria-label="Period (YYYY-MM or YYYY-Www)" placeholder="latest" size="10"><datalist id="windowList"></datalist></label>
+      <label class="ctl" id="winWrap">Period <select id="window" aria-label="Period"><option value="">Latest complete period</option></select></label>
       <button class="btn" id="apply" type="button">Apply</button>
       <button class="btn" id="edit" type="button" hidden>Edit in composer</button>
       <a class="btn" id="csv" href="#" download>Download figures (CSV)</a>
@@ -90,6 +90,8 @@
   var H = function () { return {}; };
   var params = new URLSearchParams(location.search);
   var key = params.get('key');
+  // the executive dashboards take the shared executive tile (brand/components.css, body.exec-house) and a print title
+  if (/^exec-/.test(String(key || ''))) { document.body.classList.add('exec-house'); document.body.setAttribute('data-print-title', 'SDP360 — Executive Home'); }
   var charts = [], bodies = {};
   var annotations = null;   // E-V08 — { can_write, annotations:[…] } when the switch is on, else null
   try { $('annShow').checked = localStorage.getItem('dash_show_notes') !== '0'; } catch (_) { /* per-viewer convenience only */ }
@@ -244,8 +246,8 @@
         // design review B4 / R6: no empty axis; % axes run 0–100; short week labels, the year said once
         var pts = d.points || [];
         if (!pts.some(function (p) { return p.value != null; })) {
-          el.className += ' edv-quiet';
-          el.innerHTML = title + '<div class="edv-kpi-sub">Not measured over this period (' + pts.length + ' ' + (/W\d/.test(pts[0] && pts[0].label || '') ? 'weeks' : 'months') + ').</div>';
+          el.className += ' edv-quiet is-empty';   // executive F16: an empty panel shrinks to its message
+          el.innerHTML = title + '<div class="edv-kpi-sub edv-nodata">Not measured over this period (' + pts.length + ' ' + (/W\d/.test(pts[0] && pts[0].label || '') ? 'weeks' : 'months') + ').</div>';
         } else {
           var years = {}; pts.forEach(function (p) { years[String(p.label).slice(0, 4)] = 1; });
           var vals = pts.filter(function (p) { return p.value != null; }); var last = vals[vals.length - 1];
@@ -302,6 +304,7 @@
       } else if (d.mode === 'tracker') {
         el.innerHTML = title + R.trackerHtml(d);
       } else if (d.mode === 'actions') {
+        if (!d.items.length) el.className += ' is-empty';
         el.innerHTML = title + (d.items.length ? '<table class="edv-actions-table"><thead><tr><th>Source</th><th>Action</th><th>Owner</th><th>Due</th></tr></thead><tbody>' +
           d.items.map(function (it) { return '<tr><td>' + R.escapeHtml(it.source) + '</td><td>' + R.escapeHtml(it.title || it.task || '') + '</td><td>' + R.escapeHtml(it.owner || '—') + '</td><td class="' + (it.overdue ? 'edv-overdue' : '') + '">' + R.escapeHtml(it.due_date || '—') + '</td></tr>'; }).join('') + '</tbody></table>'
           : '<div class="edv-kpi-sub">' + (d.note || 'No open action.') + '</div>') + '<div class="edv-asof">' + (d.totals ? d.totals.open + ' open in total' : '') + '</div>';
@@ -354,7 +357,9 @@
   });
 
   // design review R9: the period box suggests the last 13 weeks and 12 months
-  try { R.windowSeries('week', 13).concat(R.windowSeries('month', 12)).reverse().forEach(function (v) { var o = document.createElement('option'); o.value = v; $('windowList').appendChild(o); }); } catch (_) {}
+  try { R.windowSeries('week', 13).concat(R.windowSeries('month', 12)).reverse().forEach(function (v) { var o = document.createElement('option'); o.value = v; o.textContent = v; $('window').appendChild(o); }); } catch (_) {}
+  // executive F3: the period is a list (same values the free-text field suggested); a ?window= in the address still selects
+  try { var w0 = params.get('window'); if (w0) { if (![].some.call($('window').options, function (o) { return o.value === w0; })) { var ow = document.createElement('option'); ow.value = w0; ow.textContent = w0; $('window').appendChild(ow); } $('window').value = w0; } } catch (_) {}
   $('apply').addEventListener('click', loadData);
   $('site').addEventListener('change', loadData);
   if (key) renderView(); else { $('dash').hidden = true; renderList(); }

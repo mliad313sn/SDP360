@@ -64,6 +64,7 @@ const BUDGETS = {
   "public/wan-health.html": {hex: 1},
   "public/wan-sla.html": {hex: 1},
   "public/wan.html": {hex: 99, dualAxis: 2},
+  "public/lib/chartNoData.js": {dualAxis: 1, doughnut: 2},   // VISUAL POLISH 3 — the plugin READS a dataset's axis id and the chart type (it creates no chart); the scanner counts the words
   "public/lib/chartTheme.js": {hex: 14},
   "public/lib/charts.js": {hex: 7},
   "public/lib/dashboard-shared.js": {hex: 1},

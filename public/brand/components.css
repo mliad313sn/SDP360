@@ -483,3 +483,43 @@
 :where(.edv-house) .btn.primary:hover { background:var(--gray-800); border-color:var(--gray-800); }
 :where(.edv-house) .btn.danger { color:var(--rag-red); }
 :where(.edv-house) .btn.danger:hover { background:var(--color-danger-bg); border-color:var(--rag-red); }
+
+/* ── Executive KPI — ONE tile for the executive pages (VISUAL POLISH 3, UX committee executive F5 / F15 / F23) ──
+   Modelled on the IT Review band: a ruled, neutral cell; a small caps label; a large tabular value; the status as a
+   dot or a pill — never a coloured border, stripe, gradient or lift. `.exec-kpi` is the component; under
+   <body class="exec-house"> the existing tiles of the Scorecard (.kpi-tile), Exec View (.kpi-card), Site Overview
+   (.sa-tile) and the dashboard engine on Executive Home (.edv-widget / .edv-kpi-card) take the SAME rules, so the
+   four pages read as one product without rewriting their markup. Values, formulas and what is shown are untouched. */
+.exec-kpi, body.exec-house .kpi-tile, body.exec-house .kpi-card, body.exec-house .sa-tile, body.exec-house .edv-kpi-card, body.exec-house .edv-widget {
+  background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-sm); box-shadow: none;
+  animation: none; opacity: 1; transform: none; transition: none; }
+body.exec-house .kpi-tile:hover, body.exec-house .kpi-card:hover, body.exec-house .sa-tile:hover { box-shadow: none; transform: none; }
+body.exec-house .kpi-tile::before { display: none; }
+body.exec-house .edv-widget.rag-green, body.exec-house .edv-widget.rag-amber, body.exec-house .edv-widget.rag-red, body.exec-house .edv-widget.rag-na,
+body.exec-house .edv-kpi-card.rag-green, body.exec-house .edv-kpi-card.rag-amber, body.exec-house .edv-kpi-card.rag-red { border-top: 1px solid var(--color-border); }
+.exec-kpi__label, body.exec-house .kpi-tile-label, body.exec-house .kpi-label, body.exec-house .sa-tile .lbl, body.exec-house .edv-kpi-label, body.exec-house .edv-widget > h3 {
+  font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--gray-600); line-height: 1.3; }
+.exec-kpi__value, body.exec-house .kpi-tile-value, body.exec-house .kpi-value, body.exec-house .sa-tile .val, body.exec-house .edv-kpi-value {
+  font-family: var(--font-sans); font-size: 32px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; color: var(--color-text-strong); }
+body.exec-house .edv-widget.edv-quiet .edv-kpi-value, body.exec-house .edv-kpi-card.edv-quiet .edv-kpi-value { color: var(--rag-na); font-weight: 600; }
+.exec-kpi__meta, body.exec-house .kpi-tile-meta, body.exec-house .kpi-foot { font-size: 12px; color: var(--gray-600); flex-wrap: wrap; }
+body.exec-house .kpi-trend, body.exec-house .kpi-prev, body.exec-house .kpi-delta, body.exec-house .edv-stale-badge, body.exec-house .rag-chip { white-space: nowrap; }
+/* stale = a solid rule and a "Stale" pill (a dashed border read as "draft / broken") */
+.edv-widget.edv-stale { border-top: 3px solid var(--rag-na); }
+body.exec-house .edv-widget.edv-stale { border-top: 1px solid var(--color-border); }
+/* an empty panel shrinks to its message (executive F16); the message itself stays — it says what is not measured */
+.edv-widget.is-empty { min-height: 0; grid-row-end: span 1 !important; }
+.edv-widget.is-empty canvas { display: none; }
+.edv-nodata { display: flex; align-items: center; gap: 8px; padding: 10px 0; font-size: 13px; color: var(--gray-600); }
+.edv-nodata::before { content: ''; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--rag-na); }
+/* print: one header line, landscape, no chrome (executive F7) */
+@media print {
+  @page { size: A4 landscape; margin: 12mm; }
+  body.exec-house::before { content: attr(data-print-title); display: block; font: 700 14pt var(--font-sans); padding-bottom: 6pt; margin-bottom: 8pt; border-bottom: 1px solid var(--gray-400); }
+  body.exec-house .mt-tabs, body.exec-house .exec-tabs, body.exec-house [data-print="hide"], body.exec-house .footer, body.exec-house .api-bar, body.exec-house .filter-card, body.exec-house .tab-bar, body.exec-house .sa-tabs, body.exec-house .sa-lang-toggle { display: none !important; }
+  body.exec-house .kpi-tile, body.exec-house .kpi-card, body.exec-house .sa-tile, body.exec-house .edv-widget, body.exec-house .chart-card, body.exec-house .sa-panel { break-inside: avoid; }
+  body.exec-house { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+
+body.exec-house .edv-widget:has(> .edv-widget-text:only-child) { border: 0; background: transparent; padding: 4px 0 0; min-height: 0; }
+body.exec-house .edv-widget-text p { font-size: 14px; color: var(--color-text-strong); }

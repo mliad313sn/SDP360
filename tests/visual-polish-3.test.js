@@ -205,3 +205,59 @@ test('admin (P2-6, P2-9, P2-10, P3-5): dirty-row Save on sites, grouped policy l
   const integ = read('integrations.html');
   assert.match(integ, /D\.reveal\(\{ title: "API key created"/);
 });
+
+// ── Executive seat ──────────────────────────────────────────────────────────────────────────────────────────────
+test('executive pages share ONE KPI tile (brand/components.css .exec-kpi under body.exec-house) and one tab strip', () => {
+  const css = read('brand/components.css');
+  assert.match(css, /\.exec-kpi, body\.exec-house \.kpi-tile, body\.exec-house \.kpi-card, body\.exec-house \.sa-tile, body\.exec-house \.edv-kpi-card, body\.exec-house \.edv-widget \{/);
+  assert.match(css, /body\.exec-house \.kpi-tile::before \{ display: none; \}/, 'no coloured stripe: the status is the dot / pill');
+  for (const f of ['executive.html', 'exec-view.html', 'site-awareness.html']) {
+    const src = read(f);
+    assert.match(src, /<body class="exec-house" data-print-title="SDP360 — [^"]+">/, f);
+    assert.ok(src.includes('href="brand/components.css"'), f + ' loads the shared components');
+  }
+  assert.match(read('dashboards.html'), /if \(\/\^exec-\/\.test\(String\(key \|\| ''\)\)\) \{ document\.body\.classList\.add\('exec-house'\)/);
+  const tabs = read('module-tabs.js');
+  for (const id of ['exec-home', 'it-review', 'scorecard', 'site-overview', 'exec-view']) assert.ok(tabs.includes(`id:'${id}'`), id + ' is a section of the Executive door');
+  assert.match(read('site-awareness.html'), /data-module="executive" data-current="site-overview"/);
+  assert.match(css, /@page \{ size: A4 landscape; margin: 12mm; \}/);
+  assert.match(css, /body\.exec-house::before \{ content: attr\(data-print-title\)/);
+});
+
+test('charts (executive F18): no data and too-short trends say so; a real chart is left alone', () => {
+  const { verdict } = require('../public/lib/chartNoData.js');
+  assert.deepStrictEqual(verdict('line', [{ data: [null, null] }]), { kind: 'none' });
+  assert.deepStrictEqual(verdict('bar', []), { kind: 'none' });
+  assert.deepStrictEqual(verdict('line', [{ data: [null, 2.4, null] }]), { kind: 'few', have: 1, need: 3 });
+  assert.deepStrictEqual(verdict('bar', [{ data: [5] }, { type: 'line', data: [80, 90] }]), { kind: 'few', have: 2, need: 3 }, 'a combo with a trend line is a trend');
+  assert.strictEqual(verdict('line', [{ data: [1, 2, 3] }]), null);
+  assert.strictEqual(verdict('bar', [{ data: [0] }]), null, 'a measured zero is data; one bar is a legitimate bar chart');
+  assert.strictEqual(verdict('line', [{ data: [1, 2] }], 2), null, 'per-chart minimum');
+  for (const f of ['executive.html', 'site-awareness.html', 'system-logs.html']) assert.ok(read(f).includes('src="lib/chartNoData.js"'), f);
+});
+
+test('executive: unmeasured sites are named on one line, never dropped; empty panels shrink; exec view bars carry their band', () => {
+  const R = require('../public/lib/dashboardRender.js');
+  const rows = [{ site: 'Hounde', value: 92, rag: 'GREEN' }, { site: 'Abidjan', value: null }, { site: 'Dakar', value: null }, { site: 'Kalana', value: null }];
+  const h = R.ragGridHtml({ rows, unit: '%' });
+  assert.match(h, /3 sites not measured: Abidjan, Dakar, Kalana/);
+  assert.strictEqual((h.match(/class="edv-ragcell /g) || []).length, 1, 'only the measured site is a cell');
+  assert.match(h, /not measured/);
+  const one = R.ragGridHtml({ rows: rows.slice(0, 2), unit: '%' });
+  assert.strictEqual((one.match(/class="edv-ragcell /g) || []).length, 2, 'a single unmeasured site keeps its cell');
+  const d = read('dashboards.html');
+  assert.match(d, /el\.className \+= ' edv-quiet is-empty'/); assert.match(d, /if \(!d\.items\.length\) el\.className \+= ' is-empty'/);
+  assert.match(d, /<select id="window" aria-label="Period">/);
+  const ev = read('exec-view.html');
+  assert.match(ev, /KpiRag\.rag\(p\.pct \/ 100, 'tracker-executive'\)/, 'thresholds come from lib/kpiRag.js');
+});
+
+test('IT Review (F11, F22): site names in the filter from the model rows; the KPI band wraps on a phone', () => {
+  const { nameSiteLinks } = require('../public/it-review.js');
+  const mk = (v) => ({ v, textContent: v, title: null, getAttribute() { return this.v; }, setAttribute(k, x) { this[k] = x; } });
+  const links = [mk('ALL'), mk('HGO'), mk('ZZZ')];
+  nameSiteLinks({ querySelectorAll: () => links }, { leaderboard: [{ code: 'HGO', name: 'Houndé' }] });
+  assert.deepStrictEqual(links.map((a) => a.textContent), ['All sites', 'Houndé', 'ZZZ']);
+  assert.strictEqual(links[1].title, 'HGO');
+  assert.match(read('it-review.html'), /@media \(max-width: 600px\) \{ \.ir-kpi-band \{ grid-template-columns: repeat\(2, 1fr\) !important; \} \}/);
+});
