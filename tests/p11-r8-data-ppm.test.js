@@ -8,6 +8,7 @@
 //   PPM R8-1              readers never turn an unscored probability / impact into 0 (Number(null) === 0).
 //   N-R8-1                an approved Policy Center request whose apply step fails is not left "approved".
 //   N-R8-2                the operator-token comment states the .env residual honestly.
+process.env.SDP_CONFIG_KEY = process.env.SDP_CONFIG_KEY || 'r8dp-test-config-key-0123456789abcdef';   // P11 r9 R9-A2: requests carry an origin signature keyed from it
 const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');

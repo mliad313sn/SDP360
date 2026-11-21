@@ -81,7 +81,7 @@ module.exports = function policyCenterRoutes(deps) {
     }
     if (PC.needsSecondPerson(entry, before, next)) {
       if (why.length < 10) throw typed('VALIDATION', 'a high-risk change needs a reason (10+ characters)', 400);
-      const r = await cstore().create({ key: entry.key, scope: 'global', oldValue: before, newValue: next, reason: why, actor: actorOf(u) });
+      const r = await cstore().create({ key: entry.key, scope: 'global', oldValue: before, newValue: next, reason: why, actor: actorOf(u), origin: 'web' });
       await log(req, { category: 'config', action: 'policy_change_requested', target: entry.key, details: { request: r.id, from: before, to: next, reason: why.slice(0, 300) }, risk: 1 });
       return { status: 'pending', request: 'pc-' + r.id, before, after: next };
     }
@@ -149,6 +149,7 @@ module.exports = function policyCenterRoutes(deps) {
       const pc = (await cstore().list({ status: st })).map((r) => ({ id: 'pc-' + r.id, source: 'policy_center', key: r.key, scope: r.scope, from: r.old_value, to: r.new_value,
         reason: r.reason, requested_by: r.requested_by_name || '#' + r.requested_by, requested_at: r.requested_at, expires_at: r.expires_at, status: r.status,
         decided_by: r.decided_by_name || null, decided_at: r.decided_at, decision_reason: r.decision_reason, mine: Number(r.requested_by) === Number(req.reportUser.id),
+        origin: r.origin || null, origin_verified: require('../services/policyOrigin').verify(r).ok,   // P11 r9 R9-A2
         _requester: r.requested_by }));
       // P11 r7 R7-A1 — what can be established about the operator token a CLI-filed request names (issuance event,
       // server binding, same account): shown to the approver, never a substitute for the approver's own judgement.
@@ -175,13 +176,21 @@ module.exports = function policyCenterRoutes(deps) {
         if (m[1] === 'pc') {
           const pr = (await cstore().get(Number(m[2]))) || {};
           const ev = await require('../services/operatorTokens').evidenceForRequest(rdb().pgHandle ? rdb().pgHandle() : rdb().db, pr.reason, pr.requested_by);
-          // P11 r8 R8-A1 — a request filed outside the web session flow (source='cli', or a reason carrying the CLI's
-          // "filed by activate-switches" marker) must name the operator token that authenticated it: since fix 29 every
-          // genuine CLI request does, so one with no token evidence is a row written straight into the table.
-          const cliFiled = String(pr.source || '') === 'cli' || /filed by activate-switches/i.test(String(pr.reason || ''));
-          if (cliFiled && !ev) {
-            await log(req, { category: 'config', action: 'policy_approval_refused', target: req.params.id, details: { reason: 'cli request without operator token evidence', source: pr.source || null }, risk: 1 });
-            throw typed('CONFLICT', 'this request was filed outside the web session flow (source cli) but names no operator token — a genuine CLI request always names the token that authenticated it; refused as a possibly forged request (reject it)', 409);
+          // P11 r9 R9-A2 / N-R9-1 (supersedes the r8 `source`/marker heuristic, which the forger controls) — every
+          // request must carry a valid origin signature written by a trusted path (services/policyOrigin.js); a CLI-origin
+          // request must also point at a token issued by the server, of the same account, consumed and bound to THIS id.
+          const PO = require('../services/policyOrigin');
+          const vo = PO.verify(pr);
+          if (pr.id != null && !vo.ok) {
+            await log(req, { category: 'config', action: 'policy_approval_refused', target: req.params.id, details: { reason: 'request origin not verifiable', detail: vo.reason, source: pr.source || null }, risk: 1 });
+            throw typed('CONFLICT', `request not created by a trusted path: ${vo.reason}`, 409);
+          }
+          if (pr.origin === 'cli') {
+            const tk = await require('../services/operatorTokens').evidenceForToken(rdb().pgHandle ? rdb().pgHandle() : rdb().db, pr.operator_token_id, pr.requested_by, pr.id);
+            if (!(tk && tk.issued_event && tk.binding_ok && tk.account_matches && tk.consumed && tk.bound_to_request)) {
+              await log(req, { category: 'config', action: 'policy_approval_refused', target: req.params.id, details: { reason: 'operator token not verifiable for this request', operator_token: tk }, risk: 1 });
+              throw typed('CONFLICT', `this request was filed by the CLI under operator token #${pr.operator_token_id}, but ${!tk ? 'the token is unknown' : !tk.issued_event ? 'no operator_token_issued event exists for it' : !tk.binding_ok ? 'the token was not issued by the server' : !tk.account_matches ? 'the token belongs to another account' : !tk.consumed ? 'the token was never used' : 'the token was not used to file this request (replayed)'} — refused as a possibly forged request`, 409);
+            }
           }
           if (ev && !(ev.issued_event && ev.binding_ok && ev.account_matches)) {
             await log(req, { category: 'config', action: 'policy_approval_refused', target: req.params.id, details: { reason: 'operator token not verifiable', operator_token: ev }, risk: 1 });

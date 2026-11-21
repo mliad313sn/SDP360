@@ -45,7 +45,9 @@ test('O-8: after an SDP_CONFIG_KEY rotation the nightly job records the rotation
   });
   const kidA = (await db.prepare("SELECT kid FROM audit_chain_anchors WHERE table_name = 'minutes_history' ORDER BY id DESC LIMIT 1").get()).kid;
   assert.match(String(kidA), /^[0-9a-f]{16}$/, 'each anchor records the key identifier, never the key');
-  await withEnv({ SDP_CONFIG_KEY: KEY_B, SDP_LEDGER_SCHEMA: null }, async () => {
+  // P11 r9 O-14 (fix 39): a rotation resumes only to a kid attested by a key the server holds — the documented rotation
+  // leaves the previous key in SDP_CONFIG_KEY_OLD for the next nightly run (tests/p11-r9-audit-ops.test.js covers the rest)
+  await withEnv({ SDP_CONFIG_KEY: KEY_B, SDP_CONFIG_KEY_OLD: KEY_A, SDP_LEDGER_SCHEMA: null }, async () => {
     const before = await AC.verify(db);
     assert.equal(before.ok, false, 'old-key anchors cannot be verified with the new key');
     assert.equal(before.status, 'unverifiable', 'unverifiable, not broken');
@@ -94,7 +96,13 @@ test('F-32: restored onto a server with ANOTHER key → unverifiable "key rotate
   const { db, AC } = await reset(2);
   const kA = AC.anchorKey({ SDP_CONFIG_KEY: KEY_A }); const kB = AC.anchorKey({ SDP_CONFIG_KEY: KEY_B });
   await AC.recordAnchors(db, await AC.verify(db, { key: kA }), { key: kA });
-  const other = await AC.verify(db, { key: kB });
+  // P11 r9 O-14: without the previous key (SDP_CONFIG_KEY_OLD) kid A is unknown — unverifiable, no automatic resume
+  // (forget the attestations an earlier test of this file left — the O-8 resume had B attest A)
+  await db.exec('ALTER TABLE audit_chain_meta DISABLE TRIGGER audit_chain_meta_append_only');
+  try { await db.exec("DELETE FROM audit_chain_meta WHERE k LIKE 'kid%'"); } finally { await db.exec('ALTER TABLE audit_chain_meta ENABLE TRIGGER audit_chain_meta_append_only'); }
+  const unknown = await AC.verify(db, { key: kB, oldKey: null });
+  assert.equal(unknown.status, 'unverifiable'); assert.equal(unknown.key_rotated, undefined);
+  const other = await AC.verify(db, { key: kB, oldKey: kA });
   assert.equal(other.status, 'unverifiable'); assert.equal(other.key_rotated, true);
   assert.ok(!/forged or altered/.test(JSON.stringify(other)));
   const none = await AC.verify(db, { key: null });

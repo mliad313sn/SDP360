@@ -48,10 +48,10 @@ test('R8-A1: a source=cli request row naming no operator token is refused at app
   const ins = await insertRow('pc_super2', 'cli', 'pilot wave 2 change filed via CLI');
   const ap = await send('POST', `/api/policy-center/requests/pc-${ins.id}/approve`, T.super, { reason: 'approve the colleague request' });
   assert.equal(ap.status, 409);
-  assert.match(JSON.stringify(await ap.json()), /names no operator token/);
+  assert.match(JSON.stringify(await ap.json()), /not created by a trusted path/);   // P11 r9 fix 39: origin signature supersedes the source heuristic
   assert.equal((await RC.getConfig(rdb.db)).portfolio_editor_plan_writes, '0', 'value unchanged');
   const ev = await rdb.pgHandle().prepare("SELECT details FROM system_log WHERE action = 'policy_approval_refused' ORDER BY id DESC LIMIT 1").get();
-  assert.match(String(ev.details), /cli request without operator token evidence/);
+  assert.match(String(ev.details), /request origin not verifiable/);
   assert.equal((await send('POST', `/api/policy-center/requests/pc-${ins.id}/reject`, T.super, { reason: 'forged request, no operator token' })).status, 200);
 });
 

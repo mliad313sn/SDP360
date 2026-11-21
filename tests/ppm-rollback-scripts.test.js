@@ -52,7 +52,9 @@ const PPM = ['010_roadmap', '011_roadmap_project', '039_native_ppm', '043_portfo
   // P11 r7 R7-A1 — operator token binding (HMAC keyed outside the database)
   '138_operator_token_binding',
   // P11 r8 R8-1 — unscored risks stay NULL (drops the DEFAULT 2 of probability / impact; the rollback puts it back)
-  '139_portfolio_risk_unscored_default'];
+  '139_portfolio_risk_unscored_default',
+  // P11 r9 fix 39 — system_log audit_chain guard + Policy Center origin signature / token binding columns
+  '140_audit_ops_signatures'];
 // Migrations whose forward step only DROPS a column default: their rollback re-adds the default, so the rolled schema
 // differs from "before" by those columns' default only (not by removed objects). Every other rule still applies.
 const DEFAULT_ONLY = new Set(['139_portfolio_risk_unscored_default']);

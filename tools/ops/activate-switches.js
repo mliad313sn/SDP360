@@ -593,7 +593,7 @@ async function main(argv, deps) {
       for (const e of rb.entries.filter((x) => feBack.includes(x.key))) {
         const target = (e.absent === true || e.from == null) ? require(path.join(ROOT, 'services', 'reportConfig')).DEFAULTS[e.key] : e.from;
         const { base, cur, next } = _baseValues(cfg0, e.key, target);
-        const req = await d.createPolicyRequest({ key: base, oldValue: cur, newValue: next, reason: _filedReason(`rollback ${path.basename(args.rollback)}${args.reason ? ` — ${args.reason}` : ''}`, au.token_id, ident), actor: au.account });
+        const req = await d.createPolicyRequest({ key: base, oldValue: cur, newValue: next, reason: _filedReason(`rollback ${path.basename(args.rollback)}${args.reason ? ` — ${args.reason}` : ''}`, au.token_id, ident), actor: au.account, origin: 'cli', operatorTokenId: au.token_id });
         res.requested.push({ key: base, request_id: req && req.id != null ? req.id : null, requested_by: au.account.username });
       }
       d.log(`Policy Center: ${res.requested.length} four-eyes rollback request(s) filed by ${au.account.username} (authenticated) — another super_admin decides in /policy-center.html.`);
@@ -650,7 +650,7 @@ async function main(argv, deps) {
     if (viaCenter) {
       for (const st of feSteps) {
         const { base, cur, next } = _baseValues(cfg, st.key, st.on_value);
-        const req = await d.createPolicyRequest({ key: base, oldValue: cur, newValue: next, reason: _filedReason(`${args.reason} (activate-switches ${st.lot})`, tokenId, ident), actor: requester });
+        const req = await d.createPolicyRequest({ key: base, oldValue: cur, newValue: next, reason: _filedReason(`${args.reason} (activate-switches ${st.lot})`, tokenId, ident), actor: requester, origin: 'cli', operatorTokenId: tokenId });
         requested.push({ key: base, request_id: req && req.id != null ? req.id : null, requested_by: requester.username });
         if (d.logEvent) await Promise.resolve(d.logEvent({ category: 'config', action: 'policy_change_requested', actor: actorOf(requester.username), target: base,
           details: { request: req && req.id, from: cur, to: next, via: 'activate-switches', operator_token: tokenId, os_user: ident.os_user, host: ident.host }, risk: 1 })).catch(() => {});

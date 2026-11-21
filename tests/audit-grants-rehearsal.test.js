@@ -112,6 +112,16 @@ test('harden-audit-grants.sql: the app role reads and appends, never edits, dele
         await app.query("INSERT INTO audit_chain_anchors (table_name, schema_name, last_id, head, row_count) VALUES ('minutes_history', 'x', NULL, NULL, 0)");
         await assert.rejects(app.query('DELETE FROM audit_chain_anchors'), /permission denied|append-only/);
         await assert.rejects(app.query('TRUNCATE audit_chain_anchors'), /permission denied/);
+        // P11 r9 R9-A1 — system_log: the app role still logs and purges, but cannot rewrite, truncate or un-guard the
+        // audit_chain events (a DELETE leaves them in place), nor replace the guard function
+        await app.query("INSERT INTO system_log (ts, category, action, details, risk) VALUES ('2026-11-21T00:00:00Z', 'governance', 'audit_chain_anchor', '{}', 0), ('2026-11-21T00:00:00Z', 'system', 'r9_plain', '{}', 0)");
+        await app.query("DELETE FROM system_log WHERE action IN ('audit_chain_anchor', 'r9_plain')");
+        assert.equal((await app.query("SELECT COUNT(*)::int AS n FROM system_log WHERE action = 'audit_chain_anchor'")).rows[0].n >= 1, true, 'audit_chain events are kept');
+        assert.equal((await app.query("SELECT COUNT(*)::int AS n FROM system_log WHERE action = 'r9_plain'")).rows[0].n, 0, 'ordinary rows still purge');
+        await assert.rejects(app.query("UPDATE system_log SET details = '{}' WHERE action = 'audit_chain_anchor'"), /permission denied|append-only/);
+        await assert.rejects(app.query('TRUNCATE system_log'), /permission denied/);
+        await assert.rejects(app.query('ALTER TABLE system_log DISABLE TRIGGER system_log_audit_chain_guard'), /must be owner|permission denied/);
+        await assert.rejects(app.query("CREATE OR REPLACE FUNCTION sdp_system_log_audit_chain_guard() RETURNS trigger LANGUAGE plpgsql AS $f$ BEGIN RETURN OLD; END $f$"), /must be owner|permission denied/);
         // the one place left (pg_temp, session-local) is reported by the verify: a temp copy of ppm_events shadows the name
         await app.query('CREATE TEMP TABLE ppm_events (LIKE ' + schema + '.ppm_events INCLUDING ALL)');
         const AC = require('../services/auditChain');
@@ -136,6 +146,9 @@ test('harden-audit-grants.sql: the app role reads and appends, never edits, dele
       await admin.query(`REVOKE ALL ON SCHEMA ${schema} FROM ${role}`).catch(() => {});
       for (const tb of TABLES) await admin.query(`REVOKE ALL ON ${tb} FROM ${role}`).catch(() => {});
       await admin.query(`REVOKE ALL ON audit_chain_anchors FROM ${role}`).catch(() => {});
+      await admin.query('ALTER TABLE system_log OWNER TO current_user').catch(() => {});
+      await admin.query('ALTER FUNCTION sdp_system_log_audit_chain_guard() OWNER TO current_user').catch(() => {});
+      await admin.query(`REVOKE ALL ON system_log FROM ${role}`).catch(() => {});
       await admin.query(`REVOKE ALL ON ALL SEQUENCES IN SCHEMA ${schema} FROM ${role}`).catch(() => {});
       await admin.query(`DROP ROLE IF EXISTS ${role}`).catch(() => {});
     }

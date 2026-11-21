@@ -395,7 +395,7 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `reports.override_reason_min` | `10` | int | yes | yes | to be named |
 | `reports.withdraw_reason_min` | `5` | int | yes | yes | to be named |
 
-## 4. Environment variables (72) — read in *.js, services/, routes/
+## 4. Environment variables (73) — read in *.js, services/, routes/
 
 | Variable | Kind | Default when unset | Owner | Read in |
 |---|---|---|---|---|
@@ -445,7 +445,8 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `SDP_BACKUP_KEY` | secret | (secret — not shown) | to be named | services/backup.js, services/dbRestore.js |
 | `SDP_BLOB_ROOT` | switch | see the reading file | to be named | services/blobBackup.js |
 | `SDP_CONFIG_BOX_VERSION` | switch | unset = 2 (`enc:v2`) | Security owner | services/configSecrets.js |
-| `SDP_CONFIG_KEY` | secret | (secret — not shown) | to be named | services/auditChain.js, services/backendGuard.js, services/configSecrets.js, services/operatorTokens.js |
+| `SDP_CONFIG_KEY` | secret | (secret — not shown) | to be named | services/auditChain.js, services/backendGuard.js, services/configSecrets.js, services/operatorTokens.js (+1) |
+| `SDP_CONFIG_KEY_OLD` | secret | (secret — not shown) | to be named | services/auditChain.js |
 | `SDP_CSP_REPORT_ONLY` | switch | unset (no report-only header, no /api/security/csp-report) | Security owner | services/cspReport.js |
 | `SDP_DATA_DIR` | switch | see the reading file | to be named | assets-db.js, inspection-db.js, meetings-db.js, reports-db.js (+6) |
 | `SDP_LEDGER_SCHEMA` | switch | see the reading file | to be named | services/auditChain.js |

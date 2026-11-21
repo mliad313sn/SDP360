@@ -105,12 +105,33 @@ BEGIN
   END IF;
 END $$;
 -- R7-A2: the audit chain meta table (ledger schema at migration time, 'signed anchors written') — append + read only
+-- P11 r9 O-14 / R9-2: the app role KEEPS INSERT on purpose — the nightly job (which runs as the app role) writes the kid
+-- history there. Since fix 39 that history is SIGNED ('kidatt:<kid>:<attester>:<hmac>', key derived from SDP_CONFIG_KEY,
+-- outside the database), so a row the app role inserts by hand ('kid:<x>' or a garbage attestation) is ignored. Revoking
+-- INSERT would only be safe with a SECURITY DEFINER writer owned by sdp_audit_owner, which cannot check the HMAC without
+-- the key — not done (a DBA may still revoke it if the nightly job runs under another role that keeps INSERT).
 DO $$ DECLARE app TEXT := current_setting('sdp.app_role');
 BEGIN
   IF to_regclass('audit_chain_meta') IS NOT NULL THEN
     ALTER TABLE audit_chain_meta OWNER TO sdp_audit_owner;
     EXECUTE format('REVOKE ALL ON audit_chain_meta FROM %I', app);
     EXECUTE format('GRANT SELECT, INSERT ON audit_chain_meta TO %I', app);
+  END IF;
+END $$;
+-- P11 r9 R9-A1: system_log carries the nightly job's signed audit_chain events (migration 140 guards them: UPDATE
+-- refused, DELETE keeps them). While the app role OWNS system_log it can disable that trigger; handing the table to the
+-- audit owner removes that, keeps the 7-year purge (DELETE) and the event writes (INSERT), and takes TRUNCATE / UPDATE
+-- away. Trade-off, stated: a later migration that ALTERs system_log must then be applied by the DBA.
+DO $$ DECLARE app TEXT := current_setting('sdp.app_role');
+BEGIN
+  IF to_regclass('system_log') IS NOT NULL THEN
+    ALTER TABLE system_log OWNER TO sdp_audit_owner;
+    EXECUTE format('REVOKE ALL ON system_log FROM %I', app);
+    EXECUTE format('GRANT SELECT, INSERT, DELETE ON system_log TO %I', app);
+    EXECUTE format('GRANT USAGE ON SEQUENCE %s TO %I', pg_get_serial_sequence('system_log', 'id'), app);
+  END IF;
+  IF to_regprocedure('sdp_system_log_audit_chain_guard()') IS NOT NULL THEN
+    ALTER FUNCTION sdp_system_log_audit_chain_guard() OWNER TO sdp_audit_owner;   -- not the app role's to replace
   END IF;
 END $$;
 -- R5-A3: no new schema (database handed over), no other schema to plant a copy in, search_path pinned to the ledgers

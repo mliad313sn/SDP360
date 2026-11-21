@@ -261,7 +261,6 @@ async function run(o = {}) {
   const dc = await backup.dumpCountsFor(dumpFile);
   const dumpCounts = dc.counts;
   if (dc.problem) notes.push(`The counts file next to this dump was IGNORED: ${dc.problem}.`);
-  if (dc.unbound) notes.push('The counts file next to this dump predates the sha256 binding (fix 36): only its dump name was checked.');
   const live = new Client({ connectionString: liveUrl });
   await live.connect();
   let liveCounts;

@@ -28,7 +28,7 @@ function check(observed, budgets, { minSamples = MIN_SAMPLES_DEFAULT } = {}) {
     if (b.error_rate_pct != null && o.error_rate_pct != null && o.error_rate_pct > b.error_rate_pct) over.push(`errors ${o.error_rate_pct} % > ${b.error_rate_pct} %`);
     if (b.five_xx_max != null && o.five_xx != null && o.five_xx > b.five_xx_max) over.push(`5xx ${o.five_xx} > ${b.five_xx_max}`);
     const min = Number.isFinite(Number(b.min_samples)) && Number(b.min_samples) > 0 ? Number(b.min_samples) : minSamples;
-    if (!over.length && Number(o.n) < min) { rows.push({ class: k, status: 'insufficient_sample', observed_p95_ms: o.p95, budget_p95_ms: b.p95_ms, n: o.n, min_samples: min, detail: `${o.n} sample(s) < minimum ${min}` }); continue; }
+    if (!over.length && !(Number(o.n) >= min))   /* P11 r9 R9-A5: a non-numeric n is not evidence */ { rows.push({ class: k, status: 'insufficient_sample', observed_p95_ms: o.p95, budget_p95_ms: b.p95_ms, n: o.n, min_samples: min, detail: `${o.n} sample(s) < minimum ${min}` }); continue; }
     rows.push({ class: k, status: over.length ? 'over' : 'within', observed_p95_ms: o.p95, budget_p95_ms: b.p95_ms, n: o.n, detail: over.join('; ') });
   }
   return rows;
