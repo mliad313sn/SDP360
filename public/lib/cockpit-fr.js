@@ -35,7 +35,7 @@ window.COCKPIT_FR = {
   'Attendance': 'Présence', 'Save attendance': 'Enregistrer la présence', 'Attendance saved.': 'Présence enregistrée.', 'Quorum': 'Quorum',
   'present': 'présent', 'absent': 'absent', 'excused': 'excusé', 'No participant listed on the cadence.': 'Aucun participant inscrit sur la cadence.',
   'attendance not recorded': 'présence non enregistrée', 'quorum not defined': 'quorum non défini', 'quorate': 'quorum atteint', 'NOT quorate': 'quorum NON atteint',
-  'Days overdue': 'Jours de retard', 'decision': 'décision', 'action': 'action', 'Nothing overdue.': 'Aucun retard.',
+  'Days overdue': 'Jours de retard', 'decision': 'décision', 'action': 'action', 'Nothing overdue.': 'Aucun retard.', 'Nothing overdue': 'Aucun retard',
   // A5 (P6) — pending approver + deletions awaiting a second person
   'Reason': 'Motif', 'Awaiting confirmation by the committee': 'En attente de confirmation par le comité', 'proposed by': 'proposée par', 'cannot confirm': 'ne peut pas confirmer',
   'Deletions awaiting a second person': 'Suppressions en attente d’une seconde personne', 'Requested by': 'Demandée par', 'Confirm deletion': 'Confirmer la suppression',
