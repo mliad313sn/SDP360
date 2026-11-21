@@ -86,10 +86,10 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 | `ppm_project_team_enabled` | PMO | once the PMO wants a named team per project  | — | — | portfolio_deliverables, portfolio_objectives, portfolio_programmes, portfolio_projects | — | 5 | 3 |
 | `ppm_project_roles_enabled` | PMO | once the PMO decides who holds which PROJECT role  | `ppm_project_team_enabled` | admin | — | — | 8 | 2 |
 | `ppm_raci_enabled` | PMO | — | — | — | — | — | 3 | 1 |
-| `ppm_raid_enabled` | PMO + Finance | once the PMO wants the RAID log  | — | admin, finance-viewer | — | — | 6 | 1 |
-| `ppm_project_rag_enabled` | PMO | once the PMO adopts a composite project RAG  | — | — | — | — | 6 | 2 |
+| `ppm_raid_enabled` | PMO + Finance | once the PMO wants the RAID log  | — | admin, finance-viewer | — | — | 6 | 2 |
+| `ppm_project_rag_enabled` | PMO | once the PMO adopts a composite project RAG  | — | — | — | — | 6 | 3 |
 | `ppm_project_report_enabled` | PMO | once the PMO wants the project status report on demand  | — | admin, finance-viewer | — | — | 3 | 1 |
-| `ppm_simplified_view_enabled` | PMO | once the PMO wants the Simplified ↔ Expert switch on the project page  | — | admin, finance-viewer | — | — | 5 | 2 |
+| `ppm_simplified_view_enabled` | PMO | once the PMO wants the Simplified ↔ Expert switch on the project page  | — | admin, finance-viewer | — | — | 5 | 3 |
 
 ## Dossier L03 — PMO journey — change control, baselines and gates
 
@@ -324,7 +324,7 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 | `restore_drill_full` | Operations owner | once a backup copy of `data/blobs` exists  | — | — | report_config, system_log | — | 1 | 1 |
 | `entra_deprovision_enabled` | Information Security + tenant administrator | only after the tenant administrator decides on the Graph `User | — | — | users | yes | 3 | 2 |
 | `site_code_shared_block` | Data owner + Owner | Decide who owns each shared site code (e.g. TND) and correct the data first; then test the controlled 409 and the editors' rights. | — | editor | — | — | 5 | 4 |
-| `policy_center_enabled` | to be named | — | — | — | — | — | 9 | 8 |
+| `policy_center_enabled` | to be named | — | — | — | — | — | 9 | 9 |
 
 ## Dossier L14 — PMO journey — portfolio intake register, data quality, register and executive dashboard, decision agenda and management alerts, lifecycle / review / audit (portfolio spec Lots 1–5)
 
