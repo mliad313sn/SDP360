@@ -148,6 +148,6 @@ test('page wiring: software tiles — the number shown is the field the parity t
   assert.deepStrictEqual(tiles, { 'fin-cnt-under': 'under_licensed', 'fin-cnt-over': 'over_licensed', 'fin-cnt-compliant': '', 'fin-cnt-managed': 'managed' });
   assert.match(html, /'fin-cnt-under'\)\.textContent\s*= \(Number\(bc\.under_licensed\)/);
   assert.match(html, /'fin-cnt-over'\)\.textContent\s*= \(Number\(bc\.over_licensed\)/);
-  assert.match(html, /'fin-cnt-managed'\)\.textContent\s*= managed\.toLocaleString\(\)/);
+  assert.match(html, /'fin-cnt-managed'\)\.textContent\s*= managed\.toLocaleString\((?:SDPLocale\(\))?\)/);   // the interface locale (visual polish 2) does not change WHICH field is shown
   assert.match(html, /const managed = Number\(s\.managed\)/);
 });
