@@ -3011,6 +3011,10 @@ function showPage(name) {
     document.getElementById('nav-admin').style.display = 'inline-block';
   }
 
+  // ia-value F5 / admin P1-3: the admin console is not "Site Reports" — the page bar names it, and the Weekly /
+  // Monthly report tabs (which do not apply there) are hidden while it is open
+  const _lbl = document.getElementById('reports-section-label'); if (_lbl) _lbl.textContent = name === 'admin' ? 'Admin settings' : 'Site Reports';
+  ['nav-reports', 'nav-monthly'].forEach(id => { const b = document.getElementById(id); if (b) b.hidden = name === 'admin'; });
   if (name === 'admin')   loadAdminPage();
   if (name === 'reports') loadReportList();
   if (name === 'monthly') initMonthlyPage();

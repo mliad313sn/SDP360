@@ -72,7 +72,7 @@
     api('/api/trackers').then(function (j) {
       var live = j.trackers.filter(function (t) { return !t.template; }), tpl = j.trackers.filter(function (t) { return t.template; });
       var card = function (t) { return '<a class="card" href="trackers.html?key=' + encodeURIComponent(t.key) + '"><h3>' + esc(t.name) + '</h3><div class="meta"><span class="edv-chip edv-chip--' + (t.status === 'published' ? 'pub' : t.status === 'draft' ? 'draft' : 'retired') + '">' + t.status + (t.version ? ' v' + t.version : '') + '</span><span>' + (t.period ? t.period.kind + ' × ' + t.period.count : '') + '</span><span>' + t.units + ' units · ' + t.items + ' items</span></div></a>'; };
-      var html = '<div class="section-title">Trackers</div><div class="list">' + (live.map(card).join('') || '<div class="edv-dash-empty">No published tracker yet.</div>') + '</div>';
+      var html = '<div class="section-title">Trackers</div><div class="list">' + (live.map(card).join('') || '<div class="edv-dash-empty">No published tracker yet. ' + (j.builder ? 'Start from a template below, or build a new one.' : 'Ask your administrator to publish one.') + '</div>') + '</div>';
       if (j.builder) html += '<div class="section-title">Templates (builder)</div><div class="list">' + tpl.map(card).join('') + '</div><p><a class="btn primary" href="tracker-builder.html">New tracker</a> <a class="btn" href="tracker-builder.html?legacy=1">Migrate the IT Activity Tracker</a></p>';
       $('listSection').innerHTML = html; status('');
     }).catch(function (e) { status('Could not load trackers: ' + e.message); });
