@@ -10,7 +10,7 @@
 | Decision cell in RELEASE-GATES.md | empty — this gate is **NO-GO** until the approver fills it. This dossier fills nothing. |
 | What this gate blocks | blocks general deployment only |
 | Decide after | [G03](G03-cab-dependencies-postgres-only.md) CAB: dependency upgrade and PostgreSQL-only cutover |
-| Target SHA | `97aab781` |
+| Target SHA | `18512a9d` |
 | Generated | 2026-11-21 |
 
 ## 1. Question to decide
