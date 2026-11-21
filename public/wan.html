@@ -133,13 +133,13 @@
       <div>
         <h1>WAN Health</h1>
         <div class="sub">Disponibilité &amp; qualité des liens WAN par site (source Meraki — semaine / mois archivé). <b>Dispo</b> = le lien répondait ; <b>Qualité</b> = il était de bonne qualité (perte / latence / gigue faibles).</div>
-        <div class="sub" style="margin-top:4px">📊 <b>Chiffres statistiques</b> calculés depuis l'historique perte/latence Meraki — rafraîchis par <b>⚡ Sync now</b> (ou la sync nocturne 05:20). <i>Indépendant de l'onglet SLA.</i></div>
+        <div class="sub" style="margin-top:4px"><i class="icon icon-bar-chart-3" aria-hidden="true"></i> <b>Chiffres statistiques</b> calculés depuis l'historique perte/latence Meraki — rafraîchis par <b><i class="icon icon-zap" aria-hidden="true"></i> Sync now</b> (ou la sync nocturne 05:20). <i>Indépendant de l'onglet SLA.</i></div>
       </div>
       <div class="wh-controls">
         <div class="wh-toggle" id="wh-period">
           <button data-p="day">Past Day</button><button data-p="week" class="on">Past Week</button><button data-p="month">Past Month</button>
         </div>
-        <button class="wh-btn" id="wh-sync" style="display:none">⚡ Sync now</button>
+        <button class="wh-btn" id="wh-sync" style="display:none"><i class="icon icon-zap" aria-hidden="true"></i> Sync now</button>
       </div>
     </div>
 
@@ -173,7 +173,7 @@
       <div>
         <h1>SLA / Chargeback <span id="sl-prov" class="sl-badge sl-prov" style="display:none">Provisoire</span></h1>
         <div class="sub">Contractual WAN SLA attainment, credit tiers &amp; ISP chargeback — a management instrument on top of the WAN archive</div>
-        <div class="sub" style="margin-top:4px">🔌 <b>Coupures détectées</b> depuis le journal d'événements Meraki + le poller 5 min (rafraîchi automatiquement). Le bouton <b>🔄 Réconcilier</b> nettoie l'historique (durées + attribution). <i>Indépendant de l'onglet Santé &amp; Qualité.</i></div>
+        <div class="sub" style="margin-top:4px"><i class="icon icon-plug" aria-hidden="true"></i> <b>Coupures détectées</b> depuis le journal d'événements Meraki + le poller 5 min (rafraîchi automatiquement). Le bouton <b><i class="icon icon-refresh-cw" aria-hidden="true"></i> Réconcilier</b> nettoie l'historique (durées + attribution). <i>Indépendant de l'onglet Santé &amp; Qualité.</i></div>
       </div>
       <div class="sl-controls">
         <label class="sl-muted" for="sl-month" style="font-size:12px">Month</label>
@@ -229,7 +229,7 @@
 
     <div id="sl-unmapped-panel" class="sl-panel" style="display:none">
       <h2>Unmapped circuits</h2>
-      <div class="sl-cfg" style="margin-bottom:12px">⚙ These outages could not be matched to a configured SLA circuit. Configure each in <b>Admin → SLA WAN</b>.</div>
+      <div class="sl-cfg" style="margin-bottom:12px"><i class="icon icon-sliders" aria-hidden="true"></i> These outages could not be matched to a configured SLA circuit. Configure each in <b>Admin → SLA WAN</b>.</div>
       <div class="sl-scroll">
         <table class="sl-tbl">
           <thead>
@@ -254,7 +254,7 @@
           <label class="sl-muted" style="font-size:12px">Uplink<br><select aria-label="Uplink" id="sl-of-uplink"><option value="">Tous</option></select></label>
           <label class="sl-muted" style="font-size:12px">Attribution<br><select id="sl-of-attr"><option value="">Toutes</option></select></label>
           <button class="sl-btn" id="sl-of-export">⬇ Export (filtré)</button>
-          <button class="sl-btn" id="sl-reconcile" title="Relance l'ingester sur le journal d'événements Meraki (30 j) — corrige les durées + l'attribution des coupures historiques">🔄 Réconcilier</button>
+          <button class="sl-btn" id="sl-reconcile" title="Relance l'ingester sur le journal d'événements Meraki (30 j) — corrige les durées + l'attribution des coupures historiques"><i class="icon icon-refresh-cw" aria-hidden="true"></i> Réconcilier</button>
           <span class="sl-muted" id="sl-of-count" style="font-size:12px"></span>
         </div>
         <div class="sl-scroll">
@@ -374,7 +374,7 @@
     $('wh-empty').style.display = sites.length ? 'none' : 'block';
     window.__markFirstUsable && window.__markFirstUsable('wan');   // F-UX-05
     $('wh-basis').innerHTML = '<b>Dispo</b> (le gros chiffre) = % du temps où le lien <b>répondait</b> (une connexion passait). <b>Qualité</b> = indice <b>R (0-100)</b> du <b>modèle E de l’ITU-T (G.107)</b> sur perte / latence / gigue, converti en <b>MOS</b> (score voix standard 1 à 5 : Excellent ≥4.3 · Bon ≥4.0 · Correct ≥3.6 · Médiocre ≥3.1 · Mauvais). Un lien peut être <b>Dispo</b> mais de <b>Qualité/MOS</b> basse (il répond mais la voix passe mal). La <b>Dispo</b> est <b>calibrée sur le « % Time Up » de Meraki</b> (non exposé par l’API) : un échantillon dont la perte dépasse ' + thrTxt + ' compte comme <i>down</i>. Chaque lien porte son <b>ISP</b> une fois le circuit mappé (Admin → SLA WAN).';
-    $('wh-basis').innerHTML += ` <span style="display:inline-block;margin-top:4px;color:#6b7a99">🗓 Période : <b>${period === 'month' ? 'mois' : (period === 'day' ? 'jour' : 'semaine')} archivé(e)</b> — dernière collecte Meraki${asOfTxt ? ' : <b>' + asOfTxt + ' UTC</b>' : ' : <b>aucune</b>'}.</span>`;
+    $('wh-basis').innerHTML += ` <span style="display:inline-block;margin-top:4px;color:#6b7a99"><i class="icon icon-calendar" aria-hidden="true"></i> Période : <b>${period === 'month' ? 'mois' : (period === 'day' ? 'jour' : 'semaine')} archivé(e)</b> — dernière collecte Meraki${asOfTxt ? ' : <b>' + asOfTxt + ' UTC</b>' : ' : <b>aucune</b>'}.</span>`;
     // C-13 — per-source freshness (null = never ran, never invented).
     if (window.WanTimeline) {
       $('wh-fresh').innerHTML = window.WanTimeline.freshness([

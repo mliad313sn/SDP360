@@ -492,7 +492,7 @@
   <span class="shell-page-bar-spacer"></span>
   <div class="live-chip" style="margin-right:6px"><div class="live-dot"></div> Live Data</div>
   <button class="btn" onclick="loadAllData()" id="btnRefresh" style="font-size:11.5px;padding:5px 10px"><i class="icon icon-refresh-cw"></i>Refresh</button>
-  <button class="btn" onclick="forceSync()" id="btnForceSync" style="background:#1e3a50;border:1px solid #0ea5e9;color:#7dd3fc;font-size:11.5px;padding:5px 10px">⚡ Refresh from Zoho</button>
+  <button class="btn" onclick="forceSync()" id="btnForceSync" style="background:#1e3a50;border:1px solid #0ea5e9;color:#7dd3fc;font-size:11.5px;padding:5px 10px"><i class="icon icon-zap"></i> Refresh from Zoho</button>
   <!-- Audience/tone selector only fed the retired cloud-AI prompts; the Quick
        engine doesn't use it. Hidden in the Quick-only workflow. -->
   <select id="analyzeAudience" onchange="setAnalyzeAudience(this.value)" title="Tone for generated commentary." style="display:none">
@@ -507,9 +507,9 @@
        remove `style="display:none"`, drop the `disabled` attribute, restore the
        original label "📤 Export PPTX". Code path (exportExecPptxV2 →
        /api/reports/exec-pptx) is unchanged. -->
-  <button class="btn btn-gold"    onclick="exportExecPptxV2()"  id="btnExport" title="11-slide Group IT Operations Report — template-based, matplotlib charts + python-pptx. Faithful to the brand template (cover + summary stay editable for manual fill-in). Takes ~25-45 s.">📋 Group IT Report</button>
-  <button class="btn btn-gold" style="background:#1B3552;border-color:#1B3552" onclick="exportExecPptxV2('v14')" id="btnExportV14" title="Board deck (v14) — the classic report PLUS the OPS manager's Governance Scoreboard + Effort Matrix (slides 13-14), built from live meetings/inspection data. The classic button stays as the fallback.">📋 Group IT Report (v14)</button>
-  <button class="btn" style="background:#2F5597;color:#fff;border:1px solid #2F5597;font-size:11.5px;padding:5px 10px" onclick="exportExecNewPptx()" id="btnExecNew" title="8-slide Executive Report — native charts, server-side Node + pptxgenjs. Fast (~3-8 s) and works through HTTPS today.">📊 Executive New Report</button>
+  <button class="btn btn-gold"    onclick="exportExecPptxV2()"  id="btnExport" title="11-slide Group IT Operations Report — template-based, matplotlib charts + python-pptx. Faithful to the brand template (cover + summary stay editable for manual fill-in). Takes ~25-45 s."><i class="icon icon-clipboard-list"></i> Group IT Report</button>
+  <button class="btn btn-gold" style="background:#1B3552;border-color:#1B3552" onclick="exportExecPptxV2('v14')" id="btnExportV14" title="Board deck (v14) — the classic report PLUS the OPS manager's Governance Scoreboard + Effort Matrix (slides 13-14), built from live meetings/inspection data. The classic button stays as the fallback."><i class="icon icon-clipboard-list"></i> Group IT Report (v14)</button>
+  <button class="btn" style="background:#2F5597;color:#fff;border:1px solid #2F5597;font-size:11.5px;padding:5px 10px" onclick="exportExecNewPptx()" id="btnExecNew" title="8-slide Executive Report — native charts, server-side Node + pptxgenjs. Fast (~3-8 s) and works through HTTPS today."><i class="icon icon-bar-chart-3"></i> Executive New Report</button>
 </div>
 
 <div id="freshnessBar" class="freshness-bar"></div>
@@ -661,7 +661,7 @@
   <!-- Helpdesk inline commentary -->
   <div class="commentary-card" style="margin-top:14px">
     <div class="commentary-hdr">
-      <span class="commentary-name">🖥 Helpdesk Executive Commentary</span>
+      <span class="commentary-name"><i class="icon icon-hard-drive"></i> Helpdesk Executive Commentary</span>
       <button class="btn" style="font-size:11px;padding:3px 8px" onclick="editField('f-helpdesk')">✏ Edit</button>
     </div>
     <div class="commentary-body">
@@ -746,7 +746,7 @@
   <div class="chart-grid-2" style="margin-top:14px">
     <div class="chart-card">
       <div class="chart-card-title">Major Incidents by Category (YTD)</div>
-      <div id="incCatNoData" style="display:none;text-align:center;padding:32px 0;color:#10B981;font-size:12px">✅ No major incidents in the last 12 months</div>
+      <div id="incCatNoData" style="display:none;text-align:center;padding:32px 0;color:#10B981;font-size:12px"><i class="icon icon-check"></i> No major incidents in the last 12 months</div>
       <div class="chart-wrap" style="height:210px"><canvas id="chartIncCat" height="140"></canvas></div>
     </div>
     <div class="chart-card">
@@ -831,7 +831,7 @@
   <!-- CSAT commentary -->
   <div class="commentary-card" style="margin-top:14px">
     <div class="commentary-hdr">
-      <span class="commentary-name">⭐ CSAT Commentary</span>
+      <span class="commentary-name"><i class="icon icon-star"></i> CSAT Commentary</span>
       <button class="btn" style="font-size:11px;padding:3px 8px" onclick="editField('f-csat')">✏ Edit</button>
     </div>
     <div class="commentary-body">
@@ -851,7 +851,7 @@
   <div class="commentary-grid">
     <div class="commentary-card" style="grid-column:span 2">
       <div class="commentary-hdr">
-        <span class="commentary-name">📊 Executive Overview Comment (Dashboard Slide)</span>
+        <span class="commentary-name"><i class="icon icon-bar-chart-3"></i> Executive Overview Comment (Dashboard Slide)</span>
         <button class="btn" style="font-size:11px;padding:3px 8px" onclick="editField('f-exec')">✏ Edit</button>
       </div>
       <div class="commentary-body">
@@ -860,7 +860,7 @@
     </div>
     <div class="commentary-card" style="grid-column:span 2">
       <div class="commentary-hdr">
-        <span class="commentary-name">📉 SLA &amp; Quality Executive Commentary</span>
+        <span class="commentary-name"><i class="icon icon-line-chart"></i> SLA &amp; Quality Executive Commentary</span>
         <button class="btn" style="font-size:11px;padding:3px 8px" onclick="editField('f-sla')">✏ Edit</button>
       </div>
       <div class="commentary-body">
@@ -884,7 +884,7 @@
   <div class="commentary-grid">
     <div class="commentary-card">
       <div class="commentary-hdr">
-        <span class="commentary-name">✅ Progress since last period</span>
+        <span class="commentary-name"><i class="icon icon-check"></i> Progress since last period</span>
         <button class="btn" style="font-size:11px;padding:3px 8px" onclick="editField('f-progress')">✏ Edit</button>
       </div>
       <div class="commentary-body">
@@ -902,7 +902,7 @@
     </div>
     <div class="commentary-card" style="grid-column:span 2">
       <div class="commentary-hdr">
-        <span class="commentary-name">📅 Activities for next period</span>
+        <span class="commentary-name"><i class="icon icon-calendar"></i> Activities for next period</span>
         <button class="btn" style="font-size:11px;padding:3px 8px" onclick="editField('f-nextperiod')">✏ Edit</button>
       </div>
       <div class="commentary-body">
@@ -911,7 +911,7 @@
     </div>
     <div class="commentary-card" style="grid-column:span 2">
       <div class="commentary-hdr">
-        <span class="commentary-name">🎯 Action items &amp; priorities (slide 10)</span>
+        <span class="commentary-name"><i class="icon icon-target"></i> Action items &amp; priorities (slide 10)</span>
         <button class="btn" style="font-size:11px;padding:3px 8px" onclick="editField('f-actions')">✏ Edit</button>
       </div>
       <div class="commentary-body">
@@ -925,8 +925,8 @@ Example:
     </div>
     <div class="commentary-card" style="grid-column:span 2">
       <div class="commentary-hdr">
-        <span class="commentary-name">📋 Operations Summary — status &amp; KPIs (slide 2)</span>
-        <button class="btn" style="font-size:11px;padding:3px 8px" onclick="_opsSummarySave()">💾 Save</button>
+        <span class="commentary-name"><i class="icon icon-clipboard-list"></i> Operations Summary — status &amp; KPIs (slide 2)</span>
+        <button class="btn" style="font-size:11px;padding:3px 8px" onclick="_opsSummarySave()"><i class="icon icon-save"></i> Save</button>
       </div>
       <div class="commentary-body" style="font-size:12px">
         <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
@@ -976,9 +976,9 @@ Example:
       <!-- 📋 Group IT Report — template-driven Python pipeline at tools/exec-pptx/render.py.
            IIS ARR proxy timeout was raised to 5 min (see CLAUDE.md "Fix PPTX export 502")
            which now lets this finish before IIS gives up. -->
-      <button class="btn btn-gold"    onclick="exportExecPptxV2()"  id="btnExport2" title="11-slide Group IT Operations Report — template-based, matplotlib charts + python-pptx. Faithful to the brand template (cover + summary stay editable for manual fill-in). Takes ~25-45 s.">📋 Group IT Report</button>
-      <button class="btn btn-gold" style="background:#1B3552;border-color:#1B3552" onclick="exportExecPptxV2('v14')" id="btnExportV142" title="Board deck (v14) — the classic report PLUS the OPS manager's Governance Scoreboard + Effort Matrix (slides 13-14), built from live meetings/inspection data. The classic button stays as the fallback.">📋 Group IT Report (v14)</button>
-      <button class="btn" style="background:#2F5597;color:#fff;border:1px solid #2F5597" onclick="exportExecNewPptx()" id="btnExecNew2" title="8-slide Executive Report — native charts, server-side Node + pptxgenjs. Fast (~3-8 s) and works through HTTPS today.">📊 Executive New Report</button>
+      <button class="btn btn-gold"    onclick="exportExecPptxV2()"  id="btnExport2" title="11-slide Group IT Operations Report — template-based, matplotlib charts + python-pptx. Faithful to the brand template (cover + summary stay editable for manual fill-in). Takes ~25-45 s."><i class="icon icon-clipboard-list"></i> Group IT Report</button>
+      <button class="btn btn-gold" style="background:#1B3552;border-color:#1B3552" onclick="exportExecPptxV2('v14')" id="btnExportV142" title="Board deck (v14) — the classic report PLUS the OPS manager's Governance Scoreboard + Effort Matrix (slides 13-14), built from live meetings/inspection data. The classic button stays as the fallback."><i class="icon icon-clipboard-list"></i> Group IT Report (v14)</button>
+      <button class="btn" style="background:#2F5597;color:#fff;border:1px solid #2F5597" onclick="exportExecNewPptx()" id="btnExecNew2" title="8-slide Executive Report — native charts, server-side Node + pptxgenjs. Fast (~3-8 s) and works through HTTPS today."><i class="icon icon-bar-chart-3"></i> Executive New Report</button>
     </div>
   </div>
 
@@ -1714,7 +1714,7 @@ function _pmRender() {
       <div class="pm-preset-hdr">
         <span class="pm-preset-name" ${canRename ? 'contenteditable="true"' : ''} data-preset="${presetEsc}" data-action="pm-rename" spellcheck="false">${presetEsc}</span>
         <span class="pm-preset-count">${groups.length} group${groups.length !== 1 ? 's' : ''}</span>
-        ${canDeletePreset ? `<button class="pm-del-preset" data-preset="${presetEsc}" data-action="pm-delete">🗑 Delete</button>` : '<span style="font-size:10px;color:#64748b">canonical</span>'}
+        ${canDeletePreset ? `<button class="pm-del-preset" data-preset="${presetEsc}" data-action="pm-delete"><i class="icon icon-trash"></i> Delete</button>` : '<span style="font-size:10px;color:#64748b">canonical</span>'}
       </div>
       <div class="pm-tag-list">${tagHtml || '<span style="color:#64748b;font-size:12px">No groups yet — add below</span>'}</div>
       <div class="pm-add-row">
@@ -3860,7 +3860,7 @@ function renderIncidentTable(yr, mo, site) {
   });
 
   if (!filtered.length) {
-    tbody.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--green);padding:16px">✅ No major incidents in the last 12 months</td></tr>'; return;
+    tbody.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--green);padding:16px"><i class="icon icon-check"></i> No major incidents in the last 12 months</td></tr>'; return;
   }
 
   // Sort newest → oldest by Created Time, then take the latest 25 for the
@@ -4775,7 +4775,7 @@ async function runAnalysis() {
       // Add a synthetic step for the quick-analysis fallback (visual feedback)
       const liteLi = document.createElement('li');
       liteLi.className = 'ai-step active';
-      liteLi.innerHTML = '<span class="ai-icon">⚡</span> Falling back to quick analysis…';
+      liteLi.innerHTML = '<span class="ai-icon"><i class="icon icon-zap"></i></span> Falling back to quick analysis…';
       ul.appendChild(liteLi);
 
       if (window.AnalyzeLite && typeof window.AnalyzeLite.runReportLite === 'function') {
@@ -8593,11 +8593,11 @@ async function initFreshnessBar() {
     } else if (ageH < 24) {
       const h = Math.floor(ageH);
       bar.className = 'freshness-bar freshness-warn';
-      bar.innerHTML = `<span>⚠</span><span>Data is <strong>${h} hour${h>1?'s':''} old</strong>${rows} — auto-refresh runs tonight at 3 AM</span><button class="fb-sync-btn" onclick="forceSync()">⚡ Sync Now</button>`;
+      bar.innerHTML = `<span>⚠</span><span>Data is <strong>${h} hour${h>1?'s':''} old</strong>${rows} — auto-refresh runs tonight at 3 AM</span><button class="fb-sync-btn" onclick="forceSync()"><i class="icon icon-zap"></i> Sync Now</button>`;
     } else {
       const days = Math.floor(ageH / 24);
       bar.className = 'freshness-bar freshness-stale';
-      bar.innerHTML = `<span>⛔</span><span>Data is <strong>${days} day${days>1?'s':''} old</strong>${rows} — please sync before sharing with colleagues</span><button class="fb-sync-btn" onclick="forceSync()">⚡ Sync Now</button>`;
+      bar.innerHTML = `<span><i class="icon icon-ban"></i></span><span>Data is <strong>${days} day${days>1?'s':''} old</strong>${rows} — please sync before sharing with colleagues</span><button class="fb-sync-btn" onclick="forceSync()"><i class="icon icon-zap"></i> Sync Now</button>`;
     }
   } catch(e) { /* non-fatal */ }
 }

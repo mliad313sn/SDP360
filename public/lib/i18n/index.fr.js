@@ -5,6 +5,8 @@
 (function (root) {
   'use strict';
   root.I18N_FR_INDEX = {
+    // VISUAL POLISH 2 — the same labels without their emoji (icons are SVG now)
+    'Unassigned Open Tickets': 'Tickets ouverts non assignés',
     'Loading dashboard data…': 'Chargement des données du tableau de bord…', '⟳ Retry': '⟳ Réessayer',
     'Helpdesk · IT Operations Center': 'Helpdesk · Centre des opérations IT', 'Connecting…': 'Connexion…',
     '⟳ Refresh': '⟳ Actualiser', 'Force Sync': 'Forcer la synchronisation', 'Export Risk Register': 'Exporter le registre des risques',

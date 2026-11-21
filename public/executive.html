@@ -1467,15 +1467,15 @@ table tbody tr:hover td { background: var(--color-bg); }
     <p>Share this dashboard with management</p>
     <div class="modal-opts">
       <div class="modal-opt" onclick="window.print()">
-        <div class="modal-opt-icon">🖨️</div>
+        <div class="modal-opt-icon"><i class="icon icon-printer" aria-hidden="true"></i></div>
         <div><div class="modal-opt-name">Print / Save as PDF</div><div class="modal-opt-desc">Best for email or presentation decks</div></div>
       </div>
       <div class="modal-opt" onclick="downloadHTML()">
-        <div class="modal-opt-icon">💾</div>
+        <div class="modal-opt-icon"><i class="icon icon-save" aria-hidden="true"></i></div>
         <div><div class="modal-opt-name">Download as HTML File</div><div class="modal-opt-desc">Fully self-contained, works offline, send by email</div></div>
       </div>
       <div class="modal-opt" onclick="copyShareLink()">
-        <div class="modal-opt-icon">🔗</div>
+        <div class="modal-opt-icon"><i class="icon icon-link" aria-hidden="true"></i></div>
         <div><div class="modal-opt-name">Copy Page Link</div><div class="modal-opt-desc">If hosted on a server or SharePoint</div></div>
       </div>
     </div>
@@ -1495,7 +1495,7 @@ table tbody tr:hover td { background: var(--color-bg); }
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px">
       <!-- Operations column -->
       <div>
-        <div style="font-size:11px;font-weight:700;color:#EF631A;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">🏗 Operations Groups</div>
+        <div style="font-size:11px;font-weight:700;color:#EF631A;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px"><i class="icon icon-building" aria-hidden="true"></i> Operations Groups</div>
         <div id="gce-ops-chips" style="display:flex;flex-wrap:wrap;gap:6px;min-height:40px;padding:8px;background:#fff7f3;border-radius:8px;border:1px solid #fed7aa;margin-bottom:8px"></div>
         <div style="display:flex;gap:6px">
           <select id="gce-ops-add" style="flex:1;padding:7px 9px;border:1px solid #cbd5e1;border-radius:7px;font-size:12px;font-family:var(--font-sans);color:#1e293b;background:#fff">
@@ -1506,7 +1506,7 @@ table tbody tr:hover td { background: var(--color-bg); }
       </div>
       <!-- Applications column -->
       <div>
-        <div style="font-size:11px;font-weight:700;color:#1976BC;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">💻 Applications Groups</div>
+        <div style="font-size:11px;font-weight:700;color:#1976BC;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px"><i class="icon icon-hard-drive" aria-hidden="true"></i> Applications Groups</div>
         <div id="gce-apps-chips" style="display:flex;flex-wrap:wrap;gap:6px;min-height:40px;padding:8px;background:#f0f7ff;border-radius:8px;border:1px solid #bfdbfe;margin-bottom:8px"></div>
         <div style="display:flex;gap:6px">
           <select id="gce-apps-add" style="flex:1;padding:7px 9px;border:1px solid #cbd5e1;border-radius:7px;font-size:12px;font-family:var(--font-sans);color:#1e293b;background:#fff">
@@ -1549,21 +1549,21 @@ table tbody tr:hover td { background: var(--color-bg); }
   <button class="btn btn-ghost" onclick="loadLiveData()" title="Refresh live data" style="font-size:11.5px;padding:5px 10px"><i class="icon icon-refresh-cw"></i>Refresh</button>
   <!-- Cloud-AI Analyze paused while waiting for on-prem Mistral approval.
        Kept in the DOM (display:none) so re-enable is one attribute removal. -->
-  <button class="btn btn-ghost" id="analyzeAllBtnTop" onclick="runFullAnalysis()" disabled title="Analyze pending on-prem AI model approval." style="display:none;font-size:11.5px;padding:5px 10px;opacity:.55;cursor:not-allowed">🔒 Analyze (pending approval)</button>
-  <button class="btn btn-ghost" id="analyzeAllLiteBtnTop" onclick="window.AnalyzeLite && window.AnalyzeLite.runExecutiveLite()" title="Fills the commentary fields from threshold rules. Runs entirely in your browser — nothing is sent over the network. Edit any field after." style="font-size:11.5px;padding:5px 10px;background:#fff7ed;color:#9a3412;border:1px solid #fed7aa;font-weight:600">⚡ Analyze</button>
+  <button class="btn btn-ghost" id="analyzeAllBtnTop" onclick="runFullAnalysis()" disabled title="Analyze pending on-prem AI model approval." style="display:none;font-size:11.5px;padding:5px 10px;opacity:.55;cursor:not-allowed"><i class="icon icon-lock" aria-hidden="true"></i> Analyze (pending approval)</button>
+  <button class="btn btn-ghost" id="analyzeAllLiteBtnTop" onclick="window.AnalyzeLite && window.AnalyzeLite.runExecutiveLite()" title="Fills the commentary fields from threshold rules. Runs entirely in your browser — nothing is sent over the network. Edit any field after." style="font-size:11.5px;padding:5px 10px;background:#fff7ed;color:#9a3412;border:1px solid #fed7aa;font-weight:600"><i class="icon icon-zap" aria-hidden="true"></i> Analyze</button>
   <button class="btn btn-ghost" id="editAllBtnTop" onclick="toggleAllCommentaryEdit()" title="Toggle edit mode on all commentary fields" style="font-size:11.5px;padding:5px 10px">✏ Edit</button>
   <button class="btn btn-ghost" id="copyReportBtnTop" onclick="copyCommentaryReport()" title="Copy all commentary fields as plain text for email or reports" style="font-size:11.5px;padding:5px 10px">⎘ Copy</button>
   <button class="btn btn-ghost" onclick="openGroupOverrideModal()" title="Customise group categories" id="btnGroupOverride" style="font-size:11.5px;padding:5px 10px"><i class="icon icon-sliders"></i>Groups</button>
-  <button class="btn btn-ghost" onclick="exportReportSnapshot()" title="Export KPI data as JSON snapshot" style="background:#0f172a;color:#fff;border-color:#0f172a;font-size:11.5px;padding:5px 10px">📊 Export</button>
+  <button class="btn btn-ghost" onclick="exportReportSnapshot()" title="Export KPI data as JSON snapshot" style="background:#0f172a;color:#fff;border-color:#0f172a;font-size:11.5px;padding:5px 10px"><i class="icon icon-bar-chart-3" aria-hidden="true"></i> Export</button>
   <button class="btn btn-orange" onclick="document.getElementById('shareModal').classList.add('open')" style="font-size:11.5px;padding:5px 10px">⬆ Share</button>
 </div>
 
 <!-- ═ KPI tab strip (5 sub-views of the scorecard) ═ -->
 <div class="shell-page-bar" style="border-top:1px solid rgba(255,255,255,.05)">
   <nav class="shell-tabs" style="margin:0 auto">
-    <button class="active" onclick="switchTab('p1',this)">📊 KPI Snapshot</button>
-    <button onclick="switchTab('p2',this)">📋 Action Plan &amp; Changes</button>
-    <button onclick="switchTab('p3',this)">🏆 Technician Scorecard</button>
+    <button class="active" onclick="switchTab('p1',this)"><i class="icon icon-bar-chart-3" aria-hidden="true"></i> KPI Snapshot</button>
+    <button onclick="switchTab('p2',this)"><i class="icon icon-clipboard-list" aria-hidden="true"></i> Action Plan &amp; Changes</button>
+    <button onclick="switchTab('p3',this)"><i class="icon icon-award" aria-hidden="true"></i> Technician Scorecard</button>
     <button onclick="switchTab('p4',this)"><i class="icon icon-refresh-cw"></i>Change &amp; Incidents</button>
     <button onclick="switchTab('p5',this)">😊 Customer Voice</button>
   </nav>
@@ -1594,8 +1594,8 @@ table tbody tr:hover td { background: var(--color-bg); }
   <!-- Group pill widget — drives the hidden fGroup select below -->
   <div class="exec-grp-widget" id="execGrpWidget">
     <button class="exec-grp-preset active" id="egp-all"   onclick="_execSetGroupPreset('all')">All</button>
-    <button class="exec-grp-preset"        id="egp-_ops"  onclick="_execSetGroupPreset('_ops')">🏗 Operations</button>
-    <button class="exec-grp-preset"        id="egp-_apps" onclick="_execSetGroupPreset('_apps')">💻 Applications</button>
+    <button class="exec-grp-preset"        id="egp-_ops"  onclick="_execSetGroupPreset('_ops')"><i class="icon icon-building" aria-hidden="true"></i> Operations</button>
+    <button class="exec-grp-preset"        id="egp-_apps" onclick="_execSetGroupPreset('_apps')"><i class="icon icon-hard-drive" aria-hidden="true"></i> Applications</button>
     <div class="exec-grp-picker-wrap">
       <button class="exec-grp-picker-btn" id="execGrpPickerBtn" onclick="_execTogglePicker(event)">▾ Individual</button>
       <div class="exec-grp-dropdown" id="execGrpDropdown">
@@ -1663,8 +1663,8 @@ table tbody tr:hover td { background: var(--color-bg); }
     <option value="erp">ERP Support</option>
     <option value="security">Security Issues</option>
   </select>
-  <div class="last-updated">🕐 Last updated: <span id="lastUpdated">—</span></div>
-  <div id="filterLogicHint" style="display:none;font-size:10px;color:var(--text-muted);padding:0 8px;line-height:1.4">🔗 AND logic: <strong id="activeFilterSummary"></strong></div>
+  <div class="last-updated"><i class="icon icon-clock" aria-hidden="true"></i> Last updated: <span id="lastUpdated">—</span></div>
+  <div id="filterLogicHint" style="display:none;font-size:10px;color:var(--text-muted);padding:0 8px;line-height:1.4"><i class="icon icon-link" aria-hidden="true"></i> AND logic: <strong id="activeFilterSummary"></strong></div>
 </div>
 
 <!-- API Config Bar — HIDDEN.
@@ -1676,7 +1676,7 @@ table tbody tr:hover td { background: var(--color-bg); }
      / #wsId continue to work — those are read by the proxy retry loop
      (line ~4660) and the loadLiveData state machine (line ~5239). -->
 <div class="api-bar" id="apiBar" style="display:none">
-  <label>🔗 Analytics Plus API</label>
+  <label><i class="icon icon-link" aria-hidden="true"></i> Analytics Plus API</label>
   <span id="proxyStatus" style="color:#4ade80;font-size:13px;font-weight:600;" title="Page reads from local SQLite cache (reports.db). Hourly cron syncs from ServiceDesk Plus.">● Live — local cache</span>
   <input class="api-input" id="wsId" value="106803000000002012" placeholder="Workspace ID" style="max-width:230px"/>
   <button class="btn-api btn-api-primary" onclick="forceRefreshLiveData()"><i class="icon icon-zap"></i>Refresh Live Data</button>
@@ -1694,8 +1694,8 @@ table tbody tr:hover td { background: var(--color-bg); }
 <div class="ai-analyze-bar" id="aiBar" style="display:none">
   <label>✏ Commentary</label>
   <span style="font-size:12px;color:var(--text-secondary)" id="aiDataContext">Use the live data above to write your monthly observations and action notes in each field</span>
-  <button class="btn-edit" id="analyzeAllBtn" onclick="runFullAnalysis()" disabled title="Analyze pending on-prem AI model approval." style="padding:5px 14px;font-size:11px;background:#1a5ea8;color:#fff;border-color:#1a5ea8;font-weight:700;opacity:.55;cursor:not-allowed">🔒 Analyze All (pending approval)</button>
-  <button class="btn-edit" id="analyzeAllLiteBtn" onclick="window.AnalyzeLite && window.AnalyzeLite.runExecutiveLite()" title="Fills the commentary fields from threshold rules. Runs entirely in your browser — nothing is sent over the network. Edit any field after." style="padding:5px 14px;font-size:11px;background:#fff7ed;color:#9a3412;border:1px solid #fed7aa;font-weight:700">⚡ Analyze All</button>
+  <button class="btn-edit" id="analyzeAllBtn" onclick="runFullAnalysis()" disabled title="Analyze pending on-prem AI model approval." style="padding:5px 14px;font-size:11px;background:#1a5ea8;color:#fff;border-color:#1a5ea8;font-weight:700;opacity:.55;cursor:not-allowed"><i class="icon icon-lock" aria-hidden="true"></i> Analyze All (pending approval)</button>
+  <button class="btn-edit" id="analyzeAllLiteBtn" onclick="window.AnalyzeLite && window.AnalyzeLite.runExecutiveLite()" title="Fills the commentary fields from threshold rules. Runs entirely in your browser — nothing is sent over the network. Edit any field after." style="padding:5px 14px;font-size:11px;background:#fff7ed;color:#9a3412;border:1px solid #fed7aa;font-weight:700"><i class="icon icon-zap" aria-hidden="true"></i> Analyze All</button>
   <button class="btn-edit" id="copyReportBtn" onclick="copyCommentaryReport()" title="Copy all commentary fields as plain text for email or reports" style="padding:5px 12px;font-size:11px">⎘ Copy Report</button>
   <button class="btn-edit" onclick="toggleAllCommentaryEdit()" title="Toggle edit mode on all commentary fields" style="padding:5px 12px;font-size:11px" id="editAllBtn">✏ Edit All</button>
   <span class="ai-status" id="aiStatus"></span>
@@ -1718,7 +1718,7 @@ table tbody tr:hover td { background: var(--color-bg); }
 
   <!-- GROUP 1: Service Volume & Speed -->
   <div class="kpi-group">
-    <div class="kpi-group-label"><span class="kpi-group-icon">📊</span> Service Volume &amp; Speed</div>
+    <div class="kpi-group-label"><span class="kpi-group-icon"><i class="icon icon-bar-chart-3" aria-hidden="true"></i></span> Service Volume &amp; Speed</div>
     <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr)">
       <div class="kpi-tile kpi-blue">
         <div class="kpi-tile-label">Tickets This Month</div>
@@ -1743,7 +1743,7 @@ table tbody tr:hover td { background: var(--color-bg); }
         <div class="kpi-tile-label">Avg Resolution Time</div>
         <div class="kpi-tile-value" id="kv-resolve">—</div>
         <div class="kpi-tile-meta">
-          <span class="kpi-trend" id="kt-resolve">Computing…</span>
+          <span class="kpi-trend" id="kt-resolve">—</span>
           <span class="kpi-prev" id="kp-resolve">Target: &lt;5 days</span>
           <div class="rag-indicator" id="rag-resolve"></div>
         </div>
@@ -1762,13 +1762,13 @@ table tbody tr:hover td { background: var(--color-bg); }
 
   <!-- GROUP 2: Quality & Behaviour -->
   <div class="kpi-group">
-    <div class="kpi-group-label"><span class="kpi-group-icon">✅</span> Quality &amp; Technician Behaviour</div>
+    <div class="kpi-group-label"><span class="kpi-group-icon"><i class="icon icon-check" aria-hidden="true"></i></span> Quality &amp; Technician Behaviour</div>
     <div class="kpi-grid" style="grid-template-columns:repeat(5,1fr)">
       <div class="kpi-tile kpi-amber" title="Closure Rate = closed tickets ÷ all tickets created in the period. Measures how much of the inbound volume actually finishes the funnel. Target ≥80%. (Note: this metric was previously labelled 'Closure Success Rate' and computed against closure-code success — that calculation is being phased out in favour of the simpler closed-vs-total rate, which aligns with the rest of the dashboard.)">
         <div class="kpi-tile-label">Closure Rate</div>
         <div class="kpi-tile-value" id="kv-closure">—</div>
         <div class="kpi-tile-meta">
-          <span class="kpi-trend" id="kt-closure">Computing…</span>
+          <span class="kpi-trend" id="kt-closure">—</span>
           <span class="kpi-prev" id="kp-closure">Target: ≥80%</span>
           <div class="rag-indicator" id="rag-closure"></div>
         </div>
@@ -1777,7 +1777,7 @@ table tbody tr:hover td { background: var(--color-bg); }
         <div class="kpi-tile-label">Reopen Rate</div>
         <div class="kpi-tile-value" id="kv-reopen">—</div>
         <div class="kpi-tile-meta">
-          <span class="kpi-trend" id="kt-reopen">Computing…</span>
+          <span class="kpi-trend" id="kt-reopen">—</span>
           <span class="kpi-prev" id="kp-reopen">Benchmark: &lt;3%</span>
           <div class="rag-indicator" id="rag-reopen"></div>
         </div>
@@ -1786,7 +1786,7 @@ table tbody tr:hover td { background: var(--color-bg); }
         <div class="kpi-tile-label">Multi-Touch Rate</div>
         <div class="kpi-tile-value" id="kv-ces">—</div>
         <div class="kpi-tile-meta">
-          <span class="kpi-trend" id="kt-ces">Computing…</span>
+          <span class="kpi-trend" id="kt-ces">—</span>
           <span class="kpi-prev" id="kp-ces">Target: &lt;15%</span>
           <div class="rag-indicator" id="rag-ces"></div>
         </div>
@@ -1795,7 +1795,7 @@ table tbody tr:hover td { background: var(--color-bg); }
         <div class="kpi-tile-label">On-Hold Rate <span style="font-size:9px;opacity:0.7">Avoidance Risk</span></div>
         <div class="kpi-tile-value" id="kv-onhold">—</div>
         <div class="kpi-tile-meta">
-          <span class="kpi-trend" id="kt-onhold">Computing…</span>
+          <span class="kpi-trend" id="kt-onhold">—</span>
           <span class="kpi-prev" id="kp-onhold">Target: &lt;5%</span>
           <div class="rag-indicator" id="rag-onhold"></div>
         </div>
@@ -1804,7 +1804,7 @@ table tbody tr:hover td { background: var(--color-bg); }
         <div class="kpi-tile-label">Transfer Rate <span style="font-size:9px;opacity:0.7">Misrouting Risk</span></div>
         <div class="kpi-tile-value" id="kv-transfer">—</div>
         <div class="kpi-tile-meta">
-          <span class="kpi-trend" id="kt-transfer">Computing…</span>
+          <span class="kpi-trend" id="kt-transfer">—</span>
           <span class="kpi-prev" id="kp-transfer">Target: &lt;15%</span>
           <div class="rag-indicator" id="rag-transfer"></div>
         </div>
@@ -1814,7 +1814,7 @@ table tbody tr:hover td { background: var(--color-bg); }
 
   <!-- GROUP 3: Incidents & Changes -->
   <div class="kpi-group">
-    <div class="kpi-group-label"><span class="kpi-group-icon">🚨</span> Incidents &amp; Change Risk</div>
+    <div class="kpi-group-label"><span class="kpi-group-icon"><i class="icon icon-alert-triangle" aria-hidden="true"></i></span> Incidents &amp; Change Risk</div>
     <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr)">
       <div class="kpi-tile kpi-red" title="Major Incidents in selected period, filtered by site and group. Open = status ≠ Closed. Sub-label shows total + avg resolution days.">
         <div class="kpi-tile-label">Major Incidents</div>
@@ -1976,7 +1976,7 @@ table tbody tr:hover td { background: var(--color-bg); }
   <div class="charts-grid-1" style="margin-top:16px">
     <div class="card" style="border:1.5px solid #ddd6fe;padding:0;overflow:hidden">
       <div style="background:var(--edv-slate);padding:14px 20px;display:flex;align-items:center;gap:12px">
-        <span style="font-size:18px">⚡</span>
+        <span style="font-size:18px"><i class="icon icon-zap" aria-hidden="true"></i></span>
         <div>
           <div style="font-size:14px;font-weight:700;color:#fff;letter-spacing:0.3px">IT Management Decision Panel</div>
           <div style="font-size:11px;color:#c4b5fd;margin-top:2px">On-Hold habit · CSAT by site · Ageing alerts — decisions, not decoration</div>
@@ -1988,7 +1988,7 @@ table tbody tr:hover td { background: var(--color-bg); }
         <!-- On-Hold Habit Summary -->
         <div style="padding:16px 18px;border-right:1px solid #ede9fe">
           <div style="font-size:12px;font-weight:700;color:#6d28d9;margin-bottom:10px;display:flex;align-items:center;gap:6px">
-            <span>🚨</span> On-Hold Habit Analysis
+            <span><i class="icon icon-alert-triangle" aria-hidden="true"></i></span> On-Hold Habit Analysis
             <span id="onholdMgmtBadge" style="margin-left:auto;font-size:9.5px;background:#fef3c7;color:#92400e;padding:2px 7px;border-radius:10px;font-weight:700">Loading…</span>
           </div>
           <div style="font-size:11px;color:#64748b;margin-bottom:10px;font-style:italic">Decision: Is on-hold being used as avoidance?</div>
@@ -2008,7 +2008,7 @@ table tbody tr:hover td { background: var(--color-bg); }
         <!-- CSAT by Site — IT Survey Data -->
         <div style="padding:16px 18px;border-right:1px solid #ede9fe">
           <div style="font-size:12px;font-weight:700;color:#6d28d9;margin-bottom:10px;display:flex;align-items:center;gap:6px">
-            <span>⭐</span> <span id="csatBySiteTitle">CSAT by Site</span>
+            <span><i class="icon icon-star" aria-hidden="true"></i></span> <span id="csatBySiteTitle">CSAT by Site</span>
             <span style="margin-left:auto;font-size:9.5px;background:#ede9fe;color:#6d28d9;padding:2px 7px;border-radius:10px;font-weight:700">IT Survey</span>
           </div>
           <div style="font-size:11px;color:#64748b;margin-bottom:10px;font-style:italic">Decision: Which site has worst satisfaction?</div>
@@ -2030,7 +2030,7 @@ table tbody tr:hover td { background: var(--color-bg); }
         <!-- Decision Alerts: Top 3 actions for IT Manager right now -->
         <div style="padding:16px 18px">
           <div style="font-size:12px;font-weight:700;color:#dc2626;margin-bottom:10px;display:flex;align-items:center;gap:6px">
-            <span>🎯</span> Top Decisions Right Now
+            <span><i class="icon icon-target" aria-hidden="true"></i></span> Top Decisions Right Now
           </div>
           <div style="font-size:11px;color:#64748b;margin-bottom:10px;font-style:italic">Based on live data — act on these today</div>
           <div id="mgmtDecisionList" style="display:flex;flex-direction:column;gap:8px">
@@ -2072,7 +2072,7 @@ table tbody tr:hover td { background: var(--color-bg); }
   <!-- IT Manager Comments Zone -->
   <div class="analysis-zone">
     <div class="analysis-zone-header">
-      <div class="az-icon">📝</div>
+      <div class="az-icon"><i class="icon icon-edit" aria-hidden="true"></i></div>
       <div>
         <div class="az-title">IT Manager Comments & Observations</div>
         <div class="az-subtitle">Period: <span id="azPeriod">Current Period</span> — Review before sharing with management</div>
@@ -2139,7 +2139,7 @@ table tbody tr:hover td { background: var(--color-bg); }
   <!-- Change Tiles -->
   <div class="change-tiles">
     <div class="change-tile">
-      <div class="ct-icon" style="background:var(--amber-pale)">📥</div>
+      <div class="ct-icon" style="background:var(--amber-pale)"><i class="icon icon-download" aria-hidden="true"></i></div>
       <div><div class="ct-num" style="color:var(--amber)" id="ct-sub">17</div><div class="ct-label">Submission Stage</div></div>
     </div>
     <div class="change-tile">
@@ -2147,11 +2147,11 @@ table tbody tr:hover td { background: var(--color-bg); }
       <div><div class="ct-num" style="color:var(--red)" id="ct-cab">12</div><div class="ct-label">Awaiting CAB</div></div>
     </div>
     <div class="change-tile">
-      <div class="ct-icon" style="background:var(--blue-pale)">⚙️</div>
+      <div class="ct-icon" style="background:var(--blue-pale)"><i class="icon icon-sliders" aria-hidden="true"></i></div>
       <div><div class="ct-num" style="color:var(--blue)" id="ct-impl">27</div><div class="ct-label">Implementation</div></div>
     </div>
     <div class="change-tile">
-      <div class="ct-icon" style="background:var(--red-pale)">🚨</div>
+      <div class="ct-icon" style="background:var(--red-pale)"><i class="icon icon-alert-triangle" aria-hidden="true"></i></div>
       <div><div class="ct-num" style="color:var(--red)" id="ct-emerg">5</div><div class="ct-label">Emergency Changes</div></div>
     </div>
   </div>
@@ -2176,7 +2176,7 @@ table tbody tr:hover td { background: var(--color-bg); }
   <!-- ═══ CUSTOMER SATISFACTION — IT Survey ═══════════════════════════════ -->
   <div style="margin-bottom:16px">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:10px 14px;background:var(--edv-slate);border-radius:10px;color:#fff">
-      <span style="font-size:18px">⭐</span>
+      <span style="font-size:18px"><i class="icon icon-star" aria-hidden="true"></i></span>
       <div>
         <div style="font-size:13px;font-weight:700;letter-spacing:0.5px">CUSTOMER SATISFACTION</div>
         <div style="font-size:11px;opacity:0.75">IT Customer Satisfaction Survey</div>
@@ -2298,7 +2298,7 @@ table tbody tr:hover td { background: var(--color-bg); }
   <!-- Action Plan Table -->
   <div class="action-table-card">
     <div class="atp-header">
-      <div class="az-icon">📋</div>
+      <div class="az-icon"><i class="icon icon-clipboard-list" aria-hidden="true"></i></div>
       <div style="margin-left:4px">
         <div class="atp-title">Action Plan Register</div>
         <div class="atp-sub">Click status pills to cycle · Double-click cells to edit · Editable before sharing</div>
@@ -2328,7 +2328,7 @@ table tbody tr:hover td { background: var(--color-bg); }
   <!-- Lessons Learned -->
   <div class="analysis-zone">
     <div class="analysis-zone-header">
-      <div class="az-icon">📚</div>
+      <div class="az-icon"><i class="icon icon-book-open" aria-hidden="true"></i></div>
       <div>
         <div class="az-title">Lessons Learned — Major Incidents</div>
         <div class="az-subtitle">Key takeaways and corrective measures from resolved critical incidents</div>
@@ -2352,7 +2352,7 @@ table tbody tr:hover td { background: var(--color-bg); }
 <!-- ══════════════════════════════════════ PAGE 3 — TECHNICIAN SCORECARD ══ -->
 <div class="page main" id="p3">
   <div class="section-header">
-    <div class="section-title">🏆 Technician Scorecard & HR Reward Programme</div>
+    <div class="section-title"><i class="icon icon-award" aria-hidden="true"></i> Technician Scorecard & HR Reward Programme</div>
     <div class="section-sub">Decision: Who to reward this month? Who needs coaching? — Monthly export for HR</div>
     <div class="section-line"></div>
   </div>
@@ -2503,7 +2503,7 @@ table tbody tr:hover td { background: var(--color-bg); }
     </div>
     <div class="analysis-zone-body" style="padding:16px 22px;display:grid;grid-template-columns:1fr 1fr;gap:16px">
       <div>
-        <div style="font-size:11px;font-weight:700;color:#1a5ea8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">🏆 Top Performers — HR Reward Recommendation</div>
+        <div style="font-size:11px;font-weight:700;color:#1a5ea8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px"><i class="icon icon-award" aria-hidden="true"></i> Top Performers — HR Reward Recommendation</div>
         <div class="az-field-content editable-insight" id="sai-reward" contenteditable="false"
           style="min-height:60px;font-size:12.5px;color:#94a3b8;line-height:1.7;padding:10px;background:#f8faff;border-radius:8px;border-left:3px solid #1a5ea8;font-style:italic"
           data-placeholder="Top performer recognition — name star technicians, SLA %, closure rate, suggested reward action…"
@@ -2517,14 +2517,14 @@ table tbody tr:hover td { background: var(--color-bg); }
           data-empty="true">Underperforming technicians with specific SLA gap, reopen rate or on-hold patterns to address in coaching session…</div>
       </div>
       <div>
-        <div style="font-size:11px;font-weight:700;color:#dc2626;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">🚨 On-Hold Habit Risk</div>
+        <div style="font-size:11px;font-weight:700;color:#dc2626;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px"><i class="icon icon-alert-triangle" aria-hidden="true"></i> On-Hold Habit Risk</div>
         <div class="az-field-content editable-insight" id="sai-onhold" contenteditable="false"
           style="min-height:60px;font-size:12.5px;color:#94a3b8;line-height:1.7;padding:10px;background:#fff5f5;border-radius:8px;border-left:3px solid #dc2626;font-style:italic"
           data-placeholder="Technicians showing avoidance patterns — name individuals with highest hold % or hold×3+ count and recommended action…"
           data-empty="true">Technicians showing avoidance patterns — name individuals with highest hold % or hold×3+ count and recommended action…</div>
       </div>
       <div>
-        <div style="font-size:11px;font-weight:700;color:#15803d;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">📈 Team Improvement Outlook</div>
+        <div style="font-size:11px;font-weight:700;color:#15803d;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px"><i class="icon icon-trending-up" aria-hidden="true"></i> Team Improvement Outlook</div>
         <div class="az-field-content editable-insight" id="sai-outlook" contenteditable="false"
           style="min-height:60px;font-size:12.5px;color:#94a3b8;line-height:1.7;padding:10px;background:#f0fdf4;border-radius:8px;border-left:3px solid #15803d;font-style:italic"
           data-placeholder="3 concrete team actions to improve scorecard next month — targets, owner roles, timelines…"
@@ -2551,7 +2551,7 @@ table tbody tr:hover td { background: var(--color-bg); }
       <div class="kpi-tile-label">Pending CAB Review</div>
       <div class="kpi-tile-value" id="kv-change-pending">—</div>
       <div class="kpi-tile-meta">
-        <span class="kpi-trend" id="kt-change-pending">Computing…</span>
+        <span class="kpi-trend" id="kt-change-pending">—</span>
         <span class="kpi-prev" id="kp-change-pending">Older than 14 days = action</span>
         <div class="rag-indicator" id="rag-change-pending"></div>
       </div>
@@ -2560,7 +2560,7 @@ table tbody tr:hover td { background: var(--color-bg); }
       <div class="kpi-tile-label">Change Success Rate</div>
       <div class="kpi-tile-value" id="kv-change-success">—</div>
       <div class="kpi-tile-meta">
-        <span class="kpi-trend" id="kt-change-success">Computing…</span>
+        <span class="kpi-trend" id="kt-change-success">—</span>
         <span class="kpi-prev" id="kp-change-success">Target: ≥90%</span>
         <div class="rag-indicator" id="rag-change-success"></div>
       </div>
@@ -2569,7 +2569,7 @@ table tbody tr:hover td { background: var(--color-bg); }
       <div class="kpi-tile-label">Failed/Rollback Changes</div>
       <div class="kpi-tile-value" id="kv-change-failed">—</div>
       <div class="kpi-tile-meta">
-        <span class="kpi-trend" id="kt-change-failed">Computing…</span>
+        <span class="kpi-trend" id="kt-change-failed">—</span>
         <span class="kpi-prev">Any failed = investigate</span>
         <div class="rag-indicator" id="rag-change-failed"></div>
       </div>
@@ -2578,7 +2578,7 @@ table tbody tr:hover td { background: var(--color-bg); }
       <div class="kpi-tile-label">PIR Completion Rate</div>
       <div class="kpi-tile-value" id="kv-pir">—</div>
       <div class="kpi-tile-meta">
-        <span class="kpi-trend" id="kt-pir">Computing…</span>
+        <span class="kpi-trend" id="kt-pir">—</span>
         <span class="kpi-prev">Target: 100% w/in 5d</span>
         <div class="rag-indicator" id="rag-pir"></div>
       </div>
@@ -2587,7 +2587,7 @@ table tbody tr:hover td { background: var(--color-bg); }
       <div class="kpi-tile-label">Emergency Changes</div>
       <div class="kpi-tile-value" id="kv-emerg-p4">—</div>
       <div class="kpi-tile-meta">
-        <span class="kpi-trend" id="kt-emerg-p4">Computing…</span>
+        <span class="kpi-trend" id="kt-emerg-p4">—</span>
         <span class="kpi-prev">Any = process signal</span>
         <div class="rag-indicator" id="rag-emerg-p4"></div>
       </div>
@@ -2596,7 +2596,7 @@ table tbody tr:hover td { background: var(--color-bg); }
       <div class="kpi-tile-label">Avg MTTR (Major Inc.)</div>
       <div class="kpi-tile-value" id="kv-mttr">—</div>
       <div class="kpi-tile-meta">
-        <span class="kpi-trend" id="kt-mttr">Computing…</span>
+        <span class="kpi-trend" id="kt-mttr">—</span>
         <span class="kpi-prev" id="kp-mttr">Target: &lt;4h P1</span>
         <div class="rag-indicator" id="rag-mttr"></div>
       </div>
@@ -2609,7 +2609,7 @@ table tbody tr:hover td { background: var(--color-bg); }
   <div class="card" style="margin-bottom:16px">
     <div class="card-head">
       <div>
-        <div class="card-title">📊 Outcome Breakdown — Post-Review Decision</div>
+        <div class="card-title"><i class="icon icon-bar-chart-3" aria-hidden="true"></i> Outcome Breakdown — Post-Review Decision</div>
         <div class="card-subtitle">Reads UDF:Change Implementation Outcome + UDF:Review decision filled during the Review stage. Labels match ServiceDesk Plus admin picklists exactly so users can self-trace.</div>
       </div>
       <span class="badge badge-blue" id="outcomeBreakdownBadge">Loading…</span>
@@ -2628,7 +2628,7 @@ table tbody tr:hover td { background: var(--color-bg); }
   <div class="card" style="margin-bottom:16px">
     <div class="card-head">
       <div>
-        <div class="card-title">🛤 Change Pipeline Funnel — Where Are Changes Stuck?</div>
+        <div class="card-title"><i class="icon icon-trending-up" aria-hidden="true"></i> Change Pipeline Funnel — Where Are Changes Stuck?</div>
         <div class="card-subtitle">Submission → Planning → CAB Evaluation → Implementation → UAT → Release → Review → Close. Per ServiceDesk Plus Admin → Change Management → Stage and Status.</div>
       </div>
       <span class="badge badge-blue" id="stageFunnelBadge">Loading…</span>
@@ -2657,7 +2657,7 @@ table tbody tr:hover td { background: var(--color-bg); }
   <div class="card" style="margin-bottom:16px">
     <div class="card-head">
       <div>
-        <div class="card-title">🔀 Change Type Profile — Authorization Discipline</div>
+        <div class="card-title"><i class="icon icon-git-merge" aria-hidden="true"></i> Change Type Profile — Authorization Discipline</div>
         <div class="card-subtitle">Standard (pre-approved) · Normal/Major (full CAB required) · Emergency (post-hoc PIR mandatory) — Emergency overuse = process breakdown signal</div>
       </div>
       <span class="badge badge-blue" id="changeTypeBadge">Loading…</span>
@@ -2674,7 +2674,7 @@ table tbody tr:hover td { background: var(--color-bg); }
   <div class="card" style="margin-bottom:16px" id="planningQualityCard">
     <div class="card-head">
       <div>
-        <div class="card-title">📅 Planning Quality & Schedule Adherence</div>
+        <div class="card-title"><i class="icon icon-calendar" aria-hidden="true"></i> Planning Quality & Schedule Adherence</div>
         <div class="card-subtitle">Scheduled vs Actual completion · Release window accuracy · UAT timing gaps · On-time delivery rate</div>
       </div>
       <span class="badge badge-blue" id="planningQualityBadge">Loading…</span>
@@ -2714,7 +2714,7 @@ table tbody tr:hover td { background: var(--color-bg); }
     <!-- Recurring incidents -->
     <div class="card">
       <div class="card-head">
-        <div><div class="card-title">Recurring Incidents by Category</div><div class="card-subtitle">🚨 Systemic = 3+ sites affected (org-wide issue) · ⚠ Local = 1–2 sites, 3+ incidents (site-level fix needed) · 👀 Monitor = 2 incidents. Sites ranked worst → best.</div></div>
+        <div><div class="card-title">Recurring Incidents by Category</div><div class="card-subtitle"><i class="icon icon-alert-triangle" aria-hidden="true"></i> Systemic = 3+ sites affected (org-wide issue) · ⚠ Local = 1–2 sites, 3+ incidents (site-level fix needed) · 👀 Monitor = 2 incidents. Sites ranked worst → best.</div></div>
         <span class="badge badge-red" id="recurrenceBadge">90 Days</span>
       </div>
       <table style="width:100%;border-collapse:collapse;font-size:12px">
@@ -2765,7 +2765,7 @@ table tbody tr:hover td { background: var(--color-bg); }
   <!-- PIR Quality table from incident data -->
   <div class="card" style="margin-bottom:16px">
     <div class="card-head">
-      <div><div class="card-title">📋 Post-Implementation Review (PIR) & RCA Quality</div><div class="card-subtitle">Major incidents — lessons learned, root cause, preventive measures completion. Are we learning?</div></div>
+      <div><div class="card-title"><i class="icon icon-clipboard-list" aria-hidden="true"></i> Post-Implementation Review (PIR) & RCA Quality</div><div class="card-subtitle">Major incidents — lessons learned, root cause, preventive measures completion. Are we learning?</div></div>
       <div style="display:flex;gap:8px;align-items:center">
         <button onclick="forceUdfResync()" id="udfResyncBtn"
           title="Manually re-fetch the MAJOR_INCIDENTS view from Zoho Analytics Plus and backfill request_records.udf_json. Use this when the PIR table dots are all red and you need to verify whether the issue is on the Zoho side (techs haven't filled UDFs) or the sync side (view mis-configured)."
@@ -2805,7 +2805,7 @@ table tbody tr:hover td { background: var(--color-bg); }
     <!-- Major Incident Specialists -->
     <div class="card">
       <div class="card-head">
-        <div><div class="card-title">👤 Major Incident Specialists</div><div class="card-subtitle">Who is handling major incidents — performance by technician</div></div>
+        <div><div class="card-title"><i class="icon icon-user" aria-hidden="true"></i> Major Incident Specialists</div><div class="card-subtitle">Who is handling major incidents — performance by technician</div></div>
         <span class="badge badge-red" id="miSpecBadge">Loading…</span>
       </div>
       <table style="width:100%;border-collapse:collapse;font-size:12px">
@@ -2831,7 +2831,7 @@ table tbody tr:hover td { background: var(--color-bg); }
     <!-- CAB / Change Approvers Performance -->
     <div class="card">
       <div class="card-head">
-        <div><div class="card-title">🔑 Change Approvers &amp; CAB Performance</div><div class="card-subtitle">Who approves changes — throughput, pending backlog, turnaround time</div></div>
+        <div><div class="card-title"><i class="icon icon-key" aria-hidden="true"></i> Change Approvers &amp; CAB Performance</div><div class="card-subtitle">Who approves changes — throughput, pending backlog, turnaround time</div></div>
         <span class="badge badge-blue" id="cabSpecBadge">Loading…</span>
       </div>
       <table style="width:100%;border-collapse:collapse;font-size:12px">
@@ -2873,25 +2873,25 @@ table tbody tr:hover td { background: var(--color-bg); }
     </div>
     <div class="analysis-zone-body" style="padding:16px 22px;display:grid;grid-template-columns:1fr 1fr;gap:16px">
       <div>
-        <div style="font-size:11px;font-weight:700;color:#1a5ea8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">🔄 Change Quality Assessment</div>
+        <div style="font-size:11px;font-weight:700;color:#1a5ea8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px"><i class="icon icon-refresh-cw" aria-hidden="true"></i> Change Quality Assessment</div>
         <div class="az-field-content editable-insight" id="cai-quality" contenteditable="false"
           style="min-height:60px;font-size:12.5px;color:#334155;line-height:1.7;padding:10px;background:#f8faff;border-radius:8px;border-left:3px solid #1a5ea8"
           data-placeholder="Change quality assessment — change type breakdown, success rate, emergency trend, CAB compliance."></div>
       </div>
       <div>
-        <div style="font-size:11px;font-weight:700;color:#dc2626;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">🚨 Major Incident Patterns</div>
+        <div style="font-size:11px;font-weight:700;color:#dc2626;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px"><i class="icon icon-alert-triangle" aria-hidden="true"></i> Major Incident Patterns</div>
         <div class="az-field-content editable-insight" id="cai-incidents" contenteditable="false"
           style="min-height:60px;font-size:12.5px;color:#334155;line-height:1.7;padding:10px;background:#fff5f5;border-radius:8px;border-left:3px solid #dc2626"
           data-placeholder="Recurring incident categories, MTTR vs target, open incidents count and structural patterns."></div>
       </div>
       <div>
-        <div style="font-size:11px;font-weight:700;color:#d97706;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">📋 PIR & Documentation Gaps</div>
+        <div style="font-size:11px;font-weight:700;color:#d97706;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px"><i class="icon icon-clipboard-list" aria-hidden="true"></i> PIR & Documentation Gaps</div>
         <div class="az-field-content editable-insight" id="cai-pir" contenteditable="false"
           style="min-height:60px;font-size:12.5px;color:#334155;line-height:1.7;padding:10px;background:#fffbeb;border-radius:8px;border-left:3px solid #d97706"
           data-placeholder="PIR completion gaps, missing RCAs, corrective actions requiring follow-up by name."></div>
       </div>
       <div>
-        <div style="font-size:11px;font-weight:700;color:#15803d;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">✅ Recommended Actions</div>
+        <div style="font-size:11px;font-weight:700;color:#15803d;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px"><i class="icon icon-check" aria-hidden="true"></i> Recommended Actions</div>
         <div class="az-field-content editable-insight" id="cai-actions" contenteditable="false"
           style="min-height:60px;font-size:12.5px;color:#334155;line-height:1.7;padding:10px;background:#f0fdf4;border-radius:8px;border-left:3px solid #15803d"
           data-placeholder="Top 3 improvement actions with owners and timelines for Change Management and Incident Response."></div>
@@ -2918,7 +2918,7 @@ table tbody tr:hover td { background: var(--color-bg); }
   <!-- Survey KPI tiles -->
   <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
     <div class="kpi-tile kpi-green">
-      <div class="kpi-tile-label">CSAT Score <span style="font-size:9px;opacity:0.7">⭐ IT Survey</span></div>
+      <div class="kpi-tile-label">CSAT Score <span style="font-size:9px;opacity:0.7"><i class="icon icon-star" aria-hidden="true"></i> IT Survey</span></div>
       <div class="kpi-tile-value" id="kv-csat2">—</div>
       <div class="kpi-tile-meta">
         <span class="kpi-trend" id="kt-csat2">Loading…</span>
@@ -2927,7 +2927,7 @@ table tbody tr:hover td { background: var(--color-bg); }
       </div>
     </div>
     <div class="kpi-tile kpi-blue">
-      <div class="kpi-tile-label">NPS Score <span style="font-size:9px;opacity:0.7">⭐ IT Survey</span></div>
+      <div class="kpi-tile-label">NPS Score <span style="font-size:9px;opacity:0.7"><i class="icon icon-star" aria-hidden="true"></i> IT Survey</span></div>
       <div class="kpi-tile-value" id="kv-nps2">—</div>
       <div class="kpi-tile-meta">
         <span class="kpi-trend" id="kt-nps2">Loading…</span>
@@ -3017,7 +3017,7 @@ table tbody tr:hover td { background: var(--color-bg); }
         <div style="font-size:10px;color:#dc2626" id="sentNegPct">—</div>
       </div>
       <div style="flex:2;padding:12px 16px;background:#fef9c3;border-radius:8px;border-left:4px solid #ca8a04">
-        <div style="font-size:11px;font-weight:700;color:#92400e;margin-bottom:6px">💡 Improvement Levers</div>
+        <div style="font-size:11px;font-weight:700;color:#92400e;margin-bottom:6px"><i class="icon icon-lightbulb" aria-hidden="true"></i> Improvement Levers</div>
         <div style="font-size:11px;color:#78350f;line-height:1.7">
           <div>1. Fix unassigned backlog → &lt;4h first response = #1 CSAT driver</div>
           <div>2. Status update at 24h → reduces requester follow-up (CES)</div>
@@ -3039,7 +3039,7 @@ table tbody tr:hover td { background: var(--color-bg); }
   <div class="card" style="margin-bottom:16px" id="vocCard">
     <div class="card-head">
       <div>
-        <div class="card-title">💬 Voice of Customer — Typed Feedback Analysis</div>
+        <div class="card-title"><i class="icon icon-message-square" aria-hidden="true"></i> Voice of Customer — Typed Feedback Analysis</div>
         <div class="card-subtitle" id="vocSubtitle">Loading comment analysis…</div>
       </div>
       <div style="display:flex;gap:6px;align-items:center">
@@ -3069,7 +3069,7 @@ table tbody tr:hover td { background: var(--color-bg); }
       </div>
       <!-- Theme bars column -->
       <div style="flex:3;padding:12px 16px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0">
-        <div style="font-size:11px;font-weight:700;color:var(--navy);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">📊 Top Themes</div>
+        <div style="font-size:11px;font-weight:700;color:var(--navy);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px"><i class="icon icon-bar-chart-3" aria-hidden="true"></i> Top Themes</div>
         <div id="vocThemeBars" style="display:flex;flex-direction:column;gap:5px">
           <div style="color:#94a3b8;font-size:11px">Loading…</div>
         </div>
@@ -3098,7 +3098,7 @@ table tbody tr:hover td { background: var(--color-bg); }
   <div class="card" style="margin-bottom:16px" id="verbatimExplorerCard">
     <div class="card-head">
       <div>
-        <div class="card-title">🔍 Verbatim Explorer — Deep-Dive</div>
+        <div class="card-title"><i class="icon icon-search" aria-hidden="true"></i> Verbatim Explorer — Deep-Dive</div>
         <div class="card-subtitle" id="verbatimExplorerSubtitle">Loading verbatim corpus…</div>
       </div>
       <div style="display:flex;gap:6px;align-items:center">
@@ -3148,7 +3148,7 @@ table tbody tr:hover td { background: var(--color-bg); }
     <div style="padding:0 14px 14px">
       <div style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden">
         <div style="padding:10px 14px;background:#f1f5f9;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center">
-          <div style="font-size:12px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:0.5px">📊 Word Frequency — What Are Users Saying Most?</div>
+          <div style="font-size:12px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:0.5px"><i class="icon icon-bar-chart-3" aria-hidden="true"></i> Word Frequency — What Are Users Saying Most?</div>
           <span style="font-size:11px;color:#94a3b8" id="veWordFreqSub">Stop words removed · top 18 per bucket · click any word to filter</span>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;background:#fff">
@@ -3196,13 +3196,13 @@ table tbody tr:hover td { background: var(--color-bg); }
     </div>
     <div class="analysis-zone-body" style="padding:16px 22px;display:grid;grid-template-columns:1fr 1fr;gap:16px">
       <div>
-        <div style="font-size:11px;font-weight:700;color:#6d28d9;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">⭐ Satisfaction Assessment</div>
+        <div style="font-size:11px;font-weight:700;color:#6d28d9;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px"><i class="icon icon-star" aria-hidden="true"></i> Satisfaction Assessment</div>
         <div class="az-field-content editable-insight" id="vai-csat" contenteditable="false"
           style="min-height:60px;font-size:12.5px;color:#334155;line-height:1.7;padding:10px;background:#faf5ff;border-radius:8px;border-left:3px solid #6d28d9"
           data-placeholder="CSAT score interpretation — trend, benchmark comparison, best/worst performing sites."></div>
       </div>
       <div>
-        <div style="font-size:11px;font-weight:700;color:#0e7490;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">📊 NPS & Loyalty Analysis</div>
+        <div style="font-size:11px;font-weight:700;color:#0e7490;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px"><i class="icon icon-bar-chart-3" aria-hidden="true"></i> NPS & Loyalty Analysis</div>
         <div class="az-field-content editable-insight" id="vai-nps" contenteditable="false"
           style="min-height:60px;font-size:12.5px;color:#334155;line-height:1.7;padding:10px;background:#ecfeff;border-radius:8px;border-left:3px solid #0e7490"
           data-placeholder="Promoter vs Detractor breakdown, loyalty trend, NPS benchmark vs industry."></div>
@@ -3214,7 +3214,7 @@ table tbody tr:hover td { background: var(--color-bg); }
           data-placeholder="Top complaint themes from typed comments — what users say needs fixing most urgently."></div>
       </div>
       <div>
-        <div style="font-size:11px;font-weight:700;color:#15803d;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">🎯 Improvement Recommendations</div>
+        <div style="font-size:11px;font-weight:700;color:#15803d;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px"><i class="icon icon-target" aria-hidden="true"></i> Improvement Recommendations</div>
         <div class="az-field-content editable-insight" id="vai-improve" contenteditable="false"
           style="min-height:60px;font-size:12.5px;color:#334155;line-height:1.7;padding:10px;background:#f0fdf4;border-radius:8px;border-left:3px solid #15803d"
           data-placeholder="Top 3 concrete actions to improve CSAT and NPS in the coming period — with owners and timelines."></div>
@@ -3641,7 +3641,7 @@ function renderLessonsLearned(incidentRows) {
     // Timeline chip
     var timeChip = '';
     if (created) {
-      timeChip = '<span style="font-size:10px;color:var(--text-muted);margin-left:8px">📅 ' + created;
+      timeChip = '<span style="font-size:10px;color:var(--text-muted);margin-left:8px"><i class="icon icon-calendar" aria-hidden="true"></i> ' + created;
       if (completed && !isOpen) timeChip += ' → ' + completed;
       if (resolvD > 0) timeChip += ' (' + resolvD + 'd)';
       timeChip += '</span>';
@@ -3649,15 +3649,15 @@ function renderLessonsLearned(incidentRows) {
 
     // UDF fields — only show populated ones
     const udfRows = [
-      rca ? '<div class="lesson-udf"><strong>🔍 Root Cause:</strong> ' + rca + '</div>' : '',
-      ca  ? '<div class="lesson-udf"><strong>✅ Corrective Action:</strong> ' + ca + '</div>' : '',
+      rca ? '<div class="lesson-udf"><strong><i class="icon icon-search" aria-hidden="true"></i> Root Cause:</strong> ' + rca + '</div>' : '',
+      ca  ? '<div class="lesson-udf"><strong><i class="icon icon-check" aria-hidden="true"></i> Corrective Action:</strong> ' + ca + '</div>' : '',
       ll  ? '<div class="lesson-udf"><strong>📖 Lessons Learned:</strong> ' + ll + '</div>' : '',
-      pm  ? '<div class="lesson-udf"><strong>🛡 Preventive Measures:</strong> ' + pm + '</div>' : '',
-      wd  ? '<div class="lesson-udf"><strong>⚙ Workaround:</strong> ' + wd + '</div>' : '',
+      pm  ? '<div class="lesson-udf"><strong><i class="icon icon-shield" aria-hidden="true"></i> Preventive Measures:</strong> ' + pm + '</div>' : '',
+      wd  ? '<div class="lesson-udf"><strong><i class="icon icon-sliders" aria-hidden="true"></i> Workaround:</strong> ' + wd + '</div>' : '',
     ].filter(Boolean).join('');
 
     const hasUdf  = udfRows.length > 0;
-    const pirChip = pir ? '<div style="font-size:10px;color:#6B3FA0;margin-top:6px;font-weight:600">📋 PIR Required: ' + pir + '</div>' : '';
+    const pirChip = pir ? '<div style="font-size:10px;color:#6B3FA0;margin-top:6px;font-weight:600"><i class="icon icon-clipboard-list" aria-hidden="true"></i> PIR Required: ' + pir + '</div>' : '';
     const techLine= tech ? '<span style="color:#6b7280"> · 👤 ' + tech + '</span>' : '';
 
     return '<div class="lesson-card' + (isOpen ? ' lesson-open' : '') + '">' +
@@ -7247,7 +7247,7 @@ function renderOnHoldAnalysis(allRows, periodRows, techs) {
   if (!ohBody || !techs) return;
   var sorted = techs.slice().sort(function(a,b){ return b.onHoldPct - a.onHoldPct; });
   ohBody.innerHTML = sorted.slice(0, 10).map(function(t) {
-    var sig = t.onHoldPct > 15 ? '<span style="color:#dc2626;font-weight:700">🚨 Habit risk</span>' :
+    var sig = t.onHoldPct > 15 ? '<span style="color:#dc2626;font-weight:700"><i class="icon icon-alert-triangle" aria-hidden="true"></i> Habit risk</span>' :
               t.onHoldPct > 10 ? '<span style="color:#d97706;font-weight:700">⚠ Elevated</span>' :
               t.onHoldPct > 5  ? '<span style="color:#d97706">Monitor</span>' :
               '<span style="color:#15803d">✓ Normal</span>';
@@ -8109,11 +8109,11 @@ function renderPlanningQuality(changes) {
     '</div>' +
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">' +
       '<div>' +
-        '<div style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">📊 Pipeline by Stage</div>' +
+        '<div style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px"><i class="icon icon-bar-chart-3" aria-hidden="true"></i> Pipeline by Stage</div>' +
         '<div style="display:flex;flex-direction:column;gap:5px">' + stageHtml + '</div>' +
       '</div>' +
       '<div>' +
-        '<div style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">📋 Planning Data Quality</div>' +
+        '<div style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px"><i class="icon icon-clipboard-list" aria-hidden="true"></i> Planning Data Quality</div>' +
         '<div style="display:flex;flex-direction:column;gap:6px;font-size:11px">' +
           '<div style="display:flex;justify-content:space-between;padding:6px 8px;background:#f8fafc;border-radius:6px">' +
             '<span style="color:#475569">Changes started before scheduled date</span>' +
@@ -11034,11 +11034,11 @@ async function initFreshnessBar() {
     } else if (ageH < 24) {
       const h = Math.floor(ageH);
       bar.className = 'freshness-bar freshness-warn';
-      bar.innerHTML = `<span>⚠</span><span>Data is <strong>${h} hour${h>1?'s':''} old</strong>${rows} — auto-refresh runs tonight at 3 AM</span><button class="fb-sync-btn" onclick="forceRefreshLiveData()">⚡ Sync Now</button>`;
+      bar.innerHTML = `<span>⚠</span><span>Data is <strong>${h} hour${h>1?'s':''} old</strong>${rows} — auto-refresh runs tonight at 3 AM</span><button class="fb-sync-btn" onclick="forceRefreshLiveData()"><i class="icon icon-zap" aria-hidden="true"></i> Sync Now</button>`;
     } else {
       const days = Math.floor(ageH / 24);
       bar.className = 'freshness-bar freshness-stale';
-      bar.innerHTML = `<span>⛔</span><span>Data is <strong>${days} day${days>1?'s':''} old</strong>${rows} — please sync before sharing with colleagues</span><button class="fb-sync-btn" onclick="forceRefreshLiveData()">⚡ Sync Now</button>`;
+      bar.innerHTML = `<span><i class="icon icon-ban" aria-hidden="true"></i></span><span>Data is <strong>${days} day${days>1?'s':''} old</strong>${rows} — please sync before sharing with colleagues</span><button class="fb-sync-btn" onclick="forceRefreshLiveData()"><i class="icon icon-zap" aria-hidden="true"></i> Sync Now</button>`;
     }
   } catch(e) { /* non-fatal */ }
 }
@@ -11049,6 +11049,7 @@ initFreshnessBar();
 <script nonce="%%CSP_NONCE%%" src="lib/i18nText.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/common.fr.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/executive.fr.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/kpiUnknown.js" data-auto></script>
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/boot.js" data-dict="I18N_FR_EXECUTIVE"></script>
 <script nonce="%%CSP_NONCE%%" src="module-tabs.js"></script>
 </main>

@@ -7,6 +7,8 @@
 (function (root) {
   'use strict';
   const STATIC = {
+    // VISUAL POLISH 2 — the same labels without their emoji (icons are SVG now)
+    'These outages could not be matched to a configured SLA circuit. Configure each in': 'Ces coupures n’ont pu être rattachées à aucun circuit SLA configuré. Configurez chacun dans',
     'Pending review': 'À revoir',
     'Not certified': 'Non certifié',
     '= no ISP contract reviewed by a second super_admin (or its MRC differs from the circuit) — the amount is an estimate, not a claim.': '= aucun contrat FAI revu par un second super_admin (ou sa redevance diffère du circuit) — le montant est une estimation, pas une réclamation.',

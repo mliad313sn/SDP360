@@ -304,6 +304,8 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
   text-transform:uppercase;letter-spacing:.04em;padding:1px 6px;border-radius:999px;
   background:#eef1f6;color:#64748b}
 .admin-rail__item.active .ar-scope{background:#fff;color:#9A4A0E;border:1px solid #f0c9a4}
+/* VISUAL POLISH 2 (admin P2-1): the group heading already says the scope — the chip on every item was noise */
+.admin-rail__item .ar-scope{display:none}
 .ar-scope--assets{background:#e0f2f1;color:#0f766e}
 .ar-scope--reports{background:#eef2ff;color:#4338ca}
 .ar-scope--risk{background:#fef2f2;color:#b91c1c}
@@ -647,7 +649,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <!-- Team + Comments (manual) -->
         <div class="form-row cols-2">
           <div>
-            <h4 style="font-size:0.85rem;color:#6b7a99;margin-bottom:12px;font-weight:600">👥 Team</h4>
+            <h4 style="font-size:0.85rem;color:#6b7a99;margin-bottom:12px;font-weight:600"><i class="icon icon-users" aria-hidden="true"></i> Team</h4>
             <div class="form-group">
               <label style="margin-bottom:8px;display:block">Technicians on Duty</label>
               <div id="hd-duty-display" style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start;min-height:52px;padding:4px 0">
@@ -673,7 +675,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
             </div>
           </div>
           <div>
-            <h4 style="font-size:0.85rem;color:#6b7a99;margin-bottom:12px;font-weight:600">📝 Comments <span style="font-size:0.7rem;font-weight:400;color:#94a3b8">(auto-filled from charts — editable)</span></h4>
+            <h4 style="font-size:0.85rem;color:#6b7a99;margin-bottom:12px;font-weight:600"><i class="icon icon-edit" aria-hidden="true"></i> Comments <span style="font-size:0.7rem;font-weight:400;color:#94a3b8">(auto-filled from charts — editable)</span></h4>
             <div class="form-group">
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
                 <label for="hd-comments" style="margin-bottom:0">General Comments on Metrics</label>
@@ -736,7 +738,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
              glance what's still on fire and what's missing post-mortem-wise. -->
         <div style="margin-top:14px; border:1px solid #f3d6d6; border-radius:8px; overflow:hidden;">
           <div style="background:#7a1f1f; color:#fff; padding:8px 14px; font-weight:600; font-size:0.9rem; display:flex; align-items:center; gap:8px;">
-            <span>🚨 Active Major Incidents — ServiceDesk Plus</span>
+            <span><i class="icon icon-alert-triangle" aria-hidden="true"></i> Active Major Incidents — ServiceDesk Plus</span>
             <span style="font-weight:400; font-size:0.8rem; opacity:0.75;">(open tickets only · auto-populated)</span>
             <button onclick="loadActiveIncidents()" style="margin-left:auto; background:rgba(255,255,255,0.15); border:none; color:#fff; border-radius:4px; padding:2px 10px; font-size:0.8rem; cursor:pointer;">↻ Refresh</button>
           </div>
@@ -777,7 +779,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <datalist id="ai-tech-datalist"></datalist>
         <button class="btn btn-secondary btn-sm btn-add-row" onclick="addActionRow()">+ Add Action</button>
         <button class="btn btn-secondary btn-sm" id="btn-carry-over" onclick="carryOverActions()" style="margin-left:10px">&#8629; Import open actions from a previous week</button>
-        <button class="btn btn-secondary btn-sm" id="btn-merge-dupes" onclick="openMergeCleanup()" style="margin-left:8px" title="Regrouper des actions en double du site (toutes semaines)">⚯ Fusionner des doublons</button>
+        <button class="btn btn-secondary btn-sm" id="btn-merge-dupes" onclick="openMergeCleanup()" style="margin-left:8px" title="Regrouper des actions en double du site (toutes semaines)"><i class="icon icon-git-merge" aria-hidden="true"></i> Fusionner des doublons</button>
         <button class="btn btn-secondary btn-sm" id="btn-import-modules" onclick="openImportFromModules()" style="margin-left:8px">&#8629; Import from Meetings / Inspections</button>
         <button class="btn btn-secondary btn-sm" onclick="downloadActionsTemplate()" style="margin-left:10px" title="Download a CSV template with column headers + 3 sample rows"><i class="icon icon-download"></i>CSV Template</button>
         <button class="btn btn-secondary btn-sm" onclick="document.getElementById('actions-csv-file').click()" style="margin-left:6px" title="Bulk-import action items from a CSV file">⬆ Import CSV</button>
@@ -839,7 +841,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
     <div id="merge-modal" style="display:none;position:fixed;inset:0;z-index:2100;background:rgba(0,0,0,.45);align-items:center;justify-content:center" onclick="if(event.target===this)closeMergeModal()">
       <div style="background:#fff;border-radius:10px;width:640px;max-width:96vw;max-height:84vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.25)">
         <div style="padding:16px 20px 12px;border-bottom:1px solid #e5e7eb">
-          <div style="font-weight:700;font-size:1rem;color:#1e293b">⚯ Fusionner des doublons</div>
+          <div style="font-weight:700;font-size:1rem;color:#1e293b"><i class="icon icon-git-merge" aria-hidden="true"></i> Fusionner des doublons</div>
           <div style="font-size:0.78rem;color:#64748b;margin-top:2px">Coche les actions ouvertes du site (toutes semaines) qui sont en réalité la même chose. Elles seront regroupées — la plus récente est conservée et les autres prennent son libellé.</div>
         </div>
         <div id="merge-list" style="overflow-y:auto;flex:1;padding:10px 12px"></div>
@@ -882,9 +884,9 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <div class="ri-value" id="report-status-label">—</div>
       </div>
       <button class="btn btn-secondary" id="btn-pptx-weekly" onclick="downloadWeeklyPptx()"><i class="icon icon-download"></i>Weekly PPTX</button>
-      <button class="btn btn-success" id="btn-submit" onclick="submitReport()">✅ Submit Report</button>
+      <button class="btn btn-success" id="btn-submit" onclick="submitReport()"><i class="icon icon-check" aria-hidden="true"></i> Submit Report</button>
       <button class="btn btn-secondary" id="btn-revert" onclick="revertReport()" style="display:none">↩ Revert to Draft</button>
-      <button class="btn btn-danger btn-sm" id="btn-delete-draft" onclick="deleteCurrentReport()" style="display:none;margin-left:8px" title="Delete this draft report">🗑 Delete</button>
+      <button class="btn btn-danger btn-sm" id="btn-delete-draft" onclick="deleteCurrentReport()" style="display:none;margin-left:8px" title="Delete this draft report"><i class="icon icon-trash" aria-hidden="true"></i> Delete</button>
     </div>
 
     <!-- ── Audit Trail ──────────────────────────────────────────────── -->
@@ -922,8 +924,8 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
       </div>
       <div class="spacer"></div>
       <div id="mr-export-bar" style="display:none;gap:8px;align-items:center;flex-wrap:wrap">
-        <button class="btn btn-primary" onclick="downloadMonthlyPptxV2(true)">📥 Export PPTX</button>
-        <button class="btn btn-secondary btn-sm" id="mr-all-sites-btn" style="display:none" onclick="downloadAllSitesMonthlyPptx(true)">📥 All Sites</button>
+        <button class="btn btn-primary" onclick="downloadMonthlyPptxV2(true)"><i class="icon icon-download" aria-hidden="true"></i> Export PPTX</button>
+        <button class="btn btn-secondary btn-sm" id="mr-all-sites-btn" style="display:none" onclick="downloadAllSitesMonthlyPptx(true)"><i class="icon icon-download" aria-hidden="true"></i> All Sites</button>
         <!-- 📋 "Site Monthly Template" button removed (see matching note in
              the reports landing page above). Handler + server endpoint are
              still alive — only the UI affordance is gone. -->
@@ -1069,7 +1071,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <!-- Active Major Incidents (monthly editor variant) -->
         <div style="margin-top:14px; border:1px solid #f3d6d6; border-radius:8px; overflow:hidden;">
           <div style="background:#7a1f1f; color:#fff; padding:8px 14px; font-weight:600; font-size:0.9rem; display:flex; align-items:center; gap:8px;">
-            <span>🚨 Active Major Incidents — ServiceDesk Plus</span>
+            <span><i class="icon icon-alert-triangle" aria-hidden="true"></i> Active Major Incidents — ServiceDesk Plus</span>
             <span style="font-weight:400; font-size:0.8rem; opacity:0.75;">(open tickets only · auto-populated)</span>
             <button onclick="loadActiveIncidentsMonthly()" style="margin-left:auto; background:rgba(255,255,255,0.15); border:none; color:#fff; border-radius:4px; padding:2px 10px; font-size:0.8rem; cursor:pointer;">↻ Refresh</button>
           </div>
@@ -1078,7 +1080,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
           </div>
         </div>
         <div style="margin-top:12px">
-          <button class="btn btn-primary" onclick="saveMonthlyEdits()">💾 Save Changes</button>
+          <button class="btn btn-primary" onclick="saveMonthlyEdits()"><i class="icon icon-save" aria-hidden="true"></i> Save Changes</button>
         </div>
       </div>
     </div>
@@ -1109,7 +1111,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
           <tbody id="mr-actions-body"></tbody>
         </table>
         <div style="margin-top:12px">
-          <button class="btn btn-primary" onclick="saveMonthlyEdits()">💾 Save Changes</button>
+          <button class="btn btn-primary" onclick="saveMonthlyEdits()"><i class="icon icon-save" aria-hidden="true"></i> Save Changes</button>
         </div>
       </div>
     </div>
@@ -1136,7 +1138,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
           <tbody id="mr-obj-body"></tbody>
         </table>
         <div style="margin-top:12px">
-          <button class="btn btn-primary" onclick="saveObjectives()">💾 Save Objectives</button>
+          <button class="btn btn-primary" onclick="saveObjectives()"><i class="icon icon-save" aria-hidden="true"></i> Save Objectives</button>
         </div>
       </div>
     </div>
@@ -1151,39 +1153,39 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
     <div class="admin-layout">
       <nav class="admin-rail" id="admin-rail" aria-label="Admin sections">
         <div class="admin-rail__group">
-          <div class="admin-rail__grouphdr">⚙ Global</div>
-          <button type="button" class="admin-rail__item" data-panel="users"       onclick="showAdminPanel('users')"><span class="ar-ico">👤</span><span>Users<small>Accounts &amp; roles</small></span><span class="ar-scope">Global</span></button>
-          <button type="button" class="admin-rail__item" data-panel="sessions"    onclick="showAdminPanel('sessions')"><span class="ar-ico">🟢</span><span>Active Sessions<small>Who's online</small></span><span class="ar-scope">Global</span></button>
-          <button type="button" class="admin-rail__item" data-panel="sites"       onclick="showAdminPanel('sites')"><span class="ar-ico">🏢</span><span>Sites<small>Zoho group mapping</small></span><span class="ar-scope">Global</span></button>
-          <button type="button" class="admin-rail__item" data-panel="email"       onclick="showAdminPanel('email')"><span class="ar-ico">✉</span><span>Email / SMTP<small>Transport &amp; addressing</small></span><span class="ar-scope">Global</span></button>
-          <button type="button" class="admin-rail__item" data-panel="backups" id="admin-rail-backups" style="display:none" onclick="showAdminPanel('backups')"><span class="ar-ico">💾</span><span>Backups<small>Scheduled &amp; manual</small></span><span class="ar-scope">Global</span></button>
-          <button type="button" class="admin-rail__item" data-panel="restore-drill" id="admin-rail-restore-drill" style="display:none" onclick="showAdminPanel('restore-drill')"><span class="ar-ico">🧪</span><span>Restore drill<small>Dernier exercice de restauration</small></span><span class="ar-scope">Global</span></button>
-          <button type="button" class="admin-rail__item" data-panel="trash" id="admin-rail-trash" style="display:none" onclick="showAdminPanel('trash')"><span class="ar-ico">🗑</span><span>Deleted records<small>Restore within retention</small></span><span class="ar-scope">Global</span></button>
-          <button type="button" class="admin-rail__item" data-group="integrations" id="admin-rail-grp-integrations" style="display:none" onclick="showAdminGroup('integrations')"><span class="ar-ico">🔗</span><span>Intégrations<small>SSO &amp; Meridian</small></span><span class="ar-scope">Global</span></button>
-          <button type="button" class="admin-rail__item" data-group="wan" id="admin-rail-grp-wan" style="display:none" onclick="showAdminGroup('wan')"><span class="ar-ico">📡</span><span>WAN Link<small>Availability &amp; SLA</small></span><span class="ar-scope">Global</span></button>
-          <button type="button" class="admin-rail__item" data-group="api" id="admin-rail-grp-api" style="display:none" onclick="showAdminGroup('api')"><span class="ar-ico">🔌</span><span>Intégration API<small>Alertes SLA &amp; Analytics</small></span><span class="ar-scope">Global</span></button>
+          <div class="admin-rail__grouphdr"><i class="icon icon-sliders" aria-hidden="true"></i> Global</div>
+          <button type="button" class="admin-rail__item" data-panel="users"       onclick="showAdminPanel('users')"><span class="ar-ico"><i class="icon icon-user" aria-hidden="true"></i></span><span>Users<small>Accounts &amp; roles</small></span><span class="ar-scope">Global</span></button>
+          <button type="button" class="admin-rail__item" data-panel="sessions"    onclick="showAdminPanel('sessions')"><span class="ar-ico"><i class="icon icon-users" aria-hidden="true"></i></span><span>Active Sessions<small>Who's online</small></span><span class="ar-scope">Global</span></button>
+          <button type="button" class="admin-rail__item" data-panel="sites"       onclick="showAdminPanel('sites')"><span class="ar-ico"><i class="icon icon-building" aria-hidden="true"></i></span><span>Sites<small>Zoho group mapping</small></span><span class="ar-scope">Global</span></button>
+          <button type="button" class="admin-rail__item" data-panel="email"       onclick="showAdminPanel('email')"><span class="ar-ico"><i class="icon icon-mail" aria-hidden="true"></i></span><span>Email / SMTP<small>Transport &amp; addressing</small></span><span class="ar-scope">Global</span></button>
+          <button type="button" class="admin-rail__item" data-panel="backups" id="admin-rail-backups" style="display:none" onclick="showAdminPanel('backups')"><span class="ar-ico"><i class="icon icon-save" aria-hidden="true"></i></span><span>Backups<small>Scheduled &amp; manual</small></span><span class="ar-scope">Global</span></button>
+          <button type="button" class="admin-rail__item" data-panel="restore-drill" id="admin-rail-restore-drill" style="display:none" onclick="showAdminPanel('restore-drill')"><span class="ar-ico"><i class="icon icon-activity" aria-hidden="true"></i></span><span>Restore drill<small>Last restore exercise</small></span><span class="ar-scope">Global</span></button>
+          <button type="button" class="admin-rail__item" data-panel="trash" id="admin-rail-trash" style="display:none" onclick="showAdminPanel('trash')"><span class="ar-ico"><i class="icon icon-trash" aria-hidden="true"></i></span><span>Deleted records<small>Restore within retention</small></span><span class="ar-scope">Global</span></button>
+          <button type="button" class="admin-rail__item" data-group="integrations" id="admin-rail-grp-integrations" style="display:none" onclick="showAdminGroup('integrations')"><span class="ar-ico"><i class="icon icon-link" aria-hidden="true"></i></span><span>Integrations<small>SSO &amp; Meridian</small></span><span class="ar-scope">Global</span></button>
+          <button type="button" class="admin-rail__item" data-group="wan" id="admin-rail-grp-wan" style="display:none" onclick="showAdminGroup('wan')"><span class="ar-ico"><i class="icon icon-wifi" aria-hidden="true"></i></span><span>WAN Link<small>Availability &amp; SLA</small></span><span class="ar-scope">Global</span></button>
+          <button type="button" class="admin-rail__item" data-group="api" id="admin-rail-grp-api" style="display:none" onclick="showAdminGroup('api')"><span class="ar-ico"><i class="icon icon-plug" aria-hidden="true"></i></span><span>API integration<small>SLA alerts &amp; Analytics</small></span><span class="ar-scope">Global</span></button>
         </div>
         <div class="admin-rail__group">
-          <div class="admin-rail__grouphdr">📊 Reports</div>
-          <button type="button" class="admin-rail__item" data-group="sends" id="admin-rail-grp-sends" style="display:none" onclick="showAdminGroup('sends')"><span class="ar-ico">📤</span><span>Envois automatiques<small>Digests programmés</small></span><span class="ar-scope ar-scope--reports">Reports</span></button>
-          <button type="button" class="admin-rail__item" data-panel="departments" onclick="showAdminPanel('departments')"><span class="ar-ico">🏷</span><span>Departments<small>Action item categories</small></span><span class="ar-scope ar-scope--reports">Reports</span></button>
-          <button type="button" class="admin-rail__item" data-panel="execview"    onclick="showAdminPanel('execview')"><span class="ar-ico">📣</span><span>Exec View<small>Highlights &amp; focus</small></span><span class="ar-scope ar-scope--reports">Reports</span></button>
+          <div class="admin-rail__grouphdr"><i class="icon icon-bar-chart-3" aria-hidden="true"></i> Reports</div>
+          <button type="button" class="admin-rail__item" data-group="sends" id="admin-rail-grp-sends" style="display:none" onclick="showAdminGroup('sends')"><span class="ar-ico"><i class="icon icon-upload" aria-hidden="true"></i></span><span>Automatic sends<small>Scheduled digests</small></span><span class="ar-scope ar-scope--reports">Reports</span></button>
+          <button type="button" class="admin-rail__item" data-panel="departments" onclick="showAdminPanel('departments')"><span class="ar-ico"><i class="icon icon-tag" aria-hidden="true"></i></span><span>Departments<small>Action item categories</small></span><span class="ar-scope ar-scope--reports">Reports</span></button>
+          <button type="button" class="admin-rail__item" data-panel="execview"    onclick="showAdminPanel('execview')"><span class="ar-ico"><i class="icon icon-bell" aria-hidden="true"></i></span><span>Exec View<small>Highlights &amp; focus</small></span><span class="ar-scope ar-scope--reports">Reports</span></button>
         </div>
         <div class="admin-rail__group">
-          <div class="admin-rail__grouphdr">💻 Assets</div>
-          <button type="button" class="admin-rail__item" data-group="assets-val" id="admin-rail-grp-assets-val" onclick="showAdminGroup('assets-val')"><span class="ar-ico">💱</span><span>Assets — Valorisation<small>Finance &amp; dépréciation</small></span><span class="ar-scope ar-scope--assets">Assets</span></button>
+          <div class="admin-rail__grouphdr"><i class="icon icon-hard-drive" aria-hidden="true"></i> Assets</div>
+          <button type="button" class="admin-rail__item" data-group="assets-val" id="admin-rail-grp-assets-val" onclick="showAdminGroup('assets-val')"><span class="ar-ico"><i class="icon icon-wallet" aria-hidden="true"></i></span><span>Assets — Valuation<small>Finance &amp; depreciation</small></span><span class="ar-scope ar-scope--assets">Assets</span></button>
         </div>
         <div class="admin-rail__group">
-          <div class="admin-rail__grouphdr">🛡 Risk Register</div>
-          <button type="button" class="admin-rail__item" data-panel="risk" id="admin-rail-risk" style="display:none" onclick="showAdminPanel('risk')"><span class="ar-ico">🛡</span><span>Risk Register<small>Site code mapping</small></span><span class="ar-scope ar-scope--risk">Risk</span></button>
+          <div class="admin-rail__grouphdr"><i class="icon icon-shield" aria-hidden="true"></i> Risk Register</div>
+          <button type="button" class="admin-rail__item" data-panel="risk" id="admin-rail-risk" style="display:none" onclick="showAdminPanel('risk')"><span class="ar-ico"><i class="icon icon-shield" aria-hidden="true"></i></span><span>Risk Register<small>Site code mapping</small></span><span class="ar-scope ar-scope--risk">Risk</span></button>
         </div>
       </nav>
       <div class="admin-content">
         <div id="ap-grouptabs" class="ap-tabs" style="display:none"></div>
 
     <div class="card admin-panel" id="ap-users" data-panel="users">
-      <h3>👤 Users
-        <button class="btn btn-secondary btn-sm" style="margin-left:auto" onclick="openEmailMapModal()" title="Bulk-set corporate emails for Microsoft SSO (auto-suggested from each name).">✉ Map SSO emails</button>
+      <h3><i class="icon icon-user" aria-hidden="true"></i> Users
+        <button class="btn btn-secondary btn-sm" style="margin-left:auto" onclick="openEmailMapModal()" title="Bulk-set corporate emails for Microsoft SSO (auto-suggested from each name)."><i class="icon icon-mail" aria-hidden="true"></i> Map SSO emails</button>
         <button class="btn btn-primary btn-sm" onclick="openUserModal()">+ New User</button>
       </h3>
       <div style="display:flex;gap:8px;align-items:center;margin:0 0 10px"><input type="search" class="edv-input" data-table-filter="#user-table" aria-controls="user-filter-count" aria-label="Search users" placeholder="Search users (name, site, role…)" style="max-width:320px;width:100%"><span id="user-filter-count" class="muted" aria-live="polite" style="font-size:12px;color:var(--gray-500)"></span></div>
@@ -1220,7 +1222,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
           </select>
           · <span id="sess-generated" style="color:#94a3b8">—</span>
         </span>
-        <button class="btn btn-secondary btn-sm" style="margin-left:auto" onclick="loadActiveSessions()" title="Refresh now">🔄 Refresh</button>
+        <button class="btn btn-secondary btn-sm" style="margin-left:auto" onclick="loadActiveSessions()" title="Refresh now"><i class="icon icon-refresh-cw" aria-hidden="true"></i> Refresh</button>
       </h3>
       <table class="user-table" id="sessions-table">
         <thead>
@@ -1239,7 +1241,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 
     <!-- Sites / Group Mapping -->
     <div class="card admin-panel" id="ap-sites" data-panel="sites">
-      <h3>🏢 Sites — Zoho Group Mapping
+      <h3><i class="icon icon-building" aria-hidden="true"></i> Sites — Zoho Group Mapping
         <span style="font-size:0.78rem;font-weight:400;color:#6b7a99;margin-left:8px">Maps each site to its Zoho AP helpdesk group for automatic chart loading</span>
         <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="openSiteModal()">+ New Site</button>
       </h3>
@@ -1258,7 +1260,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 
     <!-- Departments / Action Item Categories -->
     <div class="card admin-panel" id="ap-depts" data-panel="departments">
-      <h3>🏷 Departments — Action Item Categories
+      <h3><i class="icon icon-tag" aria-hidden="true"></i> Departments — Action Item Categories
         <span style="font-size:0.78rem;font-weight:400;color:#6b7a99;margin-left:8px">Used by the Action Items dropdown on weekly + monthly reports</span>
         <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="openDeptModal()">+ New Department</button>
       </h3>
@@ -1283,7 +1285,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
          prefilled here via GET /api/exec/editorial. Both routes are
          session + admin gated server-side. -->
     <div class="card admin-panel" id="ap-execview" data-panel="execview">
-      <h3>📣 Executive View — Highlights &amp; Focus
+      <h3><i class="icon icon-bell" aria-hidden="true"></i> Executive View — Highlights &amp; Focus
         <span style="font-size:0.78rem;font-weight:400;color:#6b7a99;margin-left:8px">
           Editorial shown on the public Executive View page for the selected month (max 4 highlights, 3 focus areas)
         </span>
@@ -1358,7 +1360,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
          weekly full restore point) via Manage-SDP.ps1. The tasks run even
          when the app is down - the app only configures them. -->
     <div class="card admin-panel" id="ap-backups" data-panel="backups">
-      <h3>💾 Scheduled Backups
+      <h3><i class="icon icon-save" aria-hidden="true"></i> Scheduled Backups
         <button class="btn btn-secondary btn-sm" style="margin-left:auto" onclick="backupNowAdmin()" id="bk-now-btn">⬇ Backup now (DB)</button>
       </h3>
       <div id="bk-status" style="margin-bottom:14px;font-size:0.9rem;color:#6b7a99">Loading…</div>
@@ -1378,7 +1380,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <div class="form-group"><label for="bk-ret-db">Keep DB-only backups</label><input type="number" id="bk-ret-db" value="14" min="1" max="99"></div>
       </div>
       <div style="display:flex;gap:10px;align-items:center;margin:6px 0 16px">
-        <button class="btn btn-primary btn-sm" onclick="saveBackupSchedule(true)">💾 Save &amp; enable</button>
+        <button class="btn btn-primary btn-sm" onclick="saveBackupSchedule(true)"><i class="icon icon-save" aria-hidden="true"></i> Save &amp; enable</button>
         <button class="btn btn-secondary btn-sm" onclick="saveBackupSchedule(false)">⏸ Disable schedule</button>
         <span id="bk-save-msg" style="font-size:0.85rem;color:#6b7a99"></span>
       </div>
@@ -1395,7 +1397,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
     <!-- A-19 — soft-deleted records (report_config soft_delete_enabled, PROPOSED retention policy, default OFF).
          GET /api/admin/trash + POST <restore_url> (routes/softDelete.js). Admin tier. -->
     <div class="card admin-panel" id="ap-trash" data-panel="trash">
-      <h3>🗑 Deleted records <span style="font-weight:normal;font-size:0.85rem;color:#6b7a99">· Éléments supprimés</span></h3>
+      <h3><i class="icon icon-trash" aria-hidden="true"></i> Deleted records <span style="font-weight:normal;font-size:0.85rem;color:#6b7a99">· Éléments supprimés</span></h3>
       <p style="font-size:0.9rem;color:#6b7a99;margin:0 0 12px">With <code>soft_delete_enabled = 1</code>, deleting an inspection, a PV, a portfolio item or a cadence hides it instead of destroying it; it can be restored here within the retention window. The nightly purge runs only when <code>soft_delete_purge_enabled = 1</code> (dry run first: <code>node tools/pg/purge-soft-deleted.js</code>).</p>
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
         <select id="trash-module" onchange="loadTrash()"><option value="">All modules</option></select>
@@ -1407,7 +1409,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
     </div>
 
     <div class="card admin-panel" id="ap-restore-drill" data-panel="restore-drill">
-      <h3>🧪 Last restore drill <span style="font-weight:normal;font-size:0.85rem;color:#6b7a99">· Dernier exercice de restauration</span></h3>
+      <h3><i class="icon icon-activity" aria-hidden="true"></i> Last restore drill</h3>
       <p style="font-size:0.9rem;color:#6b7a99;margin:0 0 12px">A backup is only proven once it has been restored: every 1st of the month at 04:00 the newest dump is restored into a disposable database, the row counts of the 10 main tables are compared with the live database, and a dated report is written to <code>docs/ops/restore-drills/</code>.<br><span lang="fr">Une sauvegarde n'est prouvée qu'une fois restaurée : le 1er du mois à 04:00, le dernier dump est restauré dans une base jetable et les comptages des 10 tables principales sont comparés à la base vivante.</span></p>
       <div id="rd-status" style="font-size:1rem;margin-bottom:10px">Loading…</div>
       <table class="user-table" style="max-width:640px"><thead><tr><th>Table</th><th>Live</th><th>Restored</th><th>Status</th></tr></thead>
@@ -1421,7 +1423,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
          hidden for non-super-admin users by loadAdminPage() — the API also
          gates writes server-side. -->
     <div class="card admin-panel" id="rr-aliases-card" data-panel="risk">
-      <h3>🛡 Risk Register — Site Code Mapping
+      <h3><i class="icon icon-shield" aria-hidden="true"></i> Risk Register — Site Code Mapping
         <span style="font-size:0.78rem;font-weight:400;color:#6b7a99;margin-left:8px">
           SDP free-form site labels → Risk Register short codes (used by the monthly Occurrence export)
         </span>
@@ -1462,7 +1464,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
          whole card is hidden for non-super-admin users by loadAdminPage(); the
          /api/reports/* routes are also session + admin gated server-side. -->
     <div class="card admin-panel" id="ap-autoreports" data-panel="autoreports">
-      <h3>📄 Automated Reports
+      <h3><i class="icon icon-file-text" aria-hidden="true"></i> Automated Reports
         <span style="font-size:0.78rem;font-weight:400;color:#6b7a99;margin-left:8px">
           Recipients, schedule &amp; delivery settings for the automated site / group reports
         </span>
@@ -1480,7 +1482,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
           <span style="font-size:0.8rem;color:#6b7a99">One row per site. A report is only delivered to a <em>confirmed</em> address.</span>
           <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="openRecipientModal()">+ Add site</button>
-          <button class="btn btn-secondary btn-sm" id="ar-suggest-btn" title="Pre-fill blank coordinator / FM names from meeting PV data. Never overwrites a confirmed contact." onclick="suggestRecipientsFromMeetings()">✨ Suggest from meetings</button>
+          <button class="btn btn-secondary btn-sm" id="ar-suggest-btn" title="Pre-fill blank coordinator / FM names from meeting PV data. Never overwrites a confirmed contact." onclick="suggestRecipientsFromMeetings()"><i class="icon icon-zap" aria-hidden="true"></i> Suggest from meetings</button>
         </div>
         <table class="user-table" id="ar-recipients-table">
           <thead><tr>
@@ -1528,7 +1530,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
          loadReportConfig (document-wide getElementById) keep working untouched.
          group_report_* stay under Reports (Recipients tab). -->
     <div class="card admin-panel" id="ap-email" data-panel="email">
-      <h3>✉ Email / SMTP
+      <h3><i class="icon icon-mail" aria-hidden="true"></i> Email / SMTP
         <span style="font-size:0.78rem;font-weight:400;color:#6b7a99;margin-left:8px">
           Transport, SMTP credentials &amp; addressing for all outbound mail
         </span>
@@ -1597,7 +1599,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
          PUT). The client secret is redacted on GET and blank-kept on save,
          exactly like the SMTP password. -->
     <div class="card admin-panel" id="ap-sso" data-panel="sso">
-      <h3 style="margin-top:0">🔐 Microsoft Entra SSO</h3>
+      <h3 style="margin-top:0"><i class="icon icon-lock" aria-hidden="true"></i> Microsoft Entra SSO</h3>
       <p style="color:#6b7a99;font-size:0.9rem;margin-top:-4px">
         Single sign-on with Microsoft Entra ID. These override the server's <code>.env</code> once set;
         leave a field blank to fall back to <code>.env</code> / the default. Full setup guide:
@@ -1647,7 +1649,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
          it inbound on /api/actions/open. Both keys redacted on GET, blank-kept
          on save (like the SMTP password / SSO secret). -->
     <div class="card admin-panel" id="ap-meridian" data-panel="meridian">
-      <h3 style="margin-top:0">🔗 Meridian (PMO) — Federation</h3>
+      <h3 style="margin-top:0"><i class="icon icon-link" aria-hidden="true"></i> Meridian (PMO) — Federation</h3>
       <p style="color:#6b7a99;font-size:0.9rem;margin-top:-4px">
         Links SDP to the Meridian project-management app. The <strong>outbound key</strong> is what SDP presents to
         Meridian (resource sync + reading project links back); the <strong>inbound key</strong> is what SDP requires
@@ -1687,7 +1689,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
          (redacted on GET, blank-kept on save). The config PUT is super_admin-
          gated on these keys. The module ships inert until keyed + calibrated. -->
     <div class="card admin-panel" id="ap-infra" data-panel="infra">
-      <h3 style="margin-top:0">📡 Infra WAN / Availability — Meraki &amp; OpManager</h3>
+      <h3 style="margin-top:0"><i class="icon icon-wifi" aria-hidden="true"></i> Infra WAN / Availability — Meraki &amp; OpManager</h3>
       <p style="color:#6b7a99;font-size:0.9rem;margin-top:-4px">
         Feeds the <strong>WAN Health</strong> dashboard and the report's infra auto-fill.
         <strong>Meraki</strong> supplies per-uplink WAN availability/quality — WAN is the one thing OpManager
@@ -1945,7 +1947,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
          saveAssetFinanceConfig / loadAssetFinanceConfig (Hygiene's save/load
          no longer touch it). -->
     <div class="card admin-panel" id="ap-assets-finance" data-panel="assets-finance">
-      <h3>💱 Assets Finance
+      <h3><i class="icon icon-wallet" aria-hidden="true"></i> Assets Finance
         <span style="font-size:0.78rem;font-weight:400;color:#6b7a99;margin-left:8px">
           Currency conversion for asset cost surfaces
         </span>
@@ -1968,7 +1970,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
          /api/assets/depreciation-config. Default policy + per-type overrides.
          Salvage is shown as a percent (10) and stored as a fraction (0.1). -->
     <div class="card admin-panel" id="ap-assets-deprec" data-panel="assets-deprec">
-      <h3>📉 Depreciation
+      <h3><i class="icon icon-line-chart" aria-hidden="true"></i> Depreciation
         <span style="font-size:0.78rem;font-weight:400;color:#6b7a99;margin-left:8px">
           Default policy &amp; per-type overrides
         </span>
@@ -2008,7 +2010,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
          /api/assets/hygiene/send route. Armed OFF by default — nothing mails
          until an admin ticks "Arm sending" AND a recipient is on file. -->
     <div class="card admin-panel" id="ap-hygiene" data-panel="hygiene">
-      <h3>🛡 Assets Hygiene digest
+      <h3><i class="icon icon-shield" aria-hidden="true"></i> Assets Hygiene digest
         <span style="font-size:0.78rem;font-weight:400;color:#6b7a99;margin-left:8px">
           Group-IT CMDB-hygiene email — recipients, arm flag, schedule &amp; preview
         </span>
@@ -2115,7 +2117,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
     </div>
 
     <div class="card admin-panel" id="ap-analytics-api" data-panel="analytics-api">
-      <h3>📈 Connexion Zoho Analytics
+      <h3><i class="icon icon-trending-up" aria-hidden="true"></i> Connexion Zoho Analytics
         <span style="font-size:0.78rem;font-weight:400;color:#6b7a99;margin-left:8px">
           Source des données helpdesk (tickets, changements, enquêtes, actifs)
         </span>
@@ -2149,7 +2151,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
     </div>
 
     <div class="card admin-panel" id="ap-scoreboard" data-panel="scoreboard">
-      <h3>📊 Scoreboard opérationnel
+      <h3><i class="icon icon-bar-chart-3" aria-hidden="true"></i> Scoreboard opérationnel
         <span style="font-size:0.78rem;font-weight:400;color:#6b7a99;margin-left:8px">
           Per-coordinator email — 4 dimensions (helpdesk · inspections · réunions · actifs)
         </span>
@@ -2177,7 +2179,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
     </div>
 
     <div class="card admin-panel" id="ap-weekly" data-panel="weekly">
-      <h3>🗓 Weekly Report
+      <h3><i class="icon icon-calendar" aria-hidden="true"></i> Weekly Report
         <span style="font-size:0.78rem;font-weight:400;color:#6b7a99;margin-left:8px">
           Per-coordinator email — the AUTHORED weekly report for the week just ended
         </span>
@@ -2219,7 +2221,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
          route. Armed OFF by default — nothing mails until an admin ticks
          "Arm sending" AND a recipient is on file. -->
     <div class="card admin-panel" id="ap-asset-group" data-panel="asset-group">
-      <h3>📈 Assets — Groupe
+      <h3><i class="icon icon-trending-up" aria-hidden="true"></i> Assets — Groupe
         <span style="font-size:0.78rem;font-weight:400;color:#6b7a99;margin-left:8px">
           Group digest — effort leaderboard &amp; investment forecast, recipients, arm flag &amp; preview
         </span>
@@ -2254,7 +2256,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
          armed OFF. Recipients = confirmed asset manager (to) + confirmed coordinator
          (cc), from the directory; no confirmed contact → the site is skipped. -->
     <div class="card admin-panel" id="ap-asset-reminders" data-panel="asset-reminders">
-      <h3>🧰 Rappels parc informatique
+      <h3><i class="icon icon-sliders" aria-hidden="true"></i> Rappels parc informatique
         <span style="font-size:0.78rem;font-weight:400;color:#6b7a99;margin-left:8px">
           Récap hebdomadaire par site &amp; alerte « nouveau matériel »
         </span>
@@ -2523,7 +2525,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 <!-- Bulk SSO email mapping ─────────────────────────────────────── -->
 <div class="modal-overlay" id="email-map-modal">
   <div class="modal" style="max-width:720px">
-    <h3 style="margin-top:0">✉ Map SSO emails</h3>
+    <h3 style="margin-top:0"><i class="icon icon-mail" aria-hidden="true"></i> Map SSO emails</h3>
     <p style="font-size:13px;color:#64748B;margin:0 0 12px">
       Set each user's corporate email so they can sign in with Microsoft. Emails are
       auto-suggested from the name — <strong>review carefully</strong> against your Entra
@@ -2987,7 +2989,7 @@ async function loadReportList(offset) {
       document.getElementById('rl-page-info').textContent = total ? `${_rlOffset + 1}–${Math.min(_rlOffset + RL_PAGE, total)} / ${total}` : '';
     }
     if (!reports.length) {
-      grid.innerHTML = '<div class="empty-state"><div class="es-icon">📋</div><p>No reports yet. Create the first one above.</p></div>';
+      grid.innerHTML = '<div class="empty-state"><div class="es-icon"><i class="icon icon-clipboard-list" aria-hidden="true"></i></div><p>No reports yet. Create the first one above.</p></div>';
       window.__markFirstUsable && window.__markFirstUsable('reports:list');   // F-UX-05
       return;
     }
@@ -3803,7 +3805,7 @@ function renderHdCharts(data) {
   wrap.innerHTML = `
     <div class="hd-chart-grid">
       <div class="hd-chart-card full">
-        <div class="hd-chart-title">📈 Weekly Request Volume &amp; SLA Trend — ${esc(grp)}</div>
+        <div class="hd-chart-title"><i class="icon icon-trending-up" aria-hidden="true"></i> Weekly Request Volume &amp; SLA Trend — ${esc(grp)}</div>
         <div id="hdc-trend"></div>
       </div>
       <div class="hd-chart-card">
@@ -3811,7 +3813,7 @@ function renderHdCharts(data) {
         <div class="hd-chart-wrap"><canvas id="hdc-ageing"></canvas></div>
       </div>
       <div class="hd-chart-card">
-        <div class="hd-chart-title">🚨 Top 10 SLA Violations by Category</div>
+        <div class="hd-chart-title"><i class="icon icon-alert-triangle" aria-hidden="true"></i> Top 10 SLA Violations by Category</div>
         <div class="hd-chart-wrap"><canvas id="hdc-top10"></canvas></div>
       </div>
     </div>`;
@@ -4262,13 +4264,13 @@ function _renderOpenChangesPanel(changes, panel) {
     return `<div style="padding:5px 0 4px; border-bottom:1px solid #eef;">
       <div style="display:flex; gap:5px; align-items:center; flex-wrap:wrap;">
         <span style="font-weight:700; white-space:nowrap; color:#2d3a5e; min-width:54px; font-size:0.82rem;">CH-${esc(c.display_id||'')}</span>
-        ${c.emergency ? '<span style="background:#c0392b;color:#fff;border-radius:3px;padding:0 4px;font-size:0.7rem;font-weight:700;white-space:nowrap;">⚡EMG</span>' : ''}
+        ${c.emergency ? '<span style="background:#c0392b;color:#fff;border-radius:3px;padding:0 4px;font-size:0.7rem;font-weight:700;white-space:nowrap;"><i class="icon icon-zap" aria-hidden="true"></i>EMG</span>' : ''}
         <span style="flex:1; color:#333; font-size:0.82rem; line-height:1.3;">${esc(c.subject || '')}</span>
         <span style="white-space:nowrap; font-size:0.72rem; font-weight:700; color:${stageColor(c.stage||'')}; background:rgba(0,0,0,0.06); border-radius:3px; padding:1px 5px;">${esc(c.stage_status || c.stage || '')}</span>
       </div>
       <div style="display:flex; gap:10px; margin-top:2px; padding-left:58px; font-size:0.74rem; color:#777; flex-wrap:wrap; align-items:center;">
         ${c.risk ? `<span style="color:${riskColor(c.risk)};font-weight:600;">${esc(c.risk)}</span>` : ''}
-        ${c.requester ? `<span>👤 ${esc(c.requester)}</span>` : ''}
+        ${c.requester ? `<span><i class="icon icon-user" aria-hidden="true"></i> ${esc(c.requester)}</span>` : ''}
         ${dueStr ? `<span style="color:${overdue?'#c0392b':'#555'};font-weight:${overdue?'700':'400'};">${overdue?'⚠️ ':''}Due: ${dueStr}</span>` : ''}
         ${daysOpen(c.created_time) ? `<span style="color:#bbb;">${daysOpen(c.created_time)}</span>` : ''}
       </div>
@@ -4341,7 +4343,7 @@ function _renderActiveIncidentsPanel(incidents, panel) {
       </div>
       <div style="display:flex; gap:8px; margin-top:3px; padding-left:0; font-size:0.74rem; color:#777; flex-wrap:wrap; align-items:center;">
         ${cat ? `<span style="color:#555;">${esc(cat)}</span>` : ''}
-        ${i.requester ? `<span>👤 ${esc(i.requester)}</span>` : ''}
+        ${i.requester ? `<span><i class="icon icon-user" aria-hidden="true"></i> ${esc(i.requester)}</span>` : ''}
         ${dueStr ? `<span style="color:${i.overdue?'#c0392b':'#555'};font-weight:${i.overdue?'700':'400'};">Due: ${dueStr}</span>` : ''}
         ${daysOpen(i.created_time) ? `<span style="color:#bbb;">${daysOpen(i.created_time)}</span>` : ''}
       </div>
@@ -5713,7 +5715,7 @@ async function _loadSyncFreshness() {
                     : `${Math.round(diffMin/1440)}d ago`;
       const warnIcon = hasErr ? ' ⚠️' : '';
       const warnTip  = hasErr ? ` (last attempt had an error: ${esc(job.last_error)})` : '';
-      el.innerHTML = `<span title="Last successful Zoho sync${warnTip}" style="cursor:default">🕐 Zoho data: <strong>${diffStr}</strong>${warnIcon} &nbsp;·&nbsp; ${job.last_sync_rows || 0} rows</span>`;
+      el.innerHTML = `<span title="Last successful Zoho sync${warnTip}" style="cursor:default"><i class="icon icon-clock" aria-hidden="true"></i> Zoho data: <strong>${diffStr}</strong>${warnIcon} &nbsp;·&nbsp; ${job.last_sync_rows || 0} rows</span>`;
       el.style.color = (diffMin > 300 || hasErr) ? '#c0392b' : '#6b7a99';  // red if >5h or error
     } else {
       el.textContent = '⚠️ Zoho data: never synced';
@@ -5869,7 +5871,7 @@ function renderMrInfra(reports, yearlyData) {
 
   tc.innerHTML = `
     <div style="margin-top:20px">
-      <div style="font-size:0.85rem;font-weight:700;color:#1c3a5e;margin-bottom:8px">📈 Monthly Trend (Jan – Dec)</div>
+      <div style="font-size:0.85rem;font-weight:700;color:#1c3a5e;margin-bottom:8px"><i class="icon icon-trending-up" aria-hidden="true"></i> Monthly Trend (Jan – Dec)</div>
       <div style="overflow-x:auto">
         <table style="width:100%;border-collapse:collapse;min-width:700px">
           <thead>
@@ -6347,17 +6349,26 @@ const _ADMIN_PANEL_IDS = { users:'ap-users', sessions:'sessions-card', sites:'ap
 // Related config panels merged behind ONE rail item + an in-panel tab strip. The panel cards
 // themselves are untouched (ids, load functions, deep-links all intact) — only the rail entry
 // and the tab strip on top change. member → group is derived once.
+// VISUAL POLISH 2 (admin P1-6) — a role is shown as words ("Super admin", "Field tech"); the code stays in the tooltip.
+// Display only: the value sent to the server is still the code.
+function roleLabel(code) {
+  const c = String(code == null ? '' : code);
+  const named = { super_admin: 'Super admin', admin: 'Administrator', executive: 'Executive', editor: 'Editor', viewer: 'Viewer' };
+  if (named[c]) return named[c];
+  const w = c.replace(/[-_]+/g, ' ').trim();
+  return w ? w.charAt(0).toUpperCase() + w.slice(1) : '—';
+}
 const PANEL_GROUPS = {
-  wan:          { label: 'WAN Link', ico: '📡', members: ['infra', 'sla'],
-                  labels: { infra: 'Disponibilité', sla: 'SLA / Refacturation' } },
-  integrations: { label: 'Intégrations', ico: '🔗', members: ['sso', 'meridian'],
+  wan:          { label: 'WAN Link', ico: 'wifi', members: ['infra', 'sla'],
+                  labels: { infra: 'Availability', sla: 'SLA / Chargeback' } },
+  integrations: { label: 'Integrations', ico: 'link', members: ['sso', 'meridian'],
                   labels: { sso: 'Microsoft SSO', meridian: 'Meridian (PMO)' } },
-  'assets-val': { label: 'Assets — Valorisation', ico: '💱', members: ['assets-finance', 'assets-deprec'],
-                  labels: { 'assets-finance': 'Finance', 'assets-deprec': 'Dépréciation' } },
-  api:          { label: 'Intégration API', ico: '🔌', members: ['teams-sla', 'analytics-api'],
-                  labels: { 'teams-sla': 'Alertes SLA', 'analytics-api': 'Analytics' } },
-  sends:        { label: 'Envois automatiques', ico: '📤', members: ['autoreports', 'weekly', 'hygiene', 'scoreboard', 'asset-group', 'asset-reminders'],
-                  labels: { autoreports: 'Auto Reports', weekly: 'Weekly', hygiene: 'Hygiène', scoreboard: 'Scoreboard', 'asset-group': 'Groupe', 'asset-reminders': 'Rappels parc' } },
+  'assets-val': { label: 'Assets — Valuation', ico: 'wallet', members: ['assets-finance', 'assets-deprec'],
+                  labels: { 'assets-finance': 'Finance', 'assets-deprec': 'Depreciation' } },
+  api:          { label: 'API integration', ico: 'plug', members: ['teams-sla', 'analytics-api'],
+                  labels: { 'teams-sla': 'SLA alerts', 'analytics-api': 'Analytics' } },
+  sends:        { label: 'Automatic sends', ico: 'upload', members: ['autoreports', 'weekly', 'hygiene', 'scoreboard', 'asset-group', 'asset-reminders'],
+                  labels: { autoreports: 'Auto Reports', weekly: 'Weekly', hygiene: 'Hygiene', scoreboard: 'Scoreboard', 'asset-group': 'Group', 'asset-reminders': 'Asset reminders' } },
 };
 const _MEMBER_GROUP = {}; for (const [g, cfg] of Object.entries(PANEL_GROUPS)) cfg.members.forEach(m => { _MEMBER_GROUP[m] = g; });
 function showAdminGroup(g) { const cfg = PANEL_GROUPS[g]; if (cfg) showAdminPanel(cfg.members[0]); }
@@ -6366,7 +6377,7 @@ function _renderGroupTabs(name) {
   const g = _MEMBER_GROUP[name];
   if (!g) { host.style.display = 'none'; host.innerHTML = ''; return; }
   const cfg = PANEL_GROUPS[g];
-  host.innerHTML = `<span class="ap-tabs__lbl">${cfg.ico} ${cfg.label}</span>` +
+  host.innerHTML = `<span class="ap-tabs__lbl"><i class="icon icon-${cfg.ico}" aria-hidden="true"></i> ${cfg.label}</span>` +
     cfg.members.map(m => `<button type="button" class="ap-tab${m === name ? ' active' : ''}" onclick="showAdminPanel('${m}')">${cfg.labels[m] || m}</button>`).join('');
   host.style.display = 'flex';
 }
@@ -6520,8 +6531,8 @@ async function loadAdminPage() {
       const hRoles = roleArr.filter(r => HCHAIN.includes(r));
       const fRoles = roleArr.filter(r => !HCHAIN.includes(r));
       const chips = [
-        ...hRoles.map(r => `<span class="role-pill role-${esc(r)}">${esc(r)}</span>`),
-        ...fRoles.map(r => `<span class="role-pill" style="background:#CCFBF1;color:#0F766E;border:1px solid #5EEAD4;font-size:10px">${esc(r)}</span>`),
+        ...hRoles.map(r => `<span class="role-pill role-${esc(r)}" title="${esc(r)}">${esc(roleLabel(r))}</span>`),
+        ...fRoles.map(r => `<span class="role-pill" style="background:#CCFBF1;color:#0F766E;border:1px solid #5EEAD4;font-size:10px" title="${esc(r)}">${esc(roleLabel(r))}</span>`),
       ].join(' ');
       return `<tr>
         <td><strong>${esc(u.username)}</strong></td>
@@ -6552,7 +6563,7 @@ async function loadAdminPage() {
           <td style="text-align:center">${s.sort_order}</td>
           <td>${s.active ? '<span class="status-active">Active</span>' : '<span class="status-inactive">Inactive</span>'}</td>
           <td>
-            <button class="btn btn-secondary btn-sm" onclick="saveSiteGroup(${s.id})">💾 Save</button>
+            <button class="btn btn-secondary btn-sm" onclick="saveSiteGroup(${s.id})"><i class="icon icon-save" aria-hidden="true"></i> Save</button>
             ${isExecOrSuper ? `<button class="btn btn-secondary btn-sm" style="margin-left:4px" onclick="openSiteModal(${s.id})">Edit</button>` : ''}
             ${isExecOrSuper && s.active  ? `<button class="btn btn-secondary btn-sm" style="margin-left:4px" onclick="disableSite(${s.id})">⊘ Disable</button>` : ''}
             ${isExecOrSuper && !s.active ? `<button class="btn btn-secondary btn-sm" style="margin-left:4px" onclick="enableSite(${s.id})">↻ Enable</button>` : ''}
@@ -6705,14 +6716,14 @@ async function loadActiveSessions() {
       if (!isSuper) {
         actionHtml = '<span style="color:#94a3b8;font-style:italic;font-size:12px">read-only</span>';
       } else if (s.is_self) {
-        actionHtml = '<button class="btn btn-secondary btn-sm" disabled title="That\'s you — use the regular Logout">⛔ You</button>';
+        actionHtml = '<button class="btn btn-secondary btn-sm" disabled title="That\'s you — use the regular Logout"><i class="icon icon-ban" aria-hidden="true"></i> You</button>';
       } else {
-        actionHtml = `<button class="btn btn-danger btn-sm" onclick="forceLogoutSession(${escJsonAttr(s.session_ref)},${escJsonAttr(s.username)})">⛔ Force logout</button>`;
+        actionHtml = `<button class="btn btn-danger btn-sm" onclick="forceLogoutSession(${escJsonAttr(s.session_ref)},${escJsonAttr(s.username)})"><i class="icon icon-ban" aria-hidden="true"></i> Force logout</button>`;
       }
       return `<tr>
         <td><strong>${esc(s.username)}</strong></td>
         <td>${esc(s.full_name || '—')}</td>
-        <td><span class="role-pill role-${esc(s.role)}">${esc(s.role)}</span></td>
+        <td><span class="role-pill role-${esc(s.role)}" title="${esc(s.role)}">${esc(roleLabel(s.role))}</span></td>
         <td>${siteCell}</td>
         <td style="color:#475569;font-size:12px" title="${esc(s.last_seen)}">${idleStr}</td>
         <td>${actionHtml}</td>

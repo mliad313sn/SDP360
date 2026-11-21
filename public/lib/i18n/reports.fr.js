@@ -9,6 +9,14 @@
 (function (root) {
   'use strict';
   const STATIC = {
+    // VISUAL POLISH 2 — the same labels without their emoji (icons are SVG now)
+    'Team': 'Équipe',
+    'Comments': 'Commentaires',
+    'Active Major Incidents — ServiceDesk Plus': 'Incidents majeurs en cours — ServiceDesk Plus',
+    'Submit Report': 'Soumettre le rapport',
+    'All Sites': 'Tous les sites',
+    'Save Changes': 'Enregistrer les modifications',
+    'Save Objectives': 'Enregistrer les objectifs',
     'Site Reports': 'Rapports de site', '⚠ Figures changed since submission': '⚠ Les chiffres ont changé depuis la soumission', 'Weekly': 'Hebdomadaire', '📅 Monthly': '📅 Mensuel',
     // change-password modal
     '🔑 Change Password': '🔑 Changer le mot de passe', 'Enter your current password and choose a new one.': 'Saisissez votre mot de passe actuel puis choisissez-en un nouveau.',

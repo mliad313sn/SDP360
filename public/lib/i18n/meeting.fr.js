@@ -8,6 +8,9 @@
 (function (root) {
   'use strict';
   const STATIC = {
+    // VISUAL POLISH 2 — the same labels without their emoji (icons are SVG now)
+    'PDF': 'PDF',
+    'PPTX': 'PPTX',
     // I18N-QUALITY — severity options (md_severities name_fr)
     'High@status': 'Haute',
     'Medium@status': 'Moyenne',

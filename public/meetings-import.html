@@ -605,11 +605,11 @@
 
       <h3>4 · Piège : deux PV du même département dans le même mois</h3>
       <p>La règle implicite est <strong>« un PV par mois par département par site »</strong>. Si vous avez tenu deux réunions Mining à Houndé en mai 2026, le serveur rejettera le doublon :</p>
-      <p>❌ <strong>Ne pas faire :</strong></p>
+      <p><i class="icon icon-x" aria-hidden="true"></i> <strong>Ne pas faire :</strong></p>
       <div class="mim-guide__diagram">reference                    │ date
 HGO_Mining_PV_2026-05        │ 2026-05-03
 HGO_Mining_PV_2026-05        │ 2026-05-24   ← REJETÉ (doublon)</div>
-      <p>✅ <strong>À faire</strong> — ajoutez un suffixe manuel :</p>
+      <p><i class="icon icon-check" aria-hidden="true"></i> <strong>À faire</strong> — ajoutez un suffixe manuel :</p>
       <div class="mim-guide__diagram">reference                       │ date
 HGO_Mining_PV_2026-05-03        │ 2026-05-03
 HGO_Mining_PV_2026-05-24        │ 2026-05-24</div>
@@ -1018,7 +1018,7 @@ HGO_Mining_PV_2026-05-24        │ 2026-05-24</div>
             // Hover tooltip explains the operational impact.
             const _willUpd = !!m.will_update;
             const _kindHtml = _willUpd
-              ? `<span class="mim-row-kind mim-row-kind--update" title="${esc(T('rowUpdateHint'))}">🔄 ${esc(T('rowUpdate'))}</span>`
+              ? `<span class="mim-row-kind mim-row-kind--update" title="${esc(T('rowUpdateHint'))}"><i class="icon icon-refresh-cw" aria-hidden="true"></i> ${esc(T('rowUpdate'))}</span>`
               : `<span class="mim-row-kind mim-row-kind--new"    title="${esc(T('rowNewHint'))}">🆕 ${esc(T('rowNew'))}</span>`;
             return `
               <div class="mim-preview-row">
@@ -1087,7 +1087,7 @@ HGO_Mining_PV_2026-05-24        │ 2026-05-24</div>
     if (sessions.length) {
       html += '<div class="mim-preview-list">' + sessions.map(m => {
         const kind = m.will_update
-          ? `<span class="mim-row-kind mim-row-kind--update">🔄 ${fr ? 'MAJ' : 'update'}</span>`
+          ? `<span class="mim-row-kind mim-row-kind--update"><i class="icon icon-refresh-cw" aria-hidden="true"></i> ${fr ? 'MAJ' : 'update'}</span>`
           : `<span class="mim-row-kind mim-row-kind--new">🆕 ${fr ? 'nouveau' : 'new'}</span>`;
         return `<div class="mim-preview-row">
             <span class="mim-site">${esc(m.site_code || '—')}</span>
