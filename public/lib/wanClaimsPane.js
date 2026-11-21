@@ -10,7 +10,7 @@
   var status = null;
   function $(id) { return document.getElementById(id); }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
-  function money(v, cur) { return v == null ? '—' : Number(v).toLocaleString(window.SDPLocale ? window.SDPLocale() : undefined) + ' ' + esc(cur || ''); }
+  function money(v, cur) { return v == null ? '—' : Number(v).toLocaleString(typeof SDPLocale === 'function' ? SDPLocale() : undefined) + ' ' + esc(cur || ''); }
   function num(v) { return v == null ? '—' : String(v); }
   function msg(t) { var m = $('cl-msg'); if (m) m.textContent = t || ''; }
   function api(method, path, body) {

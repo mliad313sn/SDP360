@@ -647,8 +647,8 @@
     const csatLines = [];
     if (csatPct != null) {
       const headline = fr
-        ? `CSAT à ${csatStr} (${avg ? avg + '/100' : ''}) sur ${totalR.toLocaleString(window.SDPLocale ? window.SDPLocale() : undefined)} réponses${periodLabel ? ' — ' + periodLabel : ''}.`
-        : `CSAT at ${csatStr}${avg ? ' (avg ' + avg + '/100)' : ''} across ${totalR.toLocaleString(window.SDPLocale ? window.SDPLocale() : undefined)} responses${periodLabel ? ' — ' + periodLabel : ''}.`;
+        ? `CSAT à ${csatStr} (${avg ? avg + '/100' : ''}) sur ${totalR.toLocaleString(typeof SDPLocale === 'function' ? SDPLocale() : undefined)} réponses${periodLabel ? ' — ' + periodLabel : ''}.`
+        : `CSAT at ${csatStr}${avg ? ' (avg ' + avg + '/100)' : ''} across ${totalR.toLocaleString(typeof SDPLocale === 'function' ? SDPLocale() : undefined)} responses${periodLabel ? ' — ' + periodLabel : ''}.`;
       csatLines.push(headline);
       const reading = csatBand === 'strong'
         ? (fr ? 'Performance solide — au-dessus de la cible de 80%. Maintenir la cadence.' : 'Strong performance — above the 80% target. Maintain the cadence.')
@@ -675,8 +675,8 @@
                      : npsBand === 'needs-work'? (fr ? 'À améliorer' : 'Needs work')
                      :                          (fr ? 'Faible'    : 'Poor');
       npsLines.push(fr
-        ? `NPS = ${nps >= 0 ? '+' + nps : nps} (${npsLabel}). ${promo.toLocaleString(window.SDPLocale ? window.SDPLocale() : undefined)} promoteurs (${Math.round(promo/npsBase*100)}%), ${detrac.toLocaleString(window.SDPLocale ? window.SDPLocale() : undefined)} détracteurs (${Math.round(detrac/npsBase*100)}%) — ratio ${ratio}:1.`
-        : `NPS = ${nps >= 0 ? '+' + nps : nps} (${npsLabel}). ${promo.toLocaleString(window.SDPLocale ? window.SDPLocale() : undefined)} promoters (${Math.round(promo/npsBase*100)}%), ${detrac.toLocaleString(window.SDPLocale ? window.SDPLocale() : undefined)} detractors (${Math.round(detrac/npsBase*100)}%) — promoter:detractor ratio ${ratio}:1.`);
+        ? `NPS = ${nps >= 0 ? '+' + nps : nps} (${npsLabel}). ${promo.toLocaleString(typeof SDPLocale === 'function' ? SDPLocale() : undefined)} promoteurs (${Math.round(promo/npsBase*100)}%), ${detrac.toLocaleString(typeof SDPLocale === 'function' ? SDPLocale() : undefined)} détracteurs (${Math.round(detrac/npsBase*100)}%) — ratio ${ratio}:1.`
+        : `NPS = ${nps >= 0 ? '+' + nps : nps} (${npsLabel}). ${promo.toLocaleString(typeof SDPLocale === 'function' ? SDPLocale() : undefined)} promoters (${Math.round(promo/npsBase*100)}%), ${detrac.toLocaleString(typeof SDPLocale === 'function' ? SDPLocale() : undefined)} detractors (${Math.round(detrac/npsBase*100)}%) — promoter:detractor ratio ${ratio}:1.`);
       const interpretation = npsBand === 'excellent'
         ? (fr ? 'Base client très loyale — recommandation forte aux pairs.' : 'Highly loyal customer base — strong advocacy to peers.')
         : npsBand === 'good'
