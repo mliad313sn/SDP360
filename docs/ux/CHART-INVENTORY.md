@@ -64,7 +64,7 @@ Files scanned: **161** · inline <style> blocks: **60** · hex literals: **5194*
 | `public/portfolio-phase2.html` | 3119 | 1 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/portfolio-register.html` | 6268 | 1 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/portfolio.html` | 73400 | 1 | 19 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/project.html` | 123164 | 1 | 28 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/project.html` | 123369 | 1 | 28 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/report-studio.html` | 19599 | 1 | 10 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/reports.html` | 551273 | 1 | 817 | 2 | bar×2 | 0 | 0 | yes | — | — | chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
 | `public/rfi.html` | 13620 | 1 | 10 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
@@ -137,7 +137,7 @@ Files scanned: **161** · inline <style> blocks: **60** · hex literals: **5194*
 | `public/lib/ppmConnectorsUi.js` | 5604 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/ppmExtras.js` | 8855 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/ppmFieldHelp.js` | 8790 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/lib/ppmGovernanceW3.js` | 23865 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/ppmGovernanceW3.js` | 23912 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/ppmIntake.js` | 15168 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/ppmIntakeAdmin.js` | 9357 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/ppmLabels.js` | 13351 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |

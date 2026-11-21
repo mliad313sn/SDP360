@@ -1778,7 +1778,7 @@
    "parent": "meeting.html",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 123164,
+   "bytes": 123369,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/allocation-contract.test.js",

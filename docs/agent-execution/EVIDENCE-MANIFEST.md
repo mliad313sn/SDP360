@@ -240,7 +240,7 @@ not the browser-checked level.
 
 | File | SHA-256 |
 |---|---|
-| `docs/agent-execution/INVENTORY.json` | `0304eec0ab49c60b0c841553a4b96bda845d8f28c3d85d681c43d40a7c823e37` |
+| `docs/agent-execution/INVENTORY.json` | `daf8ec0c54fec4eca901b72abe51d51ecb8b1fb087f8a72d501e55f0b0c4dbd3` |
 | `docs/agent-execution/INVENTORY.md` | `2ae8949ccc21623fa0a8d645e53549dee2d514a67450321daff80f3568b776a3` |
 | `docs/agent-execution/TRACEABILITY.md` | `bab98d60573cc653947f1acead471e8655cbc78134969e91ee7f281ff9876c0a` |
 | `docs/ops/AUTHZ-MATRIX.md` | `b718b64fff1f6f6f4fc6ea729f66ad9565c988f5dc601b9073dfc20b4ab4e93e` |
