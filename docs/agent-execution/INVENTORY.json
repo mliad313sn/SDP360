@@ -2153,7 +2153,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 15486,
+   "bytes": 15496,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/adoption-lota-nav-authz.test.js",

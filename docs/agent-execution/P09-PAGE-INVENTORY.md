@@ -26,7 +26,7 @@ Pages found: **91** HTML files under `public/` (68 top-level, 21 design-system s
 | `dashboard-preview/index.html` | ? | no | — | — | unknown | design prototype | retire from prod package (dev only) |
 | `dashboards.html` | any | yes | executive, analyst, reader | translated | unknown |  | keep |
 | `data-quality.html` | admin | yes | — (reached from shell) | English (pending) | unknown | admin board, hidden by default; overlaps connector-health.html | merge candidate with connector-health.html |
-| `exec-view.html` | public | no | — (reached from ?) | — | unknown | public SharePoint snapshot | keep |
+| `exec-view.html` | public | no | — (reached from dashboards.html) | — | unknown | public SharePoint snapshot | keep |
 | `executive-report.html` | super_admin | yes | — (reached from shell) | English (pending) | unknown | deck builder; overlaps report-studio.html for generation | keep until report-studio covers the Group IT deck |
 | `executive.html` | executive, scorecard-viewer | yes | — (reached from shell) | translated | unknown | executive scorecard vs dashboards.html?key=exec-home vs it-review.html (three executive surfaces) | merge candidate: keep it-review + exec-home, fold scorecard tabs (needs C-09 page-usage data) |
 | `field/index.html` | ? | no | field | — | unknown | offline field app | keep |

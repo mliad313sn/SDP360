@@ -73,7 +73,7 @@ Files scanned: **164** · inline <style> blocks: **59** · hex literals: **4986*
 | `public/site-report.html` | 17707 | 1 | 75 | 0 | — | 0 | 0 | yes | — | — | hex literals → _tokens.css variables |
 | `public/system-logs.html` | 20460 | 1 | 57 | 1 | — | 0 | 0 | yes | — | — | chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
 | `public/tracker-builder.html` | 24596 | 1 | 11 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/trackers.html` | 15486 | 1 | 30 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/trackers.html` | 15496 | 1 | 30 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/value-scoreboard.html` | 2716 | 1 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/wan-health.html` | 403 | 0 | 1 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/wan-sla.html` | 405 | 0 | 1 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
