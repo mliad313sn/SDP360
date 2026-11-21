@@ -15,7 +15,7 @@
   "jobs": 33,
   "jobs_without_test_reference": 0,
   "migrations": 115,
-  "test_files": 931
+  "test_files": 934
  },
  "pages": [
   {
@@ -1924,7 +1924,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 75340,
+   "bytes": 75591,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/adoption-lotb-landing.test.js",
@@ -1933,6 +1933,7 @@
     "tests/landing.test.js",
     "tests/p11-r5-data-fixes.test.js",
     "tests/p11-r6-data-fixes.test.js",
+    "tests/p11-r7-data-fixes.test.js",
     "tests/p11-r7-field-fixes.test.js",
     "tests/shell-navigation.test.js",
     "tests/site-awareness-sla-parity.test.js",
@@ -4993,6 +4994,7 @@
     "tests/hostile-input-r4.smoke.test.js",
     "tests/p11-r5-security.smoke.test.js",
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
@@ -5046,6 +5048,7 @@
     "tests/hostile-input-r4.smoke.test.js",
     "tests/p11-r5-security.smoke.test.js",
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
@@ -5099,6 +5102,7 @@
     "tests/hostile-input-r4.smoke.test.js",
     "tests/p11-r5-security.smoke.test.js",
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
@@ -5915,6 +5919,7 @@
     "tests/hostile-input-r4.smoke.test.js",
     "tests/p11-r5-security.smoke.test.js",
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
@@ -6069,7 +6074,7 @@
    "method": "GET",
    "path": "/api/governance/ppm/portfolio/capacity",
    "file": "routes/governancePortfolioPhase2.js",
-   "line": 174,
+   "line": 189,
    "tests": [
     "tests/portfolio-phase2.smoke.test.js",
     "tests/portfolio-r5-ppm.smoke.test.js"
@@ -6091,7 +6096,7 @@
    "method": "GET",
    "path": "/api/governance/ppm/portfolio/effort",
    "file": "routes/governancePortfolioPhase2.js",
-   "line": 197,
+   "line": 212,
    "tests": [
     "tests/portfolio-phase2.smoke.test.js"
    ]
@@ -6111,7 +6116,7 @@
    "method": "POST",
    "path": "/api/governance/ppm/portfolio/scenario",
    "file": "routes/governancePortfolioPhase2.js",
-   "line": 243,
+   "line": 258,
    "tests": [
     "tests/portfolio-phase2.smoke.test.js",
     "tests/portfolio-r5-ppm.smoke.test.js"
@@ -6125,6 +6130,7 @@
    "line": 137,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -6152,6 +6158,7 @@
    "line": 218,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -6179,6 +6186,7 @@
    "line": 313,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -6206,6 +6214,7 @@
    "line": 325,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -6233,6 +6242,7 @@
    "line": 66,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -6260,6 +6270,7 @@
    "line": 75,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -6287,6 +6298,7 @@
    "line": 164,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -6314,6 +6326,7 @@
    "line": 218,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -6341,6 +6354,7 @@
    "line": 205,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -6368,6 +6382,7 @@
    "line": 177,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -6395,6 +6410,7 @@
    "line": 184,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -6422,6 +6438,7 @@
    "line": 51,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -6449,6 +6466,7 @@
    "line": 60,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -6476,6 +6494,7 @@
    "line": 70,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -6500,9 +6519,10 @@
    "method": "DELETE",
    "path": "/api/governance/ppm/project/:id/demand/:lineId",
    "file": "routes/governancePortfolioPhase2.js",
-   "line": 155,
+   "line": 170,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -6527,9 +6547,10 @@
    "method": "PUT",
    "path": "/api/governance/ppm/project/:id/demand/:lineId",
    "file": "routes/governancePortfolioPhase2.js",
-   "line": 154,
+   "line": 169,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -6557,6 +6578,7 @@
    "line": 121,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -6581,9 +6603,10 @@
    "method": "POST",
    "path": "/api/governance/ppm/project/:id/demand",
    "file": "routes/governancePortfolioPhase2.js",
-   "line": 153,
+   "line": 168,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -6611,6 +6634,7 @@
    "line": 83,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -6638,6 +6662,7 @@
    "line": 82,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -6665,6 +6690,7 @@
    "line": 68,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -6692,6 +6718,7 @@
    "line": 81,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -6716,9 +6743,10 @@
    "method": "GET",
    "path": "/api/governance/ppm/project/:id/documents/:docId/download",
    "file": "routes/governancePortfolioPhase2.js",
-   "line": 219,
+   "line": 234,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -6743,9 +6771,10 @@
    "method": "DELETE",
    "path": "/api/governance/ppm/project/:id/documents/:docId",
    "file": "routes/governancePortfolioPhase2.js",
-   "line": 232,
+   "line": 247,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -6770,9 +6799,10 @@
    "method": "GET",
    "path": "/api/governance/ppm/project/:id/documents",
    "file": "routes/governancePortfolioPhase2.js",
-   "line": 206,
+   "line": 221,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -6797,9 +6827,10 @@
    "method": "POST",
    "path": "/api/governance/ppm/project/:id/documents",
    "file": "routes/governancePortfolioPhase2.js",
-   "line": 209,
+   "line": 224,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -6824,9 +6855,10 @@
    "method": "GET",
    "path": "/api/governance/ppm/project/:id/effort",
    "file": "routes/governancePortfolioPhase2.js",
-   "line": 183,
+   "line": 198,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -6851,9 +6883,10 @@
    "method": "PUT",
    "path": "/api/governance/ppm/project/:id/effort",
    "file": "routes/governancePortfolioPhase2.js",
-   "line": 190,
+   "line": 205,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -6881,6 +6914,7 @@
    "line": 58,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -6908,6 +6942,7 @@
    "line": 104,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -6935,6 +6970,7 @@
    "line": 114,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -6962,6 +6998,7 @@
    "line": 94,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -6989,6 +7026,7 @@
    "line": 85,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -7016,6 +7054,7 @@
    "line": 270,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -7043,6 +7082,7 @@
    "line": 286,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -7070,6 +7110,7 @@
    "line": 259,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -7097,6 +7138,7 @@
    "line": 69,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -7124,6 +7166,7 @@
    "line": 393,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -7151,6 +7194,7 @@
    "line": 432,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -7178,6 +7222,7 @@
    "line": 41,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -7205,6 +7250,7 @@
    "line": 96,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -7232,6 +7278,7 @@
    "line": 89,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -7259,6 +7306,7 @@
    "line": 104,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -7286,6 +7334,7 @@
    "line": 60,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -7313,6 +7362,7 @@
    "line": 140,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -7340,6 +7390,7 @@
    "line": 148,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -7367,6 +7418,7 @@
    "line": 173,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -7394,6 +7446,7 @@
    "line": 180,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -7421,6 +7474,7 @@
    "line": 104,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -7448,6 +7502,7 @@
    "line": 107,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -7475,6 +7530,7 @@
    "line": 36,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -7502,6 +7558,7 @@
    "line": 28,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -7529,6 +7586,7 @@
    "line": 98,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -7556,6 +7614,7 @@
    "line": 48,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -7583,6 +7642,7 @@
    "line": 79,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -7610,6 +7670,7 @@
    "line": 59,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -7637,6 +7698,7 @@
    "line": 50,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -7664,6 +7726,7 @@
    "line": 67,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -7691,6 +7754,7 @@
    "line": 156,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -7718,6 +7782,7 @@
    "line": 148,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -7745,6 +7810,7 @@
    "line": 120,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -7772,6 +7838,7 @@
    "line": 95,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -7799,6 +7866,7 @@
    "line": 106,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -7826,6 +7894,7 @@
    "line": 56,
    "tests": [
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-ppm.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-phase2.smoke.test.js",
@@ -10130,6 +10199,7 @@
    "file": "routes/policyCenter.js",
    "line": 270,
    "tests": [
+    "tests/p11-r7-security.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
    ]
   },
@@ -10203,6 +10273,7 @@
    "line": 120,
    "tests": [
     "tests/p11-r5-security.smoke.test.js",
+    "tests/p11-r7-security.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
    ]
@@ -10215,6 +10286,7 @@
    "line": 137,
    "tests": [
     "tests/p11-r5-security.smoke.test.js",
+    "tests/p11-r7-security.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
    ]
@@ -10505,6 +10577,7 @@
     "tests/p06-extraction-characterization.test.js",
     "tests/p11-r5-security.smoke.test.js",
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -10610,6 +10683,7 @@
     "tests/p06-extraction-characterization.test.js",
     "tests/p11-r5-security.smoke.test.js",
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -10715,6 +10789,7 @@
     "tests/p06-extraction-characterization.test.js",
     "tests/p11-r5-security.smoke.test.js",
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -10820,6 +10895,7 @@
     "tests/p06-extraction-characterization.test.js",
     "tests/p11-r5-security.smoke.test.js",
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -10925,6 +11001,7 @@
     "tests/p06-extraction-characterization.test.js",
     "tests/p11-r5-security.smoke.test.js",
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -11030,6 +11107,7 @@
     "tests/p06-extraction-characterization.test.js",
     "tests/p11-r5-security.smoke.test.js",
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -11135,6 +11213,7 @@
     "tests/p06-extraction-characterization.test.js",
     "tests/p11-r5-security.smoke.test.js",
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -11240,6 +11319,7 @@
     "tests/p06-extraction-characterization.test.js",
     "tests/p11-r5-security.smoke.test.js",
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -11345,6 +11425,7 @@
     "tests/p06-extraction-characterization.test.js",
     "tests/p11-r5-security.smoke.test.js",
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -11450,6 +11531,7 @@
     "tests/p06-extraction-characterization.test.js",
     "tests/p11-r5-security.smoke.test.js",
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -11555,6 +11637,7 @@
     "tests/p06-extraction-characterization.test.js",
     "tests/p11-r5-security.smoke.test.js",
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -11660,6 +11743,7 @@
     "tests/p06-extraction-characterization.test.js",
     "tests/p11-r5-security.smoke.test.js",
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -11765,6 +11849,7 @@
     "tests/p06-extraction-characterization.test.js",
     "tests/p11-r5-security.smoke.test.js",
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -11870,6 +11955,7 @@
     "tests/p06-extraction-characterization.test.js",
     "tests/p11-r5-security.smoke.test.js",
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -11975,6 +12061,7 @@
     "tests/p06-extraction-characterization.test.js",
     "tests/p11-r5-security.smoke.test.js",
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -12080,6 +12167,7 @@
     "tests/p06-extraction-characterization.test.js",
     "tests/p11-r5-security.smoke.test.js",
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -12185,6 +12273,7 @@
     "tests/p06-extraction-characterization.test.js",
     "tests/p11-r5-security.smoke.test.js",
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -12290,6 +12379,7 @@
     "tests/p06-extraction-characterization.test.js",
     "tests/p11-r5-security.smoke.test.js",
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -12395,6 +12485,7 @@
     "tests/p06-extraction-characterization.test.js",
     "tests/p11-r5-security.smoke.test.js",
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -12500,6 +12591,7 @@
     "tests/p06-extraction-characterization.test.js",
     "tests/p11-r5-security.smoke.test.js",
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -12605,6 +12697,7 @@
     "tests/p06-extraction-characterization.test.js",
     "tests/p11-r5-security.smoke.test.js",
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -12710,6 +12803,7 @@
     "tests/p06-extraction-characterization.test.js",
     "tests/p11-r5-security.smoke.test.js",
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -12815,6 +12909,7 @@
     "tests/p06-extraction-characterization.test.js",
     "tests/p11-r5-security.smoke.test.js",
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -12920,6 +13015,7 @@
     "tests/p06-extraction-characterization.test.js",
     "tests/p11-r5-security.smoke.test.js",
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -13131,6 +13227,7 @@
     "tests/analytics-integration-routes.smoke.test.js",
     "tests/config-change-journal.smoke.test.js",
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-security.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/reporting-routes.smoke.test.js",
     "tests/teams-sla-routes.smoke.test.js",
@@ -13149,6 +13246,7 @@
     "tests/analytics-integration-routes.smoke.test.js",
     "tests/config-change-journal.smoke.test.js",
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-security.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/reporting-routes.smoke.test.js",
     "tests/teams-sla-routes.smoke.test.js",
@@ -13901,6 +13999,7 @@
     "tests/p06-extraction-characterization.test.js",
     "tests/p11-r5-security.smoke.test.js",
     "tests/p11-r6-security.smoke.test.js",
+    "tests/p11-r7-security.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -14316,7 +14415,7 @@
    "method": "GET",
    "path": "/api/site-awareness/actions",
    "file": "routes/siteAwareness.js",
-   "line": 294,
+   "line": 295,
    "tests": [
     "tests/site-awareness-routes.smoke.test.js"
    ]
@@ -14326,7 +14425,7 @@
    "method": "GET",
    "path": "/api/site-awareness/audit",
    "file": "routes/siteAwareness.js",
-   "line": 529,
+   "line": 530,
    "tests": [
     "tests/site-awareness-routes.smoke.test.js"
    ]
@@ -14336,7 +14435,7 @@
    "method": "GET",
    "path": "/api/site-awareness/fleet",
    "file": "routes/siteAwareness.js",
-   "line": 411,
+   "line": 412,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/site-awareness-routes.smoke.test.js"
@@ -14347,7 +14446,7 @@
    "method": "GET",
    "path": "/api/site-awareness/helpdesk",
    "file": "routes/siteAwareness.js",
-   "line": 138,
+   "line": 139,
    "tests": [
     "tests/site-awareness-routes.smoke.test.js"
    ]
@@ -14357,7 +14456,7 @@
    "method": "GET",
    "path": "/api/site-awareness/inspections",
    "file": "routes/siteAwareness.js",
-   "line": 196,
+   "line": 197,
    "tests": [
     "tests/site-awareness-routes.smoke.test.js"
    ]
@@ -14367,7 +14466,7 @@
    "method": "GET",
    "path": "/api/site-awareness/meetings",
    "file": "routes/siteAwareness.js",
-   "line": 250,
+   "line": 251,
    "tests": [
     "tests/site-awareness-routes.smoke.test.js"
    ]
@@ -14377,7 +14476,7 @@
    "method": "GET",
    "path": "/api/site-awareness/summary",
    "file": "routes/siteAwareness.js",
-   "line": 123,
+   "line": 124,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/business-only-boundary.smoke.test.js",
@@ -14390,7 +14489,7 @@
    "method": "GET",
    "path": "/api/site-awareness/tracker",
    "file": "routes/siteAwareness.js",
-   "line": 355,
+   "line": 356,
    "tests": [
     "tests/site-awareness-routes.smoke.test.js"
    ]
@@ -15894,6 +15993,7 @@
    "line": 1339,
    "tests": [
     "tests/p11-r6-data-fixes.test.js",
+    "tests/p11-r7-data-fixes.test.js",
     "tests/p11-r7-field-fixes.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
