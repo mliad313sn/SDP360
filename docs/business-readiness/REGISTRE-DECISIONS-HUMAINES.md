@@ -6,7 +6,7 @@
 > remplissent dans la copie tenue par le comité de mise en production (et, pour une porte, dans
 > `docs/sdp360/completion/RELEASE-GATES.md`). Aucune décision, approbation ou signature n'a été prise par l'IA.
 
-Total : **110 décisions en attente**. Sources consolidées : dossiers des portes (`docs/agent-execution/gate-dossiers/`), ADR au statut PROPOSED (`docs/ai-decisions/`), journal de décisions 2027, rapport P11 (tours 1 à 4), profil pilote, revue d'adoption, plan de lots d'interrupteurs.
+Total : **111 décisions en attente**. Sources consolidées : dossiers des portes (`docs/agent-execution/gate-dossiers/`), ADR au statut PROPOSED (`docs/ai-decisions/`), journal de décisions 2027, rapport P11 (tours 1 à 4), profil pilote, revue d'adoption, plan de lots d'interrupteurs.
 
 ## Décomptes par décideur
 
@@ -34,11 +34,11 @@ Total : **110 décisions en attente**. Sources consolidées : dossiers des porte
 | Responsable réseau | 1 |
 | Responsable inspections / GRC | 2 |
 | Responsable incidents / problèmes | 1 |
-| Coordination de site | 3 |
+| Coordination de site | 4 |
 | DPO | 1 |
 | HSE | 1 |
 | Juridique + commercial | 1 |
-| **Total** | **110** |
+| **Total** | **111** |
 
 Légende de la colonne « Bloque » : `Lnn` = lot d'interrupteurs (`docs/ops/switch-lots.json`), `Gnn` = porte de mise en production (`docs/agent-execution/gate-dossiers/INDEX.md`), `K:` suivi d'un nom = groupe gardé éteint par le plan de lots.
 
@@ -256,11 +256,12 @@ Légende de la colonne « Bloque » : `Lnn` = lot d'interrupteurs (`docs/ops/swi
 |---|---|---|---|---|---|---|---|---|---|
 | HD-U19 | Signataires des revues post-incident et sponsor métier par incident majeur (`pir_reviews_enabled`) ; responsable problèmes (`problem_candidates_enabled`). | Nommer · Pas maintenant | Nommer avant L08. | L08 | `docs/ops/pilot/PILOT-PROFILE.md` | | | | |
 
-## Coordination de site (3)
+## Coordination de site (4)
 
 | Id | À trancher | Options | Recommandation IA | Bloque | Source | Décision | Nom | Date | Signature |
 |---|---|---|---|---|---|---|---|---|---|
 | HD-O11 | Statuts d'actions d'inspection erronés (UX-F-5) : lancer `node tools/field/inspection-action-status-check.js` sur la base réelle, les propriétaires ferment ou annulent les lignes listées. | Faire · Reporter | Faire avant la vague 1 sur les sites pilotes. | G12 | `docs/agent-execution/P11-readiness-report.md` | | | | |
+| HD-O15 | Filtre de site du Helpdesk (P11 tour 7, F-26) : depuis le correctif 28, les chiffres Helpdesk par site changent au déploiement pour tous les utilisateurs, sans interrupteur — graphies alias ajoutées (HOUNDE compte aussi HGO / Houndé), `SABODALA - MASSAWA` replié dans Sabodala, Ouaga ne compte plus Ouaga2000, MANA ne compte plus MANAGEMENT. Prévenir les coordinateurs de site ; le propriétaire de la table des alias décide si une étiquette combinée se replie sur un seul site. | Prévenir et garder le repli · Prévenir et séparer les étiquettes combinées · Pas maintenant | Prévenir les coordinateurs des sites pilotes avant le déploiement et vérifier leurs graphies de site ; garder le repli de `SABODALA - MASSAWA` sauf avis contraire du propriétaire des alias. | L15 | `docs/ops/RELEASE-NOTE-HELPDESK-SITE-FILTER.md`<br>`public/lib/siteAliases.js` | | | | |
 | HD-U15 | Délais des rappels de planification (`schedule_reminder_lead_days`, `schedule_inspection_interval_days`). | Fixer · Pas maintenant | Fixer avant `schedule_reminders_enabled` (L10). | L10 | `docs/ops/pilot/PILOT-PROFILE.md` | | | | |
 | HD-U20 | Tableau de service pour la passation de quart (`shift_handover_enabled`). | Activer au site pilote · Pas maintenant | Activer au site pilote minier en vague 3. | L08 | `docs/ops/pilot/PILOT-PROFILE.md` | | | | |
 

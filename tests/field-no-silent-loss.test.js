@@ -26,7 +26,8 @@ test('401, in-progress and 5xx keep the entry; refusal and conflict keep it with
 
 test('flush only sends the current user\'s pending/failed entries; discard asks first; double taps are ignored', () => {
   assert.match(SRC, /user: me, state: 'pending'/);
-  assert.match(SRC, /return st === 'pending' \|\| st === 'failed';/);
+  // P11 r7 F-27 — a failed entry is sent once its own next try is due (backoff), or at once when forced
+  assert.match(SRC, /if \(st === 'pending'\) return true; if \(st !== 'failed'\) return false;/);
   assert.match(SRC, /if \(me && e\.user !== me\) return 'other_user'/);
   assert.match(SRC, /window\.confirm\(FT\('Discard this entry for good\?'\)/);
   assert.match(SRC, /once\(\$\('i-save'\), queueInspection\)/);

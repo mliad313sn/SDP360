@@ -20,7 +20,7 @@
 | jobs | 33 |
 | jobs without test reference | 0 |
 | migrations | 115 |
-| test files | 932 |
+| test files | 931 |
 
 ## Pages
 
@@ -49,7 +49,7 @@
 | PG-index | public/index.html | any | yes | 1 | 43 |
 | PG-infra-health | public/infra-health.html | any | yes | 2 | 7 |
 | PG-inspection-actions | public/inspection-actions.html | any | no | 1 | 7 |
-| PG-inspection | public/inspection.html | any | no | 2 | 9 |
+| PG-inspection | public/inspection.html | any | no | 2 | 10 |
 | PG-inspections | public/inspections.html | any | yes | 1 | 11 |
 | PG-integrations | public/integrations.html | admin | yes | 1 | 5 |
 | PG-it-review | public/it-review.html | executive / scorecard-viewer | yes | 2 | 9 |

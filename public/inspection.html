@@ -2920,6 +2920,13 @@ function addAction(prefill={}){
 }
 
 function removeAction(i){
+  // P11 r7 F-25 — a removed action that has a server id is named in removed_action_ids, so the next save deletes it
+  // (a row the server kept as "not matched safely" is only deleted when the form names it)
+  const gone = state.actions[i];
+  if (gone && gone.id != null && gone.id !== '') {
+    state.removed_action_ids = Array.isArray(state.removed_action_ids) ? state.removed_action_ids : [];
+    if (state.removed_action_ids.indexOf(Number(gone.id)) < 0) state.removed_action_ids.push(Number(gone.id));
+  }
   state.actions.splice(i,1);
   renderActions();
   autosave();
@@ -4465,6 +4472,28 @@ document.addEventListener('DOMContentLoaded', init);
   // by which an inspection reaches the server during normal editing —
   // keystrokes only update localStorage. Resolves with true on
   // success, false on failure (queue absorbs the failure either way).
+  // P11 r7 F-28 — runtime texts that carry a number: the French dictionary holds the template ({n}), the number is
+  // put in after the lookup (the exact-text layer cannot match "3 action(s)…")
+  function uiF(key, vars) {
+    let t = (window.I18nText && window.I18nText.t) ? window.I18nText.t(key) : key;
+    Object.keys(vars || {}).forEach((k) => { t = t.split('{' + k + '}').join(String(vars[k])); });
+    return t;
+  }
+  // P11 r7 F-25 — add the server's kept rows to the form (each once, by id); they carry their stored values as base
+  function mergeKeptRows(st, kept) {
+    if (!st || !Array.isArray(kept) || !kept.length) return 0;
+    if (!Array.isArray(st.actions)) st.actions = [];
+    const have = new Set(st.actions.map((a) => (a && a.id != null && a.id !== '') ? Number(a.id) : null).filter((x) => x != null));
+    let n = 0;
+    kept.forEach((k) => {
+      if (!k || k.id == null || have.has(Number(k.id))) return;
+      st.actions.push({ id: Number(k.id), desc: k.desc || '', link: k.link || '', priority: k.priority || 'Medium', owner: k.owner || '',
+        due: k.due || '', status: k.status || 'Open', notes: k.notes || '', base_status: k.status || 'Open', base_owner: k.owner || '', kept_unmatched: true });
+      have.add(Number(k.id)); n++;
+    });
+    return n;
+  }
+  window.__inspMergeKeptRows = mergeKeptRows;
   async function forceSyncNow() {
     // Same scoping note as installSavePatch above — these are bare
     // references into the body script's `let` bindings, not window.*
@@ -4480,6 +4509,7 @@ document.addEventListener('DOMContentLoaded', init);
         // P11 r5 F-15 — stamp the stored action ids back onto the form rows that were sent, so the next save
         // updates the same actions (their history and any queued phone close stay attached to them)
         const sentActions = Array.isArray(state.actions) ? state.actions.slice() : [];
+        const sentRemoved = Array.isArray(state.removed_action_ids) ? state.removed_action_ids.slice() : [];
         const out = await postSave(state);
         if (out && Array.isArray(out.action_ids)) {
           sentActions.forEach((a, i) => { if (a && typeof a === 'object' && out.action_ids[i] != null) a.id = out.action_ids[i]; });
@@ -4494,15 +4524,22 @@ document.addEventListener('DOMContentLoaded', init);
             a.status = x.status; a.owner = x.owner; a.base_status = x.status; a.base_owner = x.owner;
           });
         }
+        // P11 r7 F-25 — rows the server kept because they could not be matched safely are ADDED to the form (with
+        // their ids), so the next save names them instead of deleting them by omission; the removals it applied are done
+        const mergedN = mergeKeptRows(state, out && out.kept_rows);
+        if (out && Array.isArray(state.removed_action_ids)) {
+          state.removed_action_ids = state.removed_action_ids.filter((x) => sentRemoved.indexOf(x) < 0);
+          if (!state.removed_action_ids.length) delete state.removed_action_ids;
+        }
         const keptN = out && Array.isArray(out.kept_server_value) ? out.kept_server_value.length : 0;
         const ambN  = out && Array.isArray(out.kept_ambiguous) ? out.kept_ambiguous.length : 0;
-        if ((keptN || ambN) && typeof renderActions === 'function') renderActions();
+        if ((keptN || ambN || mergedN) && typeof renderActions === 'function') renderActions();
+        if (mergedN && typeof autosave === 'function') autosave();
         if (keptN && typeof showToast === 'function') {
-          showToast(keptN + ' action(s) were changed meanwhile (actions register or phone): the server kept that status / owner. '
-            + 'The form now shows it — change it again and save if you still want your value.', 'warn', 9000);
+          showToast(uiF('{n} action(s) were changed meanwhile (actions register or phone): the server kept that status / owner. The form now shows it — change it again and save if you still want your value.', { n: keptN }), 'warn', 9000);
         }
         if (ambN && typeof showToast === 'function') {
-          showToast(ambN + ' stored action(s) could not be matched safely (same text) and were kept. Reload the inspection to review them.', 'warn', 9000);
+          showToast(uiF('{n} stored action(s) could not be matched safely (same text) and were kept. They are now listed in the form — delete the ones you do not want and save.', { n: ambN }), 'warn', 9000);
         }
         dequeue(id);
         _promotedIds.add(id);

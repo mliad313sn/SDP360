@@ -281,6 +281,8 @@ const items = [
     ['Fixer N jours et remplir les champs', 'Pas maintenant'], 'N = 60 jours ; remplir les champs des interrupteurs des vagues 1 et 2.', ['L01', 'L02', 'L03', 'L09', 'L14', 'L15'], ['docs/ops/switch-lots.json', 'docs/ops/FLAG-DECISIONS-GAPS.md']),
   d('HD-O14', 'Responsable réseau', 'Calibration du % Time Up (`wan_timeup_loss_pct`) et fermeture des coupures périmées (`wan_stale_close_at`).',
     ['Valeurs proposées (5 / last_seen)', 'Inchangé'], 'Valeurs proposées du profil pilote.', ['L11'], [PROFILE]),
+  d('HD-O15', 'Coordination de site', 'Filtre de site du Helpdesk (P11 tour 7, F-26) : depuis le correctif 28, les chiffres Helpdesk par site changent au déploiement pour tous les utilisateurs, sans interrupteur — graphies alias ajoutées (HOUNDE compte aussi HGO / Houndé), `SABODALA - MASSAWA` replié dans Sabodala, Ouaga ne compte plus Ouaga2000, MANA ne compte plus MANAGEMENT. Prévenir les coordinateurs de site ; le propriétaire de la table des alias décide si une étiquette combinée se replie sur un seul site.',
+    ['Prévenir et garder le repli', 'Prévenir et séparer les étiquettes combinées', 'Pas maintenant'], 'Prévenir les coordinateurs des sites pilotes avant le déploiement et vérifier leurs graphies de site ; garder le repli de `SABODALA - MASSAWA` sauf avis contraire du propriétaire des alias.', ['L15'], ['docs/ops/RELEASE-NOTE-HELPDESK-SITE-FILTER.md', 'public/lib/siteAliases.js']),
 
   // ─────────────────────────────── Produit, adoption, terrain ────────────────────────────────────────────────────
   d('HD-U01', 'Product owner', 'D-2 — glossaire français validé par un coordinateur francophone, langue par défaut (`ui_lang_default`), pages traduites (`ui_i18n_pages`).',

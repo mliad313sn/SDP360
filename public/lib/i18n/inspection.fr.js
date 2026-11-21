@@ -85,6 +85,11 @@
     'Inspection deleted.': 'Inspection supprimée.', 'Already submitted. Use Re-open if you need to edit it.': 'Déjà soumise. Utilisez Rouvrir pour la modifier.',
     'Re-opened — inspection is editable again.': 'Rouverte — l’inspection est de nouveau modifiable.',
     '🎤 Voice dictation re-enabled — give it another try.': '🎤 Dictée vocale réactivée — réessayez.',
+    // P11 r7 F-28 — templates: the page puts the number in after the lookup ({n})
+    '{n} action(s) were changed meanwhile (actions register or phone): the server kept that status / owner. The form now shows it — change it again and save if you still want your value.':
+      '{n} action(s) ont été modifiée(s) entre-temps (registre des actions ou téléphone) : le serveur a gardé ce statut / responsable. Le formulaire l’affiche maintenant — modifiez-le à nouveau et enregistrez si vous voulez toujours votre valeur.',
+    '{n} stored action(s) could not be matched safely (same text) and were kept. They are now listed in the form — delete the ones you do not want and save.':
+      '{n} action(s) enregistrée(s) n’ont pas pu être rapprochée(s) avec certitude (même texte) et ont été conservée(s). Elles figurent maintenant dans le formulaire — supprimez celles dont vous ne voulez pas et enregistrez.',
   };
   root.I18N_FR_INSPECTION = Object.assign({}, STATIC, RUNTIME_KEYS);
   root.I18N_FR_INSPECTION_RUNTIME = Object.keys(RUNTIME_KEYS);

@@ -24,6 +24,9 @@
     'NOT saved on this phone: ': 'NON enregistré sur ce téléphone : ',
     'Phone storage used for this app:': 'Stockage du téléphone utilisé par l’application :', 'Sync soon so queued entries are not at risk.': 'Synchronisez bientôt pour ne pas mettre en danger les saisies en attente.',
     'outcome unknown — check ServiceDesk Plus': 'résultat inconnu — vérifiez ServiceDesk Plus', 'stuck on the server — ask Group IT': 'bloqué sur le serveur — prévenez l’IT Groupe',
+    // P11 r7 F-27 — a server error that persisted through the backoff
+    'server error — needs attention': 'erreur serveur — à traiter', 'Try again': 'Réessayer',
+    'The server kept failing on this entry — it is kept on this phone. Tap Try again later, or ask Group IT.': 'Le serveur échoue à répétition sur cette saisie — elle est conservée sur ce téléphone. Touchez Réessayer plus tard, ou prévenez l’IT Groupe.',
     'entry of another person': 'saisie d’une autre personne', 'the server has been applying this entry for too long': 'le serveur traite cette saisie depuis trop longtemps',
     'This phone is signed in as another person — sign in again. Nothing is sent meanwhile.': 'Ce téléphone est connecté au nom d’une autre personne — reconnectez-vous. Rien n’est envoyé en attendant.',
     'Check ServiceDesk Plus before recording this ticket again: ': 'Vérifiez ServiceDesk Plus avant de recréer ce ticket : ',

@@ -173,6 +173,7 @@ W.defaults=O.defaults;window.Chart=W;});
         </table>
       </div>
     </div>
+    <p class="sa-sub" id="sa-fleet-hd-note" role="note" style="font-size:12px;margin:8px 0 0"></p>
     <p class="sa-sub" id="sa-fleet-source" style="font-size:11px;color:#93a1b3;margin:10px 0 0"></p>
   </div>
 
@@ -481,6 +482,7 @@ W.defaults=O.defaults;window.Chart=W;});
                        en: 'Support: rolling 30 d · Facilities: 90 d · Meetings: current month · Actions: point-in-time · Projects: latest scored month' },
     gc_helpdesk:     { fr: 'Assistance',                             en: 'Support' },
     g_open_overdue:  { fr: '{n} ouverts en retard',                  en: '{n} open overdue' },
+    g_hd_note_lbl:   { fr: 'Couleur de la colonne Assistance :', en: 'Support column colour:' },
     g_hd_tip:        { fr: 'Clos en retard / clos (taux de SLA de résolution des tickets clos), puis les tickets encore ouverts déjà en retard. La couleur est la pire des deux (seuils PROPOSÉS, non approuvés) ; moins de 5 tickets clos ne suffisent pas à juger le taux (cellule grise, sauf charge ouverte en retard) ; une cellule rouge ou orange, quelle qu’en soit la cause, plafonne aussi la couleur globale du site.', en: 'Closed late / closed (Resolution SLA of the closed tickets), then the open tickets already overdue. The colour is the worse of the two (PROPOSED bands, not approved); fewer than 5 closed tickets are too few to judge the rate (grey cell, unless open tickets are overdue); a red or amber cell, whatever the cause, also caps the site\'s overall colour.' },
     gc_inspections:  { fr: 'Installations',                          en: 'Facilities' },
     gc_meetings:     { fr: 'Réunions',                               en: 'Meetings' },
@@ -679,7 +681,9 @@ W.defaults=O.defaults;window.Chart=W;});
     // P11 r6 F-26 — the helpdesk cell carries the open tickets already overdue next to the closed-only rate
     const oo = (typeof c.open_overdue === 'number' && c.open_overdue > 0)
       ? ` <span class="sa-rag-oo">· ${esc(T('g_open_overdue').replace('{n}', c.open_overdue))}</span>` : '';
-    const tip = (typeof c.open_overdue === 'number') ? ` title="${esc(T('g_hd_tip'))}"` : '';
+    // P11 r7 F-28 — the colour rule is VISIBLE text under the grid (#sa-fleet-hd-note), referenced by each helpdesk
+    // cell; the tooltip stays as a convenience only
+    const tip = (typeof c.open_overdue === 'number') ? ` title="${esc(T('g_hd_tip'))}" aria-describedby="sa-fleet-hd-note"` : '';
     return `<span class="sa-rag"${tip}><span class="sa-rag-dot" style="background:${color}"></span>`
       + `<span class="sa-rag-val">${esc(val)}</span>${oo}${trendChip(c.trend)}</span>`;
   }
@@ -745,6 +749,8 @@ W.defaults=O.defaults;window.Chart=W;});
     }
 
     $('sa-fleet-hint').textContent = T('g_click') + '.';
+    var hdNote = $('sa-fleet-hd-note');
+    if (hdNote) hdNote.textContent = T('g_hd_note_lbl') + ' ' + T('g_hd_tip');
     $('sa-fleet-head').innerHTML = '<th>' + esc(T('g_site')) + '</th>'
       + FLEET_MODS.map(function (m) { return '<th>' + esc(T(FLEET_COL_KEY[m])) + '</th>'; }).join('')
       + '<th>' + esc(T('g_overall')) + '</th>';

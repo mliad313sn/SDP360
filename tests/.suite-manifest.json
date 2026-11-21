@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 5994,
+ "total": 6005,
  "files": {
   "a11y-legacy-ratchet.test.js": 3,
   "a11y-static.test.js": 21,
@@ -933,6 +933,8 @@
   "audit-chain-r6.test.js": 6,
   "activate-switches-r6-impersonation.smoke.test.js": 2,
   "p11-r7-data-fixes.test.js": 9,
-  "p11-r7-ppm.smoke.test.js": 1
+  "p11-r7-ppm.smoke.test.js": 1,
+  "p11-r7-field-fixes.test.js": 7,
+  "p11-r7-field-fixes.smoke.test.js": 4
  }
 }
