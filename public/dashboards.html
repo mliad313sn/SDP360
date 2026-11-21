@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="module-tabs.css">
 <script src="vendor/chart.js/4.4.1/chart.umd.js" defer></script>
 <script src="lib/chartTheme.js" defer></script>
+<script src="lib/reasonDialog.js"></script>
 <script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
 <script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
 <script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
@@ -202,9 +203,14 @@
   });
   $('dash').addEventListener('click', function (ev) {
     var b = ev.target && ev.target.closest ? ev.target.closest('[data-ann-del]') : null; if (!b) return;
-    if (!window.confirm('Delete this note?')) return;
-    api('/api/dashboards/annotations/' + encodeURIComponent(b.getAttribute('data-ann-del')), { method: 'DELETE', headers: H() })
-      .then(function () { loadData(); }).catch(function (e) { status('Note not deleted: ' + e.message); });
+    // the shared dialog names the note (its text on the page); no dialog library → nothing is deleted
+    var holder = b.closest('li, tr, p, div'), named = holder ? holder.textContent.replace(/\s+/g, ' ').trim().slice(0, 140) : '';
+    var D = window.ReasonDialog; if (!D) return;
+    D.confirm({ title: 'Delete this note?', target: named, okLabel: 'Delete', danger: true }).then(function (yes) {
+      if (!yes) return;
+      return api('/api/dashboards/annotations/' + encodeURIComponent(b.getAttribute('data-ann-del')), { method: 'DELETE', headers: H() })
+        .then(function () { loadData(); }).catch(function (e) { status('Note not deleted: ' + e.message); });
+    });
   });
 
   function renderWidgets(def, data) {

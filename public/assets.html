@@ -13,6 +13,7 @@
      Loaded ONCE for the whole tabbed module (Hygiene + Finance panes both use it). -->
 <script src="vendor/chart.js/4.4.1/chart.umd.js" defer></script>
 <script src="lib/chartTheme.js" defer></script>
+<script src="lib/reasonDialog.js"></script>
 <script src="lib/charts.js" defer></script>
 <script src="lib/assetHygieneVisuals.js" defer></script>
 <script src="lib/pageHead.js"></script>
@@ -3462,7 +3463,7 @@ window.addEventListener('beforeprint', function () {
     // Un hors-périmètre sans motif est refusé par le serveur : sortir une
     // machine du compteur sans dire pourquoi vide l'indicateur de son sens.
     if (decision === 'out_of_scope') {
-      reason = window.prompt('Motif — pourquoi cette machine sort-elle du périmètre ?', '') || '';
+      reason = (window.ReasonDialog ? await window.ReasonDialog.ask({ title: 'Out of scope — reason', label: 'Why does this machine leave the scope? (recorded with the decision)', multiline: false }) : '') || '';
       if (!reason.trim()) { sel.value = prev; return; }
     }
     try {

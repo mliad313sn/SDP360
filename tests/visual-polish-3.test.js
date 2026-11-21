@@ -66,3 +66,12 @@ test('deck builder: page styles live in executive-report.css, loaded where the <
   assert.ok(html.indexOf('href="executive-report.css"') > 0 && html.indexOf('href="executive-report.css"') < html.indexOf('href="_tokens.css"'));
   assert.ok(fs.existsSync(path.join(ROOT, 'public', 'executive-report.css')));
 });
+
+// …and the other non-PMO pages that still called the browser's dialogs
+for (const f of ['dashboards.html', 'site-actions.html', 'lib/homeQueue.js', 'assets.html', 'inspection-actions.html', 'report-studio.html', 'login.html']) {
+  test(`${f}: no native confirm()/prompt()`, () => {
+    const code = read(f).split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*|<!--)/.test(l)).map((l) => l.replace(/\s\/\/ [^\n]*$/, '')).join('\n');
+    assert.ok(!/(^|[^.\w])(window\.)?(prompt|confirm)\s*\(/.test(code), 'calls window.prompt / confirm');
+    assert.match(code, /ReasonDialog/);
+  });
+}

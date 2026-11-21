@@ -219,6 +219,7 @@
 </main>
 
 <script nonce="%%CSP_NONCE%%" src="lib/loginLang.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/reasonDialog.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/businessRoles.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/landing.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/workspaceProfiles.js"></script>
@@ -277,7 +278,7 @@
       let data = await res.json();
       // A6 — break-glass time-box: the server asks for a reason (400 REASON_REQUIRED) before a break-glass sign-in
       if (res.status === 400 && data.code === 'REASON_REQUIRED') {
-        const reason = window.prompt('Break-glass sign-in — why do you need it? (at least 10 characters, kept in the security log)');
+        const reason = window.ReasonDialog ? await window.ReasonDialog.ask({ title: 'Break-glass sign-in', label: 'Why do you need it? (at least 10 characters, kept in the security log)', min: 10 }) : null;
         if (!reason) throw new Error(data.error);
         res = await post({ reason });
         data = await res.json();

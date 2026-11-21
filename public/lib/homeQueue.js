@@ -476,12 +476,18 @@
         if (kind === 'toggle-snoozed') { q.toggleSnoozed(); paint(); return; }
         var x = itemByKey(key); if (!x) return;
         if (kind === 'complete') {
-          if (!x.act || (typeof window !== 'undefined' && window.confirm && !window.confirm(L[lang].confirmComplete))) return;
-          a.disabled = true;
-          o.postJson('POST', x.act.url, x.act.body).then(function (r) {
-            if (r && r.status >= 200 && r.status < 300) { say(L[lang].done); return q.load(x.source); }
-            say(fill(L[lang].failed, { e: (r && r.json && r.json.error) || ('HTTP ' + (r && r.status)) })); a.disabled = false;
-          }, function (e) { say(fill(L[lang].failed, { e: e && e.message })); a.disabled = false; });
+          if (!x.act) return;
+          var complete = function () {
+            a.disabled = true;
+            o.postJson('POST', x.act.url, x.act.body).then(function (r) {
+              if (r && r.status >= 200 && r.status < 300) { say(L[lang].done); return q.load(x.source); }
+              say(fill(L[lang].failed, { e: (r && r.json && r.json.error) || ('HTTP ' + (r && r.status)) })); a.disabled = false;
+            }, function (e) { say(fill(L[lang].failed, { e: e && e.message })); a.disabled = false; });
+          };
+          // the shared confirmation dialog names the action; where no dialog facility exists (as before) it proceeds
+          var D = typeof window !== 'undefined' ? window.ReasonDialog : null;
+          if (D && D.confirm) D.confirm({ lang: lang, title: L[lang].confirmComplete, target: x.title || '' }).then(function (yes) { if (yes) complete(); });
+          else complete();
           return;
         }
         if (kind === 'snooze' || kind === 'unsnooze') {
