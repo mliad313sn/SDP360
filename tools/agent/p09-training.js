@@ -11,19 +11,22 @@ const WP = require(path.join(ROOT, 'public/lib/workspaceProfiles.js'));
 const help = fs.readFileSync(path.join(ROOT, 'public/help.html'), 'utf8');
 
 const strip = (s) => s.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&#39;|&rsquo;/g, '’').trim();
+// 2026-11-21: the manual is one bilingual document with stable anchors; a chapter title is the <h2> span of each language.
 function titles(lang) {
-  const sec = help.slice(help.indexOf(`id="sec-${lang}"`));
   const out = {};
-  for (const m of sec.matchAll(/<div class="section" id="(en|fr)-(\d+)">[\s\S]*?<h2><span class="section-num">\d+<\/span>([\s\S]*?)<\/h2>/g)) if (m[1] === lang && !out[m[2]]) out[m[2]] = strip(m[3]);
+  for (const m of help.matchAll(/<section class="hsec" id="([a-z0-9-]+)">\s*<h2>([\s\S]*?)<\/h2>/g)) {
+    const t = new RegExp(`<span data-lng="${lang}">([\\s\\S]*?)</span>`).exec(m[2]);
+    if (t) out[m[1]] = strip(t[1]);
+  }
   return out;
 }
 const T = { en: titles('en'), fr: titles('fr') };
-// page → help section number (the section that explains that page)
-const HELP = { 'index.html': 3, 'site-actions.html': 4, 'inspections.html': 11, 'meetings.html': 12, 'field/index.html': 27,
-  'portfolio.html': 25, 'cockpit.html': 25, 'activity-tracker.html': 10, 'assets.html': 18, 'report-studio.html': 26,
-  'dashboards.html': 23, 'analytics.html': 13, 'it-review.html': 13, 'integrations.html': 26, 'system-logs.html': 21,
-  'policies.html': 30, 'site-awareness.html': 15 };
-const ref = (href, lang) => { const n = HELP[href.split(/[?#]/)[0]]; return n && T[lang][n] ? `help.html#${lang}-${n} — §${n} ${T[lang][n]}` : (lang === 'fr' ? 'pas de section d’aide dédiée (à rédiger)' : 'no dedicated help section yet (to write)'); };
+// page → help chapter anchor (the chapter that explains that page)
+const HELP = { 'index.html': 'helpdesk', 'site-actions.html': 'site-actions', 'inspections.html': 'inspections', 'meetings.html': 'meetings',
+  'field/index.html': 'field', 'portfolio.html': 'portfolio', 'cockpit.html': 'cockpit', 'activity-tracker.html': 'tracker', 'assets.html': 'assets',
+  'report-studio.html': 'report-studio', 'dashboards.html': 'dashboards', 'analytics.html': 'helpdesk', 'it-review.html': 'executive',
+  'integrations.html': 'report-studio', 'system-logs.html': 'admin', 'policies.html': 'policies', 'site-awareness.html': 'executive' };
+const ref = (href, lang) => { const n = HELP[href.split(/[?#]/)[0]]; return n && T[lang][n] ? `help.html#${n} — ${T[lang][n]}` : (lang === 'fr' ? 'pas de section d’aide dédiée (à rédiger)' : 'no dedicated help section yet (to write)'); };
 
 function sheet(p) {
   const prof = WP.PROFILES.find((x) => x.id === p.id);

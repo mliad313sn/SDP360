@@ -13,14 +13,14 @@
 | pages not in shell or module tabs | 23 |
 | pages deep link only | 9 |
 | pages without entry point | 2 |
-| pages with inline scripts | 46 |
+| pages with inline scripts | 45 |
 | routes | 810 |
 | routes without test reference | 30 |
 | routes in server js | 160 |
 | jobs | 33 |
 | jobs without test reference | 0 |
 | migrations | 119 |
-| test files | 948 |
+| test files | 949 |
 
 ## Pages
 
@@ -44,7 +44,7 @@
 | PG-executive | public/executive.html | executive / scorecard-viewer | yes | 1 | 18 |
 | PG-finance | public/finance.html | admin / finance-viewer | yes | 0 | 4 |
 | PG-handoffs | public/handoffs.html | any | yes | 1 | 10 |
-| PG-help | public/help.html | any | yes | 1 | 12 |
+| PG-help | public/help.html | any | yes | 0 | 13 |
 | PG-home | public/home.html | any | yes | 0 | 19 |
 | PG-index | public/index.html | any | yes | 1 | 43 |
 | PG-infra-health | public/infra-health.html | any | yes | 2 | 7 |
