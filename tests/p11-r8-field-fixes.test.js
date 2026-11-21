@@ -115,7 +115,8 @@ test('F-30 (b): database_unavailable keeps the server pace, stops the round and 
   assert.deepStrictEqual(he.UNAVAILABLE_CODES.DB_UNAVAILABLE, { status: 503, error: 'database_unavailable', retryAfter: 5 });
   const server = read('server.js'), guard = read('services/businessGuard.js');
   assert.ok(!/e\.code === 'DB_BUSY'\) return fail\(res, e\)/.test(server), 'every session check goes through asUnavailable');
-  assert.strictEqual((server.match(/asUnavailable\(e\)/g) || []).length, 2);
+  // gate + requireReportSession (fix 35) + login (fix 39, O-17)
+  assert.strictEqual((server.match(/asUnavailable\(e\)/g) || []).length, 3);
   assert.match(guard, /asUnavailable\(e\)/);
 });
 
