@@ -28,6 +28,13 @@ const UI_CODES = {
   priority: { critical: ['Critical', 'Critique'], high: ['High', 'Élevée'], medium: ['Medium', 'Moyenne'], low: ['Low', 'Faible'] },
   rag: { GREEN: ['Green', 'Vert'], AMBER: ['Amber', 'Orange'], RED: ['Red', 'Rouge'], NA: ['Not measured', 'Non mesuré'] },
   dept_status: { on_track: ['On track', 'Dans les temps'], blocked: ['Blocked', 'Bloqué'], no_pv: ['No PV this month', 'Aucun PV ce mois-ci'] },
+  // VISUAL POLISH 3 — codes that were still printed raw on assets, reports (admin), the Exec View and the Scorecard
+  asset_source: { ad: ['Active Directory', 'Active Directory'], entra: ['Microsoft Entra', 'Microsoft Entra'], defender: ['Microsoft Defender', 'Microsoft Defender'], sdp: ['ServiceDesk Plus', 'ServiceDesk Plus'] },
+  site_status: { operational: ['Operational', 'Opérationnel'], degraded: ['Degraded', 'Dégradé'], major: ['Major incident', 'Incident majeur'], unknown: ['Not measured', 'Non mesuré'] },
+  record_module: { meetings: ['Meetings', 'Réunions'], inspection: ['Inspections', 'Inspections'], reports: ['Weekly reports', 'Rapports hebdomadaires'], tracker: ['Activity tracker', 'Suivi d’activité'],
+    portfolio: ['Portfolio', 'Portefeuille'], governance: ['Governance', 'Gouvernance'], dashboards: ['Dashboards', 'Tableaux de bord'], users: ['Users', 'Utilisateurs'] },
+  completion: { done: ['Done', 'Fait'], partial: ['Partial', 'Partiel'], missing: ['Missing', 'Manquant'] },
+  weekly_report_status: { draft: ['In progress', 'En cours'], in_progress: ['In progress', 'En cours'], ready: ['Complete but not submitted', 'Complet mais non soumis'], submitted: ['Submitted', 'Soumis'] },
   service_status: { active: ['Active', 'Actif'], in_progress: ['In progress', 'En cours'], planned: ['Planned', 'Planifié'], stopped: ['Stopped', 'Arrêté'] },
 };
 

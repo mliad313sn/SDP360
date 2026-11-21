@@ -3553,14 +3553,14 @@ window.addEventListener('beforeprint', function () {
             p.warnings.map(w => '<li>' + escapeHtml(w) + '</li>').join('') + '</ul>'
           : '') +
         '<div style="margin-top:10px"><button class="btn btn-primary" id="rec-commitBtn">' +
-        'Importer et remplacer la source « ' + escapeHtml(source) + ' »</button></div>' +
+        'Importer et remplacer la source « ' + escapeHtml(window.SDPLabels ? window.SDPLabels.label('asset_source', source) : source) + ' »</button></div>' +
         '<div style="margin-top:6px;font-size:12px;color:var(--color-text-muted,#6b7785)">' +
         'Rien n\'est encore enregistré. L\'import remplace <strong>uniquement</strong> cette source.</div></div>';
       document.getElementById('rec-commitBtn').addEventListener('click', async () => {
         try {
           const c = await sendFile(source, file, true);
           host.innerHTML = '<div class="count-note" style="border:1px solid var(--edv-green,#1E8E3E);border-radius:var(--radius-md,6px)">' +
-            '✓ ' + num(c.imported) + ' machines importées pour « ' + escapeHtml(source) +' ».</div>';
+            '✓ ' + num(c.imported) + ' machines importées pour « ' + escapeHtml(window.SDPLabels ? window.SDPLabels.label('asset_source', source) : source) +' ».</div>';
           input.value = '';
           await refresh();
         } catch (err) { host.innerHTML = '<div class="count-note" style="border:1px solid var(--edv-red,#D90038);border-radius:var(--radius-md,6px)">' + escapeHtml(err.message) + '</div>'; }

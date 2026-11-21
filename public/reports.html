@@ -4472,7 +4472,7 @@ function _renderActiveIncidentsPanel(incidents, panel) {
     const ico = status === 'done' ? '🟢' : status === 'partial' ? '🟡' : '🔴';
     const colour = status === 'done' ? '#16a34a' : status === 'partial' ? '#d97706' : '#dc2626';
     const t = (fullText || '').replace(/[<>"']/g, '').slice(0, 200);
-    return `<span title="${label}: ${esc(status)}${t ? ' — ' + esc(t) : ''}" style="color:${colour};font-size:0.78rem;font-weight:600;display:inline-flex;align-items:center;gap:2px">${ico}${esc(label)}</span>`;
+    return `<span title="${label}: ${esc(window.SDPLabels ? window.SDPLabels.label('completion', status) : status)}${t ? ' — ' + esc(t) : ''}" style="color:${colour};font-size:0.78rem;font-weight:600;display:inline-flex;align-items:center;gap:2px">${ico}${esc(label)}</span>`;
   };
 
   const col = items => items.map(i => {

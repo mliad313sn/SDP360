@@ -40,7 +40,7 @@ async function loadTrash() {
     if (sel && sel.options.length <= 1) (d.modules || []).forEach(m => { const o = document.createElement('option'); o.value = m; o.textContent = m; sel.appendChild(o); });
     st.textContent = (d.enabled ? 'Soft delete ON' : 'Soft delete OFF (deletes are permanent)') + ' · retention ' + d.retention_days + ' days · purge ' + (d.purge_enabled ? 'armed' : 'off');
     const rows = d.rows || [];
-    tb.innerHTML = rows.length ? rows.map(r => '<tr><td>' + esc(r.module) + (r.kind && r.kind !== r.module ? ' / ' + esc(r.kind) : '') + '</td><td>' + esc(r.label) + '</td><td>' + esc(r.site || '—') + '</td><td>'
+    tb.innerHTML = rows.length ? rows.map(r => '<tr><td>' + esc(window.SDPLabels ? window.SDPLabels.label('record_module', r.module) : r.module) + (r.kind && r.kind !== r.module ? ' / ' + esc(r.kind) : '') + '</td><td>' + esc(r.label) + '</td><td>' + esc(r.site || '—') + '</td><td>'
         + esc(String(r.deleted_at || '').slice(0, 16).replace('T', ' ')) + '</td><td>' + esc(r.deleted_by_name || (r.deleted_by == null ? '—' : '#' + r.deleted_by)) + '</td><td>' + esc(r.delete_reason || '—') + '</td><td>'
         + (r.restorable ? '<button type="button" class="btn btn-secondary btn-sm" data-url="' + esc(r.restore_url) + '" onclick="restoreTrashRow(this)">Restore</button>' : '<span style="color:#b91c1c">past retention</span>') + '</td></tr>').join('')
       : '<tr><td colspan="7" style="color:#6b7a99">Nothing deleted.</td></tr>';

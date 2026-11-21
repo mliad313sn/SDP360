@@ -278,3 +278,18 @@ test('no page-local .btn definition is left on the converted pages; they opt int
     if (f !== 'it-review.html') assert.ok(src.includes('href="brand/components.css"'), f);
   }
 });
+
+test('codes shown as words (SDPLabels): import source, deleted-record module, completion state, site status, weekly report status', () => {
+  const L = require('../public/lib/codeLabels.js');
+  assert.strictEqual(L.label('asset_source', 'ad', 'en'), 'Active Directory');
+  assert.strictEqual(L.label('site_status', 'degraded', 'fr'), 'Dégradé');
+  assert.strictEqual(L.label('record_module', 'meetings', 'fr'), 'Réunions');
+  assert.strictEqual(L.label('completion', 'partial', 'en'), 'Partial');
+  assert.strictEqual(L.label('record_module', 'something_else', 'en'), 'something_else', 'an unknown code is shown as is — no meaning is invented');
+  const { weeklyLabel } = require('../services/myWork');
+  for (const st of ['draft', 'in_progress', 'ready', 'submitted']) assert.strictEqual(L.label('weekly_report_status', st, 'en'), weeklyLabel(st));
+  assert.match(read('assets.html'), /SDPLabels\.label\('asset_source', source\)/);
+  assert.match(read('lib/reports-backups.js'), /SDPLabels\.label\('record_module', r\.module\)/);
+  assert.match(read('exec-view.html'), /SDPLabels\.label\('site_status', l\)/);
+  assert.match(read('reports.html'), /SDPLabels\.label\('completion', status\)/);
+});
