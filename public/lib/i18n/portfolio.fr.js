@@ -53,6 +53,33 @@
     'Milestones': 'Jalons', 'Alerts': 'Alertes', 'No project.': 'Aucun projet.', 'Programmes': 'Programmes', 'Objectives': 'Objectifs', 'Risk': 'Risque', 'P × I': 'P × I', 'Severity': 'Gravité',
     'Mitigation': 'Atténuation', 'No risk.': 'Aucun risque.', 'Deleted.': 'Supprimé.', 'Roadmap migrated into the portfolio.': 'Roadmap migrée dans le portefeuille.',
   };
+  // PMO UX (2026-11) — page frame, areas, drawers, filter bar
+  Object.assign(STATIC, {
+    'Export ▾': 'Exporter ▾',
+    '+ Programme': '+ Programme',
+    'Programmes → objectives (evidence from the KPI dictionary) → projects → milestones → deliverables, with risks.': 'Programmes → objectifs (preuves issues du dictionnaire des indicateurs) → projets → jalons → livrables, avec les risques.',
+    'Late only': 'En retard seulement',
+    'Clear filters': 'Effacer les filtres',
+    'Keyboard: Tab to a project name, then the arrow keys move between projects and Enter opens the project page. The table view holds the same data.': 'Clavier : Tab jusqu’à un nom de projet, puis les flèches passent d’un projet à l’autre et Entrée ouvre la page du projet. La vue tableau contient les mêmes données.',
+    'Top risks': 'Principaux risques',
+    '— per currency, never added together': '— par devise, jamais additionné',
+    'Risk matrix': 'Matrice des risques',
+    '— probability × impact': '— probabilité × impact',
+    'Resources & capacity': 'Ressources et capacité',
+    'Planning tools': 'Outils de planification',
+    '— annual pack, templates, published roadmaps': '— dossier annuel, modèles, feuilles de route publiées',
+    'Site or programme': 'Site ou programme',
+    'Sensitive projects': 'Projets sensibles',
+    'Roadmap Manager migration (super administrator)': 'Migration du Roadmap Manager (super administrateur)',
+    '“—” means not measured, never 0.': '« — » signifie non mesuré, jamais 0.',
+    'Help: portfolio': 'Aide : portefeuille',
+    'New element': 'Nouvel élément',
+    'Deliverable': 'Livrable',
+    'Sponsor': 'Sponsor',
+    'Description / manual evidence': 'Description / preuve manuelle',
+    'Filter the portfolio': 'Filtrer le portefeuille',
+    'e.g. NET-12': 'ex. NET-12',
+  });
   root.I18N_FR_PORTFOLIO = Object.assign({}, STATIC, RUNTIME_KEYS);
   root.I18N_FR_PORTFOLIO_RUNTIME = Object.keys(RUNTIME_KEYS);
 })(typeof window !== 'undefined' ? window : globalThis);
