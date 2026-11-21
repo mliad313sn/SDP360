@@ -205,3 +205,21 @@ node tools/test/run-all.js > /home/user/suite.log 2>&1     # full suite, ~18 min
 - Human decisions added: G01 who holds both the DB login and `SDP_CONFIG_KEY`; DBA hardening script + `SDP_LEDGER_SCHEMA`
   (the real control for R7-A2); KPI committee `min_closed`, project-RAG residual rule, closure gate (R7-4); HD-O15
   coordinators warned about per-site helpdesk count changes; R1-F2 exception now covers four route patterns.
+
+## Update 2026-11-21 05:00 UTC (orchestrator)
+
+- Round 8 (7afb9536, CI green): **P0 = 0, P1 = 0 on all six seats (third round in a row).** Fixes 34–36 merged:
+  34 data/PPM/security (unscored risks stay null — migration 139 drops the 2×2 default; partial project risk score;
+  assumptions-only list unknown; case-insensitive RAID; RETURNING id; failed policy apply marked failed + journalled;
+  HD-P14 closure-gate rule and HD-P15 legacy 2×2 rows added to the register), 35 field/UX (inspection saves carry a
+  version + known action ids → 409 on a stale save, unseen actions never deleted, reapply flow; 503
+  database_unavailable instead of 401 on a DB outage; Sync now rearms parked entries; min_closed read from policy;
+  French project cards), 36 audit/ops (no rotation resume on an unknown key id or a ledger below the logged high-water
+  mark; token evidence for every CLI-filed request; counts file bound to its dump by hash and copied offsite; minimum 5
+  perf samples per class PROPOSED; re-hardening note after migration 137).
+- Round-8 seat reports in `docs/agent-execution/p11/round8-7afb9536/`; Round 8 section in P11-readiness-report.md.
+- Behaviour notes for the pilot: RAID edit with blank probability/impact now resets the score to unknown; a browser still
+  on a pre-deploy page keeps last-write-wins until one reload; per-site helpdesk counts move once (HD-O15).
+- Still human: G01 (who holds DB login + SDP_CONFIG_KEY), DBA hardening re-run after 137 + SDP_LEDGER_SCHEMA, KPI committee
+  bands/min_closed/residual rule, HD-P14/P15, HD-S04/S14, French glossary D-2, field UAT before relaxing "one editor per
+  inspection", Finance G14, the 21 RELEASE-GATES rows.
