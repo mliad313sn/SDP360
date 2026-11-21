@@ -117,7 +117,7 @@ Files scanned: **149** · inline <style> blocks: **61** · hex literals: **5576*
 | `public/lib/pageView.js` | 764 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/parse-actions-csv.js` | 8439 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/policiesRoles.js` | 16086 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/lib/policyCenterPage.js` | 23296 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/policyCenterPage.js` | 24433 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/portfolioDecisionsPage.js` | 10493 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/portfolioMine.js` | 2023 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/portfolioPhase2Page.js` | 10243 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
