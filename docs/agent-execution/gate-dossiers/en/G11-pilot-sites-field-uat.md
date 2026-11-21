@@ -10,7 +10,7 @@
 | Decision cell in RELEASE-GATES.md | empty — this gate is **NO-GO** until the approver fills it. This dossier fills nothing. |
 | What this gate blocks | blocks the two-site pilot on the TEST instance |
 | Decide after | [G01](G01-security-access-policy.md) Security: access policy and authorization matrix · [G02](G02-threat-model-findings.md) Security: threat model and findings · [G05](G05-backup-restore-rpo-rto.md) Backup and restore (RPO/RTO) · [G12](G12-data-owner-fixtures-history.md) Data owner: anonymised data and 2026 history |
-| Target SHA | `1675beef` |
+| Target SHA | `33a3c7bb` |
 | Generated | 2026-11-21 |
 
 ## 1. Question to decide
