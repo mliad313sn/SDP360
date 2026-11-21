@@ -48,10 +48,10 @@
       var c = s.cards || {};
       var burn = s.money_hidden ? '<span class="muted">amounts restricted</span>' : (c.budget_burn && c.budget_burn.length ? c.budget_burn.map(function (b) { return esc(b.currency) + ' ' + n(b.ac) + ' / ' + n(b.pv) + ' (×' + n(b.burn_vs_plan) + ')'; }).join('<br>') : '—');
       var cards = [
-        ['RAG', s.rag_enabled ? RAGL(c.rag) : '<span class="muted">off</span>'],
+        ['RAG', s.rag_enabled ? RAGL(c.rag) + (c.rag_partial ? ' <span class="w3-partial">partial — some open risks have no score</span>' : '') : '<span class="muted">off</span>'],
         ['Schedule complete (work-weighted)', n(c.schedule_complete_pct, ' %')],
         ['Budget burn — actual / planned (non certifié)', s.evm_enabled ? burn : '<span class="muted">earned value off</span>'],
-        ['Active risks + issues · high · blocked tasks', n(c.active_risks) + ' · ' + n(c.high_risks) + ' · ' + n(c.blocked_tasks)],
+        ['Active risks + issues · high · blocked tasks', n(c.active_risks) + ' · ' + (c.high_risks_partial ? '≥ ' : '') + n(c.high_risks) + ' · ' + n(c.blocked_tasks) + (c.high_risks_partial ? ' <span class="w3-partial"><b>' + n(c.unscored_risks) + '</b> <span>unscored — the high count is a lower bound</span></span>' : '')],
         ['Next milestone', c.next_milestone ? esc(c.next_milestone.name) + '<div class="l">' + esc(c.next_milestone.due_date) + '</div>' : '—'],
         ['Forecast finish (slip, working days)', n(c.forecast_finish) + ' (' + n(c.slip_working_days) + ')'],
       ];
@@ -100,25 +100,57 @@
   }
 
   // ---- RAID log ------------------------------------------------------------------------------------------------
+  // P11 r9 R9-1 — the form is PRE-FILLED from the stored entry when an entry is edited, and only changed fields are
+  // sent (lib/ppmRaidForm.js): an untouched score is never sent as null any more (it used to erase the stored score).
+  var raidItems = [], raidOrig = null, raidOrigId = null;
+  var RAID_EL = { kind: 'w3-r-kind', title: 'w3-r-title', probability: 'w3-r-p', impact: 'w3-r-i', owner: 'w3-r-owner', status: 'w3-r-status', response: 'w3-r-resp', review_date: 'w3-r-review', probability_pct: 'w3-r-pct', dependency_ref: 'w3-r-dep', mitigation: 'w3-r-mit', impact_amount: 'w3-r-amt', impact_currency: 'w3-r-cur' };
+  function raidFill(item) {
+    var money = !$('w3-raid-money').hidden;
+    raidOrig = item ? window.PpmRaidForm.prefill(item, money) : null; raidOrigId = item ? Number(item.id) : null;
+    Object.keys(RAID_EL).forEach(function (k) {
+      var e = $(RAID_EL[k]); if (!e) return;
+      if (raidOrig && Object.prototype.hasOwnProperty.call(raidOrig, k)) e.value = raidOrig[k];
+      else if (!item) e.value = k === 'kind' ? 'risk' : k === 'status' ? 'open' : '';
+    });
+  }
   function loadRaid() {
     api(base + 'project/' + PID + '/raid').then(function (r) {
+      raidItems = r.items || [];
       var money = !r.money_hidden;
       var rows = (r.items || []).map(function (i) {
         return '<tr><td>' + esc(i.kind) + '</td><td>' + esc(i.title) + '</td><td>' + n(i.score) + '</td><td>' + n(i.owner) + '</td><td>' + esc(i.status) + '</td><td>' + n(i.response) + '</td><td' + (i.review_overdue ? ' class="w3-ko"' : '') + '>' + n(i.review_date) + '</td><td>' + n(i.probability_pct, ' %') + '</td>' +
-          (money ? '<td>' + n(i.impact_amount) + ' ' + esc(i.impact_currency || '') + '</td><td>' + n(i.exposure_amount) + '</td>' : '') + '<td>' + n(i.dependency_ref) + '</td></tr>';
+          (money ? '<td>' + n(i.impact_amount) + ' ' + esc(i.impact_currency || '') + '</td><td>' + n(i.exposure_amount) + '</td>' : '') + '<td>' + n(i.dependency_ref) + '</td><td><button type="button" class="btn" data-raid-edit="' + esc(i.id) + '">Edit</button></td></tr>';
       }).join('');
-      $('w3-raid-body').innerHTML = '<table><tr><th>Kind</th><th>Title</th><th>P × I</th><th>Owner</th><th>Status</th><th>Response</th><th>Review</th><th>Probability</th>' + (money ? '<th>Impact</th><th>Exposure</th>' : '') + '<th>Depends on</th></tr>' + rows + '</table>' +
+      $('w3-raid-body').innerHTML = '<table><tr><th>Kind</th><th>Title</th><th>P × I</th><th>Owner</th><th>Status</th><th>Response</th><th>Review</th><th>Probability</th>' + (money ? '<th>Impact</th><th>Exposure</th>' : '') + '<th>Depends on</th><th></th></tr>' + rows + '</table>' +
         (money ? '<p class="muted">Open exposure per currency (never summed across currencies): ' + ((r.exposure_totals || []).map(function (t) { return esc(t.currency) + ' ' + n(t.exposure_amount); }).join(' · ') || '—') + '</p>' : '<p class="muted">Amounts are shown to the admin tier and the finance role only.</p>') +
         (r.review_overdue ? '<p class="w3-ko">' + n(r.review_overdue) + ' review(s) overdue.</p>' : '');
       $('w3-raid-money').hidden = !money;
     }).catch(failMsg);
   }
   function wireRaid() {
+    $('w3-raid-body').addEventListener('click', function (ev) {
+      var b = ev.target.closest && ev.target.closest('button[data-raid-edit]'); if (!b) return;
+      var id = Number(b.getAttribute('data-raid-edit'));
+      $('w3-r-id').value = String(id);
+      raidFill(raidItems.filter(function (x) { return Number(x.id) === id; })[0] || null);
+    });
+    $('w3-r-id').addEventListener('change', function () {
+      var id = Number($('w3-r-id').value);
+      raidFill(id ? (raidItems.filter(function (x) { return Number(x.id) === id; })[0] || null) : null);
+    });
     $('w3-raid-save').addEventListener('click', function () {
-      var v = function (id) { var e = $(id); return e && e.value !== '' ? e.value : null; };
-      var body = { id: v('w3-r-id') ? Number(v('w3-r-id')) : undefined, kind: v('w3-r-kind'), title: v('w3-r-title'), probability: v('w3-r-p'), impact: v('w3-r-i'), owner: v('w3-r-owner'), status: v('w3-r-status') || 'open', response: v('w3-r-resp'), review_date: v('w3-r-review'), probability_pct: v('w3-r-pct'), dependency_ref: v('w3-r-dep'), mitigation: v('w3-r-mit') };
-      if (!$('w3-raid-money').hidden) { body.impact_amount = v('w3-r-amt'); body.impact_currency = v('w3-r-cur'); }
-      api(base + 'project/' + PID + '/raid', { method: 'PUT', body: JSON.stringify(body) }).then(function () { say('RAID entry saved.'); loadRaid(); }).catch(failMsg);
+      var money = !$('w3-raid-money').hidden, values = {};
+      Object.keys(RAID_EL).forEach(function (k) { var e = $(RAID_EL[k]); values[k] = e ? e.value : ''; });
+      var id = $('w3-r-id').value ? Number($('w3-r-id').value) : null;
+      // an id typed for an entry this page has not loaded: send only what is filled in (the server keeps the rest)
+      var orig = id == null ? null : (raidOrig && raidOrigId === id ? raidOrig : window.PpmRaidForm.prefill({}, money));
+      var body = window.PpmRaidForm.buildBody(values, orig, money);
+      if (id != null) body.id = id;
+      api(base + 'project/' + PID + '/raid', { method: 'PUT', body: JSON.stringify(body) }).then(function (r) {
+        say('RAID entry saved.');
+        if (r && r.item) { $('w3-r-id').value = String(r.item.id); raidOrig = window.PpmRaidForm.prefill(r.item, money); raidOrigId = Number(r.item.id); }
+        loadRaid();
+      }).catch(failMsg);
     });
   }
 

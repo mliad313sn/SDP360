@@ -80,6 +80,8 @@ function projectSummary({ project, tasks, milestones, risks, schedule, evm, rag,
   const openRisks = (risks || []).filter((r) => RE.isOpen(r) && RE.inScope(r));
   // P11 r6 F-27 — the ONE high-risk rule (riskExposure.isHigh: open risks AND issues, residual first, unknown never high)
   const highRisks = (risks || []).filter(RE.isHigh);
+  // P11 r9 R9-3 — an open entry with no score cannot be counted high OR not-high: "high 0" beside it is a lower bound
+  const unscoredRisks = openRisks.filter((r) => RE.effectiveScore(r) == null).length;
   const blocked = leavesOf(tasks || []).filter((t) => t.status === 'blocked');
   const ms = (milestones || []).filter((m) => m.status !== 'done' && m.due_date).map((m) => ({ id: Number(m.id), name: m.name, due_date: String(m.due_date).slice(0, 10), baseline_date: m.baseline_date || null, owner: m.owner || null }))
     .sort((a, b) => (a.due_date < b.due_date ? -1 : a.due_date > b.due_date ? 1 : a.id - b.id));
@@ -104,12 +106,15 @@ function projectSummary({ project, tasks, milestones, risks, schedule, evm, rag,
   return {
     cards: {
       rag: rag ? rag.rag : null,
+      // P11 r9 R9-4 — the risk component's "partial" flag (unscored open entries: the colour is a lower bound / unknown)
+      rag_partial: !!(rag && rag.components && rag.components.risk && rag.components.risk.partial),
       schedule_complete_pct: sc.progress_pct, schedule_complete_basis: sc.basis,
       forecast_finish: (schedule && schedule.project_finish) || null,
       baseline_finish: project && project.baseline_end ? String(project.baseline_end).slice(0, 10) : null,
       slip_working_days: slipWorkingDays(project, schedule, calendar),
       budget_burn: budgetBurn(evm),
       active_risks: openRisks.length, high_risks: highRisks.length, blocked_tasks: blocked.length,
+      unscored_risks: unscoredRisks, high_risks_partial: unscoredRisks > 0,
       next_milestone: upcoming[0] || null, overdue_milestones: overdue.length,
     },
     phase_strip, phase_mapping_status: PHASE_MAPPING_STATUS,

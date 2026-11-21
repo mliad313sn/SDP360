@@ -20,7 +20,7 @@
 | jobs | 33 |
 | jobs without test reference | 0 |
 | migrations | 118 |
-| test files | 941 |
+| test files | 943 |
 
 ## Pages
 
@@ -77,7 +77,7 @@
 | PG-portfolio-phase2 | public/portfolio-phase2.html | any | no | 0 | 3 |
 | PG-portfolio-register | public/portfolio-register.html | any | no | 0 | 3 |
 | PG-portfolio | public/portfolio.html | any | yes | 1 | 22 |
-| PG-project | public/project.html | any | no | 1 | 24 |
+| PG-project | public/project.html | any | no | 1 | 25 |
 | PG-report-studio | public/report-studio.html | any | yes | 1 | 4 |
 | PG-reports | public/reports.html | any | yes | 2 | 41 |
 | PG-rfi | public/rfi.html | any | yes | 1 | 5 |

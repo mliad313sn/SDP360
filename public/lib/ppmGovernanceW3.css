@@ -36,3 +36,5 @@ body.w3-simple #tabs, body.w3-simple main > section[role=tabpanel] { display:non
   body.w3-print-gantt .g2-thead { position:static; }
   @page { size:A4 landscape; margin:10mm; }
 }
+/* P11 r9 R9-3/R9-4 — "partial": an open risk has no score, so the colour / the high count is a lower bound (or unknown) */
+.w3-partial { display:inline-block; margin-left:4px; padding:1px 8px; border-radius:999px; font-size:11px; font-weight:600; color:var(--color-warning-text); background:var(--color-warning-bg); border:1px solid var(--color-warning); }

@@ -12,6 +12,25 @@ const J = (s, d) => { try { return s == null ? d : JSON.parse(s); } catch (_) { 
 const who = (u) => (u ? String(u.full_name || u.username || '') : null);
 const uid = (u) => (u && u.id != null ? Number(u.id) : null);
 
+// P11 r9 R9-1 — the update body merged onto the stored entry (row + RAID details). absent / null = keep the stored value;
+// '' = explicit clear (normalise reads '' as unknown); clear_score: true = probability AND impact back to unknown.
+const RAID_ROW_FIELDS = ['kind', 'title', 'probability', 'impact', 'owner', 'status', 'mitigation'];
+const RAID_DETAIL_FIELDS = ['response', 'review_date', 'probability_pct', 'impact_amount', 'impact_currency', 'dependency_ref'];
+function mergeRaidBody(body, ex, exd) {
+  const b = body || {};
+  const out = { id: b.id };
+  const pick = (k, stored) => (b[k] === undefined || b[k] === null ? stored : b[k]);
+  for (const k of RAID_ROW_FIELDS) out[k] = pick(k, ex ? ex[k] : null);
+  for (const k of RAID_DETAIL_FIELDS) out[k] = pick(k, exd ? exd[k] : null);
+  // a legacy stored kind / status outside today's vocabulary is not carried over (normalise would refuse it): the
+  // writer's own default applies, as it did before the merge
+  const ok = (v, list) => v != null && list.includes(String(v).trim().toLowerCase());
+  if ((b.kind === undefined || b.kind === null) && !ok(out.kind, RAID.KINDS)) out.kind = undefined;
+  if ((b.status === undefined || b.status === null) && !ok(out.status, ['open', 'closed'])) out.status = undefined;
+  if (b.clear_score === true || b.clear_score === 1 || b.clear_score === '1') { out.probability = null; out.impact = null; }
+  return out;
+}
+
 function makeW3Store(db, gov, { now = () => new Date().toISOString() } = {}) {
   if (!db || !gov) throw new Error('w3 store needs a db handle and the governance store');
   const P = (sql) => db.prepare(sql);
@@ -100,20 +119,24 @@ function makeW3Store(db, gov, { now = () => new Date().toISOString() } = {}) {
   }
   /** Create (no id) or update a RAID entry of a project. `keepMoney`: a reader without money rights cannot change the amount. */
   async function saveRaid(projectId, body, { user, keepMoney = false } = {}) {
-    const n = RAID.normalise(body);
     const pid = Number(projectId);
-    // P11 r8 R8-1 — on update, a score field that is SENT (even '' / null = "unknown") replaces the stored one, so a
-    // RAID user can reset a score to unknown; a field left out of the body keeps the stored value.
-    const sent = (k) => !!body && Object.prototype.hasOwnProperty.call(body, k);
     return tx(async () => {
       let id = body && body.id != null ? Number(body.id) : null;
       const ts = now();
+      let n;
       if (id != null) {
         const ex = await P(`SELECT * FROM portfolio_risks WHERE id=? AND project_id=? AND deleted_at IS NULL`).get(id, pid);
         if (!ex) throw Object.assign(new Error('RAID entry not found'), { code: 'NOT_FOUND', status: 404 });
+        const exd = await P(`SELECT * FROM ppm_raid_details WHERE risk_id=?`).get(id);
+        // P11 r9 R9-1 — an update MERGES onto the stored entry: a field left out of the body OR sent as null keeps
+        // its stored value (the shipped form used to send null for every empty input, which erased the score of the
+        // entry and turned a RED project UNKNOWN). Only an explicit clear resets a field: '' (the user emptied a
+        // pre-filled input) or, for the score, clear_score: true. Create semantics are unchanged (unscored = NULL).
+        n = RAID.normalise(mergeRaidBody(body, ex, exd));
         await P(`UPDATE portfolio_risks SET kind=?, title=?, probability=?, impact=?, owner=?, status=?, mitigation=?, updated_at=now(), closed_at=? WHERE id=?`)
-          .run(n.row.kind, n.row.title, sent('probability') ? n.row.probability : ex.probability, sent('impact') ? n.row.impact : ex.impact, n.row.owner, n.row.status, n.row.mitigation, n.row.status === 'closed' ? (ex.closed_at || ts.slice(0, 10)) : null, id);
+          .run(n.row.kind, n.row.title, n.row.probability, n.row.impact, n.row.owner, n.row.status, n.row.mitigation, n.row.status === 'closed' ? (ex.closed_at || ts.slice(0, 10)) : null, id);
       } else {
+        n = RAID.normalise(body);
         // P11 r8 R8-1 — no score sent = NULL (unscored, UNKNOWN), never a default 2 × 2. R8-5 — the id comes from
         // RETURNING (the row this statement inserted), never from MAX(id).
         const ins = await P(`INSERT INTO portfolio_risks (project_id, kind, title, probability, impact, owner, status, mitigation, closed_at) VALUES (?,?,?,?,?,?,?,?,?) RETURNING id`)
@@ -159,4 +182,4 @@ function makeW3Store(db, gov, { now = () => new Date().toISOString() } = {}) {
   return { cycleKey, listChecklists, getChecklist, saveChecklist, evidenceOf, addEvidence, signoffsOf, addSignoff, evaluateGate, listRaid, raidEntry, saveRaid, ragState, saveRagState, viewMode, setViewMode };
 }
 
-module.exports = { makeW3Store };
+module.exports = { makeW3Store, mergeRaidBody };
