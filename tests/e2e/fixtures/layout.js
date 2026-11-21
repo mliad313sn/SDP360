@@ -17,7 +17,9 @@ function measure() {
   // VISUAL POLISH 2026-11 — a legacy page body is wrapped in <main class="edv-main"> for the landmark; that wrapper is
   // display:contents (no box of its own, so the page layout is untouched). The "first content block" is then its first
   // visible child, exactly what a sighted user sees under the header: step INTO a display:contents element, never past it.
-  const skip = (e) => /^(SCRIPT|STYLE|TEMPLATE|LINK|NOSCRIPT)$/.test(e.tagName) || !visible(e) || getComputedStyle(e).position === 'fixed' || (!sh && /(^|\s)edv-skip(\s|$)/.test(e.className || ''));
+  // a heading kept for assistive technology only (.edv-sr-only: 1 × 1 px, clipped) is not a content block a sighted user sees
+  const srOnly = (e) => { const r = e.getBoundingClientRect(); return r.width <= 1 && r.height <= 1; };
+  const skip = (e) => /^(SCRIPT|STYLE|TEMPLATE|LINK|NOSCRIPT)$/.test(e.tagName) || !visible(e) || srOnly(e) || getComputedStyle(e).position === 'fixed' || (!sh && /(^|\s)edv-skip(\s|$)/.test(e.className || ''));
   const firstBlock = (e) => {
     for (; e; e = e.nextElementSibling) {
       if (getComputedStyle(e).display === 'contents') { const inner = firstBlock(e.firstElementChild); if (inner) return inner; continue; }

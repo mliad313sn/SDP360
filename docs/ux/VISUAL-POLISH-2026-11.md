@@ -113,6 +113,22 @@ not done · F14 glossary applied by the French-quality merge.
 F1 … F5, F8, F9, F12, F15: done-1 · F6 done-1 + done-2 (no "(help §NN)" text; the "?" opens the chapter for 15 more
 pages) · F7 done-1 · F10 done-1 · F11 done-1 · F13, F14 partial · F16 partial · F17 done-2 · F18, F19, F20 not done.
 
+## Checks run on this branch (2026-11-21)
+
+- e2e journeys: 44 specs run one by one (`node --test --test-force-exit --test-concurrency=1 tests/e2e/<spec>`), on the
+  final code. The layout helper (`tests/e2e/fixtures/layout.js`) was changed twice, each time because the check's
+  selector was what broke, not the page: it steps into a `display:contents` `<main>`, and it does not take a
+  1 × 1 px assistive-technology heading for a content block.
+- browser tests: the 6 `tests/*-browser.test.js` files.
+- unit suite: every `tests/*.test.js` in 6 alphabetical chunks (954 files). Six failures on the first pass, all
+  expected by the changes and fixed: three gate-dossier freshness checks (dossiers regenerated last), one tile
+  parity regex pinned to `toLocaleString()`, two admin-card tests pinned to the French group labels.
+- `npx eslint .`; inventories, README size block, chart inventory, CSP journey report, persona matrix, page inventory
+  and KPI citations regenerated.
+
+What was NOT verified: the items marked done-1 were taken from the first four commit messages and spot-checked on
+screenshots, not re-tested one by one. Nothing here is user research or field acceptance.
+
 ## Screenshots
 
 `docs/ux/polish-shots/` — before (commit `5588a2ba`) and after, desktop 1440 px and phone 390 px, and the contact
