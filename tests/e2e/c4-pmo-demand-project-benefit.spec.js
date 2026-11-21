@@ -44,7 +44,10 @@ runJourney('C4 PMO turns a demand into a project and checks its benefit (capacit
   assert.equal(ok.j.benefit.state, 'verified');
 
   await page.goto(base + '/project.html?id=' + pid);
-  await page.click('#tab-benefits');
+  // PMO UX (2026-11): the tabs are grouped in six areas. With the default switches Finance holds one section
+  // (Benefits), so opening the area shows it and the section row is not drawn.
+  await page.click('#groups [data-group="finance"]');
+  await page.waitForSelector('#pane-benefits:not([hidden])');
   await page.waitForFunction(() => /C4 fewer unplanned WAN outages/.test(document.getElementById('benefits').textContent), null, { timeout: 15000 });
   const txt = await page.textContent('#benefits');
   assert.match(txt, /verified/i, 'the Benefits tab shows the verification');

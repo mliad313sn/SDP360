@@ -111,12 +111,15 @@ runJourney('DEMO two-site synthetic journey: Home → portfolio → project → 
   // 2c. R2-WB-01 — the demo change request is a native one: on the Changes tab and in the workbook "Changes" sheet
   assert.ok(ids.changeRequest, 'native change request seeded');
   assert.deepEqual(sheet(wb, 'Changes').filter((r) => r.project === screen.project.key).map((r) => [r.id, r.status, r.impact_dates_days, r.currency]), [[ids.changeRequest, 'proposed', 14, 'USD']]);
-  await pmo.waitForSelector('#tab-changes:not([hidden])', { timeout: 20000 });
+  await pmo.waitForSelector('#tab-changes:not([hidden])', { timeout: 20000, state: 'attached' });   // the tab exists (switch on); it shows once its area is open
+  // PMO UX (2026-11): the 17 tabs are grouped in six areas — open the area, then its section
+  await pmo.click('#groups [data-group="finance"]');
   await pmo.click('#tab-changes');
   await pmo.waitForFunction(() => /extend scope to site B/.test((document.getElementById('changes') || {}).textContent || ''), null, { timeout: 20000 });
   await j.measure(pmo, 'project-changes');
 
   // 3. Audit trail
+  await pmo.click('#groups [data-group="activity"]');
   await pmo.click('#tab-history');
   await pmo.waitForFunction(() => document.querySelector('#history table tbody tr'), null, { timeout: 20000 });
   const hist = await pmo.textContent('#history');
